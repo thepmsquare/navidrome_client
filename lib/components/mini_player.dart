@@ -7,11 +7,7 @@ class MiniPlayer extends StatelessWidget {
   final ApiService? apiService;
   final VoidCallback onTap;
 
-  const MiniPlayer({
-    super.key,
-    this.apiService,
-    required this.onTap,
-  });
+  const MiniPlayer({super.key, this.apiService, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -40,13 +36,20 @@ class MiniPlayer extends StatelessWidget {
             child: Card(
               elevation: 4,
               shadowColor: Colors.black.withValues(alpha: 0.2),
-              color: colorScheme.surfaceContainerHighest,
+              color: colorScheme.secondaryContainer,
               shape: RoundedRectangleBorder(
+                side: BorderSide(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                  width: 1,
+                ),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Container(
                 height: 72,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 child: Row(
                   children: [
                     ClipRRect(
@@ -58,7 +61,8 @@ class MiniPlayer extends StatelessWidget {
                             ? Image.network(
                                 coverArtUrl,
                                 fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+                                errorBuilder: (context, error, stackTrace) =>
+                                    _buildPlaceholder(),
                               )
                             : _buildPlaceholder(),
                       ),
@@ -75,6 +79,7 @@ class MiniPlayer extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
+                              color: colorScheme.onSecondaryContainer,
                             ),
                           ),
                           Text(
@@ -82,7 +87,8 @@ class MiniPlayer extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
+                              color: colorScheme.onSecondaryContainer
+                                  .withValues(alpha: 0.7),
                             ),
                           ),
                         ],
@@ -116,7 +122,9 @@ class MiniPlayer extends StatelessWidget {
                             }
                           },
                           icon: Icon(
-                            playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                            playing
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
                             size: 32,
                           ),
                         );
