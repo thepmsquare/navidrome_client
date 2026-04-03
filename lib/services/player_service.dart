@@ -63,7 +63,29 @@ class PlayerService {
   }
 
   Future<void> play(List<Map<String, dynamic>> queue, int initialIndex, ApiService apiService) async {
-    _currentQueue = queue;
+    // Check if the new queue is the same as the current one.
+    bool isSameQueue = _currentQueue.length == queue.length && _currentQueue.isNotEmpty;
+    if (isSameQueue) {
+      for (int i = 0; i < queue.length; i++) {
+        if (_currentQueue[i]['id'] != queue[i]['id']) {
+          isSameQueue = false;
+          break;
+        }
+      }
+    }
+
+    if (isSameQueue) {
+      try {
+        await _player.seek(Duration.zero, index: initialIndex);
+        await _player.play();
+        return;
+      } catch (e) {
+        debugPrint("error seeking to track: $e");
+        // if seeking fails, fall back to reloading the queue
+      }
+    }
+
+    _currentQueue = List.from(queue);
     _apiService = apiService;
     _lastScrobbledId = null;
     _lastSubmittedId = null;
@@ -87,10 +109,14 @@ class PlayerService {
     );
 
     try {
+      // stop the player before setting a new source to ensure a clean transition across all platforms.
+      await _player.stop();
       await _player.setAudioSource(playlist, initialIndex: initialIndex);
       await _player.play();
     } catch (e) {
       debugPrint("error loading audio: $e");
+      // reset state on failure
+      _currentQueue = [];
     }
   }
 
