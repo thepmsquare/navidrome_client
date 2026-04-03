@@ -134,6 +134,26 @@ class ApiService {
     return List<Map<String, dynamic>>.from(children);
   }
 
+  Future<List<Map<String, dynamic>>> searchAlbums(String query, {int count = 50, int offset = 0}) async {
+    final response = await _get('search3', {
+      'query': query,
+      'albumCount': count.toString(),
+      'albumOffset': offset.toString(),
+    });
+    
+    final searchResult = response['searchResult3'];
+    if (searchResult == null) return [];
+    
+    final albums = searchResult['album'];
+    if (albums == null) return [];
+    
+    if (albums is Map) {
+      return [Map<String, dynamic>.from(albums)];
+    }
+    
+    return List<Map<String, dynamic>>.from(albums);
+  }
+
   Future<List<Map<String, dynamic>>> searchSongs(String query, {int count = 50, int offset = 0}) async {
     final response = await _get('search3', {
       'query': query,

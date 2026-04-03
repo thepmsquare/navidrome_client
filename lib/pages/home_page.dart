@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:navidrome_client/components/album_list_item.dart';
 import 'package:navidrome_client/components/mini_player.dart';
@@ -6,6 +7,8 @@ import 'package:navidrome_client/pages/album_details_page.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/auth_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
+
+enum LibraryView { home, albums, playlists, tracks }
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -25,7 +28,13 @@ class _HomePageState extends State<HomePage> {
   bool _hasMore = true;
   int _offset = 0;
   final int _limit = 50;
+  LibraryView _currentLibraryView = LibraryView.home;
   ApiService? _apiService;
+
+  final TextEditingController _searchController = TextEditingController();
+  bool _isSearchActive = false;
+  String _searchQuery = '';
+  Timer? _debounce;
 
   // #7/#4: read synchronously from in-memory state after initialize()
   bool get _isOfflineMode => OfflineService().isOfflineMode;
@@ -61,6 +70,8 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchController.dispose();
+    _debounce?.cancel();
     OfflineService().offlineModeNotifier.removeListener(_onOfflineModeChanged);
     super.dispose();
   }
@@ -100,7 +111,9 @@ class _HomePageState extends State<HomePage> {
     if (_apiService == null) return;
 
     try {
-      final newAlbums = await _apiService!.getAlbums(count: _limit, offset: _offset);
+      final newAlbums = _searchQuery.isEmpty
+          ? await _apiService!.getAlbums(count: _limit, offset: _offset)
+          : await _apiService!.searchAlbums(_searchQuery, count: _limit, offset: _offset);
       
       // #9: cache on every successful page 1 load so we always have fresh data
       if (_offset == 0 || refresh) {
@@ -164,6 +177,18 @@ class _HomePageState extends State<HomePage> {
     if (mounted) Navigator.pushReplacementNamed(context, '/connect');
   }
 
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() {
+          _searchQuery = query;
+        });
+        _loadAlbums(refresh: true);
+      }
+    });
+  }
+
   Future<void> _toggleOfflineMode(bool value) async {
     await OfflineService().setOfflineMode(value);
     // trigger rebuild — _isOfflineMode and _albumsToDisplay are getters
@@ -209,7 +234,11 @@ class _HomePageState extends State<HomePage> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
-          setState(() { _selectedIndex = index; });
+          if (index == 1 && _selectedIndex == 1) {
+            setState(() { _currentLibraryView = LibraryView.home; });
+          } else {
+            setState(() { _selectedIndex = index; });
+          }
         },
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_rounded), label: 'home'),
@@ -227,6 +256,46 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildLibraryView() {
+    switch (_currentLibraryView) {
+      case LibraryView.home:
+        return _buildLibraryMenu();
+      case LibraryView.albums:
+        return _buildAlbumList();
+      default:
+        return _buildLibraryMenu();
+    }
+  }
+
+  Widget _buildLibraryMenu() {
+    return Scaffold(
+      appBar: AppBar(title: const Text('library')),
+      body: ListView(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.playlist_play_rounded),
+            title: const Text('playlists'),
+            onTap: () {}, // "does nothing for now"
+          ),
+          ListTile(
+            leading: const Icon(Icons.audiotrack_rounded),
+            title: const Text('tracks'),
+            onTap: () {}, // "does nothing for now"
+          ),
+          ListTile(
+            leading: const Icon(Icons.album_rounded),
+            title: const Text('albums'),
+            onTap: () {
+              setState(() {
+                _currentLibraryView = LibraryView.albums;
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAlbumList() {
     // #4: compute filtered list once, not inside SliverChildBuilderDelegate
     final albums = _albumsToDisplay;
 
@@ -235,7 +304,52 @@ class _HomePageState extends State<HomePage> {
       child: CustomScrollView(
         controller: _scrollController,
         slivers: [
-          const SliverAppBar.large(title: Text('library')),
+          SliverAppBar.large(
+            title: _isSearchActive
+                ? TextField(
+                    controller: _searchController,
+                    autofocus: true,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 18,
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: 'search albums...',
+                      border: InputBorder.none,
+                      hintStyle: TextStyle(color: Colors.grey),
+                    ),
+                    onChanged: _onSearchChanged,
+                  )
+                : const Text('albums'),
+            leading: IconButton(
+              icon: Icon(_isSearchActive ? Icons.close_rounded : Icons.arrow_back_rounded),
+              onPressed: () {
+                if (_isSearchActive) {
+                  setState(() {
+                    _isSearchActive = false;
+                    _searchQuery = '';
+                    _searchController.clear();
+                  });
+                  _loadAlbums(refresh: true);
+                } else {
+                  setState(() {
+                    _currentLibraryView = LibraryView.home;
+                  });
+                }
+              },
+            ),
+            actions: [
+              if (!_isSearchActive && !_isOfflineMode)
+                IconButton(
+                  icon: const Icon(Icons.search_rounded),
+                  onPressed: () {
+                    setState(() {
+                      _isSearchActive = true;
+                    });
+                  },
+                ),
+            ],
+          ),
           if (_isLoading && _albums.isEmpty)
             const SliverFillRemaining(
               child: Center(child: CircularProgressIndicator()),
