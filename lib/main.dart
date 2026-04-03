@@ -1,11 +1,17 @@
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'package:navidrome_client/pages/connect_page.dart';
 import 'package:navidrome_client/pages/home_page.dart';
 import 'package:navidrome_client/services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await JustAudioBackground.init(
+    androidNotificationChannelId: 'com.ryanheise.audioservice.audio',
+    androidNotificationChannelName: 'audio playback',
+    androidNotificationOngoing: true,
+  );
   final authService = AuthService();
   final isLoggedIn = await authService.isLoggedIn;
   

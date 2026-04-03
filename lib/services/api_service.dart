@@ -18,7 +18,7 @@ class ApiService {
         _username = username,
         _password = password;
 
-  String _buildUrl(String method, Map<String, String> params) {
+  String _buildUrl(String method, Map<String, String> params, {bool includeFormat = true}) {
     final salt = SubsonicUtils.generateSalt();
     final token = SubsonicUtils.generateToken(_password, salt);
 
@@ -28,7 +28,7 @@ class ApiService {
       's': salt,
       'v': _apiVersion,
       'c': _clientName,
-      'f': 'json',
+      if (includeFormat) 'f': 'json',
       ...params,
     };
 
@@ -37,11 +37,11 @@ class ApiService {
   }
 
   String getStreamUrl(String id) {
-    return _buildUrl('stream', {'id': id});
+    return _buildUrl('stream', {'id': id}, includeFormat: false);
   }
 
   String getCoverArtUrl(String id, {int size = 160}) {
-    return _buildUrl('getCoverArt', {'id': id, 'size': size.toString()});
+    return _buildUrl('getCoverArt', {'id': id, 'size': size.toString()}, includeFormat: false);
   }
 
   Future<void> scrobble(String id, {bool submission = true}) async {

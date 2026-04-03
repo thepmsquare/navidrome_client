@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'package:navidrome_client/services/api_service.dart';
 
 class PlayerService {
@@ -53,7 +54,10 @@ class PlayerService {
   Map<String, dynamic>? get currentTrack {
     final index = _player.currentIndex;
     if (index != null && index >= 0 && index < _currentQueue.length) {
-      return _currentQueue[index];
+      final tag = _player.sequence?[index].tag;
+      if (tag is MediaItem) {
+        return _currentQueue[index];
+      }
     }
     return null;
   }
@@ -70,7 +74,13 @@ class PlayerService {
         final trackId = track['id'] as String;
         return AudioSource.uri(
           Uri.parse(apiService.getStreamUrl(trackId)),
-          tag: track, // store the whole track map as tag
+          tag: MediaItem(
+            id: trackId,
+            album: (track['album'] as String?)?.toLowerCase(),
+            title: (track['title'] as String?)?.toLowerCase() ?? 'unknown',
+            artist: (track['artist'] as String?)?.toLowerCase(),
+            artUri: Uri.parse(apiService.getCoverArtUrl(trackId)),
+          ),
         );
       }).toList(),
     );
