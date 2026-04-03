@@ -135,17 +135,32 @@ class _PlaylistDetailsPageState extends State<PlaylistDetailsPage> {
                 backgroundColor: colorScheme.surface,
                 flexibleSpace: FlexibleSpaceBar(
                   title: Row(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Flexible(
-                        child: Text(
-                          name,
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            shadows: const [
-                              Shadow(blurRadius: 12, color: Colors.black54, offset: Offset(0, 2)),
-                            ],
+                      IconButton.filled(
+                        icon: const Icon(Icons.play_arrow_rounded, size: 24),
+                        onPressed: _isLoading || _tracksToDisplay.isEmpty
+                            ? null
+                            : () => PlayerService().play(_tracksToDisplay, 0, widget.apiService),
+                        style: IconButton.styleFrom(
+                          backgroundColor: colorScheme.primary,
+                          foregroundColor: colorScheme.onPrimary,
+                          padding: const EdgeInsets.all(8),
+                          elevation: 4,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Text(
+                            name,
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              shadows: const [
+                                Shadow(blurRadius: 12, color: Colors.black54, offset: Offset(0, 2)),
+                              ],
+                            ),
                           ),
                         ),
                       ),
