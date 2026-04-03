@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:navidrome_client/components/album_list_item.dart';
+import 'package:navidrome_client/components/playlist_list_item.dart';
 import 'package:navidrome_client/components/mini_player.dart';
 import 'package:navidrome_client/pages/player_page.dart';
 import 'package:navidrome_client/pages/album_details_page.dart';
+import 'package:navidrome_client/pages/playlist_details_page.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/auth_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
@@ -23,7 +25,9 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 1; // default to Library per user preference
 
   List<Map<String, dynamic>> _albums = [];
+  List<Map<String, dynamic>> _playlists = [];
   bool _isLoading = true;
+  bool _isLoadingPlaylists = false;
   bool _isFetchingMore = false;
   bool _hasMore = true;
   int _offset = 0;
@@ -47,10 +51,29 @@ class _HomePageState extends State<HomePage> {
         .toList();
   }
 
+  List<Map<String, dynamic>> get _playlistsToDisplay {
+    List<Map<String, dynamic>> result = _playlists;
+    if (_isOfflineMode) {
+      result = result
+          .where((p) => OfflineService().isPlaylistOfflineSync(p['id'].toString()))
+          .toList();
+    }
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      result = result
+          .where((p) => (p['name'] ?? '').toString().toLowerCase().contains(query))
+          .toList();
+    }
+    return result;
+  }
+
   @override
   void initState() {
     super.initState();
-    _initApiService().then((_) => _loadAlbums());
+    _initApiService().then((_) {
+      _loadAlbums();
+      _loadPlaylists();
+    });
     _scrollController.addListener(_onScroll);
 
     // #20: listen for auto-toggles
@@ -61,8 +84,9 @@ class _HomePageState extends State<HomePage> {
     if (mounted) {
       setState(() {});
       // if it just went offline, make sure we show cached data
-      if (OfflineService().isOfflineMode && _albums.isEmpty) {
-        _loadFromCache();
+      if (OfflineService().isOfflineMode) {
+        if (_albums.isEmpty) _loadFromCache();
+        if (_playlists.isEmpty) _loadPlaylistsFromCache();
       }
     }
   }
@@ -160,6 +184,53 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _loadPlaylistsFromCache() async {
+    final cached = await OfflineService().getCachedPlaylistList();
+    if (cached != null && mounted) {
+      setState(() {
+        _playlists = cached;
+        _isLoadingPlaylists = false;
+      });
+    } else if (mounted) {
+      setState(() { _isLoadingPlaylists = false; });
+    }
+  }
+
+  Future<void> _loadPlaylists({bool refresh = false}) async {
+    if (refresh) {
+      if (mounted) {
+        setState(() {
+          _playlists = [];
+          _isLoadingPlaylists = true;
+        });
+      }
+    }
+
+    if (_isOfflineMode && _apiService == null) {
+      await _loadPlaylistsFromCache();
+      return;
+    }
+
+    if (_apiService == null) return;
+
+    try {
+      final playlists = await _apiService!.getPlaylists();
+      await OfflineService().savePlaylistListCache(playlists);
+
+      if (mounted) {
+        setState(() {
+          _playlists = playlists;
+          _isLoadingPlaylists = false;
+        });
+      }
+    } catch (e) {
+      if (_playlists.isEmpty) await _loadPlaylistsFromCache();
+      if (mounted) {
+        setState(() { _isLoadingPlaylists = false; });
+      }
+    }
+  }
+
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
@@ -184,7 +255,10 @@ class _HomePageState extends State<HomePage> {
         setState(() {
           _searchQuery = query;
         });
-        _loadAlbums(refresh: true);
+        if (_currentLibraryView == LibraryView.albums) {
+          _loadAlbums(refresh: true);
+        }
+        // playlists search is local via getter
       }
     });
   }
@@ -194,8 +268,11 @@ class _HomePageState extends State<HomePage> {
     // trigger rebuild — _isOfflineMode and _albumsToDisplay are getters
     // that reflect the new value immediately
     setState(() {});
-    // if switching to offline with no albums loaded from cache yet, load them
-    if (value && _albums.isEmpty) await _loadFromCache();
+    // if switching to offline with no content loaded from cache yet, load them
+    if (value) {
+      if (_albums.isEmpty) await _loadFromCache();
+      if (_playlists.isEmpty) await _loadPlaylistsFromCache();
+    }
   }
 
   @override
@@ -261,6 +338,8 @@ class _HomePageState extends State<HomePage> {
         return _buildLibraryMenu();
       case LibraryView.albums:
         return _buildAlbumList();
+      case LibraryView.playlists:
+        return _buildPlaylistList();
       default:
         return _buildLibraryMenu();
     }
@@ -274,7 +353,12 @@ class _HomePageState extends State<HomePage> {
           ListTile(
             leading: const Icon(Icons.playlist_play_rounded),
             title: const Text('playlists'),
-            onTap: () {}, // "does nothing for now"
+            onTap: () {
+              setState(() {
+                _currentLibraryView = LibraryView.playlists;
+              });
+              _loadPlaylists();
+            },
           ),
           ListTile(
             leading: const Icon(Icons.audiotrack_rounded),
@@ -405,6 +489,109 @@ class _HomePageState extends State<HomePage> {
                     );
                   },
                   childCount: albums.length + ((_hasMore && !_isOfflineMode) ? 1 : 0),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlaylistList() {
+    final playlists = _playlistsToDisplay;
+
+    return RefreshIndicator(
+      onRefresh: () => _loadPlaylists(refresh: true),
+      child: CustomScrollView(
+        slivers: [
+          SliverAppBar.large(
+            title: _isSearchActive
+                ? TextField(
+                    controller: _searchController,
+                    autofocus: true,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 18,
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: 'search playlists...',
+                      border: InputBorder.none,
+                      hintStyle: TextStyle(color: Colors.grey),
+                    ),
+                    onChanged: _onSearchChanged,
+                  )
+                : const Text('playlists'),
+            leading: IconButton(
+              icon: Icon(_isSearchActive ? Icons.close_rounded : Icons.arrow_back_rounded),
+              onPressed: () {
+                if (_isSearchActive) {
+                  setState(() {
+                    _isSearchActive = false;
+                    _searchQuery = '';
+                    _searchController.clear();
+                  });
+                } else {
+                  setState(() {
+                    _currentLibraryView = LibraryView.home;
+                  });
+                }
+              },
+            ),
+            actions: [
+              if (!_isSearchActive)
+                IconButton(
+                  icon: const Icon(Icons.search_rounded),
+                  onPressed: () {
+                    setState(() {
+                      _isSearchActive = true;
+                    });
+                  },
+                ),
+            ],
+          ),
+          if (_isLoadingPlaylists && _playlists.isEmpty)
+            const SliverFillRemaining(
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (playlists.isEmpty)
+            SliverFillRemaining(
+              child: Center(
+                child: Text(
+                  _isOfflineMode ? 'no downloaded playlists' : 'no playlists found',
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.only(top: 8, bottom: 100),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final playlist = playlists[index];
+                    final coverArtId = playlist['coverArt'];
+                    final String? coverArtUrl = _apiService != null && coverArtId != null
+                        ? _apiService!.getCoverArtUrl(coverArtId)
+                        : null;
+
+                    return PlaylistListItem(
+                      playlist: playlist,
+                      coverArtUrl: coverArtUrl,
+                      onTap: () {
+                        final api = _apiService;
+                        if (api == null) return;
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PlaylistDetailsPage(
+                              playlist: playlist,
+                              apiService: api,
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                  childCount: playlists.length,
                 ),
               ),
             ),

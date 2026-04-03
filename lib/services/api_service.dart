@@ -154,6 +154,38 @@ class ApiService {
     return List<Map<String, dynamic>>.from(albums);
   }
 
+  Future<List<Map<String, dynamic>>> getPlaylists() async {
+    final response = await _get('getPlaylists');
+    
+    final playlistList = response['playlists'];
+    if (playlistList == null) return [];
+    
+    final playlists = playlistList['playlist'];
+    if (playlists == null) return [];
+    
+    if (playlists is Map) {
+      return [Map<String, dynamic>.from(playlists)];
+    }
+    
+    return List<Map<String, dynamic>>.from(playlists);
+  }
+
+  Future<List<Map<String, dynamic>>> getPlaylistTracks(String id) async {
+    final response = await _get('getPlaylist', {'id': id});
+    
+    final playlist = response['playlist'];
+    if (playlist == null) return [];
+    
+    final children = playlist['entry'];
+    if (children == null) return [];
+    
+    if (children is Map) {
+      return [Map<String, dynamic>.from(children)];
+    }
+    
+    return List<Map<String, dynamic>>.from(children);
+  }
+
   Future<List<Map<String, dynamic>>> searchSongs(String query, {int count = 50, int offset = 0}) async {
     final response = await _get('search3', {
       'query': query,

@@ -11,8 +11,10 @@ import 'package:navidrome_client/services/api_service.dart';
 class OfflineService {
   static const String _offlineTracksKey = 'offline_tracks';
   static const String _offlineAlbumsKey = 'offline_albums';
+  static const String _offlinePlaylistsKey = 'offline_playlists';
   static const String _offlineModeKey = 'offline_mode';
   static const String _albumListCacheFile = 'album_list_cache.json';
+  static const String _playlistListCacheFile = 'playlist_list_cache.json';
 
   final Dio _dio = Dio();
 
@@ -22,6 +24,7 @@ class OfflineService {
   // #7: in-memory sets for O(1) synchronous checks — no disk I/O in build()
   Set<String> _offlineTrackIds = {};
   Set<String> _offlineAlbumIds = {};
+  Set<String> _offlinePlaylistIds = {};
   bool _isOfflineMode = false;
   bool _isInitialized = false;
 
@@ -47,6 +50,7 @@ class OfflineService {
     final prefs = await SharedPreferences.getInstance();
     _offlineTrackIds = Set<String>.from(prefs.getStringList(_offlineTracksKey) ?? []);
     _offlineAlbumIds = Set<String>.from(prefs.getStringList(_offlineAlbumsKey) ?? []);
+    _offlinePlaylistIds = Set<String>.from(prefs.getStringList(_offlinePlaylistsKey) ?? []);
     _isOfflineMode = prefs.getBool(_offlineModeKey) ?? false;
     offlineModeNotifier.value = _isOfflineMode;
     _isInitialized = true;
@@ -100,7 +104,9 @@ class OfflineService {
   String _trackPath(String basePath, String trackId) => '$basePath/tracks/$trackId.audio';
   String _coverPath(String basePath, String coverArtId) => '$basePath/covers/$coverArtId.jpg';
   String _albumMetaPath(String basePath, String albumId) => '$basePath/meta/album_$albumId.json';
+  String _playlistMetaPath(String basePath, String playlistId) => '$basePath/meta/playlist_$playlistId.json';
   String _albumListCachePath(String basePath) => '$basePath/meta/$_albumListCacheFile';
+  String _playlistListCachePath(String basePath) => '$basePath/meta/$_playlistListCacheFile';
 
   // ---------------------------------------------------------------------------
   // Synchronous status checks — #7: O(1) using in-memory sets
@@ -109,6 +115,7 @@ class OfflineService {
   bool get isOfflineMode => _isOfflineMode;
   bool isTrackOfflineSync(String trackId) => _offlineTrackIds.contains(trackId);
   bool isAlbumOfflineSync(String albumId) => _offlineAlbumIds.contains(albumId);
+  bool isPlaylistOfflineSync(String playlistId) => _offlinePlaylistIds.contains(playlistId);
 
   // ---------------------------------------------------------------------------
   // Progress stream — typed and cleaned up after use
@@ -143,6 +150,11 @@ class OfflineService {
   Future<void> _persistAlbumIds() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(_offlineAlbumsKey, _offlineAlbumIds.toList());
+  }
+
+  Future<void> _persistPlaylistIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_offlinePlaylistsKey, _offlinePlaylistIds.toList());
   }
 
   // ---------------------------------------------------------------------------
@@ -277,6 +289,51 @@ class OfflineService {
   }
 
   // ---------------------------------------------------------------------------
+  // Playlist download
+  // ---------------------------------------------------------------------------
+
+  Future<void> downloadPlaylist(
+    String playlistId,
+    List<Map<String, dynamic>> tracks,
+    ApiService apiService,
+  ) async {
+    // save metadata immediately
+    await savePlaylistMetadata(playlistId, tracks);
+
+    final controller = _progressControllers.putIfAbsent(
+      playlistId, () => StreamController<OfflineProgress>.broadcast(),
+    );
+    _cancelTokens.putIfAbsent(playlistId, () => CancelToken());
+
+    int completed = 0;
+
+    for (final track in tracks) {
+      if (_cancelTokens[playlistId]?.isCancelled == true) break;
+
+      final trackId = track['id'] as String;
+      if (_offlineTrackIds.contains(trackId)) {
+        completed++;
+        controller.add(OfflineProgress(fraction: completed / tracks.length));
+        continue;
+      }
+
+      try {
+        await downloadTrack(track, apiService);
+        completed++;
+        controller.add(OfflineProgress(fraction: completed / tracks.length));
+      } catch (e) {
+        debugPrint('skipping track $trackId in playlist $playlistId: $e');
+        completed++;
+        controller.add(OfflineProgress(fraction: completed / tracks.length, hasError: true));
+      }
+    }
+
+    _offlinePlaylistIds.add(playlistId);
+    await _persistPlaylistIds();
+    _emitProgress(playlistId, 1.0, done: true);
+  }
+
+  // ---------------------------------------------------------------------------
   // Cancellation — #11
   // ---------------------------------------------------------------------------
 
@@ -303,28 +360,30 @@ class OfflineService {
     final cached = await getCachedAlbumMetadata(albumId);
 
     if (cached != null) {
-      // collect cover art IDs used by this album's tracks
       final coverArtIds = cached
           .map((t) => t['coverArt'] as String?)
           .whereType<String>()
           .toSet();
 
-      // delete tracks
       for (final track in cached) {
         final trackId = track['id'] as String?;
-        if (trackId != null) await deleteTrack(trackId);
+        if (trackId != null) {
+          // only delete track if it's not used by any other offline album OR other offline playlist
+          final usedElsewhere = await _isTrackUsedElsewhere(trackId, excludeAlbumId: albumId);
+          if (!usedElsewhere) {
+            await deleteTrack(trackId);
+          }
+        }
       }
 
-      // delete cover art only if no other offline album uses it
       for (final coverArtId in coverArtIds) {
-        final usedByOthers = await _isCoverUsedByOtherAlbums(coverArtId, albumId, base);
+        final usedByOthers = await _isCoverUsedByOthers(coverArtId, excludeAlbumId: albumId);
         if (!usedByOthers) {
           final coverFile = File(_coverPath(base, coverArtId));
           if (await coverFile.exists()) await coverFile.delete();
         }
       }
 
-      // delete metadata file
       final metaFile = File(_albumMetaPath(base, albumId));
       if (await metaFile.exists()) await metaFile.delete();
     }
@@ -333,17 +392,72 @@ class OfflineService {
     await _persistAlbumIds();
   }
 
-  Future<bool> _isCoverUsedByOtherAlbums(
-    String coverArtId,
-    String excludeAlbumId,
-    String basePath,
-  ) async {
+  /// Deletes all local files for tracks in the playlist and the playlist metadata.
+  Future<void> deletePlaylist(String playlistId) async {
+    final base = await _getStoragePath();
+    final cached = await getCachedPlaylistMetadata(playlistId);
+
+    if (cached != null) {
+      final coverArtIds = cached
+          .map((t) => t['coverArt'] as String?)
+          .whereType<String>()
+          .toSet();
+
+      for (final track in cached) {
+        final trackId = track['id'] as String?;
+        if (trackId != null) {
+          // only delete track if it's not used by any offline album OR other offline playlist
+          final usedElsewhere = await _isTrackUsedElsewhere(trackId, excludePlaylistId: playlistId);
+          if (!usedElsewhere) {
+            await deleteTrack(trackId);
+          }
+        }
+      }
+
+      for (final coverArtId in coverArtIds) {
+        final usedByOthers = await _isCoverUsedByOthers(coverArtId, excludePlaylistId: playlistId);
+        if (!usedByOthers) {
+          final coverFile = File(_coverPath(base, coverArtId));
+          if (await coverFile.exists()) await coverFile.delete();
+        }
+      }
+
+      final metaFile = File(_playlistMetaPath(base, playlistId));
+      if (await metaFile.exists()) await metaFile.delete();
+    }
+
+    _offlinePlaylistIds.remove(playlistId);
+    await _persistPlaylistIds();
+  }
+
+  Future<bool> _isTrackUsedElsewhere(String trackId, {String? excludeAlbumId, String? excludePlaylistId}) async {
+    // check other albums
     for (final albumId in _offlineAlbumIds) {
       if (albumId == excludeAlbumId) continue;
       final cached = await getCachedAlbumMetadata(albumId);
-      if (cached == null) continue;
-      final usesThisCover = cached.any((t) => t['coverArt'] == coverArtId);
-      if (usesThisCover) return true;
+      if (cached != null && cached.any((t) => t['id'] == trackId)) return true;
+    }
+    // check other playlists
+    for (final playlistId in _offlinePlaylistIds) {
+      if (playlistId == excludePlaylistId) continue;
+      final cached = await getCachedPlaylistMetadata(playlistId);
+      if (cached != null && cached.any((t) => t['id'] == trackId)) return true;
+    }
+    return false;
+  }
+
+  Future<bool> _isCoverUsedByOthers(String coverArtId, {String? excludeAlbumId, String? excludePlaylistId}) async {
+    // check other albums
+    for (final albumId in _offlineAlbumIds) {
+      if (albumId == excludeAlbumId) continue;
+      final cached = await getCachedAlbumMetadata(albumId);
+      if (cached != null && cached.any((t) => t['coverArt'] == coverArtId)) return true;
+    }
+    // check other playlists
+    for (final playlistId in _offlinePlaylistIds) {
+      if (playlistId == excludePlaylistId) continue;
+      final cached = await getCachedPlaylistMetadata(playlistId);
+      if (cached != null && cached.any((t) => t['coverArt'] == coverArtId)) return true;
     }
     return false;
   }
@@ -373,6 +487,26 @@ class OfflineService {
     }
   }
 
+  Future<void> savePlaylistMetadata(String playlistId, List<Map<String, dynamic>> tracks) async {
+    final base = await _getStoragePath();
+    await File(_playlistMetaPath(base, playlistId)).writeAsString(jsonEncode(tracks));
+  }
+
+  Future<List<Map<String, dynamic>>?> getCachedPlaylistMetadata(String playlistId) async {
+    final base = await _getStoragePath();
+    final file = File(_playlistMetaPath(base, playlistId));
+    if (!await file.exists()) return null;
+    try {
+      final decoded = jsonDecode(await file.readAsString()) as List<dynamic>;
+      return List<Map<String, dynamic>>.from(
+        decoded.map((e) => Map<String, dynamic>.from(e as Map)),
+      );
+    } catch (e) {
+      debugPrint('failed to read playlist metadata $playlistId: $e');
+      return null;
+    }
+  }
+
   /// #9: cache the full album list so the library works fully offline
   Future<void> saveAlbumListCache(List<Map<String, dynamic>> albums) async {
     final base = await _getStoragePath();
@@ -390,6 +524,26 @@ class OfflineService {
       );
     } catch (e) {
       debugPrint('failed to read album list cache: $e');
+      return null;
+    }
+  }
+
+  Future<void> savePlaylistListCache(List<Map<String, dynamic>> playlists) async {
+    final base = await _getStoragePath();
+    await File(_playlistListCachePath(base)).writeAsString(jsonEncode(playlists));
+  }
+
+  Future<List<Map<String, dynamic>>?> getCachedPlaylistList() async {
+    try {
+      final base = await _getStoragePath();
+      final file = File(_playlistListCachePath(base));
+      if (!await file.exists()) return null;
+      final decoded = jsonDecode(await file.readAsString()) as List<dynamic>;
+      return List<Map<String, dynamic>>.from(
+        decoded.map((e) => Map<String, dynamic>.from(e as Map)),
+      );
+    } catch (e) {
+      debugPrint('failed to read playlist list cache: $e');
       return null;
     }
   }
