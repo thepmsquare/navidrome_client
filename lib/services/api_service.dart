@@ -35,8 +35,23 @@ class ApiService {
     return '$_baseUrl/rest/$method.view?$queryString';
   }
 
+  String getStreamUrl(String id) {
+    return _buildUrl('stream', {'id': id});
+  }
+
   String getCoverArtUrl(String id, {int size = 160}) {
     return _buildUrl('getCoverArt', {'id': id, 'size': size.toString()});
+  }
+
+  Future<void> scrobble(String id, {bool submission = true}) async {
+    try {
+      await _get('scrobble', {
+        'id': id,
+        'submission': submission.toString(),
+      });
+    } catch (e) {
+      print('scrobble failed: $e');
+    }
   }
 
   Future<Map<String, dynamic>> _get(String method, [Map<String, String> params = const {}]) async {

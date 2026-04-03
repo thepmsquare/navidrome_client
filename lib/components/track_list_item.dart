@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 class TrackListItem extends StatelessWidget {
   final Map<String, dynamic> track;
   final String? coverArtUrl;
+  final VoidCallback? onTap;
 
   const TrackListItem({
     super.key,
     required this.track,
     this.coverArtUrl,
+    this.onTap,
   });
 
   @override
@@ -63,9 +65,7 @@ class TrackListItem extends StatelessWidget {
               color: Theme.of(context).colorScheme.outline,
             ),
       ),
-      onTap: () {
-        // play track logic can be added later
-      },
+      onTap: onTap,
     );
   }
 

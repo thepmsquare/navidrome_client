@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:navidrome_client/components/album_list_item.dart';
+import 'package:navidrome_client/components/mini_player.dart';
+import 'package:navidrome_client/pages/player_page.dart';
 import 'package:navidrome_client/pages/album_details_page.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/auth_service.dart';
@@ -130,47 +132,66 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () => _loadAlbums(refresh: true),
-          child: _isLoading && _albums.isEmpty
-              ? const Center(child: CircularProgressIndicator())
-              : _albums.isEmpty
-                  ? const Center(child: Text('no albums found'))
-                  : ListView.builder(
-                      controller: _scrollController,
-                      itemCount: _albums.length + (_hasMore ? 1 : 0),
-                      itemBuilder: (context, index) {
-                        if (index == _albums.length) {
-                          return const Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: Center(child: CircularProgressIndicator()),
-                          );
-                        }
-                        final album = _albums[index];
-                        final coverArtId = album['coverArt'];
-                        final String? coverArtUrl = _apiService != null && coverArtId != null
-                            ? _apiService!.getCoverArtUrl(coverArtId)
-                            : null;
+        child: Column(
+          children: [
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => _loadAlbums(refresh: true),
+                child: _isLoading && _albums.isEmpty
+                    ? const Center(child: CircularProgressIndicator())
+                    : _albums.isEmpty
+                        ? const Center(child: Text('no albums found'))
+                        : ListView.builder(
+                            controller: _scrollController,
+                            itemCount: _albums.length + (_hasMore ? 1 : 0),
+                            itemBuilder: (context, index) {
+                              if (index == _albums.length) {
+                                return const Padding(
+                                  padding: EdgeInsets.all(16.0),
+                                  child: Center(child: CircularProgressIndicator()),
+                                );
+                              }
+                              final album = _albums[index];
+                              final coverArtId = album['coverArt'];
+                              final String? coverArtUrl = _apiService != null && coverArtId != null
+                                  ? _apiService!.getCoverArtUrl(coverArtId)
+                                  : null;
 
-                        return AlbumListItem(
-                          album: album,
-                          coverArtUrl: coverArtUrl,
-                          onTap: () {
-                            if (_apiService != null) {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => AlbumDetailsPage(
-                                    album: album,
-                                    apiService: _apiService!,
-                                  ),
-                                ),
+                              return AlbumListItem(
+                                album: album,
+                                coverArtUrl: coverArtUrl,
+                                onTap: () {
+                                  if (_apiService != null) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => AlbumDetailsPage(
+                                          album: album,
+                                          apiService: _apiService!,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
                               );
-                            }
-                          },
-                        );
-                      },
+                            },
+                          ),
+              ),
+            ),
+            if (_apiService != null)
+              MiniPlayer(
+                apiService: _apiService!,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PlayerPage(apiService: _apiService!),
+                      fullscreenDialog: true,
                     ),
+                  );
+                },
+              ),
+          ],
         ),
       ),
     );
