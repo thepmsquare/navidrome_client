@@ -20,10 +20,14 @@ class _PlayerPageState extends State<PlayerPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.expand_more),
+          icon: const Icon(Icons.expand_more_rounded),
           onPressed: () => Navigator.pop(context),
         ),
         backgroundColor: Colors.transparent,
@@ -35,9 +39,10 @@ class _PlayerPageState extends State<PlayerPage> {
           final track = _playerService.currentTrack;
           if (track == null) return const Center(child: Text("no track playing"));
 
-          final title = (track['title'] ?? 'unknown title').toString().toLowerCase();
-          final artist = (track['artist'] ?? 'unknown artist').toString().toLowerCase();
-          final album = (track['album'] ?? 'unknown album').toString().toLowerCase();
+          // note: we are preserving the original case from the api for metadata.
+          final title = (track['title'] ?? 'unknown title').toString();
+          final artist = (track['artist'] ?? 'unknown artist').toString();
+          final album = (track['album'] ?? 'unknown album').toString();
           final coverArtId = track['coverArt'];
           final coverArtUrl = coverArtId != null
               ? widget.apiService.getCoverArtUrl(coverArtId, size: 800)
@@ -47,69 +52,81 @@ class _PlayerPageState extends State<PlayerPage> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
+                constraints: const BoxConstraints(maxWidth: 500),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // Cover Art
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: MediaQuery.of(context).size.height * 0.4,
-                      ),
-                      child: Card(
-                        elevation: 8,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    AspectRatio(
+                      aspectRatio: 1,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(32),
+                          boxShadow: [
+                            BoxShadow(
+                              color: colorScheme.shadow.withValues(alpha: 0.15),
+                              blurRadius: 40,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: AspectRatio(
-                            aspectRatio: 1,
-                            child: coverArtUrl != null
-                                ? Image.network(
-                                    coverArtUrl,
-                                    fit: BoxFit.cover,
-                                  )
-                                : Container(
-                                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                    child: const Icon(Icons.music_note, size: 100),
+                          borderRadius: BorderRadius.circular(32),
+                          child: coverArtUrl != null
+                              ? Image.network(
+                                  coverArtUrl,
+                                  fit: BoxFit.cover,
+                                )
+                              : Container(
+                                  color: colorScheme.surfaceContainerHighest,
+                                  child: Icon(
+                                    Icons.music_note_rounded,
+                                    size: 100,
+                                    color: colorScheme.primary.withValues(alpha: 0.5),
                                   ),
-                          ),
+                                ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 48),
 
                     // Title & Artist
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                    Column(
+                      children: [
+                        Text(
+                          title,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface,
                           ),
-                          Text(
-                            artist,
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  color: Theme.of(context).colorScheme.outline,
-                                ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          artist,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            color: colorScheme.primary,
                           ),
-                          Text(
-                            album,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.7),
-                                ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          album,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            letterSpacing: 0.5,
                           ),
-                        ],
-                      ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 48),
 
                     // Progress Bar
                     StreamBuilder<Duration>(
@@ -120,21 +137,44 @@ class _PlayerPageState extends State<PlayerPage> {
 
                         return Column(
                           children: [
-                            Slider(
-                              value: position.inSeconds.toDouble(),
-                              min: 0,
-                              max: total.inSeconds.toDouble().clamp(0.01, double.infinity),
-                              onChanged: (value) {
-                                _playerService.seek(Duration(seconds: value.toInt()));
-                              },
+                            SliderTheme(
+                              data: SliderTheme.of(context).copyWith(
+                                trackHeight: 8,
+                                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                                overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+                                activeTrackColor: colorScheme.primary,
+                                inactiveTrackColor: colorScheme.surfaceContainerHighest,
+                                thumbColor: colorScheme.primary,
+                              ),
+                              child: Slider(
+                                value: position.inSeconds.toDouble(),
+                                min: 0,
+                                max: total.inSeconds.toDouble().clamp(0.01, double.infinity),
+                                onChanged: (value) {
+                                  _playerService.seek(Duration(seconds: value.toInt()));
+                                },
+                              ),
                             ),
+                            const SizedBox(height: 8),
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                              padding: const EdgeInsets.symmetric(horizontal: 4.0),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(_formatDuration(position)),
-                                  Text(_formatDuration(total)),
+                                  Text(
+                                    _formatDuration(position),
+                                    style: theme.textTheme.labelMedium?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                      fontFeatures: const [FontFeature.tabularFigures()],
+                                    ),
+                                  ),
+                                  Text(
+                                    _formatDuration(total),
+                                    style: theme.textTheme.labelMedium?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                      fontFeatures: const [FontFeature.tabularFigures()],
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -142,31 +182,30 @@ class _PlayerPageState extends State<PlayerPage> {
                         );
                       },
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 32),
 
                     // Controls
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.shuffle),
-                          onPressed: () {
-                            // shuffle logic can be added later
-                          },
-                          color: Theme.of(context).colorScheme.outline,
+                          icon: const Icon(Icons.shuffle_rounded),
+                          onPressed: () {},
+                          color: colorScheme.onSurfaceVariant,
                         ),
-                        IconButton(
-                          iconSize: 48,
-                          icon: const Icon(Icons.skip_previous),
+                        IconButton.filledTonal(
+                          iconSize: 32,
+                          icon: const Icon(Icons.skip_previous_rounded),
                           onPressed: () => _playerService.skipToPrevious(),
                         ),
                         StreamBuilder<PlayerState>(
                           stream: _playerService.player.playerStateStream,
                           builder: (context, snapshot) {
                             final playing = snapshot.data?.playing ?? false;
-                            return IconButton(
-                              iconSize: 72,
-                              icon: Icon(playing ? Icons.pause_circle_filled : Icons.play_circle_filled),
+                            return IconButton.filled(
+                              iconSize: 56,
+                              padding: const EdgeInsets.all(16),
+                              icon: Icon(playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
                               onPressed: () {
                                 if (playing) {
                                   _playerService.pause();
@@ -177,17 +216,15 @@ class _PlayerPageState extends State<PlayerPage> {
                             );
                           },
                         ),
-                        IconButton(
-                          iconSize: 48,
-                          icon: const Icon(Icons.skip_next),
+                        IconButton.filledTonal(
+                          iconSize: 32,
+                          icon: const Icon(Icons.skip_next_rounded),
                           onPressed: () => _playerService.skipToNext(),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.repeat),
-                          onPressed: () {
-                            // repeat logic can be added later
-                          },
-                          color: Theme.of(context).colorScheme.outline,
+                          icon: const Icon(Icons.repeat_rounded),
+                          onPressed: () {},
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ],
                     ),
@@ -202,9 +239,9 @@ class _PlayerPageState extends State<PlayerPage> {
   }
 
   String _formatDuration(Duration d) {
-    String twoDigits(int n) => n.toString().padLeft(2, "0");
-    String twoDigitMinutes = twoDigits(d.inMinutes.remainder(60));
-    String twoDigitSeconds = twoDigits(d.inSeconds.remainder(60));
-    return "${twoDigits(d.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
+    if (d == Duration.zero) return "0:00";
+    final minutes = d.inMinutes;
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return "$minutes:$seconds";
   }
 }

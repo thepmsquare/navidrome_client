@@ -76,9 +76,10 @@ class PlayerService {
           Uri.parse(apiService.getStreamUrl(trackId)),
           tag: MediaItem(
             id: trackId,
-            album: (track['album'] as String?)?.toLowerCase(),
-            title: (track['title'] as String?)?.toLowerCase() ?? 'unknown',
-            artist: (track['artist'] as String?)?.toLowerCase(),
+            // note: we are preserving the original case from the api for metadata.
+            album: (track['album'] as String?),
+            title: (track['title'] as String?) ?? 'unknown',
+            artist: (track['artist'] as String?),
             artUri: Uri.parse(apiService.getCoverArtUrl(trackId)),
           ),
         );

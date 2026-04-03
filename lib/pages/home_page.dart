@@ -16,6 +16,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final _authService = AuthService();
   final ScrollController _scrollController = ScrollController();
+  int _selectedIndex = 1; // Default to Library per user preference
   
   List<Map<String, dynamic>> _albums = [];
   bool _isLoading = true;
@@ -89,7 +90,8 @@ class _HomePageState extends State<HomePage> {
           _isFetchingMore = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('failed to load albums: ${e.toString().toLowerCase()}')),
+          // note: we are preserving the original case from the api for error messages.
+          SnackBar(content: Text('failed to load albums: ${e.toString()}')),
         );
       }
     }
@@ -120,66 +122,22 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('navidrome'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            onPressed: _handleLogout,
-            icon: const Icon(Icons.logout),
-            tooltip: 'logout',
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _selectedIndex,
+            children: [
+              _buildHomeView(),
+              _buildLibraryView(),
+              _buildSettingsView(),
+            ],
           ),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: () => _loadAlbums(refresh: true),
-                child: _isLoading && _albums.isEmpty
-                    ? const Center(child: CircularProgressIndicator())
-                    : _albums.isEmpty
-                        ? const Center(child: Text('no albums found'))
-                        : ListView.builder(
-                            controller: _scrollController,
-                            itemCount: _albums.length + (_hasMore ? 1 : 0),
-                            itemBuilder: (context, index) {
-                              if (index == _albums.length) {
-                                return const Padding(
-                                  padding: EdgeInsets.all(16.0),
-                                  child: Center(child: CircularProgressIndicator()),
-                                );
-                              }
-                              final album = _albums[index];
-                              final coverArtId = album['coverArt'];
-                              final String? coverArtUrl = _apiService != null && coverArtId != null
-                                  ? _apiService!.getCoverArtUrl(coverArtId)
-                                  : null;
-
-                              return AlbumListItem(
-                                album: album,
-                                coverArtUrl: coverArtUrl,
-                                onTap: () {
-                                  if (_apiService != null) {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => AlbumDetailsPage(
-                                          album: album,
-                                          apiService: _apiService!,
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                },
-                              );
-                            },
-                          ),
-              ),
-            ),
-            if (_apiService != null)
-              MiniPlayer(
+          if (_apiService != null)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: MiniPlayer(
                 apiService: _apiService!,
                 onTap: () {
                   Navigator.push(
@@ -191,8 +149,126 @@ class _HomePageState extends State<HomePage> {
                   );
                 },
               ),
-          ],
-        ),
+            ),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_rounded),
+            label: 'home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.library_music_rounded),
+            label: 'library',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_rounded),
+            label: 'settings',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHomeView() {
+    return const Scaffold(
+      body: Center(
+        child: Text('welcome home'),
+      ),
+    );
+  }
+
+  Widget _buildLibraryView() {
+    return RefreshIndicator(
+      onRefresh: () => _loadAlbums(refresh: true),
+      child: CustomScrollView(
+        controller: _scrollController,
+        slivers: [
+          const SliverAppBar.large(
+            title: Text('library'),
+          ),
+          if (_isLoading && _albums.isEmpty)
+            const SliverFillRemaining(
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_albums.isEmpty)
+            const SliverFillRemaining(
+              child: Center(child: Text('no albums found')),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.only(top: 8, bottom: 100),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    if (index == _albums.length) {
+                      return const Padding(
+                        padding: EdgeInsets.all(32.0),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+                    final album = _albums[index];
+                    final coverArtId = album['coverArt'];
+                    final String? coverArtUrl = _apiService != null && coverArtId != null
+                        ? _apiService!.getCoverArtUrl(coverArtId)
+                        : null;
+
+                    return AlbumListItem(
+                      album: album,
+                      coverArtUrl: coverArtUrl,
+                      onTap: () {
+                        if (_apiService != null) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AlbumDetailsPage(
+                                album: album,
+                                apiService: _apiService!,
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                    );
+                  },
+                  childCount: _albums.length + (_hasMore ? 1 : 0),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsView() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('settings'),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.logout_rounded),
+              title: const Text('logout'),
+              subtitle: const Text('sign out of your navidrome server'),
+              onTap: _handleLogout,
+              textColor: colorScheme.error,
+              iconColor: colorScheme.error,
+            ),
+          ),
+        ],
       ),
     );
   }

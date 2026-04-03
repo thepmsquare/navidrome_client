@@ -14,65 +14,81 @@ class TrackListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // lowercase title and artist
-    final String title = (track['title'] ?? 'unknown title').toString().toLowerCase();
-    final String artist = (track['artist'] ?? 'unknown artist').toString().toLowerCase();
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    // note: we are preserving the original case from the api for metadata.
+    final String title = (track['title'] ?? 'unknown title').toString();
+    final String artist = (track['artist'] ?? 'unknown artist').toString();
     
-    // duration formatting
     final int durationInSeconds = (track['duration'] as num?)?.toInt() ?? 0;
     final int minutes = durationInSeconds ~/ 60;
     final int seconds = durationInSeconds % 60;
     final String duration = '$minutes:${seconds.toString().padLeft(2, '0')}';
 
-    return ListTile(
-      leading: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: SizedBox(
-          width: 48,
-          height: 48,
-          child: coverArtUrl != null
-              ? Image.network(
-                  coverArtUrl!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return _buildPlaceholder();
-                  },
-                )
-              : _buildPlaceholder(),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                width: 48,
+                height: 48,
+                child: coverArtUrl != null
+                    ? Image.network(
+                        coverArtUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+                      )
+                    : _buildPlaceholder(),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    artist,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              duration,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
         ),
       ),
-      title: Text(
-        title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w500,
-            ),
-      ),
-      subtitle: Text(
-        artist,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.outline,
-            ),
-      ),
-      trailing: Text(
-        duration,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).colorScheme.outline,
-            ),
-      ),
-      onTap: onTap,
     );
   }
 
   Widget _buildPlaceholder() {
     return Container(
-      color: Colors.grey.withValues(alpha: 0.2),
-      child: const Icon(Icons.music_note_outlined, size: 24, color: Colors.grey),
+      color: Colors.grey.withValues(alpha: 0.1),
+      child: const Icon(Icons.music_note_rounded, size: 24, color: Colors.grey),
     );
   }
 }

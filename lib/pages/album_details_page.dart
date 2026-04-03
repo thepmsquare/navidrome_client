@@ -42,7 +42,8 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('failed to load tracks: ${e.toString().toLowerCase()}')),
+          // note: we are preserving the original case from the api for error messages.
+          SnackBar(content: Text('failed to load tracks: ${e.toString()}')),
         );
       }
     }
@@ -50,61 +51,76 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final String albumName = (widget.album['name'] ?? 'unknown album').toString().toLowerCase();
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    // note: we are preserving the original case from the api for metadata.
+    final String albumName = (widget.album['name'] ?? 'unknown album').toString();
     final String? coverArtId = widget.album['coverArt'];
-    final String? coverArtUrl = coverArtId != null ? widget.apiService.getCoverArtUrl(coverArtId, size: 400) : null;
+    final String? coverArtUrl = coverArtId != null ? widget.apiService.getCoverArtUrl(coverArtId, size: 600) : null;
 
     return Scaffold(
-      body: Column(
+      body: Stack(
         children: [
-          Expanded(
-            child: CustomScrollView(
-              slivers: [
-                SliverAppBar(
-                  pinned: true,
-                  expandedHeight: 300,
-                  flexibleSpace: FlexibleSpaceBar(
-                    title: Text(
-                      albumName,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        shadows: [Shadow(blurRadius: 4, color: Colors.black45, offset: Offset(2, 2))],
-                        fontSize: 16,
-                      ),
-                    ),
-                    background: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        if (coverArtUrl != null)
-                          Image.network(
-                            coverArtUrl,
-                            fit: BoxFit.cover,
-                          )
-                        else
-                          Container(color: Theme.of(context).colorScheme.surfaceContainerHighest),
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Colors.black.withValues(alpha: 0.0), Colors.black.withValues(alpha: 0.7)],
-                            ),
-                          ),
+          CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                pinned: true,
+                expandedHeight: 300,
+                backgroundColor: colorScheme.surface,
+                flexibleSpace: FlexibleSpaceBar(
+                  title: Text(
+                    albumName,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      shadows: [
+                        const Shadow(
+                          blurRadius: 12,
+                          color: Colors.black54,
+                          offset: Offset(0, 2),
                         ),
                       ],
                     ),
                   ),
+                  titlePadding: const EdgeInsets.only(left: 56, bottom: 16),
+                  background: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (coverArtUrl != null)
+                        Image.network(
+                          coverArtUrl,
+                          fit: BoxFit.cover,
+                        )
+                      else
+                        Container(color: colorScheme.surfaceContainerHighest),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withValues(alpha: 0.6),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                if (_isLoading)
-                  const SliverFillRemaining(
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else if (_tracks.isEmpty)
-                  const SliverFillRemaining(
-                    child: Center(child: Text('no tracks in this album')),
-                  )
-                else
-                  SliverList(
+              ),
+              if (_isLoading)
+                const SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_tracks.isEmpty)
+                const SliverFillRemaining(
+                  child: Center(child: Text('no tracks in this album')),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 100),
+                  sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         final track = _tracks[index];
@@ -124,20 +140,25 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                       childCount: _tracks.length,
                     ),
                   ),
-              ],
-            ),
-          ),
-          MiniPlayer(
-            apiService: widget.apiService,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => PlayerPage(apiService: widget.apiService),
-                  fullscreenDialog: true,
                 ),
-              );
-            },
+            ],
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: MiniPlayer(
+              apiService: widget.apiService,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PlayerPage(apiService: widget.apiService),
+                    fullscreenDialog: true,
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),

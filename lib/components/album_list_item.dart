@@ -14,55 +14,84 @@ class AlbumListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String name = (album['name'] ?? 'unknown album').toString().toLowerCase();
-    final String artist = (album['artist'] ?? 'unknown artist').toString().toLowerCase();
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    // note: we are preserving the original case from the api for metadata.
+    final String name = (album['name'] ?? 'unknown album').toString();
+    final String artist = (album['artist'] ?? 'unknown artist').toString();
     final int songCount = (album['songCount'] as num?)?.toInt() ?? 0;
 
-    return ListTile(
-      leading: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: SizedBox(
-          width: 56,
-          height: 56,
-          child: coverArtUrl != null
-              ? Image.network(
-                  coverArtUrl!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
-                )
-              : _buildPlaceholder(),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                width: 64,
+                height: 64,
+                child: coverArtUrl != null
+                    ? Image.network(
+                        coverArtUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+                      )
+                    : _buildPlaceholder(),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    artist,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '$songCount tracks',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
-      title: Text(
-        name,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-      ),
-      subtitle: Text(
-        artist,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.outline,
-            ),
-      ),
-      trailing: Text(
-        '$songCount tracks',
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).colorScheme.outline,
-            ),
-      ),
-      onTap: onTap,
     );
   }
 
   Widget _buildPlaceholder() {
     return Container(
-      color: Colors.grey.withValues(alpha: 0.2),
-      child: const Icon(Icons.album_outlined, size: 28, color: Colors.grey),
+      color: Colors.grey.withValues(alpha: 0.1),
+      child: const Icon(Icons.album_rounded, size: 32, color: Colors.grey),
     );
   }
 }

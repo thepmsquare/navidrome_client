@@ -16,6 +16,8 @@ class MiniPlayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final playerService = PlayerService();
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return StreamBuilder<int?>(
       stream: playerService.currentIndexStream,
@@ -23,109 +25,106 @@ class MiniPlayer extends StatelessWidget {
         final track = playerService.currentTrack;
         if (track == null) return const SizedBox.shrink();
 
-        final title = (track['title'] ?? 'unknown title').toString().toLowerCase();
-        final artist = (track['artist'] ?? 'unknown artist').toString().toLowerCase();
+        // note: we are preserving the original case from the api for metadata.
+        final title = (track['title'] ?? 'unknown title').toString();
+        final artist = (track['artist'] ?? 'unknown artist').toString();
         final coverArtId = track['coverArt'];
         final coverArtUrl = coverArtId != null && apiService != null
             ? apiService!.getCoverArtUrl(coverArtId)
             : null;
 
-        return GestureDetector(
-          onTap: onTap,
-          child: Container(
-            height: 64,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHigh,
-              border: Border(
-                top: BorderSide(
-                  color: Theme.of(context).dividerColor.withValues(alpha: 0.1),
-                ),
+        return Padding(
+          padding: const EdgeInsets.only(left: 12, right: 12, bottom: 12),
+          child: GestureDetector(
+            onTap: onTap,
+            child: Card(
+              elevation: 4,
+              shadowColor: Colors.black.withValues(alpha: 0.2),
+              color: colorScheme.surfaceContainerHighest,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: SizedBox(
-                    width: 48,
-                    height: 48,
-                    child: coverArtUrl != null
-                        ? Image.network(
-                            coverArtUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
-                          )
-                        : _buildPlaceholder(),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              child: Container(
+                height: 72,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: SizedBox(
+                        width: 56,
+                        height: 56,
+                        child: coverArtUrl != null
+                            ? Image.network(
+                                coverArtUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+                              )
+                            : _buildPlaceholder(),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
-                      ),
-                      Text(
-                        artist,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.outline,
+                          ),
+                          Text(
+                            artist,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
                             ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-                StreamBuilder<PlayerState>(
-                  stream: playerService.player.playerStateStream,
-                  builder: (context, snapshot) {
-                    final playerState = snapshot.data;
-                    final processingState = playerState?.processingState;
-                    final playing = playerState?.playing ?? false;
+                    ),
+                    StreamBuilder<PlayerState>(
+                      stream: playerService.player.playerStateStream,
+                      builder: (context, snapshot) {
+                        final playerState = snapshot.data;
+                        final processingState = playerState?.processingState;
+                        final playing = playerState?.playing ?? false;
 
-                    if (processingState == ProcessingState.loading ||
-                        processingState == ProcessingState.buffering) {
-                      return const Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      );
-                    }
-
-                    return IconButton(
-                      onPressed: () {
-                        if (playing) {
-                          playerService.pause();
-                        } else {
-                          playerService.resume();
+                        if (processingState == ProcessingState.loading ||
+                            processingState == ProcessingState.buffering) {
+                          return const Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 3),
+                            ),
+                          );
                         }
+
+                        return IconButton.filledTonal(
+                          onPressed: () {
+                            if (playing) {
+                              playerService.pause();
+                            } else {
+                              playerService.resume();
+                            }
+                          },
+                          icon: Icon(
+                            playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                            size: 32,
+                          ),
+                        );
                       },
-                      icon: Icon(
-                        playing ? Icons.pause : Icons.play_arrow,
-                        size: 32,
-                      ),
-                    );
-                  },
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         );
@@ -135,8 +134,8 @@ class MiniPlayer extends StatelessWidget {
 
   Widget _buildPlaceholder() {
     return Container(
-      color: Colors.grey.withValues(alpha: 0.2),
-      child: const Icon(Icons.music_note_outlined, size: 24, color: Colors.grey),
+      color: Colors.grey.withValues(alpha: 0.1),
+      child: const Icon(Icons.music_note_rounded, size: 28, color: Colors.grey),
     );
   }
 }
