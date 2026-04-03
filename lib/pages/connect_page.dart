@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:navidrome_client/services/api_service.dart';
+import 'package:navidrome_client/services/auth_service.dart';
 
 class ConnectPage extends StatefulWidget {
   const ConnectPage({super.key});
@@ -12,7 +14,9 @@ class _ConnectPageState extends State<ConnectPage> {
   final _urlController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _authService = AuthService();
   bool _isPasswordVisible = false;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -22,9 +26,46 @@ class _ConnectPageState extends State<ConnectPage> {
     super.dispose();
   }
 
-  void _handleConnect() {
+  Future<void> _handleConnect() async {
     if (_formKey.currentState!.validate()) {
-      Navigator.pushReplacementNamed(context, '/home');
+      setState(() {
+        _isLoading = true;
+      });
+
+      final url = _urlController.text.trim();
+      final username = _usernameController.text.trim();
+      final password = _passwordController.text.trim();
+
+      try {
+        final apiService = ApiService(
+          baseUrl: url,
+          username: username,
+          password: password,
+        );
+
+        final success = await apiService.ping();
+        if (success) {
+          await _authService.saveCredentials(url, username, password);
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, '/home');
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('connection failed: ${e.toString().toLowerCase()}'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     }
   }
 
@@ -62,6 +103,7 @@ class _ConnectPageState extends State<ConnectPage> {
                     const SizedBox(height: 48),
                     TextFormField(
                       controller: _urlController,
+                      enabled: !_isLoading,
                       decoration: const InputDecoration(
                         labelText: 'server url',
                         hintText: 'https://demo.navidrome.org',
@@ -79,6 +121,7 @@ class _ConnectPageState extends State<ConnectPage> {
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _usernameController,
+                      enabled: !_isLoading,
                       decoration: const InputDecoration(
                         labelText: 'username',
                         prefixIcon: Icon(Icons.person_outline),
@@ -94,6 +137,7 @@ class _ConnectPageState extends State<ConnectPage> {
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _passwordController,
+                      enabled: !_isLoading,
                       obscureText: !_isPasswordVisible,
                       decoration: InputDecoration(
                         labelText: 'password',
@@ -121,13 +165,22 @@ class _ConnectPageState extends State<ConnectPage> {
                     ),
                     const SizedBox(height: 32),
                     FilledButton(
-                      onPressed: _handleConnect,
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Text(
-                          'connect',
-                          style: TextStyle(fontSize: 16),
-                        ),
+                      onPressed: _isLoading ? null : _handleConnect,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text(
+                                'connect',
+                                style: TextStyle(fontSize: 16),
+                              ),
                       ),
                     ),
                   ],
