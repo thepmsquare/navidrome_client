@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:navidrome_client/services/offline_service.dart';
+import 'package:navidrome_client/components/offline_image.dart';
 
-class AlbumListItem extends StatelessWidget {
+class AlbumListItem extends StatefulWidget {
   final Map<String, dynamic> album;
   final String? coverArtUrl;
   final VoidCallback onTap;
@@ -13,16 +16,57 @@ class AlbumListItem extends StatelessWidget {
   });
 
   @override
+  State<AlbumListItem> createState() => _AlbumListItemState();
+}
+
+class _AlbumListItemState extends State<AlbumListItem> {
+  late final OfflineService _offline;
+  late String _albumId;
+  bool _isOffline = false;
+  double _progress = 0.0;
+  StreamSubscription<OfflineProgress>? _progressSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _offline = OfflineService();
+    _albumId = widget.album['id'].toString();
+    // #7: synchronous check using in-memory set
+    _isOffline = _offline.isAlbumOfflineSync(_albumId);
+    _subscribeToProgress();
+  }
+
+  void _subscribeToProgress() {
+    _progressSub?.cancel();
+    _progressSub = _offline.getDownloadProgress(_albumId).listen((p) {
+      if (!mounted) return;
+      setState(() {
+        _progress = p.fraction;
+        if (p.isDone) _isOffline = _offline.isAlbumOfflineSync(_albumId);
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _progressSub?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+
     // note: we are preserving the original case from the api for metadata.
-    final String name = (album['name'] ?? 'unknown album').toString();
-    final String artist = (album['artist'] ?? 'unknown artist').toString();
-    final int songCount = (album['songCount'] as num?)?.toInt() ?? 0;
+    final String name = (widget.album['name'] ?? 'unknown album').toString();
+    final String artist = (widget.album['artist'] ?? 'unknown artist').toString();
+    final int songCount = (widget.album['songCount'] as num?)?.toInt() ?? 0;
+
+    final bool isDownloading = _progress > 0 && _progress < 1.0;
 
     return InkWell(
-      onTap: onTap,
+      onTap: widget.onTap,
       borderRadius: BorderRadius.circular(16),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -30,16 +74,12 @@ class AlbumListItem extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: SizedBox(
+              child: OfflineImage(
+                coverArtId: widget.album['coverArt']?.toString(),
+                remoteUrl: widget.coverArtUrl,
                 width: 64,
                 height: 64,
-                child: coverArtUrl != null
-                    ? Image.network(
-                        coverArtUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
-                      )
-                    : _buildPlaceholder(),
+                placeholder: _buildPlaceholder(),
               ),
             ),
             const SizedBox(width: 16),
@@ -56,13 +96,37 @@ class AlbumListItem extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    artist,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                  Row(
+                    children: [
+                      if (isDownloading) ...[
+                        SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            value: _progress,
+                            strokeWidth: 2,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ] else if (_isOffline) ...[
+                        Icon(
+                          Icons.check_circle_rounded,
+                          size: 16,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      Flexible(
+                        child: Text(
+                          artist,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

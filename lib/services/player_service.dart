@@ -3,6 +3,7 @@ import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:navidrome_client/services/api_service.dart';
+import 'package:navidrome_client/services/offline_service.dart';
 
 class PlayerService {
   static final PlayerService _instance = PlayerService._internal();
@@ -89,23 +90,47 @@ class PlayerService {
     _apiService = apiService;
     _lastScrobbledId = null;
     _lastSubmittedId = null;
-    
+
+    final offlineService = OfflineService();
+
+    // #8: resolve local paths for all tracks in parallel rather than sequentially
+    final localPaths = await Future.wait(
+      queue.map((t) => offlineService.getLocalPath(t['id'] as String)),
+    );
+    final localCoverPaths = await Future.wait(
+      queue.map((t) => offlineService.getLocalCoverArtPath(t['coverArt'] as String?)),
+    );
+
+    final playlistList = <AudioSource>[];
+    for (int i = 0; i < queue.length; i++) {
+      final track = queue[i];
+      final trackId = track['id'] as String;
+      final localPath = localPaths[i];
+      final localCoverPath = localCoverPaths[i];
+
+      final artUri = localCoverPath != null
+          ? Uri.file(localCoverPath)
+          : Uri.parse(apiService.getCoverArtUrl(trackId));
+
+      final tag = MediaItem(
+        id: trackId,
+        // note: we are preserving the original case from the api for metadata.
+        album: track['album'] as String?,
+        title: (track['title'] as String?) ?? 'unknown',
+        artist: track['artist'] as String?,
+        artUri: artUri,
+      );
+
+      playlistList.add(
+        localPath != null
+            ? AudioSource.file(localPath, tag: tag)
+            : AudioSource.uri(Uri.parse(apiService.getStreamUrl(trackId)), tag: tag),
+      );
+    }
+
     final playlist = ConcatenatingAudioSource(
       useLazyPreparation: true,
-      children: queue.map((track) {
-        final trackId = track['id'] as String;
-        return AudioSource.uri(
-          Uri.parse(apiService.getStreamUrl(trackId)),
-          tag: MediaItem(
-            id: trackId,
-            // note: we are preserving the original case from the api for metadata.
-            album: (track['album'] as String?),
-            title: (track['title'] as String?) ?? 'unknown',
-            artist: (track['artist'] as String?),
-            artUri: Uri.parse(apiService.getCoverArtUrl(trackId)),
-          ),
-        );
-      }).toList(),
+      children: playlistList,
     );
 
     try {

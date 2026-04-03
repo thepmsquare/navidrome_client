@@ -4,6 +4,7 @@ import 'package:just_audio_background/just_audio_background.dart';
 import 'package:navidrome_client/pages/connect_page.dart';
 import 'package:navidrome_client/pages/home_page.dart';
 import 'package:navidrome_client/services/auth_service.dart';
+import 'package:navidrome_client/services/offline_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -12,6 +13,9 @@ void main() async {
     androidNotificationChannelName: 'audio playback',
     androidNotificationOngoing: true,
   );
+  // load offline state into memory before any UI renders
+  await OfflineService().initialize();
+
   final authService = AuthService();
   final isLoggedIn = await authService.isLoggedIn;
   

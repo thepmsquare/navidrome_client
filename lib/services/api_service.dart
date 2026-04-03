@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:navidrome_client/utils/subsonic_utils.dart';
+import 'package:navidrome_client/services/offline_service.dart';
+import 'dart:io';
 
 class ApiService {
   final String _baseUrl;
@@ -57,19 +59,33 @@ class ApiService {
 
   Future<Map<String, dynamic>> _get(String method, [Map<String, String> params = const {}]) async {
     final url = _buildUrl(method, params);
-    final response = await http.get(Uri.parse(url));
+    
+    try {
+      final response = await http.get(Uri.parse(url));
 
-    if (response.statusCode == 200) {
-      final decoded = jsonDecode(response.body);
-      final subsonicResponse = decoded['subsonic-response'];
-      if (subsonicResponse['status'] == 'ok') {
-        return subsonicResponse;
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        final subsonicResponse = decoded['subsonic-response'];
+        if (subsonicResponse['status'] == 'ok') {
+          return subsonicResponse;
+        } else {
+          final error = subsonicResponse['error'];
+          throw Exception(error != null ? '${error['message']} (code ${error['code']})' : 'unknown api error');
+        }
       } else {
-        final error = subsonicResponse['error'];
-        throw Exception(error != null ? '${error['message']} (code ${error['code']})' : 'unknown api error');
+        throw Exception('http error: ${response.statusCode}');
       }
-    } else {
-      throw Exception('http error: ${response.statusCode}');
+    } on SocketException {
+      OfflineService().triggerOfflineAutoToggle();
+      rethrow;
+    } catch (e) {
+      final errorStr = e.toString();
+      if (errorStr.contains('Failed host lookup') || 
+          errorStr.contains('Connection failed') ||
+          errorStr.contains('Network is unreachable')) {
+        OfflineService().triggerOfflineAutoToggle();
+      }
+      rethrow;
     }
   }
 
