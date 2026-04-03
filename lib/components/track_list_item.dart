@@ -71,7 +71,7 @@ class TrackListItem extends StatelessWidget {
 
   Widget _buildPlaceholder() {
     return Container(
-      color: Colors.grey.withOpacity(0.2),
+      color: Colors.grey.withValues(alpha: 0.2),
       child: const Icon(Icons.music_note_outlined, size: 24, color: Colors.grey),
     );
   }

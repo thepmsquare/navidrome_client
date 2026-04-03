@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:navidrome_client/services/api_service.dart';
@@ -78,7 +79,7 @@ class PlayerService {
       await _player.setAudioSource(playlist, initialIndex: initialIndex);
       await _player.play();
     } catch (e) {
-      print("error loading audio: $e");
+      debugPrint("error loading audio: $e");
     }
   }
 

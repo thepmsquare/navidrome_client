@@ -39,12 +39,12 @@ class MiniPlayer extends StatelessWidget {
               color: Theme.of(context).colorScheme.surfaceContainerHigh,
               border: Border(
                 top: BorderSide(
-                  color: Theme.of(context).dividerColor.withOpacity(0.1),
+                  color: Theme.of(context).dividerColor.withValues(alpha: 0.1),
                 ),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 4,
                   offset: const Offset(0, -2),
                 ),
@@ -135,7 +135,7 @@ class MiniPlayer extends StatelessWidget {
 
   Widget _buildPlaceholder() {
     return Container(
-      color: Colors.grey.withOpacity(0.2),
+      color: Colors.grey.withValues(alpha: 0.2),
       child: const Icon(Icons.music_note_outlined, size: 24, color: Colors.grey),
     );
   }

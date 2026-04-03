@@ -87,7 +87,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                             gradient: LinearGradient(
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
-                              colors: [Colors.black.withOpacity(0.0), Colors.black.withOpacity(0.7)],
+                              colors: [Colors.black.withValues(alpha: 0.0), Colors.black.withValues(alpha: 0.7)],
                             ),
                           ),
                         ),

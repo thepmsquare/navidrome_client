@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import 'package:navidrome_client/utils/subsonic_utils.dart';
 
 class ApiService {
@@ -50,7 +51,7 @@ class ApiService {
         'submission': submission.toString(),
       });
     } catch (e) {
-      print('scrobble failed: $e');
+      debugPrint('scrobble failed: $e');
     }
   }
 

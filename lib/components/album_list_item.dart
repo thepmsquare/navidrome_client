@@ -61,7 +61,7 @@ class AlbumListItem extends StatelessWidget {
 
   Widget _buildPlaceholder() {
     return Container(
-      color: Colors.grey.withOpacity(0.2),
+      color: Colors.grey.withValues(alpha: 0.2),
       child: const Icon(Icons.album_outlined, size: 28, color: Colors.grey),
     );
   }

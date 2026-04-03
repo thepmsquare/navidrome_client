@@ -101,7 +101,7 @@ class _PlayerPageState extends State<PlayerPage> {
                           Text(
                             album,
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Theme.of(context).colorScheme.outline.withOpacity(0.7),
+                                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.7),
                                 ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

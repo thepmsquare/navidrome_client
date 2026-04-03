@@ -21,7 +21,7 @@ class MyApp extends StatelessWidget {
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
         return MaterialApp(
-          title: 'navidrome client',
+          title: 'navidrome client by thepmsquare',
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
             colorScheme: lightDynamic ??
