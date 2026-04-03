@@ -98,9 +98,9 @@ class ApiService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getAlbums({int count = 50, int offset = 0}) async {
+  Future<List<Map<String, dynamic>>> getAlbums({String type = 'newest', int count = 50, int offset = 0}) async {
     final response = await _get('getAlbumList2', {
-      'type': 'newest',
+      'type': type,
       'size': count.toString(),
       'offset': offset.toString(),
     });
@@ -203,6 +203,24 @@ class ApiService {
       }
       return [];
     }
+    
+    if (songs is Map) {
+      return [Map<String, dynamic>.from(songs)];
+    }
+    
+    return List<Map<String, dynamic>>.from(songs);
+  }
+
+  Future<List<Map<String, dynamic>>> getRandomSongs({int count = 10}) async {
+    final response = await _get('getRandomSongs', {
+      'size': count.toString(),
+    });
+    
+    final randomSongs = response['randomSongs'];
+    if (randomSongs == null) return [];
+    
+    final songs = randomSongs['song'];
+    if (songs == null) return [];
     
     if (songs is Map) {
       return [Map<String, dynamic>.from(songs)];

@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:navidrome_client/components/album_list_item.dart';
+import 'package:navidrome_client/components/album_tile.dart';
 import 'package:navidrome_client/components/playlist_list_item.dart';
+import 'package:navidrome_client/components/track_list_item.dart';
 import 'package:navidrome_client/components/mini_player.dart';
 import 'package:navidrome_client/pages/player_page.dart';
 import 'package:navidrome_client/pages/album_details_page.dart';
 import 'package:navidrome_client/pages/playlist_details_page.dart';
 import 'package:navidrome_client/services/api_service.dart';
+import 'package:navidrome_client/services/player_service.dart';
 import 'package:navidrome_client/services/auth_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
 
@@ -26,8 +29,11 @@ class _HomePageState extends State<HomePage> {
 
   List<Map<String, dynamic>> _albums = [];
   List<Map<String, dynamic>> _playlists = [];
+  List<Map<String, dynamic>> _mostPlayedAlbums = [];
+  List<Map<String, dynamic>> _randomTracks = [];
   bool _isLoading = true;
   bool _isLoadingPlaylists = false;
+  bool _isLoadingHome = false;
   bool _isFetchingMore = false;
   bool _hasMore = true;
   int _offset = 0;
@@ -71,6 +77,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _initApiService().then((_) {
+      _loadHomeContent();
       _loadAlbums();
       _loadPlaylists();
     });
@@ -98,6 +105,45 @@ class _HomePageState extends State<HomePage> {
     _debounce?.cancel();
     OfflineService().offlineModeNotifier.removeListener(_onOfflineModeChanged);
     super.dispose();
+  }
+
+  Future<void> _loadHomeContent() async {
+    if (_apiService == null || _isOfflineMode) return;
+
+    setState(() { _isLoadingHome = true; });
+
+    try {
+      final results = await Future.wait([
+        _apiService!.getAlbums(type: 'frequent', count: 20),
+        _apiService!.getRandomSongs(count: 10),
+      ]);
+
+      if (mounted) {
+        setState(() {
+          _mostPlayedAlbums = results[0];
+          _randomTracks = results[1];
+          _isLoadingHome = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() { _isLoadingHome = false; });
+      }
+    }
+  }
+
+  Future<void> _refreshRandomTracks() async {
+    if (_apiService == null || _isOfflineMode) return;
+    try {
+      final tracks = await _apiService!.getRandomSongs(count: 10);
+      if (mounted) {
+        setState(() {
+          _randomTracks = tracks;
+        });
+      }
+    } catch (e) {
+      debugPrint('failed to refresh random tracks: $e');
+    }
   }
 
   Future<void> _initApiService() async {
@@ -327,8 +373,111 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildHomeView() {
-    return const Scaffold(
-      body: Center(child: Text('welcome home')),
+    if (_isLoadingHome && _mostPlayedAlbums.isEmpty && _randomTracks.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_isOfflineMode) {
+      return const Center(child: Text('home content not available offline'));
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('home')),
+      body: RefreshIndicator(
+        onRefresh: _loadHomeContent,
+        child: ListView(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          children: [
+            // Most Played Section
+            if (_mostPlayedAlbums.isNotEmpty) ...[
+              _buildSectionHeader('most played'),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 220,
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _mostPlayedAlbums.length,
+                  separatorBuilder: (context, index) => const SizedBox(width: 16),
+                  itemBuilder: (context, index) {
+                    final album = _mostPlayedAlbums[index];
+                    return AlbumTile(
+                      album: album,
+                      apiService: _apiService!,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => AlbumDetailsPage(
+                              album: album,
+                              apiService: _apiService!,
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+
+            // Random Tracks Section
+            if (_randomTracks.isNotEmpty) ...[
+              _buildSectionHeader(
+                'random tracks',
+                trailing: IconButton(
+                  icon: const Icon(Icons.refresh_rounded, size: 20),
+                  onPressed: _refreshRandomTracks,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: EdgeInsets.zero,
+                itemCount: _randomTracks.length,
+                itemBuilder: (context, index) {
+                  final track = _randomTracks[index];
+                  final String? coverArtId = track['coverArt']?.toString();
+                  final String? coverArtUrl = _apiService != null && coverArtId != null
+                      ? _apiService!.getCoverArtUrl(coverArtId)
+                      : null;
+
+                  return TrackListItem(
+                    track: track,
+                    coverArtUrl: coverArtUrl,
+                    apiService: _apiService,
+                    onTap: () {
+                      PlayerService().play(_randomTracks, index, _apiService!);
+                    },
+                  );
+                },
+              ),
+              const SizedBox(height: 100), // padding for mini player
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, {Widget? trailing}) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          if (trailing != null) trailing,
+        ],
+      ),
     );
   }
 
