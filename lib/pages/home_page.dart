@@ -5,6 +5,7 @@ import 'package:navidrome_client/components/album_tile.dart';
 import 'package:navidrome_client/components/playlist_list_item.dart';
 import 'package:navidrome_client/components/track_list_item.dart';
 import 'package:navidrome_client/components/mini_player.dart';
+import 'package:navidrome_client/utils/disk_utility.dart';
 import 'package:navidrome_client/pages/player_page.dart';
 import 'package:navidrome_client/pages/album_details_page.dart';
 import 'package:navidrome_client/pages/playlist_details_page.dart';
@@ -29,6 +30,8 @@ class _HomePageState extends State<HomePage> {
   final _sessionService = SessionService();
   final ScrollController _scrollController = ScrollController();
   int _selectedIndex = 0; // default to Home per user's "first time" request
+  int _offlineSize = 0;
+  bool _isRefreshingStorage = false;
 
   List<Map<String, dynamic>> _albums = [];
   List<Map<String, dynamic>> _playlists = [];
@@ -515,6 +518,10 @@ class _HomePageState extends State<HomePage> {
           } else {
             setState(() { _selectedIndex = index; });
             _sessionService.setLastTabIndex(index);
+          }
+          
+          if (index == 2) {
+            _refreshStorageStats();
           }
         },
         destinations: const [
@@ -1034,6 +1041,69 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _refreshStorageStats() async {
+    if (_isRefreshingStorage) return;
+    setState(() {
+      _isRefreshingStorage = true;
+    });
+
+    final size = await DiskUtility.getOfflineSize();
+
+    if (mounted) {
+      setState(() {
+        _offlineSize = size;
+        _isRefreshingStorage = false;
+      });
+    }
+  }
+
+  Future<void> _confirmClearDownloads() async {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: Icon(Icons.warning_amber_rounded, color: colorScheme.error, size: 48),
+        title: Text(
+          'clear all downloads?',
+          style: theme.textTheme.headlineSmall?.copyWith(
+            color: colorScheme.error,
+            fontWeight: FontWeight.bold,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        content: const Text(
+          'this action is permanent and will remove all of your offline music and metadata. you will need to re-download everything if you want to listen offline again.',
+          textAlign: TextAlign.center,
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: colorScheme.error,
+              foregroundColor: colorScheme.onError,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('clear all'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      if (mounted) {
+        setState(() { _isRefreshingStorage = true; });
+        await OfflineService().clearAllDownloads();
+        await _refreshStorageStats();
+      }
+    }
+  }
+
   Widget _buildSettingsView() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -1048,6 +1118,43 @@ class _HomePageState extends State<HomePage> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              Card(
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.download_for_offline_rounded),
+                      title: const Text('downloads'),
+                      subtitle: Text(
+                        '${DiskUtility.formatBytes(_offlineSize)} of media saved offline',
+                      ),
+                      trailing: _isRefreshingStorage
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : IconButton(
+                              icon: const Icon(Icons.refresh_rounded),
+                              onPressed: _refreshStorageStats,
+                            ),
+                    ),
+                    if (_offlineSize > 0)
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: OutlinedButton.icon(
+                          onPressed: _confirmClearDownloads,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: colorScheme.error,
+                            side: BorderSide(color: colorScheme.error),
+                          ),
+                          icon: const Icon(Icons.delete_forever_rounded),
+                          label: const Text('clear all downloads'),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
               Card(
                 child: SwitchListTile(
                   secondary: const Icon(Icons.offline_pin_rounded),

@@ -606,6 +606,23 @@ class OfflineService extends ChangeNotifier {
       setOfflineMode(true);
     }
   }
+
+  /// #11: Clear all downloads and metadata
+  Future<void> clearAllDownloads() async {
+    final base = await _getStoragePath();
+    final dir = Directory(base);
+    if (await dir.exists()) {
+      await dir.delete(recursive: true);
+      // recreate base structure
+      await _getStoragePath();
+    }
+
+    _offlineTrackIds.clear();
+    _offlineAlbumIds.clear();
+    _offlinePlaylistIds.clear();
+    _requestPersistence();
+    notifyListeners();
+  }
 }
 
 // ---------------------------------------------------------------------------
