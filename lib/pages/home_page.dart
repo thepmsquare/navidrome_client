@@ -1047,13 +1047,19 @@ class _HomePageState extends State<HomePage> {
       _isRefreshingStorage = true;
     });
 
-    final size = await DiskUtility.getOfflineSize();
-
-    if (mounted) {
-      setState(() {
-        _offlineSize = size;
-        _isRefreshingStorage = false;
-      });
+    try {
+      final size = await DiskUtility.getOfflineSize();
+      if (mounted) {
+        setState(() {
+          _offlineSize = size;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshingStorage = false;
+        });
+      }
     }
   }
 
@@ -1098,8 +1104,21 @@ class _HomePageState extends State<HomePage> {
     if (confirmed == true) {
       if (mounted) {
         setState(() { _isRefreshingStorage = true; });
-        await OfflineService().clearAllDownloads();
-        await _refreshStorageStats();
+        try {
+          await OfflineService().clearAllDownloads();
+          final size = await DiskUtility.getOfflineSize();
+          if (mounted) {
+            setState(() {
+              _offlineSize = size;
+            });
+          }
+        } finally {
+          if (mounted) {
+            setState(() {
+              _isRefreshingStorage = false;
+            });
+          }
+        }
       }
     }
   }

@@ -607,14 +607,37 @@ class OfflineService extends ChangeNotifier {
     }
   }
 
-  /// #11: Clear all downloads and metadata
+  /// #11: Clear all music downloads and specific metadata, but preserve internal list caches.
   Future<void> clearAllDownloads() async {
     final base = await _getStoragePath();
-    final dir = Directory(base);
-    if (await dir.exists()) {
-      await dir.delete(recursive: true);
-      // recreate base structure
-      await _getStoragePath();
+    
+    // Clear tracks and covers
+    final tracksDir = Directory('$base/tracks');
+    final coversDir = Directory('$base/covers');
+    if (await tracksDir.exists()) await tracksDir.delete(recursive: true);
+    if (await coversDir.exists()) await coversDir.delete(recursive: true);
+
+    // Recreate empty directories
+    await tracksDir.create(recursive: true);
+    await coversDir.create(recursive: true);
+
+    // Surgical clear of meta directory
+    final metaDir = Directory('$base/meta');
+    if (await metaDir.exists()) {
+      final cacheFiles = {
+        _albumListCacheFile,
+        _playlistListCacheFile,
+        _trackListCacheFile,
+      };
+
+      await for (final entity in metaDir.list()) {
+        if (entity is File) {
+          final fileName = entity.path.split(Platform.pathSeparator).last;
+          if (!cacheFiles.contains(fileName)) {
+            await entity.delete();
+          }
+        }
+      }
     }
 
     _offlineTrackIds.clear();
