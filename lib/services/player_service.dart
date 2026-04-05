@@ -1,11 +1,15 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
+import 'package:navidrome_client/services/session_service.dart';
+import 'package:navidrome_client/utils/constants.dart';
 
-class PlayerService {
+class PlayerService with WidgetsBindingObserver {
   static final PlayerService _instance = PlayerService._internal();
   factory PlayerService() => _instance;
 
@@ -14,17 +18,21 @@ class PlayerService {
   ApiService? _apiService;
   String? _lastScrobbledId;
   String? _lastSubmittedId;
+  final _sessionService = SessionService();
+  Timer? _positionSaveTimer;
 
   PlayerService._internal() {
     _init();
   }
 
   Future<void> _init() async {
+    WidgetsBinding.instance.addObserver(this);
     final session = await AudioSession.instance;
     await session.configure(const AudioSessionConfiguration.music());
 
     _player.currentIndexStream.listen((index) {
       if (index != null && index >= 0 && index < _currentQueue.length) {
+        _sessionService.setLastIndex(index);
         final track = _currentQueue[index];
         final id = track['id'] as String;
         if (id != _lastScrobbledId) {
@@ -45,6 +53,22 @@ class PlayerService {
         }
       }
     });
+
+    // periodic position saving
+    _positionSaveTimer = Timer.periodic(sessionSaveInterval, (_) => _saveCurrentPosition());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _saveCurrentPosition();
+    }
+  }
+
+  Future<void> _saveCurrentPosition() async {
+    if (_player.playing || _player.position > Duration.zero) {
+      await _sessionService.setLastPositionMs(_player.position.inMilliseconds);
+    }
   }
 
   AudioPlayer get player => _player;
@@ -82,7 +106,6 @@ class PlayerService {
         return;
       } catch (e) {
         debugPrint("error seeking to track: $e");
-        // if seeking fails, fall back to reloading the queue
       }
     }
 
@@ -91,9 +114,49 @@ class PlayerService {
     _lastScrobbledId = null;
     _lastSubmittedId = null;
 
-    final offlineService = OfflineService();
+    // persist session
+    _sessionService.setLastQueue(_currentQueue);
+    _sessionService.setLastIndex(initialIndex);
 
-    // #8: resolve local paths for all tracks in parallel rather than sequentially
+    final playlist = await _buildAudioSource(_currentQueue, apiService);
+
+    try {
+      await _player.stop();
+      await _player.setAudioSource(playlist, initialIndex: initialIndex);
+      await _player.play();
+    } catch (e) {
+      debugPrint("error loading audio: $e");
+      _currentQueue = [];
+    }
+  }
+
+  Future<void> restoreSession(ApiService apiService) async {
+    final queue = await _sessionService.lastQueue;
+    if (queue == null || queue.isEmpty) return;
+
+    final index = await _sessionService.lastIndex;
+    final positionMs = await _sessionService.lastPositionMs;
+
+    _currentQueue = queue;
+    _apiService = apiService;
+
+    final playlist = await _buildAudioSource(_currentQueue, apiService);
+
+    try {
+      await _player.setAudioSource(
+        playlist,
+        initialIndex: index < queue.length ? index : 0,
+        initialPosition: Duration(milliseconds: positionMs),
+      );
+      // do not auto-play on restoration per plan
+    } catch (e) {
+      debugPrint("error restoring session: $e");
+      _currentQueue = [];
+    }
+  }
+
+  Future<ConcatenatingAudioSource> _buildAudioSource(List<Map<String, dynamic>> queue, ApiService apiService) async {
+    final offlineService = OfflineService();
     final localPaths = await Future.wait(
       queue.map((t) => offlineService.getLocalPath(t['id'] as String)),
     );
@@ -114,7 +177,6 @@ class PlayerService {
 
       final tag = MediaItem(
         id: trackId,
-        // note: we are preserving the original case from the api for metadata.
         album: track['album'] as String?,
         title: (track['title'] as String?) ?? 'unknown',
         artist: track['artist'] as String?,
@@ -128,21 +190,10 @@ class PlayerService {
       );
     }
 
-    final playlist = ConcatenatingAudioSource(
+    return ConcatenatingAudioSource(
       useLazyPreparation: true,
       children: playlistList,
     );
-
-    try {
-      // stop the player before setting a new source to ensure a clean transition across all platforms.
-      await _player.stop();
-      await _player.setAudioSource(playlist, initialIndex: initialIndex);
-      await _player.play();
-    } catch (e) {
-      debugPrint("error loading audio: $e");
-      // reset state on failure
-      _currentQueue = [];
-    }
   }
 
   Future<void> pause() => _player.pause();
@@ -153,6 +204,8 @@ class PlayerService {
   Future<void> skipToPrevious() => _player.seekToPrevious();
   
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _positionSaveTimer?.cancel();
     _player.dispose();
   }
 }

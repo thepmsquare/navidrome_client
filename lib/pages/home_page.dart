@@ -13,6 +13,7 @@ import 'package:navidrome_client/services/player_service.dart';
 import 'package:navidrome_client/services/auth_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
 import 'package:navidrome_client/components/offline_indicator.dart';
+import 'package:navidrome_client/services/session_service.dart';
 
 enum LibraryView { home, albums, playlists, tracks }
 
@@ -25,8 +26,9 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final _authService = AuthService();
+  final _sessionService = SessionService();
   final ScrollController _scrollController = ScrollController();
-  int _selectedIndex = 1; // default to Library per user preference
+  int _selectedIndex = 0; // default to Home per user's "first time" request
 
   List<Map<String, dynamic>> _albums = [];
   List<Map<String, dynamic>> _playlists = [];
@@ -81,7 +83,13 @@ class _HomePageState extends State<HomePage> {
       _loadHomeContent();
       _loadAlbums();
       _loadPlaylists();
+      // restore playback session once API is ready
+      if (_apiService != null) {
+        PlayerService().restoreSession(_apiService!);
+      }
     });
+
+    _loadSessionState();
     _scrollController.addListener(_onScroll);
 
     // #20: listen for auto-toggles
@@ -96,6 +104,31 @@ class _HomePageState extends State<HomePage> {
         if (_albums.isEmpty) _loadFromCache();
         if (_playlists.isEmpty) _loadPlaylistsFromCache();
       }
+    }
+  }
+
+  Future<void> _loadSessionState() async {
+    final isFirstRun = await _sessionService.isFirstRun;
+    if (!isFirstRun) {
+      final tabIndex = await _sessionService.lastTabIndex;
+      final libViewName = await _sessionService.lastLibraryView;
+      
+      LibraryView? libView;
+      if (libViewName != null) {
+        try {
+          libView = LibraryView.values.byName(libViewName);
+        } catch (_) {}
+      }
+
+      if (mounted) {
+        setState(() {
+          _selectedIndex = tabIndex;
+          if (libView != null) _currentLibraryView = libView;
+        });
+      }
+    } else {
+      // mark first run as complete after first render
+      await _sessionService.setNotFirstRun();
     }
   }
 
@@ -369,9 +402,13 @@ class _HomePageState extends State<HomePage> {
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
           if (index == 1 && _selectedIndex == 1) {
-            setState(() { _currentLibraryView = LibraryView.home; });
+            setState(() { 
+              _currentLibraryView = LibraryView.home;
+              _sessionService.setLastLibraryView('home');
+            });
           } else {
             setState(() { _selectedIndex = index; });
+            _sessionService.setLastTabIndex(index);
           }
         },
         destinations: const [
@@ -517,6 +554,7 @@ class _HomePageState extends State<HomePage> {
               setState(() {
                 _currentLibraryView = LibraryView.playlists;
               });
+              _sessionService.setLastLibraryView('playlists');
               _loadPlaylists();
             },
           ),
@@ -532,6 +570,7 @@ class _HomePageState extends State<HomePage> {
               setState(() {
                 _currentLibraryView = LibraryView.albums;
               });
+              _sessionService.setLastLibraryView('albums');
             },
           ),
         ],
