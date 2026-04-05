@@ -39,7 +39,15 @@ class _TrackListItemState extends State<TrackListItem> {
     _trackId = widget.track['id'].toString();
     // #7: synchronous check — no async needed if initialize() was called at startup
     _isOffline = _offline.isTrackOfflineSync(_trackId);
+    _offline.addListener(_onOfflineServiceChanged);
     _subscribeToProgress();
+  }
+
+  void _onOfflineServiceChanged() {
+    final status = _offline.isTrackOfflineSync(_trackId);
+    if (status != _isOffline) {
+      if (mounted) setState(() { _isOffline = status; });
+    }
   }
 
   void _subscribeToProgress() {
@@ -67,6 +75,7 @@ class _TrackListItemState extends State<TrackListItem> {
 
   @override
   void dispose() {
+    _offline.removeListener(_onOfflineServiceChanged);
     _progressSub?.cancel();
     super.dispose();
   }

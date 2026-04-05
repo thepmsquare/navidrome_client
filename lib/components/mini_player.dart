@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:navidrome_client/services/player_service.dart';
 import 'package:navidrome_client/services/api_service.dart';
+import 'package:navidrome_client/components/offline_image.dart';
 
 class MiniPlayer extends StatelessWidget {
   final ApiService? apiService;
@@ -57,14 +58,12 @@ class MiniPlayer extends StatelessWidget {
                       child: SizedBox(
                         width: 56,
                         height: 56,
-                        child: coverArtUrl != null
-                            ? Image.network(
-                                coverArtUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    _buildPlaceholder(),
-                              )
-                            : _buildPlaceholder(),
+                        child: OfflineImage(
+                          coverArtId: coverArtId?.toString(),
+                          remoteUrl: coverArtUrl,
+                          fit: BoxFit.cover,
+                          placeholder: _buildPlaceholder(),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 16),

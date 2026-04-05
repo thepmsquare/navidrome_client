@@ -33,6 +33,7 @@ class _OfflineImageState extends State<OfflineImage> {
   @override
   void initState() {
     super.initState();
+    OfflineService().addListener(_resolve);
     _resolve();
   }
 
@@ -49,11 +50,19 @@ class _OfflineImageState extends State<OfflineImage> {
   Future<void> _resolve() async {
     final path = await OfflineService().getLocalCoverArtPath(widget.coverArtId);
     if (mounted) {
-      setState(() {
-        _localPath = path;
-        _resolved = true;
-      });
+      if (path != _localPath || !_resolved) {
+        setState(() {
+          _localPath = path;
+          _resolved = true;
+        });
+      }
     }
+  }
+
+  @override
+  void dispose() {
+    OfflineService().removeListener(_resolve);
+    super.dispose();
   }
 
   @override
@@ -74,6 +83,7 @@ class _OfflineImageState extends State<OfflineImage> {
         width: widget.width,
         height: widget.height,
         fit: widget.fit,
+        gaplessPlayback: true,
         errorBuilder: (context, error, stackTrace) => _buildRemote(),
       );
     } else {
@@ -94,6 +104,7 @@ class _OfflineImageState extends State<OfflineImage> {
       width: widget.width,
       height: widget.height,
       fit: widget.fit,
+      gaplessPlayback: true,
       errorBuilder: (context, error, stackTrace) => widget.placeholder,
     );
   }

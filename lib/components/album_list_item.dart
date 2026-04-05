@@ -33,7 +33,15 @@ class _AlbumListItemState extends State<AlbumListItem> {
     _albumId = widget.album['id'].toString();
     // #7: synchronous check using in-memory set
     _isOffline = _offline.isAlbumOfflineSync(_albumId);
+    _offline.addListener(_onOfflineServiceChanged);
     _subscribeToProgress();
+  }
+
+  void _onOfflineServiceChanged() {
+    final status = _offline.isAlbumOfflineSync(_albumId);
+    if (status != _isOffline) {
+      if (mounted) setState(() { _isOffline = status; });
+    }
   }
 
   void _subscribeToProgress() {
@@ -49,6 +57,7 @@ class _AlbumListItemState extends State<AlbumListItem> {
 
   @override
   void dispose() {
+    _offline.removeListener(_onOfflineServiceChanged);
     _progressSub?.cancel();
     super.dispose();
   }

@@ -117,6 +117,16 @@ class _HomePageState extends State<HomePage> {
 
     // #20: listen for auto-toggles
     OfflineService().offlineModeNotifier.addListener(_onOfflineModeChanged);
+    OfflineService().addListener(_onOfflineCompletion);
+  }
+
+  void _onOfflineCompletion() {
+    if (!mounted) return;
+    // Only rebuild the whole page if we are in offline mode (to filter the list).
+    // Individual items (TrackListItem, etc.) already handle their own icons via listeners.
+    if (OfflineService().isOfflineMode) {
+      setState(() {});
+    }
   }
 
   void _onOfflineModeChanged() {
@@ -162,6 +172,7 @@ class _HomePageState extends State<HomePage> {
     _searchController.dispose();
     _debounce?.cancel();
     OfflineService().offlineModeNotifier.removeListener(_onOfflineModeChanged);
+    OfflineService().removeListener(_onOfflineCompletion);
     super.dispose();
   }
 

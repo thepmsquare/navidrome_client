@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:navidrome_client/services/api_service.dart';
 
-class OfflineService {
+class OfflineService extends ChangeNotifier {
   static const String _offlineTracksKey = 'offline_tracks';
   static const String _offlineAlbumsKey = 'offline_albums';
   static const String _offlinePlaylistsKey = 'offline_playlists';
@@ -36,6 +36,10 @@ class OfflineService {
   // #12: track active downloads for cancellation and controller cleanup
   final Map<String, CancelToken> _cancelTokens = {};
   final Map<String, StreamController<OfflineProgress>> _progressControllers = {};
+  
+  // throttling for UI updates during download
+  final Map<String, DateTime> _lastProgressEmitted = {};
+  Timer? _persistenceTimer;
 
   static final OfflineService _instance = OfflineService._internal();
   factory OfflineService() => _instance;
@@ -70,8 +74,11 @@ class OfflineService {
     });
   }
 
+  @override
   void dispose() {
     _connectivitySub?.cancel();
+    _persistenceTimer?.cancel();
+    super.dispose();
   }
 
   // ---------------------------------------------------------------------------
@@ -131,32 +138,36 @@ class OfflineService {
   }
 
   void _emitProgress(String id, double fraction, {bool done = false}) {
-    _progressControllers[id]?.add(OfflineProgress(fraction: fraction, isDone: done));
     if (done) {
-      // #12: close and remove controller when download finishes
+      _progressControllers[id]?.add(OfflineProgress(fraction: fraction, isDone: done));
       _progressControllers[id]?.close();
       _progressControllers.remove(id);
       _cancelTokens.remove(id);
+      _lastProgressEmitted.remove(id);
+      return;
+    }
+
+    // throttle updates to ~10Hz to prevent UI flickering/rebuild overload
+    final now = DateTime.now();
+    final last = _lastProgressEmitted[id];
+    if (last == null || now.difference(last) > const Duration(milliseconds: 100)) {
+      _lastProgressEmitted[id] = now;
+      _progressControllers[id]?.add(OfflineProgress(fraction: fraction, isDone: false));
     }
   }
 
   // ---------------------------------------------------------------------------
-  // SharedPreferences sync helpers
+  // SharedPreferences sync helpers — debounced to avoid I/O pressure
   // ---------------------------------------------------------------------------
 
-  Future<void> _persistTrackIds() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_offlineTracksKey, _offlineTrackIds.toList());
-  }
-
-  Future<void> _persistAlbumIds() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_offlineAlbumsKey, _offlineAlbumIds.toList());
-  }
-
-  Future<void> _persistPlaylistIds() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_offlinePlaylistsKey, _offlinePlaylistIds.toList());
+  void _requestPersistence() {
+    _persistenceTimer?.cancel();
+    _persistenceTimer = Timer(const Duration(seconds: 1), () async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_offlineTracksKey, _offlineTrackIds.toList());
+      await prefs.setStringList(_offlineAlbumsKey, _offlineAlbumIds.toList());
+      await prefs.setStringList(_offlinePlaylistsKey, _offlinePlaylistIds.toList());
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -170,6 +181,7 @@ class OfflineService {
 
     try {
       await _dio.download(apiService.getCoverArtUrl(coverArtId, size: 600), path);
+      notifyListeners(); // notify to update images (OfflineImage)
     } catch (e) {
       debugPrint('cover art $coverArtId download failed: $e');
     }
@@ -225,8 +237,9 @@ class OfflineService {
       }
 
       _offlineTrackIds.add(trackId);
-      await _persistTrackIds();
+      _requestPersistence();
       _emitProgress(trackId, 1.0, done: true);
+      notifyListeners();
     } on DioException catch (e) {
       if (CancelToken.isCancel(e)) {
         debugPrint('track $trackId download cancelled');
@@ -286,8 +299,9 @@ class OfflineService {
     }
 
     _offlineAlbumIds.add(albumId);
-    await _persistAlbumIds();
+    _requestPersistence();
     _emitProgress(albumId, 1.0, done: true);
+    notifyListeners();
   }
 
   // ---------------------------------------------------------------------------
@@ -331,8 +345,9 @@ class OfflineService {
     }
 
     _offlinePlaylistIds.add(playlistId);
-    await _persistPlaylistIds();
+    _requestPersistence();
     _emitProgress(playlistId, 1.0, done: true);
+    notifyListeners();
   }
 
   // ---------------------------------------------------------------------------
@@ -353,7 +368,8 @@ class OfflineService {
     if (await file.exists()) await file.delete();
 
     _offlineTrackIds.remove(trackId);
-    await _persistTrackIds();
+    _requestPersistence();
+    notifyListeners();
   }
 
   /// #10: deletes all tracks, album metadata, and associated cover art.
@@ -391,7 +407,8 @@ class OfflineService {
     }
 
     _offlineAlbumIds.remove(albumId);
-    await _persistAlbumIds();
+    _requestPersistence();
+    notifyListeners();
   }
 
   /// Deletes all local files for tracks in the playlist and the playlist metadata.
@@ -429,7 +446,8 @@ class OfflineService {
     }
 
     _offlinePlaylistIds.remove(playlistId);
-    await _persistPlaylistIds();
+    _requestPersistence();
+    notifyListeners();
   }
 
   Future<bool> _isTrackUsedElsewhere(String trackId, {String? excludeAlbumId, String? excludePlaylistId}) async {
@@ -579,6 +597,7 @@ class OfflineService {
     offlineModeNotifier.value = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_offlineModeKey, value);
+    notifyListeners();
   }
 
   /// Triggered by api failures to automatically switch into offline mode

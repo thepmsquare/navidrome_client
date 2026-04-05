@@ -40,7 +40,12 @@ class _PlaylistDetailsPageState extends State<PlaylistDetailsPage> {
     _isOfflineMode = offline.isOfflineMode;
     _isPlaylistOffline = offline.isPlaylistOfflineSync(widget.playlist['id'].toString());
     _subscribeToPlaylistProgress();
+    OfflineService().addListener(_onOfflineStatusChanged);
     _loadTracks();
+  }
+
+  void _onOfflineStatusChanged() {
+    if (mounted) setState(() {});
   }
 
   void _subscribeToPlaylistProgress() {
@@ -59,6 +64,7 @@ class _PlaylistDetailsPageState extends State<PlaylistDetailsPage> {
   @override
   void dispose() {
     _playlistProgressSub?.cancel();
+    OfflineService().removeListener(_onOfflineStatusChanged);
     super.dispose();
   }
 

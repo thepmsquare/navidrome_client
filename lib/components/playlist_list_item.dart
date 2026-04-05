@@ -32,7 +32,15 @@ class _PlaylistListItemState extends State<PlaylistListItem> {
     _offline = OfflineService();
     _playlistId = widget.playlist['id'].toString();
     _isOffline = _offline.isPlaylistOfflineSync(_playlistId);
+    _offline.addListener(_onOfflineServiceChanged);
     _subscribeToProgress();
+  }
+
+  void _onOfflineServiceChanged() {
+    final status = _offline.isPlaylistOfflineSync(_playlistId);
+    if (status != _isOffline) {
+      if (mounted) setState(() { _isOffline = status; });
+    }
   }
 
   void _subscribeToProgress() {
@@ -48,6 +56,7 @@ class _PlaylistListItemState extends State<PlaylistListItem> {
 
   @override
   void dispose() {
+    _offline.removeListener(_onOfflineServiceChanged);
     _progressSub?.cancel();
     super.dispose();
   }

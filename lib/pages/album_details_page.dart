@@ -30,7 +30,6 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
   late final bool _isOfflineMode;
   bool _isAlbumOffline = false;
 
-  double _albumDownloadProgress = 0.0;
   StreamSubscription<OfflineProgress>? _albumProgressSub;
 
   @override
@@ -40,25 +39,44 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
     _isOfflineMode = offline.isOfflineMode;
     _isAlbumOffline = offline.isAlbumOfflineSync(widget.album['id'].toString());
     _subscribeToAlbumProgress();
+    OfflineService().addListener(_onOfflineStatusChanged);
     _loadTracks();
+  }
+
+
+  void _onOfflineStatusChanged() {
+    if (!mounted) return;
+    // Only rebuild the whole page if we are in offline mode (to filter the list)
+    // or if the album's own status changed.
+    final newStatus = OfflineService().isAlbumOfflineSync(widget.album['id'].toString());
+    if (_isOfflineMode || newStatus != _isAlbumOffline) {
+      setState(() {
+        _isAlbumOffline = newStatus;
+      });
+    }
   }
 
   void _subscribeToAlbumProgress() {
     final albumId = widget.album['id'].toString();
     _albumProgressSub = OfflineService().getDownloadProgress(albumId).listen((p) {
       if (!mounted) return;
-      setState(() {
-        _albumDownloadProgress = p.fraction;
-        if (p.isDone) {
-          _isAlbumOffline = OfflineService().isAlbumOfflineSync(widget.album['id'].toString());
+      // We no longer call setState() here for progress only.
+      // The progress is handled by a StreamBuilder in the UI.
+      if (p.isDone) {
+        final newStatus = OfflineService().isAlbumOfflineSync(widget.album['id'].toString());
+        if (newStatus != _isAlbumOffline) {
+          setState(() {
+            _isAlbumOffline = newStatus;
+          });
         }
-      });
+      }
     });
   }
 
   @override
   void dispose() {
     _albumProgressSub?.cancel();
+    OfflineService().removeListener(_onOfflineStatusChanged);
     super.dispose();
   }
 
@@ -121,7 +139,6 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
         ? widget.apiService.getCoverArtUrl(coverArtId, size: 600)
         : null;
 
-    final bool isDownloading = _albumDownloadProgress > 0 && _albumDownloadProgress < 1.0;
 
     return Scaffold(
       body: Column(
@@ -171,37 +188,46 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            IconButton.filledTonal(
-                              icon: isDownloading
-                                  ? SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        value: _albumDownloadProgress,
-                                        strokeWidth: 2,
-                                        color: colorScheme.onSecondaryContainer,
-                                      ),
-                                    )
-                                  : _isAlbumOffline
-                                      ? const Icon(Icons.download_done_rounded, size: 20)
-                                      : const Icon(Icons.download_for_offline_rounded, size: 20),
-                              onPressed: isDownloading || (_isAlbumOffline && !_isOfflineMode) || (_tracks.isEmpty && !_isOfflineMode)
-                                  ? null
-                                  : () {
-                                      if (_isAlbumOffline) {
-                                        _showDeleteAlbumConfirmation(context);
-                                      } else {
-                                        OfflineService().downloadAlbum(
-                                          widget.album['id'].toString(),
-                                          _tracks,
-                                          widget.apiService,
-                                        );
-                                      }
-                                    },
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.white.withValues(alpha: 0.2),
-                                foregroundColor: Colors.white,
-                              ),
+                            StreamBuilder<OfflineProgress>(
+                              stream: OfflineService().getDownloadProgress(widget.album['id'].toString()),
+                              builder: (context, snapshot) {
+                                final p = snapshot.data;
+                                final double progress = p?.fraction ?? 0.0;
+                                final bool downloading = p != null && !p.isDone && progress > 0;
+
+                                return IconButton.filledTonal(
+                                  icon: downloading
+                                      ? SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            value: progress,
+                                            strokeWidth: 2,
+                                            color: colorScheme.onSecondaryContainer,
+                                          ),
+                                        )
+                                      : _isAlbumOffline
+                                          ? const Icon(Icons.download_done_rounded, size: 20)
+                                          : const Icon(Icons.download_for_offline_rounded, size: 20),
+                                  onPressed: downloading || (_isAlbumOffline && !_isOfflineMode) || (_tracks.isEmpty && !_isOfflineMode)
+                                      ? null
+                                      : () {
+                                          if (_isAlbumOffline) {
+                                            _showDeleteAlbumConfirmation(context);
+                                          } else {
+                                            OfflineService().downloadAlbum(
+                                              widget.album['id'].toString(),
+                                              _tracks,
+                                              widget.apiService,
+                                            );
+                                          }
+                                        },
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: Colors.white.withValues(alpha: 0.2),
+                                    foregroundColor: Colors.white,
+                                  ),
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -317,7 +343,6 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
       if (mounted) {
         setState(() {
           _isAlbumOffline = false;
-          _albumDownloadProgress = 0.0;
         });
       }
     }
