@@ -12,6 +12,7 @@ import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/player_service.dart';
 import 'package:navidrome_client/services/auth_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
+import 'package:navidrome_client/components/offline_indicator.dart';
 
 enum LibraryView { home, albums, playlists, tracks }
 
@@ -324,34 +325,44 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
+      body: Column(
         children: [
-          IndexedStack(
-            index: _selectedIndex,
-            children: [
-              _buildHomeView(),
-              _buildLibraryView(),
-              _buildSettingsView(),
-            ],
+          const SafeArea(
+            bottom: false,
+            child: OfflineIndicator(),
           ),
-          if (_apiService != null)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: MiniPlayer(
-                apiService: _apiService!,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => PlayerPage(apiService: _apiService!),
-                      fullscreenDialog: true,
+          Expanded(
+            child: Stack(
+              children: [
+                IndexedStack(
+                  index: _selectedIndex,
+                  children: [
+                    _buildHomeView(),
+                    _buildLibraryView(),
+                    _buildSettingsView(),
+                  ],
+                ),
+                if (_apiService != null)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: MiniPlayer(
+                      apiService: _apiService!,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PlayerPage(apiService: _apiService!),
+                            fullscreenDialog: true,
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
+                  ),
+              ],
             ),
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(
