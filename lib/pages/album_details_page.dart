@@ -29,6 +29,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
 
   late final bool _isOfflineMode;
   bool _isAlbumOffline = false;
+  bool _downloadErrorShown = false;
 
   StreamSubscription<OfflineProgress>? _albumProgressSub;
 
@@ -60,8 +61,14 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
     final albumId = widget.album['id'].toString();
     _albumProgressSub = OfflineService().getDownloadProgress(albumId).listen((p) {
       if (!mounted) return;
-      // We no longer call setState() here for progress only.
-      // The progress is handled by a StreamBuilder in the UI.
+      
+      if (p.hasError && !_downloadErrorShown) {
+        _downloadErrorShown = true;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('some tracks failed to download. please try again.')),
+        );
+      }
+
       if (p.isDone) {
         final newStatus = OfflineService().isAlbumOfflineSync(widget.album['id'].toString());
         if (newStatus != _isAlbumOffline) {
@@ -215,6 +222,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                                           if (_isAlbumOffline) {
                                             _showDeleteAlbumConfirmation(context);
                                           } else {
+                                            _downloadErrorShown = false;
                                             OfflineService().downloadAlbum(
                                               widget.album['id'].toString(),
                                               _tracks,

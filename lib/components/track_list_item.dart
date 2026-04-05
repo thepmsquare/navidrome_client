@@ -188,7 +188,7 @@ class _TrackListItemState extends State<TrackListItem> {
 
     return IconButton(
       icon: const Icon(Icons.download_for_offline_rounded, size: 20),
-      onPressed: () => _offline.downloadTrack(widget.track, widget.apiService!),
+      onPressed: () => _offline.downloadTrack(widget.track, widget.apiService!, isExplicit: true),
       style: IconButton.styleFrom(
         padding: EdgeInsets.zero,
         minimumSize: const Size(32, 32),

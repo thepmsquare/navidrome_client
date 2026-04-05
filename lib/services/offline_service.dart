@@ -7,9 +7,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:navidrome_client/services/api_service.dart';
+import 'package:background_downloader/background_downloader.dart';
 
 class OfflineService extends ChangeNotifier {
   static const String _offlineTracksKey = 'offline_tracks';
+  static const String _explicitOfflineTracksKey = 'explicit_offline_tracks';
   static const String _offlineAlbumsKey = 'offline_albums';
   static const String _offlinePlaylistsKey = 'offline_playlists';
   static const String _offlineModeKey = 'offline_mode';
@@ -24,6 +26,7 @@ class OfflineService extends ChangeNotifier {
 
   // #7: in-memory sets for O(1) synchronous checks — no disk I/O in build()
   Set<String> _offlineTrackIds = {};
+  Set<String> _explicitOfflineTrackIds = {};
   Set<String> _offlineAlbumIds = {};
   Set<String> _offlinePlaylistIds = {};
   bool _isOfflineMode = false;
@@ -34,7 +37,7 @@ class OfflineService extends ChangeNotifier {
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
 
   // #12: track active downloads for cancellation and controller cleanup
-  final Map<String, CancelToken> _cancelTokens = {};
+  final Set<String> _cancelledDownloads = {};
   final Map<String, StreamController<OfflineProgress>> _progressControllers = {};
   
   // throttling for UI updates during download
@@ -54,6 +57,7 @@ class OfflineService extends ChangeNotifier {
     if (_isInitialized) return;
     final prefs = await SharedPreferences.getInstance();
     _offlineTrackIds = Set<String>.from(prefs.getStringList(_offlineTracksKey) ?? []);
+    _explicitOfflineTrackIds = Set<String>.from(prefs.getStringList(_explicitOfflineTracksKey) ?? []);
     _offlineAlbumIds = Set<String>.from(prefs.getStringList(_offlineAlbumsKey) ?? []);
     _offlinePlaylistIds = Set<String>.from(prefs.getStringList(_offlinePlaylistsKey) ?? []);
     _isOfflineMode = prefs.getBool(_offlineModeKey) ?? false;
@@ -142,7 +146,7 @@ class OfflineService extends ChangeNotifier {
       _progressControllers[id]?.add(OfflineProgress(fraction: fraction, isDone: done));
       _progressControllers[id]?.close();
       _progressControllers.remove(id);
-      _cancelTokens.remove(id);
+      _cancelledDownloads.remove(id);
       _lastProgressEmitted.remove(id);
       return;
     }
@@ -165,6 +169,7 @@ class OfflineService extends ChangeNotifier {
     _persistenceTimer = Timer(const Duration(seconds: 1), () async {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(_offlineTracksKey, _offlineTrackIds.toList());
+      await prefs.setStringList(_explicitOfflineTracksKey, _explicitOfflineTrackIds.toList());
       await prefs.setStringList(_offlineAlbumsKey, _offlineAlbumIds.toList());
       await prefs.setStringList(_offlinePlaylistsKey, _offlinePlaylistIds.toList());
     });
@@ -209,46 +214,61 @@ class OfflineService extends ChangeNotifier {
     return await File(path).exists() ? path : null;
   }
 
-  Future<void> downloadTrack(Map<String, dynamic> track, ApiService apiService) async {
+  Future<void> downloadTrack(Map<String, dynamic> track, ApiService apiService, {bool isExplicit = false}) async {
     final trackId = track['id'] as String;
-    if (_offlineTrackIds.contains(trackId)) return; // #duplicate: already downloaded
+    
+    if (_offlineTrackIds.contains(trackId)) {
+      // #duplicate: already downloaded, tag explicit
+      if (isExplicit && !_explicitOfflineTrackIds.contains(trackId)) {
+        _explicitOfflineTrackIds.add(trackId);
+        _requestPersistence();
+      }
+      return; 
+    }
 
     final base = await _getStoragePath();
     final path = _trackPath(base, trackId);
-
-    // #11: create cancel token for this download
-    final cancelToken = CancelToken();
-    _cancelTokens[trackId] = cancelToken;
+    _cancelledDownloads.remove(trackId);
 
     try {
-      await _dio.download(
-        apiService.getStreamUrl(trackId),
-        path,
-        cancelToken: cancelToken,
-        onReceiveProgress: (count, total) {
-          if (total > 0) _emitProgress(trackId, count / total);
+      final task = DownloadTask(
+        taskId: trackId,
+        url: apiService.getStreamUrl(trackId),
+        filename: '$trackId.audio',
+        directory: 'offline/tracks',
+        baseDirectory: (Platform.isWindows || Platform.isMacOS || Platform.isLinux) 
+            ? BaseDirectory.applicationSupport 
+            : BaseDirectory.applicationDocuments,
+        updates: Updates.statusAndProgress,
+      );
+
+      final status = await FileDownloader().download(
+        task,
+        onProgress: (progress) {
+          if (progress > 0) _emitProgress(trackId, progress);
         },
       );
 
-      // also cache cover art (deduplication handled inside)
-      final coverArtId = track['coverArt'] as String?;
-      if (coverArtId != null) {
-        await downloadCoverArt(coverArtId, apiService);
-      }
+      if (status == TaskStatus.complete) {
+        // also cache cover art (deduplication handled inside)
+        final coverArtId = track['coverArt'] as String?;
+        if (coverArtId != null) {
+          await downloadCoverArt(coverArtId, apiService);
+        }
 
-      _offlineTrackIds.add(trackId);
-      _requestPersistence();
-      _emitProgress(trackId, 1.0, done: true);
-      notifyListeners();
-    } on DioException catch (e) {
-      if (CancelToken.isCancel(e)) {
+        _offlineTrackIds.add(trackId);
+        if (isExplicit) _explicitOfflineTrackIds.add(trackId);
+        
+        _requestPersistence();
+        _emitProgress(trackId, 1.0, done: true);
+        notifyListeners();
+      } else if (status == TaskStatus.canceled) {
         debugPrint('track $trackId download cancelled');
-        // clean up partial file
         final f = File(path);
         if (await f.exists()) await f.delete();
       } else {
-        debugPrint('track $trackId download failed: $e');
-        rethrow;
+        debugPrint('track $trackId download failed: $status');
+        throw Exception('Download failed with status $status');
       }
     } catch (e) {
       debugPrint('track $trackId download failed: $e');
@@ -271,13 +291,14 @@ class OfflineService extends ChangeNotifier {
     final controller = _progressControllers.putIfAbsent(
       albumId, () => StreamController<OfflineProgress>.broadcast(),
     );
-    _cancelTokens.putIfAbsent(albumId, () => CancelToken());
+    _cancelledDownloads.remove(albumId);
 
     int completed = 0;
+    bool hasErrors = false;
 
     for (final track in tracks) {
       // #11: check if album-level cancel was requested
-      if (_cancelTokens[albumId]?.isCancelled == true) break;
+      if (_cancelledDownloads.contains(albumId)) break;
 
       final trackId = track['id'] as String;
       if (_offlineTrackIds.contains(trackId)) {
@@ -294,12 +315,22 @@ class OfflineService extends ChangeNotifier {
       } catch (e) {
         debugPrint('skipping track $trackId in album $albumId: $e');
         completed++;
+        hasErrors = true;
         controller.add(OfflineProgress(fraction: completed / tracks.length, hasError: true));
       }
     }
 
-    _offlineAlbumIds.add(albumId);
-    _requestPersistence();
+    if (_cancelledDownloads.contains(albumId)) {
+      _cancelledDownloads.remove(albumId);
+      _emitProgress(albumId, 1.0, done: true);
+      return;
+    }
+
+    if (!hasErrors) {
+      _offlineAlbumIds.add(albumId);
+      _requestPersistence();
+    }
+    
     _emitProgress(albumId, 1.0, done: true);
     notifyListeners();
   }
@@ -319,12 +350,13 @@ class OfflineService extends ChangeNotifier {
     final controller = _progressControllers.putIfAbsent(
       playlistId, () => StreamController<OfflineProgress>.broadcast(),
     );
-    _cancelTokens.putIfAbsent(playlistId, () => CancelToken());
+    _cancelledDownloads.remove(playlistId);
 
     int completed = 0;
+    bool hasErrors = false;
 
     for (final track in tracks) {
-      if (_cancelTokens[playlistId]?.isCancelled == true) break;
+      if (_cancelledDownloads.contains(playlistId)) break;
 
       final trackId = track['id'] as String;
       if (_offlineTrackIds.contains(trackId)) {
@@ -340,12 +372,22 @@ class OfflineService extends ChangeNotifier {
       } catch (e) {
         debugPrint('skipping track $trackId in playlist $playlistId: $e');
         completed++;
+        hasErrors = true;
         controller.add(OfflineProgress(fraction: completed / tracks.length, hasError: true));
       }
     }
 
-    _offlinePlaylistIds.add(playlistId);
-    _requestPersistence();
+    if (_cancelledDownloads.contains(playlistId)) {
+      _cancelledDownloads.remove(playlistId);
+      _emitProgress(playlistId, 1.0, done: true);
+      return;
+    }
+
+    if (!hasErrors) {
+      _offlinePlaylistIds.add(playlistId);
+      _requestPersistence();
+    }
+    
     _emitProgress(playlistId, 1.0, done: true);
     notifyListeners();
   }
@@ -355,7 +397,8 @@ class OfflineService extends ChangeNotifier {
   // ---------------------------------------------------------------------------
 
   void cancelDownload(String id) {
-    _cancelTokens[id]?.cancel('user cancelled');
+    _cancelledDownloads.add(id);
+    FileDownloader().cancelTaskWithId(id);
   }
 
   // ---------------------------------------------------------------------------
@@ -368,6 +411,7 @@ class OfflineService extends ChangeNotifier {
     if (await file.exists()) await file.delete();
 
     _offlineTrackIds.remove(trackId);
+    _explicitOfflineTrackIds.remove(trackId);
     _requestPersistence();
     notifyListeners();
   }
@@ -451,6 +495,8 @@ class OfflineService extends ChangeNotifier {
   }
 
   Future<bool> _isTrackUsedElsewhere(String trackId, {String? excludeAlbumId, String? excludePlaylistId}) async {
+    if (_explicitOfflineTrackIds.contains(trackId)) return true; // protected from aggregate deletion
+    
     // check other albums
     for (final albumId in _offlineAlbumIds) {
       if (albumId == excludeAlbumId) continue;
@@ -641,6 +687,7 @@ class OfflineService extends ChangeNotifier {
     }
 
     _offlineTrackIds.clear();
+    _explicitOfflineTrackIds.clear();
     _offlineAlbumIds.clear();
     _offlinePlaylistIds.clear();
     _requestPersistence();

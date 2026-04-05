@@ -22,6 +22,7 @@ dependencies:
   path_provider: ^2.1.2
   dio: ^5.4.1
   connectivity_plus: ^6.1.1
+  background_downloader: ^9.5.4
 
 dev_dependencies:
   flutter_test:

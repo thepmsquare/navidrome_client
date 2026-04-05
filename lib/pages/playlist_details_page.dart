@@ -29,6 +29,7 @@ class _PlaylistDetailsPageState extends State<PlaylistDetailsPage> {
 
   late final bool _isOfflineMode;
   bool _isPlaylistOffline = false;
+  bool _downloadErrorShown = false;
 
   double _playlistDownloadProgress = 0.0;
   StreamSubscription<OfflineProgress>? _playlistProgressSub;
@@ -52,6 +53,14 @@ class _PlaylistDetailsPageState extends State<PlaylistDetailsPage> {
     final playlistId = widget.playlist['id'].toString();
     _playlistProgressSub = OfflineService().getDownloadProgress(playlistId).listen((p) {
       if (!mounted) return;
+      
+      if (p.hasError && !_downloadErrorShown) {
+        _downloadErrorShown = true;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('some tracks failed to download. please try again.')),
+        );
+      }
+
       setState(() {
         _playlistDownloadProgress = p.fraction;
         if (p.isDone) {
@@ -197,6 +206,7 @@ class _PlaylistDetailsPageState extends State<PlaylistDetailsPage> {
                                       if (_isPlaylistOffline) {
                                         _showDeletePlaylistConfirmation(context);
                                       } else {
+                                        _downloadErrorShown = false;
                                         OfflineService().downloadPlaylist(
                                           widget.playlist['id'].toString(),
                                           _tracks,
