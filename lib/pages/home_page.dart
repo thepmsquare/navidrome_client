@@ -458,10 +458,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       body: Column(
         children: [
-          const SafeArea(
-            bottom: false,
-            child: OfflineIndicator(),
-          ),
+          const OfflineIndicator(),
           Expanded(
             child: Stack(
               children: [
@@ -527,9 +524,14 @@ class _HomePageState extends State<HomePage> {
       return const Center(child: Text('home content not available offline'));
     }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('home')),
-      body: RefreshIndicator(
+    return Column(
+      children: [
+        AppBar(
+          title: const Text('home'),
+          primary: !_isOfflineMode,
+        ),
+        Expanded(
+          child: RefreshIndicator(
         onRefresh: _loadHomeContent,
         child: ListView(
           padding: const EdgeInsets.symmetric(vertical: 16),
@@ -605,8 +607,10 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  ],
+);
+}
 
   Widget _buildSectionHeader(String title, {Widget? trailing}) {
     final theme = Theme.of(context);
@@ -641,44 +645,51 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildLibraryMenu() {
-    return Scaffold(
-      appBar: AppBar(title: const Text('library')),
-      body: ListView(
-        children: [
-          ListTile(
-            leading: const Icon(Icons.playlist_play_rounded),
-            title: const Text('playlists'),
-            onTap: () {
-              setState(() {
-                _currentLibraryView = LibraryView.playlists;
-              });
-              _sessionService.setLastLibraryView('playlists');
-              _loadPlaylists();
-            },
+    return Column(
+      children: [
+        AppBar(
+          title: const Text('library'),
+          primary: !_isOfflineMode,
+        ),
+        Expanded(
+          child: ListView(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.playlist_play_rounded),
+                title: const Text('playlists'),
+                onTap: () {
+                  setState(() {
+                    _currentLibraryView = LibraryView.playlists;
+                  });
+                  _sessionService.setLastLibraryView('playlists');
+                  _loadPlaylists();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.audiotrack_rounded),
+                title: const Text('tracks'),
+                onTap: () {
+                  setState(() {
+                    _currentLibraryView = LibraryView.tracks;
+                  });
+                  _sessionService.setLastLibraryView('tracks');
+                  _loadTracks();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.album_rounded),
+                title: const Text('albums'),
+                onTap: () {
+                  setState(() {
+                    _currentLibraryView = LibraryView.albums;
+                  });
+                  _sessionService.setLastLibraryView('albums');
+                },
+              ),
+            ],
           ),
-          ListTile(
-            leading: const Icon(Icons.audiotrack_rounded),
-            title: const Text('tracks'),
-            onTap: () {
-              setState(() {
-                _currentLibraryView = LibraryView.tracks;
-              });
-              _sessionService.setLastLibraryView('tracks');
-              _loadTracks();
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.album_rounded),
-            title: const Text('albums'),
-            onTap: () {
-              setState(() {
-                _currentLibraryView = LibraryView.albums;
-              });
-              _sessionService.setLastLibraryView('albums');
-            },
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -692,6 +703,7 @@ class _HomePageState extends State<HomePage> {
         controller: _scrollController,
         slivers: [
           SliverAppBar.large(
+            primary: !_isOfflineMode,
             title: _isSearchActive
                 ? TextField(
                     controller: _searchController,
@@ -809,6 +821,7 @@ class _HomePageState extends State<HomePage> {
         controller: _scrollController,
         slivers: [
           SliverAppBar.large(
+            primary: !_isOfflineMode,
             title: _isSearchActive
                 ? TextField(
                     controller: _searchController,
@@ -914,6 +927,7 @@ class _HomePageState extends State<HomePage> {
       child: CustomScrollView(
         slivers: [
           SliverAppBar.large(
+            primary: !_isOfflineMode,
             title: _isSearchActive
                 ? TextField(
                     controller: _searchController,
@@ -1013,32 +1027,39 @@ class _HomePageState extends State<HomePage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('settings')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Card(
-            child: SwitchListTile(
-              secondary: const Icon(Icons.offline_pin_rounded),
-              title: const Text('offline mode'),
-              subtitle: const Text('only show downloaded content'),
-              value: _isOfflineMode,
-              onChanged: _toggleOfflineMode,
-            ),
+    return Column(
+      children: [
+        AppBar(
+          title: const Text('settings'),
+          primary: !_isOfflineMode,
+        ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Card(
+                child: SwitchListTile(
+                  secondary: const Icon(Icons.offline_pin_rounded),
+                  title: const Text('offline mode'),
+                  subtitle: const Text('only show downloaded content'),
+                  value: _isOfflineMode,
+                  onChanged: _toggleOfflineMode,
+                ),
+              ),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.logout_rounded),
+                  title: const Text('logout'),
+                  subtitle: const Text('sign out of your navidrome server'),
+                  onTap: _handleLogout,
+                  textColor: colorScheme.error,
+                  iconColor: colorScheme.error,
+                ),
+              ),
+            ],
           ),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.logout_rounded),
-              title: const Text('logout'),
-              subtitle: const Text('sign out of your navidrome server'),
-              onTap: _handleLogout,
-              textColor: colorScheme.error,
-              iconColor: colorScheme.error,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
