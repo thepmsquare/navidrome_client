@@ -32,14 +32,18 @@ class _HomePageState extends State<HomePage> {
 
   List<Map<String, dynamic>> _albums = [];
   List<Map<String, dynamic>> _playlists = [];
+  List<Map<String, dynamic>> _tracks = [];
   List<Map<String, dynamic>> _mostPlayedAlbums = [];
   List<Map<String, dynamic>> _randomTracks = [];
   bool _isLoading = true;
   bool _isLoadingPlaylists = false;
+  bool _isLoadingTracks = false;
   bool _isLoadingHome = false;
   bool _isFetchingMore = false;
   bool _hasMore = true;
+  bool _hasMoreTracks = true;
   int _offset = 0;
+  int _tracksOffset = 0;
   final int _limit = 50;
   LibraryView _currentLibraryView = LibraryView.home;
   ApiService? _apiService;
@@ -76,6 +80,24 @@ class _HomePageState extends State<HomePage> {
     return result;
   }
 
+  List<Map<String, dynamic>> get _tracksToDisplay {
+    List<Map<String, dynamic>> result = _tracks;
+    if (_isOfflineMode) {
+      result = result
+          .where((t) => OfflineService().isTrackOfflineSync(t['id'].toString()))
+          .toList();
+    }
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      result = result
+          .where((t) =>
+              (t['title'] ?? '').toString().toLowerCase().contains(query) ||
+              (t['artist'] ?? '').toString().toLowerCase().contains(query))
+          .toList();
+    }
+    return result;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -83,6 +105,7 @@ class _HomePageState extends State<HomePage> {
       _loadHomeContent();
       _loadAlbums();
       _loadPlaylists();
+      _loadTracks();
       // restore playback session once API is ready
       if (_apiService != null) {
         PlayerService().restoreSession(_apiService!);
@@ -103,6 +126,7 @@ class _HomePageState extends State<HomePage> {
       if (OfflineService().isOfflineMode) {
         if (_albums.isEmpty) _loadFromCache();
         if (_playlists.isEmpty) _loadPlaylistsFromCache();
+        if (_tracks.isEmpty) _loadTracksFromCache();
       }
     }
   }
@@ -311,13 +335,84 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _loadTracksFromCache() async {
+    final cached = await OfflineService().getCachedTrackList();
+    if (cached != null && mounted) {
+      setState(() {
+        _tracks = cached;
+        _isLoadingTracks = false;
+        _hasMoreTracks = false;
+      });
+    } else if (mounted) {
+      setState(() { _isLoadingTracks = false; });
+    }
+  }
+
+  Future<void> _loadTracks({bool refresh = false}) async {
+    if (refresh) {
+      if (mounted) {
+        setState(() {
+          _tracksOffset = 0;
+          _tracks = [];
+          _hasMoreTracks = true;
+          _isLoadingTracks = true;
+        });
+      }
+    }
+
+    if (_isOfflineMode && _apiService == null) {
+      await _loadTracksFromCache();
+      return;
+    }
+
+    if (_apiService == null) return;
+
+    try {
+      final newTracks = await _apiService!.searchSongs(
+        _searchQuery.isEmpty ? '*' : _searchQuery,
+        count: _limit,
+        offset: _tracksOffset,
+      );
+
+      // cache page 1
+      if (_tracksOffset == 0 || refresh) {
+        await OfflineService().saveTrackListCache(newTracks);
+      }
+
+      if (mounted) {
+        setState(() {
+          _tracks.addAll(newTracks);
+          _isLoadingTracks = false;
+          _isFetchingMore = false;
+          _tracksOffset += newTracks.length;
+          if (newTracks.length < _limit) _hasMoreTracks = false;
+        });
+      }
+    } catch (e) {
+      if (_tracks.isEmpty) await _loadTracksFromCache();
+      if (mounted) {
+        setState(() {
+          _isLoadingTracks = false;
+          _isFetchingMore = false;
+        });
+      }
+    }
+  }
+
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-      if (!_isFetchingMore && _hasMore && !_isOfflineMode) {
-        if (mounted) {
-          setState(() { _isFetchingMore = true; });
-          _loadAlbums();
+      if (!_isFetchingMore && !_isOfflineMode) {
+        if (_currentLibraryView == LibraryView.albums && _hasMore) {
+          if (mounted) {
+            setState(() { _isFetchingMore = true; });
+            _loadAlbums();
+          }
+        } else if (_currentLibraryView == LibraryView.tracks && _hasMoreTracks) {
+          if (mounted) {
+            setState(() { _isFetchingMore = true; });
+            _loadTracks();
+          }
         }
       }
     }
@@ -337,6 +432,8 @@ class _HomePageState extends State<HomePage> {
         });
         if (_currentLibraryView == LibraryView.albums) {
           _loadAlbums(refresh: true);
+        } else if (_currentLibraryView == LibraryView.tracks) {
+          _loadTracks(refresh: true);
         }
         // playlists search is local via getter
       }
@@ -352,6 +449,7 @@ class _HomePageState extends State<HomePage> {
     if (value) {
       if (_albums.isEmpty) await _loadFromCache();
       if (_playlists.isEmpty) await _loadPlaylistsFromCache();
+      if (_tracks.isEmpty) await _loadTracksFromCache();
     }
   }
 
@@ -537,8 +635,8 @@ class _HomePageState extends State<HomePage> {
         return _buildAlbumList();
       case LibraryView.playlists:
         return _buildPlaylistList();
-      default:
-        return _buildLibraryMenu();
+      case LibraryView.tracks:
+        return _buildTrackList();
     }
   }
 
@@ -561,7 +659,13 @@ class _HomePageState extends State<HomePage> {
           ListTile(
             leading: const Icon(Icons.audiotrack_rounded),
             title: const Text('tracks'),
-            onTap: () {}, // "does nothing for now"
+            onTap: () {
+              setState(() {
+                _currentLibraryView = LibraryView.tracks;
+              });
+              _sessionService.setLastLibraryView('tracks');
+              _loadTracks();
+            },
           ),
           ListTile(
             leading: const Icon(Icons.album_rounded),
@@ -688,6 +792,112 @@ class _HomePageState extends State<HomePage> {
                     );
                   },
                   childCount: albums.length + ((_hasMore && !_isOfflineMode) ? 1 : 0),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrackList() {
+    final tracks = _tracksToDisplay;
+
+    return RefreshIndicator(
+      onRefresh: () => _loadTracks(refresh: true),
+      child: CustomScrollView(
+        controller: _scrollController,
+        slivers: [
+          SliverAppBar.large(
+            title: _isSearchActive
+                ? TextField(
+                    controller: _searchController,
+                    autofocus: true,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 18,
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: 'search tracks...',
+                      border: InputBorder.none,
+                      hintStyle: TextStyle(color: Colors.grey),
+                    ),
+                    onChanged: _onSearchChanged,
+                  )
+                : const Text('tracks'),
+            leading: IconButton(
+              icon: Icon(_isSearchActive ? Icons.close_rounded : Icons.arrow_back_rounded),
+              onPressed: () {
+                if (_isSearchActive) {
+                  setState(() {
+                    _isSearchActive = false;
+                    _searchQuery = '';
+                    _searchController.clear();
+                  });
+                  _loadTracks(refresh: true);
+                } else {
+                  setState(() {
+                    _currentLibraryView = LibraryView.home;
+                  });
+                }
+              },
+            ),
+            actions: [
+              if (!_isSearchActive && !_isOfflineMode)
+                IconButton(
+                  icon: const Icon(Icons.search_rounded),
+                  onPressed: () {
+                    setState(() {
+                      _isSearchActive = true;
+                    });
+                  },
+                ),
+            ],
+          ),
+          if (_isLoadingTracks && _tracks.isEmpty)
+            const SliverFillRemaining(
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (tracks.isEmpty)
+            SliverFillRemaining(
+              child: Center(
+                child: Text(
+                  _isOfflineMode ? 'no downloaded tracks' : 'no tracks found',
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.only(top: 8, bottom: 100),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    if (index == tracks.length) {
+                      return (_hasMoreTracks && !_isOfflineMode)
+                          ? const Padding(
+                              padding: EdgeInsets.all(32.0),
+                              child: Center(child: CircularProgressIndicator()),
+                            )
+                          : const SizedBox.shrink();
+                    }
+
+                    final track = tracks[index];
+                    final String? coverArtId = track['coverArt']?.toString();
+                    final String? coverArtUrl = _apiService != null && coverArtId != null
+                        ? _apiService!.getCoverArtUrl(coverArtId)
+                        : null;
+
+                    return TrackListItem(
+                      track: track,
+                      coverArtUrl: coverArtUrl,
+                      apiService: _apiService,
+                      onTap: () {
+                        // playback context is the current visible list
+                        PlayerService().play(tracks, index, _apiService!);
+                      },
+                    );
+                  },
+                  childCount: tracks.length + ((_hasMoreTracks && !_isOfflineMode) ? 1 : 0),
                 ),
               ),
             ),

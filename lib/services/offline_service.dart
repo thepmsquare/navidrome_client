@@ -15,6 +15,7 @@ class OfflineService {
   static const String _offlineModeKey = 'offline_mode';
   static const String _albumListCacheFile = 'album_list_cache.json';
   static const String _playlistListCacheFile = 'playlist_list_cache.json';
+  static const String _trackListCacheFile = 'track_list_cache.json';
 
   final Dio _dio = Dio();
 
@@ -107,6 +108,7 @@ class OfflineService {
   String _playlistMetaPath(String basePath, String playlistId) => '$basePath/meta/playlist_$playlistId.json';
   String _albumListCachePath(String basePath) => '$basePath/meta/$_albumListCacheFile';
   String _playlistListCachePath(String basePath) => '$basePath/meta/$_playlistListCacheFile';
+  String _trackListCachePath(String basePath) => '$basePath/meta/$_trackListCacheFile';
 
   // ---------------------------------------------------------------------------
   // Synchronous status checks — #7: O(1) using in-memory sets
@@ -544,6 +546,26 @@ class OfflineService {
       );
     } catch (e) {
       debugPrint('failed to read playlist list cache: $e');
+      return null;
+    }
+  }
+
+  Future<void> saveTrackListCache(List<Map<String, dynamic>> tracks) async {
+    final base = await _getStoragePath();
+    await File(_trackListCachePath(base)).writeAsString(jsonEncode(tracks));
+  }
+
+  Future<List<Map<String, dynamic>>?> getCachedTrackList() async {
+    try {
+      final base = await _getStoragePath();
+      final file = File(_trackListCachePath(base));
+      if (!await file.exists()) return null;
+      final decoded = jsonDecode(await file.readAsString()) as List<dynamic>;
+      return List<Map<String, dynamic>>.from(
+        decoded.map((e) => Map<String, dynamic>.from(e as Map)),
+      );
+    } catch (e) {
+      debugPrint('failed to read track list cache: $e');
       return null;
     }
   }
