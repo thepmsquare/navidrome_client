@@ -11,7 +11,7 @@ class ConnectPage extends StatefulWidget {
 
 class _ConnectPageState extends State<ConnectPage> {
   final _formKey = GlobalKey<FormState>();
-  final _urlController = TextEditingController();
+  final _urlController = TextEditingController(text: 'https://');
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
@@ -32,7 +32,10 @@ class _ConnectPageState extends State<ConnectPage> {
         _isLoading = true;
       });
 
-      final url = _urlController.text.trim();
+      String url = _urlController.text.trim();
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://$url';
+      }
       final username = _usernameController.text.trim();
       final password = _passwordController.text.trim();
 
@@ -126,12 +129,15 @@ class _ConnectPageState extends State<ConnectPage> {
                                 prefixIcon: Icon(Icons.dns_rounded),
                               ),
                               keyboardType: TextInputType.url,
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'please enter server url';
-                                }
-                                return null;
-                              },
+                                validator: (value) {
+                                  if (value == null ||
+                                      value.isEmpty ||
+                                      value.trim() == 'https://' ||
+                                      value.trim() == 'http://') {
+                                    return 'please enter server url';
+                                  }
+                                  return null;
+                                },
                             ),
                             const SizedBox(height: 20),
                             TextFormField(
