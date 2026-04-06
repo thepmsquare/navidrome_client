@@ -30,6 +30,7 @@ class OfflineService extends ChangeNotifier {
   Set<String> _offlineAlbumIds = {};
   Set<String> _offlinePlaylistIds = {};
   bool _isOfflineMode = false;
+  bool _isAutoOffline = false;
   bool _isInitialized = false;
 
   // #20: notify UI of offline mode changes
@@ -67,13 +68,19 @@ class OfflineService extends ChangeNotifier {
     // automatic check on startup
     final connectivity = await Connectivity().checkConnectivity();
     if (connectivity.contains(ConnectivityResult.none) && !_isOfflineMode) {
-      await setOfflineMode(true);
+      await setOfflineMode(true, isAuto: true, persist: false);
     }
 
     // start listening for changes
     _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
-      if (results.contains(ConnectivityResult.none) && !_isOfflineMode) {
-        setOfflineMode(true);
+      final hasNoConnection = results.contains(ConnectivityResult.none);
+      
+      if (hasNoConnection && !_isOfflineMode) {
+        // auto-toggle into offline mode, but don't persist
+        setOfflineMode(true, isAuto: true, persist: false);
+      } else if (!hasNoConnection && _isOfflineMode && _isAutoOffline) {
+        // auto-toggle back to online if we were only offline due to an auto-toggle
+        setOfflineMode(false, persist: false);
       }
     });
   }
@@ -638,18 +645,21 @@ class OfflineService extends ChangeNotifier {
   // Offline mode toggle
   // ---------------------------------------------------------------------------
 
-  Future<void> setOfflineMode(bool value) async {
+  Future<void> setOfflineMode(bool value, {bool isAuto = false, bool persist = true}) async {
     _isOfflineMode = value;
+    _isAutoOffline = value ? isAuto : false;
     offlineModeNotifier.value = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_offlineModeKey, value);
+    if (persist) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_offlineModeKey, value);
+    }
     notifyListeners();
   }
 
   /// Triggered by api failures to automatically switch into offline mode
   void triggerOfflineAutoToggle() {
     if (!_isOfflineMode) {
-      setOfflineMode(true);
+      setOfflineMode(true, isAuto: true, persist: false);
     }
   }
 
