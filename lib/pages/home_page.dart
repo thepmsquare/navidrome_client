@@ -17,6 +17,7 @@ import 'package:navidrome_client/components/offline_indicator.dart';
 import 'package:navidrome_client/services/session_service.dart';
 
 enum LibraryView { home, albums, playlists, tracks }
+enum TrackSortOrder { name, rating }
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -55,6 +56,7 @@ class _HomePageState extends State<HomePage> {
   bool _isSearchActive = false;
   String _searchQuery = '';
   Timer? _debounce;
+  TrackSortOrder _trackSortOrder = TrackSortOrder.name;
 
   // #7/#4: read synchronously from in-memory state after initialize()
   bool get _isOfflineMode => OfflineService().isOfflineMode;
@@ -98,7 +100,32 @@ class _HomePageState extends State<HomePage> {
               (t['artist'] ?? '').toString().toLowerCase().contains(query))
           .toList();
     }
-    return result;
+
+    // sort based on _trackSortOrder
+    final List<Map<String, dynamic>> sortedList = List.from(result);
+    if (_trackSortOrder == TrackSortOrder.name) {
+      sortedList.sort((a, b) {
+        final aTitle = (a['title'] ?? '').toString().toLowerCase();
+        final bTitle = (b['title'] ?? '').toString().toLowerCase();
+        return aTitle.compareTo(bTitle);
+      });
+    } else if (_trackSortOrder == TrackSortOrder.rating) {
+      sortedList.sort((a, b) {
+        final aRating = (a['userRating'] ?? 0) as int;
+        final bRating = (b['userRating'] ?? 0) as int;
+        // descending rating
+        int cmp = bRating.compareTo(aRating);
+        if (cmp == 0) {
+          // secondary sort by name
+          final aTitle = (a['title'] ?? '').toString().toLowerCase();
+          final bTitle = (b['title'] ?? '').toString().toLowerCase();
+          return aTitle.compareTo(bTitle);
+        }
+        return cmp;
+      });
+    }
+
+    return sortedList;
   }
 
   @override
@@ -874,7 +901,7 @@ class _HomePageState extends State<HomePage> {
               },
             ),
             actions: [
-              if (!_isSearchActive && !_isOfflineMode)
+              if (!_isSearchActive && !_isOfflineMode) ...[
                 IconButton(
                   icon: const Icon(Icons.search_rounded),
                   onPressed: () {
@@ -883,6 +910,25 @@ class _HomePageState extends State<HomePage> {
                     });
                   },
                 ),
+                PopupMenuButton<TrackSortOrder>(
+                  icon: const Icon(Icons.sort_rounded),
+                  onSelected: (TrackSortOrder order) {
+                    setState(() {
+                      _trackSortOrder = order;
+                    });
+                  },
+                  itemBuilder: (BuildContext context) => <PopupMenuEntry<TrackSortOrder>>[
+                    const PopupMenuItem<TrackSortOrder>(
+                      value: TrackSortOrder.name,
+                      child: Text('name'),
+                    ),
+                    const PopupMenuItem<TrackSortOrder>(
+                      value: TrackSortOrder.rating,
+                      child: Text('rating'),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
           if (_isLoadingTracks && _tracks.isEmpty)
