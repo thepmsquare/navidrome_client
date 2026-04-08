@@ -8,8 +8,10 @@ import 'package:navidrome_client/components/mini_player.dart';
 import 'package:navidrome_client/utils/disk_utility.dart';
 import 'package:navidrome_client/pages/player_page.dart';
 import 'package:navidrome_client/pages/album_details_page.dart';
+import 'package:navidrome_client/pages/event_log_page.dart';
 import 'package:navidrome_client/pages/playlist_details_page.dart';
 import 'package:navidrome_client/services/api_service.dart';
+import 'package:navidrome_client/services/event_log_service.dart';
 import 'package:navidrome_client/services/player_service.dart';
 import 'package:navidrome_client/services/auth_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
@@ -29,10 +31,12 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final _authService = AuthService();
   final _sessionService = SessionService();
+  final _eventLog = EventLogService();
   final ScrollController _scrollController = ScrollController();
   int _selectedIndex = 0; // default to Home per user's "first time" request
   int _offlineSize = 0;
   bool _isRefreshingStorage = false;
+  int _logErrorCount = 0;
 
   List<Map<String, dynamic>> _albums = [];
   List<Map<String, dynamic>> _playlists = [];
@@ -145,9 +149,22 @@ class _HomePageState extends State<HomePage> {
     _loadSessionState();
     _scrollController.addListener(_onScroll);
 
+    // listen for log changes to update the error badge in settings
+    _logErrorCount = _eventLog.errorCount;
+    _eventLog.changeNotifier.addListener(_onLogChanged);
+
     // #20: listen for auto-toggles
     OfflineService().offlineModeNotifier.addListener(_onOfflineModeChanged);
     OfflineService().addListener(_onOfflineCompletion);
+  }
+
+  void _onLogChanged() {
+    final count = _eventLog.errorCount;
+    if (count != _logErrorCount && mounted) {
+      setState(() {
+        _logErrorCount = count;
+      });
+    }
   }
 
   void _onOfflineCompletion() {
@@ -201,6 +218,7 @@ class _HomePageState extends State<HomePage> {
     _scrollController.dispose();
     _searchController.dispose();
     _debounce?.cancel();
+    _eventLog.changeNotifier.removeListener(_onLogChanged);
     OfflineService().offlineModeNotifier.removeListener(_onOfflineModeChanged);
     OfflineService().removeListener(_onOfflineCompletion);
     super.dispose();
@@ -1229,6 +1247,29 @@ class _HomePageState extends State<HomePage> {
                   onChanged: _toggleOfflineMode,
                 ),
               ),
+              Card(
+                child: ListTile(
+                  leading: Badge(
+                    isLabelVisible: _logErrorCount > 0,
+                    label: Text(_logErrorCount > 99 ? '99+' : _logErrorCount.toString()),
+                    backgroundColor: colorScheme.error,
+                    textColor: colorScheme.onError,
+                    child: const Icon(Icons.bug_report_rounded),
+                  ),
+                  title: const Text('event log'),
+                  subtitle: const Text('debug events and errors'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const EventLogPage(),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.logout_rounded),
