@@ -19,6 +19,7 @@ import 'package:navidrome_client/components/offline_indicator.dart';
 import 'package:navidrome_client/services/session_service.dart';
 
 enum LibraryView { home, albums, playlists, tracks }
+
 enum TrackSortOrder { name, rating }
 
 class HomePage extends StatefulWidget {
@@ -77,13 +78,17 @@ class _HomePageState extends State<HomePage> {
     List<Map<String, dynamic>> result = _playlists;
     if (_isOfflineMode) {
       result = result
-          .where((p) => OfflineService().isPlaylistOfflineSync(p['id'].toString()))
+          .where(
+            (p) => OfflineService().isPlaylistOfflineSync(p['id'].toString()),
+          )
           .toList();
     }
     if (_searchQuery.isNotEmpty) {
       final query = _searchQuery.toLowerCase();
       result = result
-          .where((p) => (p['name'] ?? '').toString().toLowerCase().contains(query))
+          .where(
+            (p) => (p['name'] ?? '').toString().toLowerCase().contains(query),
+          )
           .toList();
     }
     return result;
@@ -99,9 +104,11 @@ class _HomePageState extends State<HomePage> {
     if (_searchQuery.isNotEmpty) {
       final query = _searchQuery.toLowerCase();
       result = result
-          .where((t) =>
-              (t['title'] ?? '').toString().toLowerCase().contains(query) ||
-              (t['artist'] ?? '').toString().toLowerCase().contains(query))
+          .where(
+            (t) =>
+                (t['title'] ?? '').toString().toLowerCase().contains(query) ||
+                (t['artist'] ?? '').toString().toLowerCase().contains(query),
+          )
           .toList();
     }
 
@@ -193,7 +200,7 @@ class _HomePageState extends State<HomePage> {
     if (!isFirstRun) {
       final tabIndex = await _sessionService.lastTabIndex;
       final libViewName = await _sessionService.lastLibraryView;
-      
+
       LibraryView? libView;
       if (libViewName != null) {
         try {
@@ -227,7 +234,9 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadHomeContent() async {
     if (_apiService == null || _isOfflineMode) return;
 
-    setState(() { _isLoadingHome = true; });
+    setState(() {
+      _isLoadingHome = true;
+    });
 
     try {
       final results = await Future.wait([
@@ -244,7 +253,9 @@ class _HomePageState extends State<HomePage> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() { _isLoadingHome = false; });
+        setState(() {
+          _isLoadingHome = false;
+        });
       }
     }
   }
@@ -271,7 +282,11 @@ class _HomePageState extends State<HomePage> {
     if (url != null && username != null && password != null) {
       if (mounted) {
         setState(() {
-          _apiService = ApiService(baseUrl: url, username: username, password: password);
+          _apiService = ApiService(
+            baseUrl: url,
+            username: username,
+            password: password,
+          );
         });
       }
     }
@@ -300,8 +315,12 @@ class _HomePageState extends State<HomePage> {
     try {
       final newAlbums = _searchQuery.isEmpty
           ? await _apiService!.getAlbums(count: _limit, offset: _offset)
-          : await _apiService!.searchAlbums(_searchQuery, count: _limit, offset: _offset);
-      
+          : await _apiService!.searchAlbums(
+              _searchQuery,
+              count: _limit,
+              offset: _offset,
+            );
+
       // #9: cache on every successful page 1 load so we always have fresh data
       if (_offset == 0 || refresh) {
         await OfflineService().saveAlbumListCache(newAlbums);
@@ -343,7 +362,9 @@ class _HomePageState extends State<HomePage> {
         _hasMore = false;
       });
     } else if (mounted) {
-      setState(() { _isLoading = false; });
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -355,7 +376,9 @@ class _HomePageState extends State<HomePage> {
         _isLoadingPlaylists = false;
       });
     } else if (mounted) {
-      setState(() { _isLoadingPlaylists = false; });
+      setState(() {
+        _isLoadingPlaylists = false;
+      });
     }
   }
 
@@ -389,7 +412,9 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       if (_playlists.isEmpty) await _loadPlaylistsFromCache();
       if (mounted) {
-        setState(() { _isLoadingPlaylists = false; });
+        setState(() {
+          _isLoadingPlaylists = false;
+        });
       }
     }
   }
@@ -403,7 +428,9 @@ class _HomePageState extends State<HomePage> {
         _hasMoreTracks = false;
       });
     } else if (mounted) {
-      setState(() { _isLoadingTracks = false; });
+      setState(() {
+        _isLoadingTracks = false;
+      });
     }
   }
 
@@ -460,16 +487,22 @@ class _HomePageState extends State<HomePage> {
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
       if (!_isFetchingMore && !_isOfflineMode) {
         if (_currentLibraryView == LibraryView.albums && _hasMore) {
           if (mounted) {
-            setState(() { _isFetchingMore = true; });
+            setState(() {
+              _isFetchingMore = true;
+            });
             _loadAlbums();
           }
-        } else if (_currentLibraryView == LibraryView.tracks && _hasMoreTracks) {
+        } else if (_currentLibraryView == LibraryView.tracks &&
+            _hasMoreTracks) {
           if (mounted) {
-            setState(() { _isFetchingMore = true; });
+            setState(() {
+              _isFetchingMore = true;
+            });
             _loadTracks();
           }
         }
@@ -540,7 +573,8 @@ class _HomePageState extends State<HomePage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => PlayerPage(apiService: _apiService!),
+                            builder: (context) =>
+                                PlayerPage(apiService: _apiService!),
                             fullscreenDialog: true,
                           ),
                         );
@@ -556,23 +590,31 @@ class _HomePageState extends State<HomePage> {
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
           if (index == 1 && _selectedIndex == 1) {
-            setState(() { 
+            setState(() {
               _currentLibraryView = LibraryView.home;
               _sessionService.setLastLibraryView('home');
             });
           } else {
-            setState(() { _selectedIndex = index; });
+            setState(() {
+              _selectedIndex = index;
+            });
             _sessionService.setLastTabIndex(index);
           }
-          
+
           if (index == 2) {
             _refreshStorageStats();
           }
         },
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_rounded), label: 'home'),
-          NavigationDestination(icon: Icon(Icons.library_music_rounded), label: 'library'),
-          NavigationDestination(icon: Icon(Icons.settings_rounded), label: 'settings'),
+          NavigationDestination(
+            icon: Icon(Icons.library_music_rounded),
+            label: 'library',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_rounded),
+            label: 'settings',
+          ),
         ],
       ),
     );
@@ -589,91 +631,94 @@ class _HomePageState extends State<HomePage> {
 
     return Column(
       children: [
-        AppBar(
-          title: const Text('home'),
-          primary: !_isOfflineMode,
-        ),
+        AppBar(title: const Text('home'), primary: !_isOfflineMode),
         Expanded(
           child: RefreshIndicator(
-        onRefresh: _loadHomeContent,
-        child: ListView(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          children: [
-            // Most Played Section
-            if (_mostPlayedAlbums.isNotEmpty) ...[
-              _buildSectionHeader('most played'),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 220,
-                child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _mostPlayedAlbums.length,
-                  separatorBuilder: (context, index) => const SizedBox(width: 16),
-                  itemBuilder: (context, index) {
-                    final album = _mostPlayedAlbums[index];
-                    return AlbumTile(
-                      album: album,
-                      apiService: _apiService!,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AlbumDetailsPage(
-                              album: album,
-                              apiService: _apiService!,
-                            ),
-                          ),
+            onRefresh: _loadHomeContent,
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              children: [
+                // Most Played Section
+                if (_mostPlayedAlbums.isNotEmpty) ...[
+                  _buildSectionHeader('most played'),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 220,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _mostPlayedAlbums.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(width: 16),
+                      itemBuilder: (context, index) {
+                        final album = _mostPlayedAlbums[index];
+                        return AlbumTile(
+                          album: album,
+                          apiService: _apiService!,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => AlbumDetailsPage(
+                                  album: album,
+                                  apiService: _apiService!,
+                                ),
+                              ),
+                            );
+                          },
                         );
                       },
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
 
-            // Random Tracks Section
-            if (_randomTracks.isNotEmpty) ...[
-              _buildSectionHeader(
-                'random tracks',
-                trailing: IconButton(
-                  icon: const Icon(Icons.refresh_rounded, size: 20),
-                  onPressed: _refreshRandomTracks,
-                ),
-              ),
-              const SizedBox(height: 8),
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: EdgeInsets.zero,
-                itemCount: _randomTracks.length,
-                itemBuilder: (context, index) {
-                  final track = _randomTracks[index];
-                  final String? coverArtId = track['coverArt']?.toString();
-                  final String? coverArtUrl = _apiService != null && coverArtId != null
-                      ? _apiService!.getCoverArtUrl(coverArtId)
-                      : null;
+                // Random Tracks Section
+                if (_randomTracks.isNotEmpty) ...[
+                  _buildSectionHeader(
+                    'random tracks',
+                    trailing: IconButton(
+                      icon: const Icon(Icons.refresh_rounded, size: 20),
+                      onPressed: _refreshRandomTracks,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: EdgeInsets.zero,
+                    itemCount: _randomTracks.length,
+                    itemBuilder: (context, index) {
+                      final track = _randomTracks[index];
+                      final String? coverArtId = track['coverArt']?.toString();
+                      final String? coverArtUrl =
+                          _apiService != null && coverArtId != null
+                          ? _apiService!.getCoverArtUrl(coverArtId)
+                          : null;
 
-                  return TrackListItem(
-                    track: track,
-                    coverArtUrl: coverArtUrl,
-                    apiService: _apiService,
-                    onTap: () {
-                      PlayerService().play(_randomTracks, index, _apiService!);
+                      return TrackListItem(
+                        track: track,
+                        coverArtUrl: coverArtUrl,
+                        apiService: _apiService,
+                        onTap: () {
+                          PlayerService().play(
+                            _randomTracks,
+                            index,
+                            _apiService!,
+                          );
+                        },
+                      );
                     },
-                  );
-                },
-              ),
-              const SizedBox(height: 100), // padding for mini player
-            ],
-          ],
+                  ),
+                  const SizedBox(height: 100), // padding for mini player
+                ],
+              ],
+            ),
+          ),
         ),
-      ),
-    ),
-  ],
-);
-}
+      ],
+    );
+  }
 
   Widget _buildSectionHeader(String title, {Widget? trailing}) {
     final theme = Theme.of(context);
@@ -688,7 +733,7 @@ class _HomePageState extends State<HomePage> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          if (trailing != null) trailing,
+          ?trailing,
         ],
       ),
     );
@@ -710,10 +755,7 @@ class _HomePageState extends State<HomePage> {
   Widget _buildLibraryMenu() {
     return Column(
       children: [
-        AppBar(
-          title: const Text('library'),
-          primary: !_isOfflineMode,
-        ),
+        AppBar(title: const Text('library'), primary: !_isOfflineMode),
         Expanded(
           child: ListView(
             children: [
@@ -784,7 +826,11 @@ class _HomePageState extends State<HomePage> {
                   )
                 : const Text('albums'),
             leading: IconButton(
-              icon: Icon(_isSearchActive ? Icons.close_rounded : Icons.arrow_back_rounded),
+              icon: Icon(
+                _isSearchActive
+                    ? Icons.close_rounded
+                    : Icons.arrow_back_rounded,
+              ),
               onPressed: () {
                 if (_isSearchActive) {
                   setState(() {
@@ -842,7 +888,8 @@ class _HomePageState extends State<HomePage> {
 
                     final album = albums[index];
                     final coverArtId = album['coverArt'];
-                    final String? coverArtUrl = _apiService != null && coverArtId != null
+                    final String? coverArtUrl =
+                        _apiService != null && coverArtId != null
                         ? _apiService!.getCoverArtUrl(coverArtId)
                         : null;
 
@@ -857,16 +904,15 @@ class _HomePageState extends State<HomePage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => AlbumDetailsPage(
-                              album: album,
-                              apiService: api,
-                            ),
+                            builder: (context) =>
+                                AlbumDetailsPage(album: album, apiService: api),
                           ),
                         );
                       },
                     );
                   },
-                  childCount: albums.length + ((_hasMore && !_isOfflineMode) ? 1 : 0),
+                  childCount:
+                      albums.length + ((_hasMore && !_isOfflineMode) ? 1 : 0),
                 ),
               ),
             ),
@@ -902,7 +948,11 @@ class _HomePageState extends State<HomePage> {
                   )
                 : const Text('tracks'),
             leading: IconButton(
-              icon: Icon(_isSearchActive ? Icons.close_rounded : Icons.arrow_back_rounded),
+              icon: Icon(
+                _isSearchActive
+                    ? Icons.close_rounded
+                    : Icons.arrow_back_rounded,
+              ),
               onPressed: () {
                 if (_isSearchActive) {
                   setState(() {
@@ -935,16 +985,17 @@ class _HomePageState extends State<HomePage> {
                       _trackSortOrder = order;
                     });
                   },
-                  itemBuilder: (BuildContext context) => <PopupMenuEntry<TrackSortOrder>>[
-                    const PopupMenuItem<TrackSortOrder>(
-                      value: TrackSortOrder.name,
-                      child: Text('name'),
-                    ),
-                    const PopupMenuItem<TrackSortOrder>(
-                      value: TrackSortOrder.rating,
-                      child: Text('rating'),
-                    ),
-                  ],
+                  itemBuilder: (BuildContext context) =>
+                      <PopupMenuEntry<TrackSortOrder>>[
+                        const PopupMenuItem<TrackSortOrder>(
+                          value: TrackSortOrder.name,
+                          child: Text('name'),
+                        ),
+                        const PopupMenuItem<TrackSortOrder>(
+                          value: TrackSortOrder.rating,
+                          child: Text('rating'),
+                        ),
+                      ],
                 ),
               ],
             ],
@@ -978,7 +1029,8 @@ class _HomePageState extends State<HomePage> {
 
                     final track = tracks[index];
                     final String? coverArtId = track['coverArt']?.toString();
-                    final String? coverArtUrl = _apiService != null && coverArtId != null
+                    final String? coverArtUrl =
+                        _apiService != null && coverArtId != null
                         ? _apiService!.getCoverArtUrl(coverArtId)
                         : null;
 
@@ -992,7 +1044,9 @@ class _HomePageState extends State<HomePage> {
                       },
                     );
                   },
-                  childCount: tracks.length + ((_hasMoreTracks && !_isOfflineMode) ? 1 : 0),
+                  childCount:
+                      tracks.length +
+                      ((_hasMoreTracks && !_isOfflineMode) ? 1 : 0),
                 ),
               ),
             ),
@@ -1027,7 +1081,11 @@ class _HomePageState extends State<HomePage> {
                   )
                 : const Text('playlists'),
             leading: IconButton(
-              icon: Icon(_isSearchActive ? Icons.close_rounded : Icons.arrow_back_rounded),
+              icon: Icon(
+                _isSearchActive
+                    ? Icons.close_rounded
+                    : Icons.arrow_back_rounded,
+              ),
               onPressed: () {
                 if (_isSearchActive) {
                   setState(() {
@@ -1062,7 +1120,9 @@ class _HomePageState extends State<HomePage> {
             SliverFillRemaining(
               child: Center(
                 child: Text(
-                  _isOfflineMode ? 'no downloaded playlists' : 'no playlists found',
+                  _isOfflineMode
+                      ? 'no downloaded playlists'
+                      : 'no playlists found',
                 ),
               ),
             )
@@ -1070,34 +1130,32 @@ class _HomePageState extends State<HomePage> {
             SliverPadding(
               padding: const EdgeInsets.only(top: 8, bottom: 100),
               sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final playlist = playlists[index];
-                    final coverArtId = playlist['coverArt'];
-                    final String? coverArtUrl = _apiService != null && coverArtId != null
-                        ? _apiService!.getCoverArtUrl(coverArtId)
-                        : null;
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final playlist = playlists[index];
+                  final coverArtId = playlist['coverArt'];
+                  final String? coverArtUrl =
+                      _apiService != null && coverArtId != null
+                      ? _apiService!.getCoverArtUrl(coverArtId)
+                      : null;
 
-                    return PlaylistListItem(
-                      playlist: playlist,
-                      coverArtUrl: coverArtUrl,
-                      onTap: () {
-                        final api = _apiService;
-                        if (api == null) return;
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => PlaylistDetailsPage(
-                              playlist: playlist,
-                              apiService: api,
-                            ),
+                  return PlaylistListItem(
+                    playlist: playlist,
+                    coverArtUrl: coverArtUrl,
+                    onTap: () {
+                      final api = _apiService;
+                      if (api == null) return;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PlaylistDetailsPage(
+                            playlist: playlist,
+                            apiService: api,
                           ),
-                        );
-                      },
-                    );
-                  },
-                  childCount: playlists.length,
-                ),
+                        ),
+                      );
+                    },
+                  );
+                }, childCount: playlists.length),
               ),
             ),
         ],
@@ -1134,7 +1192,11 @@ class _HomePageState extends State<HomePage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        icon: Icon(Icons.warning_amber_rounded, color: colorScheme.error, size: 48),
+        icon: Icon(
+          Icons.warning_amber_rounded,
+          color: colorScheme.error,
+          size: 48,
+        ),
         title: Text(
           'clear all downloads?',
           style: theme.textTheme.headlineSmall?.copyWith(
@@ -1167,7 +1229,9 @@ class _HomePageState extends State<HomePage> {
 
     if (confirmed == true) {
       if (mounted) {
-        setState(() { _isRefreshingStorage = true; });
+        setState(() {
+          _isRefreshingStorage = true;
+        });
         try {
           await OfflineService().clearAllDownloads();
           final size = await DiskUtility.getOfflineSize();
@@ -1193,10 +1257,7 @@ class _HomePageState extends State<HomePage> {
 
     return Column(
       children: [
-        AppBar(
-          title: const Text('settings'),
-          primary: !_isOfflineMode,
-        ),
+        AppBar(title: const Text('settings'), primary: !_isOfflineMode),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.all(16),
@@ -1251,7 +1312,9 @@ class _HomePageState extends State<HomePage> {
                 child: ListTile(
                   leading: Badge(
                     isLabelVisible: _logErrorCount > 0,
-                    label: Text(_logErrorCount > 99 ? '99+' : _logErrorCount.toString()),
+                    label: Text(
+                      _logErrorCount > 99 ? '99+' : _logErrorCount.toString(),
+                    ),
                     backgroundColor: colorScheme.error,
                     textColor: colorScheme.onError,
                     child: const Icon(Icons.bug_report_rounded),

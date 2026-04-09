@@ -12,7 +12,7 @@ void main() async {
     androidNotificationChannelId: 'com.ryanheise.audioservice.audio',
     androidNotificationChannelName: 'audio playback',
     androidNotificationOngoing: true,
-    androidNotificationIcon: 'drawable/ic_stat_music',
+    androidNotificationIcon: 'mipmap/ic_launcher',
   );
   // load offline state into memory before any UI renders
   await OfflineService().initialize();
