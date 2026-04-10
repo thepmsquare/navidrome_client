@@ -228,4 +228,30 @@ class ApiService {
     
     return List<Map<String, dynamic>>.from(songs);
   }
+
+  Future<List<Map<String, dynamic>>> getSongList({
+    int count = 50,
+    int offset = 0,
+    String? orderBy,
+    String? orderDirection,
+  }) async {
+    final response = await _get('getSongList', {
+      'size': count.toString(),
+      'offset': offset.toString(),
+      if (orderBy != null) 'orderBy': orderBy,
+      if (orderDirection != null) 'orderDirection': orderDirection,
+    });
+
+    final songList = response['songList'];
+    if (songList == null) return [];
+
+    final songs = songList['song'];
+    if (songs == null) return [];
+
+    if (songs is Map) {
+      return [Map<String, dynamic>.from(songs)];
+    }
+
+    return List<Map<String, dynamic>>.from(songs);
+  }
 }

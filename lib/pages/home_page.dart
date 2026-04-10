@@ -20,7 +20,19 @@ import 'package:navidrome_client/services/session_service.dart';
 
 enum LibraryView { home, albums, playlists, tracks }
 
-enum TrackSortOrder { name, rating }
+enum TrackSortOrder {
+  name,
+  artist,
+  album,
+  rating,
+  year,
+  duration,
+  genre,
+  playCount,
+  dateAdded,
+  lastPlayed,
+  bitRate,
+}
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -114,27 +126,74 @@ class _HomePageState extends State<HomePage> {
 
     // sort based on _trackSortOrder
     final List<Map<String, dynamic>> sortedList = List.from(result);
-    if (_trackSortOrder == TrackSortOrder.name) {
-      sortedList.sort((a, b) {
+    sortedList.sort((a, b) {
+      int cmp = 0;
+      switch (_trackSortOrder) {
+        case TrackSortOrder.name:
+          final aTitle = (a['title'] ?? '').toString().toLowerCase();
+          final bTitle = (b['title'] ?? '').toString().toLowerCase();
+          cmp = aTitle.compareTo(bTitle);
+          break;
+        case TrackSortOrder.artist:
+          final aArtist = (a['artist'] ?? '').toString().toLowerCase();
+          final bArtist = (b['artist'] ?? '').toString().toLowerCase();
+          cmp = aArtist.compareTo(bArtist);
+          break;
+        case TrackSortOrder.album:
+          final aAlbum = (a['album'] ?? '').toString().toLowerCase();
+          final bAlbum = (b['album'] ?? '').toString().toLowerCase();
+          cmp = aAlbum.compareTo(bAlbum);
+          break;
+        case TrackSortOrder.rating:
+          final aRating = (a['userRating'] ?? 0) as int;
+          final bRating = (b['userRating'] ?? 0) as int;
+          cmp = bRating.compareTo(aRating); // descending
+          break;
+        case TrackSortOrder.year:
+          final aYear = (a['year'] ?? 0) as int;
+          final bYear = (b['year'] ?? 0) as int;
+          cmp = bYear.compareTo(aYear); // descending
+          break;
+        case TrackSortOrder.duration:
+          final aDuration = (a['duration'] ?? 0) as int;
+          final bDuration = (b['duration'] ?? 0) as int;
+          cmp = bDuration.compareTo(aDuration); // descending
+          break;
+        case TrackSortOrder.genre:
+          final aGenre = (a['genre'] ?? '').toString().toLowerCase();
+          final bGenre = (b['genre'] ?? '').toString().toLowerCase();
+          cmp = aGenre.compareTo(bGenre);
+          break;
+        case TrackSortOrder.playCount:
+          final aPlayCount = (a['playCount'] ?? 0) as int;
+          final bPlayCount = (b['playCount'] ?? 0) as int;
+          cmp = bPlayCount.compareTo(aPlayCount); // descending
+          break;
+        case TrackSortOrder.dateAdded:
+          final aCreated = (a['created'] ?? '').toString();
+          final bCreated = (b['created'] ?? '').toString();
+          cmp = bCreated.compareTo(aCreated); // descending
+          break;
+        case TrackSortOrder.lastPlayed:
+          final aLast = (a['lastPlayed'] ?? '').toString();
+          final bLast = (b['lastPlayed'] ?? '').toString();
+          cmp = bLast.compareTo(aLast); // descending
+          break;
+        case TrackSortOrder.bitRate:
+          final aBit = (a['bitRate'] ?? 0) as int;
+          final bBit = (b['bitRate'] ?? 0) as int;
+          cmp = bBit.compareTo(aBit); // descending
+          break;
+      }
+
+      // secondary sort by name
+      if (cmp == 0 && _trackSortOrder != TrackSortOrder.name) {
         final aTitle = (a['title'] ?? '').toString().toLowerCase();
         final bTitle = (b['title'] ?? '').toString().toLowerCase();
         return aTitle.compareTo(bTitle);
-      });
-    } else if (_trackSortOrder == TrackSortOrder.rating) {
-      sortedList.sort((a, b) {
-        final aRating = (a['userRating'] ?? 0) as int;
-        final bRating = (b['userRating'] ?? 0) as int;
-        // descending rating
-        int cmp = bRating.compareTo(aRating);
-        if (cmp == 0) {
-          // secondary sort by name
-          final aTitle = (a['title'] ?? '').toString().toLowerCase();
-          final bTitle = (b['title'] ?? '').toString().toLowerCase();
-          return aTitle.compareTo(bTitle);
-        }
-        return cmp;
-      });
-    }
+      }
+      return cmp;
+    });
 
     return sortedList;
   }
@@ -454,11 +513,77 @@ class _HomePageState extends State<HomePage> {
     if (_apiService == null) return;
 
     try {
-      final newTracks = await _apiService!.searchSongs(
-        _searchQuery.isEmpty ? '*' : _searchQuery,
-        count: _limit,
-        offset: _tracksOffset,
-      );
+      List<Map<String, dynamic>> newTracks;
+
+      if (_searchQuery.isEmpty) {
+        String? orderBy;
+        String orderDirection = 'asc';
+
+        switch (_trackSortOrder) {
+          case TrackSortOrder.name:
+            orderBy = 'title';
+            break;
+          case TrackSortOrder.artist:
+            orderBy = 'artist';
+            break;
+          case TrackSortOrder.album:
+            orderBy = 'album';
+            break;
+          case TrackSortOrder.rating:
+            orderBy = 'rating';
+            orderDirection = 'desc';
+            break;
+          case TrackSortOrder.year:
+            orderBy = 'year';
+            orderDirection = 'desc';
+            break;
+          case TrackSortOrder.duration:
+            orderBy = 'duration';
+            orderDirection = 'desc';
+            break;
+          case TrackSortOrder.genre:
+            orderBy = 'genre';
+            break;
+          case TrackSortOrder.playCount:
+            orderBy = 'playCount';
+            orderDirection = 'desc';
+            break;
+          case TrackSortOrder.dateAdded:
+            orderBy = 'created';
+            orderDirection = 'desc';
+            break;
+          case TrackSortOrder.lastPlayed:
+            orderBy = 'lastPlayed';
+            orderDirection = 'desc';
+            break;
+          case TrackSortOrder.bitRate:
+            orderBy = 'bitRate';
+            orderDirection = 'desc';
+            break;
+        }
+
+        try {
+          newTracks = await _apiService!.getSongList(
+            count: _limit,
+            offset: _tracksOffset,
+            orderBy: orderBy,
+            orderDirection: orderDirection,
+          );
+        } catch (e) {
+          debugPrint('getsonglist failed, falling back to search3: $e');
+          newTracks = await _apiService!.searchSongs(
+            '*',
+            count: _limit,
+            offset: _tracksOffset,
+          );
+        }
+      } else {
+        newTracks = await _apiService!.searchSongs(
+          _searchQuery,
+          count: _limit,
+          offset: _tracksOffset,
+        );
+      }
 
       // cache page 1
       if (_tracksOffset == 0 || refresh) {
@@ -984,6 +1109,7 @@ class _HomePageState extends State<HomePage> {
                     setState(() {
                       _trackSortOrder = order;
                     });
+                    _loadTracks(refresh: true);
                   },
                   itemBuilder: (BuildContext context) =>
                       <PopupMenuEntry<TrackSortOrder>>[
@@ -992,8 +1118,44 @@ class _HomePageState extends State<HomePage> {
                           child: Text('name'),
                         ),
                         const PopupMenuItem<TrackSortOrder>(
+                          value: TrackSortOrder.artist,
+                          child: Text('artist'),
+                        ),
+                        const PopupMenuItem<TrackSortOrder>(
+                          value: TrackSortOrder.album,
+                          child: Text('album'),
+                        ),
+                        const PopupMenuItem<TrackSortOrder>(
                           value: TrackSortOrder.rating,
                           child: Text('rating'),
+                        ),
+                        const PopupMenuItem<TrackSortOrder>(
+                          value: TrackSortOrder.year,
+                          child: Text('year'),
+                        ),
+                        const PopupMenuItem<TrackSortOrder>(
+                          value: TrackSortOrder.duration,
+                          child: Text('duration'),
+                        ),
+                        const PopupMenuItem<TrackSortOrder>(
+                          value: TrackSortOrder.genre,
+                          child: Text('genre'),
+                        ),
+                        const PopupMenuItem<TrackSortOrder>(
+                          value: TrackSortOrder.playCount,
+                          child: Text('play count'),
+                        ),
+                        const PopupMenuItem<TrackSortOrder>(
+                          value: TrackSortOrder.dateAdded,
+                          child: Text('date added'),
+                        ),
+                        const PopupMenuItem<TrackSortOrder>(
+                          value: TrackSortOrder.lastPlayed,
+                          child: Text('last played'),
+                        ),
+                        const PopupMenuItem<TrackSortOrder>(
+                          value: TrackSortOrder.bitRate,
+                          child: Text('bit rate'),
                         ),
                       ],
                 ),
