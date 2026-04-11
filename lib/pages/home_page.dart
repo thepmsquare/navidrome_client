@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:navidrome_client/components/album_list_item.dart';
 import 'package:navidrome_client/components/album_tile.dart';
@@ -50,6 +51,7 @@ class _HomePageState extends State<HomePage> {
   int _offlineSize = 0;
   bool _isRefreshingStorage = false;
   int _logErrorCount = 0;
+  bool _stopPlaybackOnTaskRemoved = false;
 
   List<Map<String, dynamic>> _albums = [];
   List<Map<String, dynamic>> _playlists = [];
@@ -273,6 +275,9 @@ class _HomePageState extends State<HomePage> {
           if (libView != null) _currentLibraryView = libView;
         });
       }
+
+      // session-persistent settings
+      _stopPlaybackOnTaskRemoved = await _sessionService.stopPlaybackOnTaskRemoved;
     } else {
       // mark first run as complete after first render
       await _sessionService.setNotFirstRun();
@@ -667,6 +672,16 @@ class _HomePageState extends State<HomePage> {
       if (_albums.isEmpty) await _loadFromCache();
       if (_playlists.isEmpty) await _loadPlaylistsFromCache();
       if (_tracks.isEmpty) await _loadTracksFromCache();
+    }
+  }
+
+  Future<void> _toggleStopPlaybackOnTaskRemoved(bool value) async {
+    await _sessionService.setStopPlaybackOnTaskRemoved(value);
+    PlayerService().setStopPlaybackOnTaskRemoved(value);
+    if (mounted) {
+      setState(() {
+        _stopPlaybackOnTaskRemoved = value;
+      });
     }
   }
 
@@ -1470,6 +1485,16 @@ class _HomePageState extends State<HomePage> {
                   onChanged: _toggleOfflineMode,
                 ),
               ),
+              if (Platform.isAndroid)
+                Card(
+                  child: SwitchListTile(
+                    secondary: const Icon(Icons.stop_circle_rounded),
+                    title: const Text('stop playback when app is removed from background tasks'),
+                    subtitle: const Text('automatically stop music when swiped away from recent apps'),
+                    value: _stopPlaybackOnTaskRemoved,
+                    onChanged: _toggleStopPlaybackOnTaskRemoved,
+                  ),
+                ),
               Card(
                 child: ListTile(
                   leading: Badge(

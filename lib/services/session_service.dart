@@ -8,6 +8,7 @@ class SessionService {
   static const String _keyLastQueue = 'last_playback_queue';
   static const String _keyLastIndex = 'last_playback_index';
   static const String _keyLastPosition = 'last_playback_position_ms';
+  static const String _keyStopPlaybackOnTaskRemoved = 'stop_playback_on_task_removed';
 
   static final SessionService _instance = SessionService._internal();
   factory SessionService() => _instance;
@@ -95,5 +96,19 @@ class SessionService {
     await prefs.remove(_keyLastQueue);
     await prefs.remove(_keyLastIndex);
     await prefs.remove(_keyLastPosition);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Settings
+  // ---------------------------------------------------------------------------
+
+  Future<bool> get stopPlaybackOnTaskRemoved async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyStopPlaybackOnTaskRemoved) ?? false;
+  }
+
+  Future<void> setStopPlaybackOnTaskRemoved(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyStopPlaybackOnTaskRemoved, value);
   }
 }

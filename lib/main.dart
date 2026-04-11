@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio_background/just_audio_background.dart';
@@ -5,13 +6,19 @@ import 'package:navidrome_client/pages/connect_page.dart';
 import 'package:navidrome_client/pages/home_page.dart';
 import 'package:navidrome_client/services/auth_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
+import 'package:navidrome_client/services/session_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // #11: load stop playback setting for android initialization
+  final stopPlaybackOnTaskRemoved = await SessionService().stopPlaybackOnTaskRemoved;
+
   await JustAudioBackground.init(
     androidNotificationChannelId: 'com.ryanheise.audioservice.audio',
     androidNotificationChannelName: 'audio playback',
-    androidNotificationOngoing: true,
+    // On Android, if stopPlaybackOnTaskRemoved is true, we make the notification
+    // non-ongoing so it can be automatically dismissed or swiped away properly.
+    androidNotificationOngoing: Platform.isAndroid ? !stopPlaybackOnTaskRemoved : true,
     androidNotificationIcon: 'mipmap/ic_launcher',
   );
   // load offline state into memory before any UI renders

@@ -21,6 +21,7 @@ class PlayerService with WidgetsBindingObserver {
   final _sessionService = SessionService();
   final _log = EventLogService();
   Timer? _positionSaveTimer;
+  bool _stopPlaybackOnTaskRemoved = false;
 
   PlayerService._internal() {
     _init();
@@ -30,6 +31,9 @@ class PlayerService with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     final session = await AudioSession.instance;
     await session.configure(const AudioSessionConfiguration.music());
+
+    // load initial setting for stopping playback on task removal
+    _stopPlaybackOnTaskRemoved = await _sessionService.stopPlaybackOnTaskRemoved;
 
     // Bug 1 fix: use ?.toString() ?? '' instead of `as String` to avoid _TypeError
     // on null or non-String id values (some Subsonic implementations return int ids).
@@ -83,6 +87,14 @@ class PlayerService with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
       _saveCurrentPosition();
+    }
+
+    // handle stopping playback when app is swiped away from recents (Android specific)
+    if (state == AppLifecycleState.detached) {
+      if (_stopPlaybackOnTaskRemoved) {
+        _log.log('app detached, stopping playback per user setting', level: EventLogLevel.info);
+        _player.stop();
+      }
     }
   }
 
@@ -267,6 +279,10 @@ class PlayerService with WidgetsBindingObserver {
   Future<void> seek(Duration position) => _player.seek(position);
   Future<void> skipToNext() => _player.seekToNext();
   Future<void> skipToPrevious() => _player.seekToPrevious();
+
+  void setStopPlaybackOnTaskRemoved(bool value) {
+    _stopPlaybackOnTaskRemoved = value;
+  }
 
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
