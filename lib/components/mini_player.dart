@@ -4,11 +4,18 @@ import 'package:navidrome_client/services/player_service.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/components/offline_image.dart';
 
-class MiniPlayer extends StatelessWidget {
+class MiniPlayer extends StatefulWidget {
   final ApiService? apiService;
   final VoidCallback onTap;
 
   const MiniPlayer({super.key, this.apiService, required this.onTap});
+
+  @override
+  State<MiniPlayer> createState() => _MiniPlayerState();
+}
+
+class _MiniPlayerState extends State<MiniPlayer> {
+  bool _hasTriggered = false;
 
   @override
   Widget build(BuildContext context) {
@@ -26,14 +33,26 @@ class MiniPlayer extends StatelessWidget {
         final title = (track['title'] ?? 'unknown title').toString();
         final artist = (track['artist'] ?? 'unknown artist').toString();
         final coverArtId = track['coverArt'];
-        final coverArtUrl = coverArtId != null && apiService != null
-            ? apiService!.getCoverArtUrl(coverArtId)
+        final coverArtUrl = coverArtId != null && widget.apiService != null
+            ? widget.apiService!.getCoverArtUrl(coverArtId)
             : null;
 
         return Padding(
           padding: const EdgeInsets.only(left: 12, right: 12, bottom: 12),
           child: GestureDetector(
-            onTap: onTap,
+            onTap: widget.onTap,
+            onVerticalDragUpdate: (details) {
+              if (!_hasTriggered && details.primaryDelta! < -5) {
+                setState(() => _hasTriggered = true);
+                widget.onTap();
+              }
+            },
+            onVerticalDragEnd: (_) {
+              setState(() => _hasTriggered = false);
+            },
+            onVerticalDragCancel: () {
+              setState(() => _hasTriggered = false);
+            },
             child: Card(
               elevation: 4,
               shadowColor: Colors.black.withValues(alpha: 0.2),
@@ -112,20 +131,33 @@ class MiniPlayer extends StatelessWidget {
                           );
                         }
 
-                        return IconButton.filledTonal(
-                          onPressed: () {
-                            if (playing) {
-                              playerService.pause();
-                            } else {
-                              playerService.resume();
-                            }
-                          },
-                          icon: Icon(
-                            playing
-                                ? Icons.pause_rounded
-                                : Icons.play_arrow_rounded,
-                            size: 32,
-                          ),
+                        return Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              onPressed: () => playerService.skipToPrevious(),
+                              icon: const Icon(Icons.skip_previous_rounded, size: 28),
+                            ),
+                            IconButton.filledTonal(
+                              onPressed: () {
+                                if (playing) {
+                                  playerService.pause();
+                                } else {
+                                  playerService.resume();
+                                }
+                              },
+                              icon: Icon(
+                                playing
+                                    ? Icons.pause_rounded
+                                    : Icons.play_arrow_rounded,
+                                size: 32,
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => playerService.skipToNext(),
+                              icon: const Icon(Icons.skip_next_rounded, size: 28),
+                            ),
+                          ],
                         );
                       },
                     ),
