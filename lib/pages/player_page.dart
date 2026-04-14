@@ -3,6 +3,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:navidrome_client/services/player_service.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/components/offline_indicator.dart';
+import 'package:navidrome_client/pages/queue_page.dart';
 
 class PlayerPage extends StatefulWidget {
   final ApiService apiService;
@@ -33,6 +34,20 @@ class _PlayerPageState extends State<PlayerPage> {
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.queue_music_rounded),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => QueuePage(apiService: widget.apiService),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: Column(
         children: [
@@ -213,11 +228,18 @@ class _PlayerPageState extends State<PlayerPage> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                 children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.shuffle_rounded),
-                                    onPressed: () {},
-                                    color: colorScheme.onSurfaceVariant,
-                                    iconSize: isShort ? 20 : 24,
+                                  StreamBuilder<bool>(
+                                    stream: _playerService.player.shuffleModeEnabledStream,
+                                    builder: (context, snapshot) {
+                                      final enabled = snapshot.data ?? false;
+                                      return IconButton(
+                                        icon: const Icon(Icons.shuffle_rounded),
+                                        onPressed: () => _playerService.toggleShuffleMode(),
+                                        color: enabled ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                                        iconSize: isShort ? 20 : 24,
+                                        tooltip: 'shuffle',
+                                      );
+                                    },
                                   ),
                                   IconButton.filledTonal(
                                     iconSize: isShort ? 28 : 32,
@@ -247,11 +269,21 @@ class _PlayerPageState extends State<PlayerPage> {
                                     icon: const Icon(Icons.skip_next_rounded),
                                     onPressed: () => _playerService.skipToNext(),
                                   ),
-                                  IconButton(
-                                    icon: const Icon(Icons.repeat_rounded),
-                                    onPressed: () {},
-                                    color: colorScheme.onSurfaceVariant,
-                                    iconSize: isShort ? 20 : 24,
+                                  StreamBuilder<LoopMode>(
+                                    stream: _playerService.player.loopModeStream,
+                                    builder: (context, snapshot) {
+                                      final mode = snapshot.data ?? LoopMode.off;
+                                      final isOff = mode == LoopMode.off;
+                                      final isOne = mode == LoopMode.one;
+                                      
+                                      return IconButton(
+                                        icon: Icon(isOne ? Icons.repeat_one_rounded : Icons.repeat_rounded),
+                                        onPressed: () => _playerService.toggleLoopMode(),
+                                        color: isOff ? colorScheme.onSurfaceVariant : colorScheme.primary,
+                                        iconSize: isShort ? 20 : 24,
+                                        tooltip: 'repeat',
+                                      );
+                                    },
                                   ),
                                 ],
                               ),

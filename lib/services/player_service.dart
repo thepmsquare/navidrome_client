@@ -15,8 +15,9 @@ class PlayerService with WidgetsBindingObserver {
 
   final AudioPlayer _player = AudioPlayer();
   List<Map<String, dynamic>> _currentQueue = [];
+  ConcatenatingAudioSource? _playlist;
   ApiService? _apiService;
-  String? _lastScrobbledId;
+  String? _lastScrobbledId = null;
   String? _lastSubmittedId;
   final _sessionService = SessionService();
   final _log = EventLogService();
@@ -164,6 +165,7 @@ class PlayerService with WidgetsBindingObserver {
 
     try {
       await _player.stop();
+      _playlist = playlist;
       await _player.setAudioSource(playlist, initialIndex: initialIndex);
       await _player.play();
       _log.log('playback started', level: EventLogLevel.info);
@@ -207,6 +209,7 @@ class PlayerService with WidgetsBindingObserver {
       // saved position and let the backend clamp it; we also guard against
       // clearly bogus values).
       final safePositionMs = positionMs > 0 ? positionMs : 0;
+      _playlist = playlist;
       await _player.setAudioSource(
         playlist,
         initialIndex: safeIndex,
@@ -282,6 +285,64 @@ class PlayerService with WidgetsBindingObserver {
 
   void setStopPlaybackOnTaskRemoved(bool value) {
     _stopPlaybackOnTaskRemoved = value;
+  }
+
+  Future<void> removeFromQueue(int index) async {
+    if (index < 0 || index >= _currentQueue.length) return;
+
+    _currentQueue.removeAt(index);
+    _playlist?.removeAt(index);
+
+    // bug fix: if the queue becomes empty, stop the player
+    if (_currentQueue.isEmpty) {
+      await stop();
+    }
+
+    _sessionService.setLastQueue(_currentQueue);
+    _log.log('removed track at index $index from queue', level: EventLogLevel.debug);
+  }
+
+  Future<void> reorderQueue(int oldIndex, int newIndex) async {
+    if (oldIndex < 0 || oldIndex >= _currentQueue.length) return;
+    if (newIndex < 0 || newIndex >= _currentQueue.length) return;
+
+    final item = _currentQueue.removeAt(oldIndex);
+    _currentQueue.insert(newIndex, item);
+
+    _playlist?.move(oldIndex, newIndex);
+
+    _sessionService.setLastQueue(_currentQueue);
+    _log.log('reordered queue: $oldIndex to $newIndex', level: EventLogLevel.debug);
+  }
+
+  Future<void> clearQueue() async {
+    await stop();
+    _currentQueue = [];
+    _playlist = null;
+    _apiService = null;
+    _sessionService.setLastQueue([]);
+    _log.log('queue cleared', level: EventLogLevel.info);
+  }
+
+  Future<void> toggleShuffleMode() async {
+    final enabled = !_player.shuffleModeEnabled;
+    await _player.setShuffleModeEnabled(enabled);
+    _log.log('shuffle mode ${enabled ? 'enabled' : 'disabled'}', level: EventLogLevel.debug);
+  }
+
+  Future<void> toggleLoopMode() async {
+    final current = _player.loopMode;
+    late LoopMode next;
+    switch (current) {
+      case LoopMode.off:
+        next = LoopMode.all;
+      case LoopMode.all:
+        next = LoopMode.one;
+      case LoopMode.one:
+        next = LoopMode.off;
+    }
+    await _player.setLoopMode(next);
+    _log.log('loop mode set to $next', level: EventLogLevel.debug);
   }
 
   void dispose() {
