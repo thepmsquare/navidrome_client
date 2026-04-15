@@ -7,6 +7,7 @@ import 'package:navidrome_client/pages/home_page.dart';
 import 'package:navidrome_client/services/auth_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
 import 'package:navidrome_client/services/session_service.dart';
+import 'package:navidrome_client/utils/constants.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -159,7 +160,7 @@ class MyApp extends StatelessWidget {
         );
 
         return MaterialApp(
-          title: 'navidrome client by thepmsquare',
+          title: appDisplayName,
           debugShowCheckedModeBanner: false,
           theme: baseTheme,
           darkTheme: baseDarkTheme,

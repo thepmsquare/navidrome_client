@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/auth_service.dart';
+import 'package:navidrome_client/utils/constants.dart';
 
 class ConnectPage extends StatefulWidget {
   const ConnectPage({super.key});
@@ -15,15 +17,40 @@ class _ConnectPageState extends State<ConnectPage> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
+  
+  final _usernameFocusNode = FocusNode();
+  final _passwordFocusNode = FocusNode();
+  
   bool _isPasswordVisible = false;
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _urlController.addListener(_onUrlChanged);
+  }
+
+  void _onUrlChanged() {
+    setState(() {});
+  }
 
   @override
   void dispose() {
     _urlController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
+    _usernameFocusNode.dispose();
+    _passwordFocusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _pasteUrl() async {
+    final data = await Clipboard.getData('text/plain');
+    if (data?.text != null) {
+      setState(() {
+        _urlController.text = data!.text!;
+      });
+    }
   }
 
   Future<void> _handleConnect() async {
@@ -77,28 +104,40 @@ class _ConnectPageState extends State<ConnectPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final size = MediaQuery.of(context).size;
+    final isMobile = size.width < 600;
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16.0 : 24.0,
+              vertical: 32.0,
+            ),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 450),
+              constraints: BoxConstraints(
+                maxWidth: isMobile ? size.width * 0.95 : 500,
+              ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(
-                    Icons.music_note_rounded,
-                    size: 64,
+                  Image.asset(
+                    'assets/branding/transparent_icon.png',
+                    height: isMobile ? 80 : 120,
+                    color: colorScheme.primary,
+                    colorBlendMode: BlendMode.srcIn,
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'navidrome',
+                    appDisplayName,
                     textAlign: TextAlign.center,
-                    style: theme.textTheme.displayMedium?.copyWith(
+                    style: (isMobile
+                            ? theme.textTheme.displaySmall
+                            : theme.textTheme.displayMedium)
+                        ?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: colorScheme.primary,
                     ),
@@ -111,10 +150,10 @@ class _ConnectPageState extends State<ConnectPage> {
                       color: colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(height: 48),
+                  SizedBox(height: isMobile ? 32 : 48),
                   Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(32.0),
+                      padding: EdgeInsets.all(isMobile ? 20.0 : 32.0),
                       child: Form(
                         key: _formKey,
                         child: Column(
@@ -123,30 +162,55 @@ class _ConnectPageState extends State<ConnectPage> {
                             TextFormField(
                               controller: _urlController,
                               enabled: !_isLoading,
-                              decoration: const InputDecoration(
+                              autofocus: _urlController.text == 'https://',
+                              decoration: InputDecoration(
                                 labelText: 'server url',
                                 hintText: 'https://demo.navidrome.org',
-                                prefixIcon: Icon(Icons.dns_rounded),
+                                prefixIcon: const Icon(Icons.dns_rounded),
+                                suffixIcon: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (_urlController.text.isNotEmpty &&
+                                        _urlController.text != 'https://')
+                                      IconButton(
+                                        icon: const Icon(Icons.clear_rounded),
+                                        onPressed: () => _urlController.clear(),
+                                        tooltip: 'clear',
+                                      ),
+                                    IconButton(
+                                      icon: const Icon(Icons.content_paste_rounded),
+                                      onPressed: _pasteUrl,
+                                      tooltip: 'paste',
+                                    ),
+                                  ],
+                                ),
                               ),
                               keyboardType: TextInputType.url,
-                                validator: (value) {
-                                  if (value == null ||
-                                      value.isEmpty ||
-                                      value.trim() == 'https://' ||
-                                      value.trim() == 'http://') {
-                                    return 'please enter server url';
-                                  }
-                                  return null;
-                                },
+                              textInputAction: TextInputAction.next,
+                              onFieldSubmitted: (_) =>
+                                  FocusScope.of(context).requestFocus(_usernameFocusNode),
+                              validator: (value) {
+                                if (value == null ||
+                                    value.isEmpty ||
+                                    value.trim() == 'https://' ||
+                                    value.trim() == 'http://') {
+                                  return 'please enter server url';
+                                }
+                                return null;
+                              },
                             ),
                             const SizedBox(height: 20),
                             TextFormField(
                               controller: _usernameController,
+                              focusNode: _usernameFocusNode,
                               enabled: !_isLoading,
                               decoration: const InputDecoration(
                                 labelText: 'username',
                                 prefixIcon: Icon(Icons.person_rounded),
                               ),
+                              textInputAction: TextInputAction.next,
+                              onFieldSubmitted: (_) =>
+                                  FocusScope.of(context).requestFocus(_passwordFocusNode),
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
                                   return 'please enter username';
@@ -157,6 +221,7 @@ class _ConnectPageState extends State<ConnectPage> {
                             const SizedBox(height: 20),
                             TextFormField(
                               controller: _passwordController,
+                              focusNode: _passwordFocusNode,
                               enabled: !_isLoading,
                               obscureText: !_isPasswordVisible,
                               decoration: InputDecoration(
@@ -175,6 +240,8 @@ class _ConnectPageState extends State<ConnectPage> {
                                   },
                                 ),
                               ),
+                              textInputAction: TextInputAction.done,
+                              onFieldSubmitted: (_) => _handleConnect(),
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
                                   return 'please enter password';
@@ -182,7 +249,7 @@ class _ConnectPageState extends State<ConnectPage> {
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 40),
+                            SizedBox(height: isMobile ? 32 : 40),
                             FilledButton(
                               onPressed: _isLoading ? null : _handleConnect,
                               child: _isLoading
