@@ -1,6 +1,6 @@
 # navidrome_client
 
-a new flutter based project for navidrome.
+a client for navidrome server for android platform.
 
 ## getting started
 
@@ -28,4 +28,4 @@ this project is a starting point for a flutter application that connects to a na
 
 ## license
 
-this project is licensed under the gnu general public license v3. see the [LICENSE](LICENSE) file for details.
+this project is licensed under the gnu general public license v3. see the [license](LICENSE) file for details.

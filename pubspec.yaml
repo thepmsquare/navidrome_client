@@ -1,5 +1,5 @@
 name: navidrome_client
-description: "A new Flutter project."
+description: "a client for navidrome server for android platform."
 publish_to: "none"
 version: 1.0.0+6
 
