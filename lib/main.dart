@@ -19,7 +19,7 @@ void main() async {
     // On Android, if stopPlaybackOnTaskRemoved is true, we make the notification
     // non-ongoing so it can be automatically dismissed or swiped away properly.
     androidNotificationOngoing: Platform.isAndroid ? !stopPlaybackOnTaskRemoved : true,
-    androidNotificationIcon: 'mipmap/ic_launcher',
+    androidNotificationIcon: 'drawable/ic_notification',
   );
   // load offline state into memory before any UI renders
   await OfflineService().initialize();
