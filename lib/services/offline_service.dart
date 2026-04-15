@@ -99,14 +99,7 @@ class OfflineService extends ChangeNotifier {
   Future<String> _getStoragePath() async {
     if (_cachedStoragePath != null) return _cachedStoragePath!;
 
-    if (kIsWeb) throw UnsupportedError('offline storage not supported on web');
-
-    Directory baseDir;
-    if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
-      baseDir = await getApplicationSupportDirectory();
-    } else {
-      baseDir = await getApplicationDocumentsDirectory();
-    }
+    final baseDir = await getApplicationDocumentsDirectory();
 
     final tracksDir = Directory('${baseDir.path}/offline/tracks');
     final coversDir = Directory('${baseDir.path}/offline/covers');
@@ -243,9 +236,7 @@ class OfflineService extends ChangeNotifier {
         url: apiService.getStreamUrl(trackId),
         filename: '$trackId.audio',
         directory: 'offline/tracks',
-        baseDirectory: (Platform.isWindows || Platform.isMacOS || Platform.isLinux) 
-            ? BaseDirectory.applicationSupport 
-            : BaseDirectory.applicationDocuments,
+        baseDirectory: BaseDirectory.applicationDocuments,
         updates: Updates.statusAndProgress,
       );
 
@@ -256,7 +247,7 @@ class OfflineService extends ChangeNotifier {
         },
       );
 
-      if (status == TaskStatus.complete) {
+      if (status.status == TaskStatus.complete) {
         // also cache cover art (deduplication handled inside)
         final coverArtId = track['coverArt'] as String?;
         if (coverArtId != null) {
@@ -269,7 +260,7 @@ class OfflineService extends ChangeNotifier {
         _requestPersistence();
         _emitProgress(trackId, 1.0, done: true);
         notifyListeners();
-      } else if (status == TaskStatus.canceled) {
+      } else if (status.status == TaskStatus.canceled) {
         debugPrint('track $trackId download cancelled');
         final f = File(path);
         if (await f.exists()) await f.delete();

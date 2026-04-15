@@ -21,12 +21,7 @@ class DiskUtility {
 
   static Future<int> getOfflineSize() async {
     try {
-      Directory baseDir;
-      if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
-        baseDir = await getApplicationSupportDirectory();
-      } else {
-        baseDir = await getApplicationDocumentsDirectory();
-      }
+      final baseDir = await getApplicationDocumentsDirectory();
       final offlineDir = Directory('${baseDir.path}/offline');
       return await getDirectorySize(offlineDir);
     } catch (e) {

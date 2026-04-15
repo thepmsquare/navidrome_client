@@ -1,7 +1,7 @@
 name: navidrome_client
 description: "A new Flutter project."
 publish_to: "none"
-version: 1.0.0+5
+version: 1.0.0+6
 
 environment:
   sdk: ^3.11.4
@@ -9,14 +9,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.8
   dynamic_color: ^1.8.1
   http: ^1.6.0
   crypto: ^3.0.7
   shared_preferences: ^2.5.5
   uuid: ^4.5.3
   just_audio: ^0.9.46
-  just_audio_windows: ^0.2.2
   audio_session: ^0.1.25
   just_audio_background: ^0.0.1-beta.17
   path_provider: ^2.1.2
@@ -35,14 +33,6 @@ flutter:
 
 flutter_launcher_icons:
   android: true
-  ios: true
   image_path: "assets/branding/icon.png"
   adaptive_icon_background: "#009688"
   adaptive_icon_foreground: "assets/branding/icon.png"
-  web:
-    generate: true
-    image_path: "assets/branding/icon.png"
-  windows:
-    generate: true
-    image_path: "assets/branding/icon.png"
-    icon_size: 256
