@@ -18,6 +18,8 @@ import 'package:navidrome_client/services/auth_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
 import 'package:navidrome_client/components/offline_indicator.dart';
 import 'package:navidrome_client/services/session_service.dart';
+import 'package:navidrome_client/services/export_service.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 enum LibraryView { home, albums, playlists, tracks }
 
@@ -52,6 +54,7 @@ class _HomePageState extends State<HomePage> {
   bool _isRefreshingStorage = false;
   int _logErrorCount = 0;
   bool _stopPlaybackOnTaskRemoved = false;
+  String _appVersion = '';
 
   List<Map<String, dynamic>> _albums = [];
   List<Map<String, dynamic>> _playlists = [];
@@ -224,6 +227,17 @@ class _HomePageState extends State<HomePage> {
     // #20: listen for auto-toggles
     OfflineService().offlineModeNotifier.addListener(_onOfflineModeChanged);
     OfflineService().addListener(_onOfflineCompletion);
+
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _appVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
+      });
+    }
   }
 
   void _onLogChanged() {
@@ -1522,6 +1536,72 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 8),
               Card(
                 child: ListTile(
+                  leading: const Icon(Icons.backup_rounded),
+                  title: const Text('backup configuration'),
+                  subtitle: const Text('save your server details and settings to a file'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () async {
+                    final theme = Theme.of(context);
+                    final colorScheme = theme.colorScheme;
+
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        icon: Icon(
+                          Icons.warning_amber_rounded,
+                          color: colorScheme.error,
+                          size: 48,
+                        ),
+                        title: Text(
+                          'security warning',
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            color: colorScheme.error,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        content: const Text(
+                          'the backup file will contain your server password in plain text. please ensure you save this file in a secure location and do not share it with others.',
+                          textAlign: TextAlign.center,
+                        ),
+                        actionsAlignment: MainAxisAlignment.center,
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('cancel'),
+                          ),
+                          FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: colorScheme.primary,
+                              foregroundColor: colorScheme.onPrimary,
+                            ),
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('i understand, backup'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirmed == true) {
+                      final success = await ExportService().exportSettings();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              success
+                                  ? 'backup created successfully'
+                                  : 'failed to create backup',
+                            ),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+              Card(
+                child: ListTile(
                   leading: const Icon(Icons.logout_rounded),
                   title: const Text('logout'),
                   subtitle: const Text('sign out of your navidrome server'),
@@ -1530,6 +1610,18 @@ class _HomePageState extends State<HomePage> {
                   iconColor: colorScheme.error,
                 ),
               ),
+              if (_appVersion.isNotEmpty) ...[
+                const SizedBox(height: 32),
+                Center(
+                  child: Text(
+                    'version $_appVersion',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant.withOpacity(0.5),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+              ],
             ],
           ),
         ),

@@ -1,7 +1,7 @@
 name: navidrome_client
 description: "a client for navidrome server for android platform."
 publish_to: "none"
-version: 1.0.0+6
+version: 1.0.0+7
 
 environment:
   sdk: ^3.11.4
@@ -21,6 +21,8 @@ dependencies:
   dio: ^5.4.1
   connectivity_plus: ^6.1.1
   background_downloader: ^9.5.4
+  file_picker: ^8.1.4
+  package_info_plus: ^8.1.0
 
 dev_dependencies:
   flutter_test:

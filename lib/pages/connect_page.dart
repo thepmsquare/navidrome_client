@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/auth_service.dart';
 import 'package:navidrome_client/utils/constants.dart';
+import 'package:navidrome_client/services/export_service.dart';
+import 'package:navidrome_client/services/offline_service.dart';
+import 'package:navidrome_client/services/session_service.dart';
 
 class ConnectPage extends StatefulWidget {
   const ConnectPage({super.key});
@@ -96,6 +99,41 @@ class _ConnectPageState extends State<ConnectPage> {
             _isLoading = false;
           });
         }
+      }
+    }
+  }
+
+  Future<void> _handleImport() async {
+    final data = await ExportService().importSettings();
+    if (data != null) {
+      if (data['app_identifier'] != 'navidrome_client_backup') {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('invalid backup file')),
+          );
+        }
+        return;
+      }
+
+      setState(() {
+        if (data['server_url'] != null) _urlController.text = data['server_url'];
+        if (data['username'] != null) _usernameController.text = data['username'];
+        if (data['password'] != null) _passwordController.text = data['password'];
+      });
+
+      // Apply other preferences if present
+      if (data['offline_mode'] != null) {
+        await OfflineService().setOfflineMode(data['offline_mode'] as bool);
+      }
+      if (data['stop_playback_on_task_removed'] != null) {
+        await SessionService().setStopPlaybackOnTaskRemoved(data['stop_playback_on_task_removed'] as bool);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('profile imported, connecting...')),
+        );
+        _handleConnect();
       }
     }
   }
@@ -268,6 +306,12 @@ class _ConnectPageState extends State<ConnectPage> {
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextButton.icon(
+                              onPressed: _isLoading ? null : _handleImport,
+                              icon: const Icon(Icons.file_open_rounded),
+                              label: const Text('import profile'),
                             ),
                           ],
                         ),
