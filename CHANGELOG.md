@@ -1,5 +1,37 @@
 # changelog
 
-## 1.0.0 (in progress)
+## 1.0.0+8 (in progress)
+
+- add universal search tab.
+
+## 1.0.0+7
+
+- add import / export server config.
+- add version number in settings
+
+## 1.0.0+6
+
+- update icons.
+- update connect screen.
+
+## 1.0.0+5
+
+- add song queue screen.
+- add shuffle and repeat functionality.
+
+## 1.0.0+4
+
+- add controls to miniplayer.
+- make media player page sizing dynamic.
+
+## 1.0.0+3
+
+- add settings toggle to stop playback on discarding bg task.
+
+## 1.0.0+2
+
+- add sorting options
+
+## 1.0.0+1
 
 - initial project commit

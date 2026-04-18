@@ -53,7 +53,7 @@ class _HomePageState extends State<HomePage> {
   int _offlineSize = 0;
   bool _isRefreshingStorage = false;
   int _logErrorCount = 0;
-  bool _stopPlaybackOnTaskRemoved = false;
+  bool _stopPlaybackOnTaskRemoved = true;
   String _appVersion = '';
 
   List<Map<String, dynamic>> _albums = [];
@@ -75,10 +75,18 @@ class _HomePageState extends State<HomePage> {
   ApiService? _apiService;
 
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _universalSearchController =
+      TextEditingController();
+  final FocusNode _universalSearchFocusNode = FocusNode();
   bool _isSearchActive = false;
   String _searchQuery = '';
   Timer? _debounce;
   TrackSortOrder _trackSortOrder = TrackSortOrder.name;
+
+  List<Map<String, dynamic>> _universalSearchArtists = [];
+  List<Map<String, dynamic>> _universalSearchAlbums = [];
+  List<Map<String, dynamic>> _universalSearchTracks = [];
+  bool _isUniversalSearching = false;
 
   // #7/#4: read synchronously from in-memory state after initialize()
   bool get _isOfflineMode => OfflineService().isOfflineMode;
@@ -291,7 +299,8 @@ class _HomePageState extends State<HomePage> {
       }
 
       // session-persistent settings
-      _stopPlaybackOnTaskRemoved = await _sessionService.stopPlaybackOnTaskRemoved;
+      _stopPlaybackOnTaskRemoved =
+          await _sessionService.stopPlaybackOnTaskRemoved;
     } else {
       // mark first run as complete after first render
       await _sessionService.setNotFirstRun();
@@ -302,6 +311,8 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     _scrollController.dispose();
     _searchController.dispose();
+    _universalSearchController.dispose();
+    _universalSearchFocusNode.dispose();
     _debounce?.cancel();
     _eventLog.changeNotifier.removeListener(_onLogChanged);
     OfflineService().offlineModeNotifier.removeListener(_onOfflineModeChanged);
@@ -676,6 +687,49 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  void _onUniversalSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    if (query.isEmpty) {
+      setState(() {
+        _universalSearchArtists = [];
+        _universalSearchAlbums = [];
+        _universalSearchTracks = [];
+        _isUniversalSearching = false;
+      });
+      return;
+    }
+
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      _performUniversalSearch(query);
+    });
+  }
+
+  Future<void> _performUniversalSearch(String query) async {
+    if (_apiService == null || _isOfflineMode) return;
+
+    setState(() {
+      _isUniversalSearching = true;
+    });
+
+    try {
+      final results = await _apiService!.searchAll(query);
+      if (mounted) {
+        setState(() {
+          _universalSearchArtists = results['artists']!;
+          _universalSearchAlbums = results['albums']!;
+          _universalSearchTracks = results['songs']!;
+          _isUniversalSearching = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isUniversalSearching = false;
+        });
+      }
+    }
+  }
+
   Future<void> _toggleOfflineMode(bool value) async {
     await OfflineService().setOfflineMode(value);
     // trigger rebuild — _isOfflineMode and _albumsToDisplay are getters
@@ -713,6 +767,7 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     _buildHomeView(),
                     _buildLibraryView(),
+                    _buildSearchView(),
                     _buildSettingsView(),
                   ],
                 ),
@@ -755,8 +810,14 @@ class _HomePageState extends State<HomePage> {
             _sessionService.setLastTabIndex(index);
           }
 
-          if (index == 2) {
+          if (index == 3) {
             _refreshStorageStats();
+          }
+
+          if (index == 2) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _universalSearchFocusNode.requestFocus();
+            });
           }
         },
         destinations: const [
@@ -764,6 +825,10 @@ class _HomePageState extends State<HomePage> {
           NavigationDestination(
             icon: Icon(Icons.library_music_rounded),
             label: 'library',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.search_rounded),
+            label: 'search',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_rounded),
@@ -870,6 +935,129 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildSearchView() {
+    return CustomScrollView(
+      slivers: [
+        SliverAppBar.large(
+          title: const Text('search'),
+          primary: !_isOfflineMode,
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: TextField(
+              controller: _universalSearchController,
+              focusNode: _universalSearchFocusNode,
+              autofocus: true,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 18,
+              ),
+              decoration: const InputDecoration(
+                hintText: 'search artists, albums, tracks...',
+                prefixIcon: Icon(Icons.search_rounded),
+              ),
+              onChanged: _onUniversalSearchChanged,
+            ),
+          ),
+        ),
+        if (_isOfflineMode)
+          const SliverFillRemaining(
+            child: Center(child: Text('search is not available offline')),
+          )
+        else if (_isUniversalSearching)
+          const SliverFillRemaining(
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (_universalSearchArtists.isEmpty &&
+            _universalSearchAlbums.isEmpty &&
+            _universalSearchTracks.isEmpty)
+          const SliverFillRemaining(
+            child: Center(child: Text('search for your favorite music')),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.only(bottom: 100),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                if (_universalSearchArtists.isNotEmpty) ...[
+                  _buildSectionHeader('artists'),
+                  ..._universalSearchArtists.map(
+                    (artist) => ListTile(
+                      leading: const CircleAvatar(
+                        child: Icon(Icons.person_rounded),
+                      ),
+                      title: Text(
+                        artist['name']?.toString().toLowerCase() ??
+                            'unknown artist',
+                      ),
+                      onTap: () {
+                        // artists are not yet fully implemented in this client
+                        // but we show them in search results
+                      },
+                    ),
+                  ),
+                ],
+                if (_universalSearchAlbums.isNotEmpty) ...[
+                  _buildSectionHeader('albums'),
+                  ..._universalSearchAlbums.map((album) {
+                    final coverArtId = album['coverArt'];
+                    final String? coverArtUrl =
+                        _apiService != null && coverArtId != null
+                            ? _apiService!.getCoverArtUrl(coverArtId)
+                            : null;
+                    return AlbumListItem(
+                      album: album,
+                      coverArtUrl: coverArtUrl,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => AlbumDetailsPage(
+                              album: album,
+                              apiService: _apiService!,
+                            ),
+                          ),
+                        ).then((_) {
+                          if (mounted && _selectedIndex == 2) {
+                            _universalSearchFocusNode.requestFocus();
+                          }
+                        });
+                      },
+                    );
+                  }),
+                ],
+                if (_universalSearchTracks.isNotEmpty) ...[
+                  _buildSectionHeader('tracks'),
+                  ..._universalSearchTracks.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final track = entry.value;
+                    final coverArtId = track['coverArt'];
+                    final String? coverArtUrl =
+                        _apiService != null && coverArtId != null
+                            ? _apiService!.getCoverArtUrl(coverArtId)
+                            : null;
+                    return TrackListItem(
+                      track: track,
+                      coverArtUrl: coverArtUrl,
+                      apiService: _apiService,
+                      onTap: () {
+                        PlayerService().play(
+                          _universalSearchTracks,
+                          index,
+                          _apiService!,
+                        );
+                      },
+                    );
+                  }),
+                ],
+              ]),
+            ),
+          ),
       ],
     );
   }
@@ -1503,8 +1691,12 @@ class _HomePageState extends State<HomePage> {
                 Card(
                   child: SwitchListTile(
                     secondary: const Icon(Icons.stop_circle_rounded),
-                    title: const Text('stop playback when app is removed from background tasks'),
-                    subtitle: const Text('automatically stop music when swiped away from recent apps'),
+                    title: const Text(
+                      'stop playback when app is removed from background tasks',
+                    ),
+                    subtitle: const Text(
+                      'automatically stop music when swiped away from recent apps',
+                    ),
                     value: _stopPlaybackOnTaskRemoved,
                     onChanged: _toggleStopPlaybackOnTaskRemoved,
                   ),
@@ -1538,7 +1730,9 @@ class _HomePageState extends State<HomePage> {
                 child: ListTile(
                   leading: const Icon(Icons.backup_rounded),
                   title: const Text('backup configuration'),
-                  subtitle: const Text('save your server details and settings to a file'),
+                  subtitle: const Text(
+                    'save your server details and settings to a file',
+                  ),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () async {
                     final theme = Theme.of(context);

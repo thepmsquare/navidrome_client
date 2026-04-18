@@ -194,7 +194,12 @@ class ApiService {
     });
     
     final searchResult = response['searchResult3'];
-    if (searchResult == null) return [];
+    if (searchResult == null) {
+      if (query == '*') {
+        return searchSongs('', count: count, offset: offset);
+      }
+      return [];
+    }
     
     final songs = searchResult['song'];
     if (songs == null) {
@@ -209,6 +214,50 @@ class ApiService {
     }
     
     return List<Map<String, dynamic>>.from(songs);
+  }
+
+  Future<Map<String, List<Map<String, dynamic>>>> searchAll(String query, {int count = 20}) async {
+    final response = await _get('search3', {
+      'query': query,
+      'artistCount': count.toString(),
+      'albumCount': count.toString(),
+      'songCount': count.toString(),
+    });
+    
+    final searchResult = response['searchResult3'] ?? {};
+    
+    List<Map<String, dynamic>> artists = [];
+    if (searchResult['artist'] != null) {
+      if (searchResult['artist'] is Map) {
+        artists = [Map<String, dynamic>.from(searchResult['artist'])];
+      } else {
+        artists = List<Map<String, dynamic>>.from(searchResult['artist']);
+      }
+    }
+
+    List<Map<String, dynamic>> albums = [];
+    if (searchResult['album'] != null) {
+      if (searchResult['album'] is Map) {
+        albums = [Map<String, dynamic>.from(searchResult['album'])];
+      } else {
+        albums = List<Map<String, dynamic>>.from(searchResult['album']);
+      }
+    }
+
+    List<Map<String, dynamic>> songs = [];
+    if (searchResult['song'] != null) {
+      if (searchResult['song'] is Map) {
+        songs = [Map<String, dynamic>.from(searchResult['song'])];
+      } else {
+        songs = List<Map<String, dynamic>>.from(searchResult['song']);
+      }
+    }
+
+    return {
+      'artists': artists,
+      'albums': albums,
+      'songs': songs,
+    };
   }
 
   Future<List<Map<String, dynamic>>> getRandomSongs({int count = 10}) async {
