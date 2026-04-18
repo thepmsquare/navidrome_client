@@ -3,6 +3,7 @@
 ## 1.0.0+8 (in progress)
 
 - add universal search tab.
+- fix navigation issues within application.
 
 ## 1.0.0+7
 

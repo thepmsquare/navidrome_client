@@ -16,11 +16,17 @@ class ApiService {
     required String baseUrl,
     required String username,
     required String password,
-  })  : _baseUrl = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl,
-        _username = username,
-        _password = password;
+  }) : _baseUrl = baseUrl.endsWith('/')
+           ? baseUrl.substring(0, baseUrl.length - 1)
+           : baseUrl,
+       _username = username,
+       _password = password;
 
-  String _buildUrl(String method, Map<String, String> params, {bool includeFormat = true}) {
+  String _buildUrl(
+    String method,
+    Map<String, String> params, {
+    bool includeFormat = true,
+  }) {
     final salt = SubsonicUtils.generateSalt();
     final token = SubsonicUtils.generateToken(_password, salt);
 
@@ -43,23 +49,26 @@ class ApiService {
   }
 
   String getCoverArtUrl(String id, {int size = 160}) {
-    return _buildUrl('getCoverArt', {'id': id, 'size': size.toString()}, includeFormat: false);
+    return _buildUrl('getCoverArt', {
+      'id': id,
+      'size': size.toString(),
+    }, includeFormat: false);
   }
 
   Future<void> scrobble(String id, {bool submission = true}) async {
     try {
-      await _get('scrobble', {
-        'id': id,
-        'submission': submission.toString(),
-      });
+      await _get('scrobble', {'id': id, 'submission': submission.toString()});
     } catch (e) {
       debugPrint('scrobble failed: $e');
     }
   }
 
-  Future<Map<String, dynamic>> _get(String method, [Map<String, String> params = const {}]) async {
+  Future<Map<String, dynamic>> _get(
+    String method, [
+    Map<String, String> params = const {},
+  ]) async {
     final url = _buildUrl(method, params);
-    
+
     try {
       final response = await http.get(Uri.parse(url));
 
@@ -70,7 +79,11 @@ class ApiService {
           return subsonicResponse;
         } else {
           final error = subsonicResponse['error'];
-          throw Exception(error != null ? '${error['message']} (code ${error['code']})' : 'unknown api error');
+          throw Exception(
+            error != null
+                ? '${error['message']} (code ${error['code']})'
+                : 'unknown api error',
+          );
         }
       } else {
         throw Exception('http error: ${response.statusCode}');
@@ -80,7 +93,7 @@ class ApiService {
       rethrow;
     } catch (e) {
       final errorStr = e.toString();
-      if (errorStr.contains('Failed host lookup') || 
+      if (errorStr.contains('Failed host lookup') ||
           errorStr.contains('Connection failed') ||
           errorStr.contains('Network is unreachable')) {
         OfflineService().triggerOfflineAutoToggle();
@@ -98,101 +111,113 @@ class ApiService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getAlbums({String type = 'newest', int count = 50, int offset = 0}) async {
+  Future<List<Map<String, dynamic>>> getAlbums({
+    String type = 'newest',
+    int count = 50,
+    int offset = 0,
+  }) async {
     final response = await _get('getAlbumList2', {
       'type': type,
       'size': count.toString(),
       'offset': offset.toString(),
     });
-    
+
     final albumList = response['albumList2'];
     if (albumList == null) return [];
-    
+
     final albums = albumList['album'];
     if (albums == null) return [];
-    
+
     if (albums is Map) {
       return [Map<String, dynamic>.from(albums)];
     }
-    
+
     return List<Map<String, dynamic>>.from(albums);
   }
 
   Future<List<Map<String, dynamic>>> getTracks(String albumId) async {
     final response = await _get('getMusicDirectory', {'id': albumId});
-    
+
     final directory = response['directory'];
     if (directory == null) return [];
-    
+
     final children = directory['child'];
     if (children == null) return [];
-    
+
     if (children is Map) {
       return [Map<String, dynamic>.from(children)];
     }
-    
+
     return List<Map<String, dynamic>>.from(children);
   }
 
-  Future<List<Map<String, dynamic>>> searchAlbums(String query, {int count = 50, int offset = 0}) async {
+  Future<List<Map<String, dynamic>>> searchAlbums(
+    String query, {
+    int count = 50,
+    int offset = 0,
+  }) async {
     final response = await _get('search3', {
       'query': query,
       'albumCount': count.toString(),
       'albumOffset': offset.toString(),
     });
-    
+
     final searchResult = response['searchResult3'];
     if (searchResult == null) return [];
-    
+
     final albums = searchResult['album'];
     if (albums == null) return [];
-    
+
     if (albums is Map) {
       return [Map<String, dynamic>.from(albums)];
     }
-    
+
     return List<Map<String, dynamic>>.from(albums);
   }
 
   Future<List<Map<String, dynamic>>> getPlaylists() async {
     final response = await _get('getPlaylists');
-    
+
     final playlistList = response['playlists'];
     if (playlistList == null) return [];
-    
+
     final playlists = playlistList['playlist'];
     if (playlists == null) return [];
-    
+
     if (playlists is Map) {
       return [Map<String, dynamic>.from(playlists)];
     }
-    
+
     return List<Map<String, dynamic>>.from(playlists);
   }
 
   Future<List<Map<String, dynamic>>> getPlaylistTracks(String id) async {
     final response = await _get('getPlaylist', {'id': id});
-    
+
     final playlist = response['playlist'];
     if (playlist == null) return [];
-    
+
     final children = playlist['entry'];
     if (children == null) return [];
-    
+
     if (children is Map) {
       return [Map<String, dynamic>.from(children)];
     }
-    
+
     return List<Map<String, dynamic>>.from(children);
   }
 
-  Future<List<Map<String, dynamic>>> searchSongs(String query, {int count = 50, int offset = 0}) async {
+  Future<List<Map<String, dynamic>>> searchSongs(
+    String query, {
+    int count = 50,
+    int offset = 0,
+  }) async {
     final response = await _get('search3', {
       'query': query,
       'songCount': count.toString(),
       'songOffset': offset.toString(),
     });
-    
+
     final searchResult = response['searchResult3'];
     if (searchResult == null) {
       if (query == '*') {
@@ -200,7 +225,7 @@ class ApiService {
       }
       return [];
     }
-    
+
     final songs = searchResult['song'];
     if (songs == null) {
       if (query == '*') {
@@ -208,24 +233,27 @@ class ApiService {
       }
       return [];
     }
-    
+
     if (songs is Map) {
       return [Map<String, dynamic>.from(songs)];
     }
-    
+
     return List<Map<String, dynamic>>.from(songs);
   }
 
-  Future<Map<String, List<Map<String, dynamic>>>> searchAll(String query, {int count = 20}) async {
+  Future<Map<String, List<Map<String, dynamic>>>> searchAll(
+    String query, {
+    int count = 20,
+  }) async {
     final response = await _get('search3', {
       'query': query,
       'artistCount': count.toString(),
       'albumCount': count.toString(),
       'songCount': count.toString(),
     });
-    
+
     final searchResult = response['searchResult3'] ?? {};
-    
+
     List<Map<String, dynamic>> artists = [];
     if (searchResult['artist'] != null) {
       if (searchResult['artist'] is Map) {
@@ -253,28 +281,22 @@ class ApiService {
       }
     }
 
-    return {
-      'artists': artists,
-      'albums': albums,
-      'songs': songs,
-    };
+    return {'artists': artists, 'albums': albums, 'songs': songs};
   }
 
   Future<List<Map<String, dynamic>>> getRandomSongs({int count = 10}) async {
-    final response = await _get('getRandomSongs', {
-      'size': count.toString(),
-    });
-    
+    final response = await _get('getRandomSongs', {'size': count.toString()});
+
     final randomSongs = response['randomSongs'];
     if (randomSongs == null) return [];
-    
+
     final songs = randomSongs['song'];
     if (songs == null) return [];
-    
+
     if (songs is Map) {
       return [Map<String, dynamic>.from(songs)];
     }
-    
+
     return List<Map<String, dynamic>>.from(songs);
   }
 
@@ -287,8 +309,8 @@ class ApiService {
     final response = await _get('getSongList', {
       'size': count.toString(),
       'offset': offset.toString(),
-      if (orderBy != null) 'orderBy': orderBy,
-      if (orderDirection != null) 'orderDirection': orderDirection,
+      'orderBy': ?orderBy,
+      'orderDirection': ?orderDirection,
     });
 
     final songList = response['songList'];

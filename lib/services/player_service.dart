@@ -17,7 +17,7 @@ class PlayerService with WidgetsBindingObserver {
   List<Map<String, dynamic>> _currentQueue = [];
   ConcatenatingAudioSource? _playlist;
   ApiService? _apiService;
-  String? _lastScrobbledId = null;
+  String? _lastScrobbledId;
   String? _lastSubmittedId;
   final _sessionService = SessionService();
   final _log = EventLogService();
