@@ -162,6 +162,8 @@ class _PlayerPageState extends State<PlayerPage> {
                                   ],
                                 ],
                               ),
+                              const SizedBox(height: 16),
+                              _buildRatingWidget(track, colorScheme),
 
                               if (isVeryShort) const SizedBox(height: 16)
                               else Spacer(flex: isShort ? 2 : 4),
@@ -301,6 +303,79 @@ class _PlayerPageState extends State<PlayerPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildRatingWidget(Map<String, dynamic> track, ColorScheme colorScheme) {
+    final int userRating = (track['userRating'] as num?)?.toInt() ?? 0;
+    final String trackId = track['id']?.toString() ?? '';
+    final bool isStarred = track['starred'] != null;
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // Centered Stars
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(5, (index) {
+            final starIndex = index + 1;
+            final isSelected = starIndex <= userRating;
+
+            return IconButton(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              icon: Icon(
+                isSelected ? Icons.star_rounded : Icons.star_outline_rounded,
+                color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                size: 28,
+              ),
+              onPressed: () {
+                if (trackId.isEmpty) return;
+                final newRating = (starIndex == userRating) ? 0 : starIndex;
+                
+                setState(() {
+                  track['userRating'] = newRating;
+                });
+                
+                _playerService.updateTrackRating(trackId, newRating);
+                widget.apiService.setRating(trackId, newRating);
+              },
+            );
+          }),
+        ),
+        
+        // Right-aligned Favorite Toggle
+        Positioned(
+          right: 0,
+          child: IconButton(
+            icon: Icon(
+              isStarred ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+              color: isStarred ? Colors.redAccent : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+              size: 28,
+            ),
+            onPressed: () {
+              if (trackId.isEmpty) return;
+              final newStarred = !isStarred;
+              
+              setState(() {
+                if (newStarred) {
+                  track['starred'] = DateTime.now().toIso8601String();
+                } else {
+                  track.remove('starred');
+                }
+              });
+              
+              _playerService.updateTrackStarred(trackId, newStarred);
+              
+              if (newStarred) {
+                widget.apiService.star(trackId);
+              } else {
+                widget.apiService.unstar(trackId);
+              }
+            },
+          ),
+        ),
+      ],
     );
   }
 

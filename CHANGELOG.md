@@ -4,6 +4,7 @@
 
 - add universal search tab.
 - fix navigation issues within application.
+- add like and rating options in media player
 
 ## 1.0.0+7
 

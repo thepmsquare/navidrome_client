@@ -345,6 +345,26 @@ class PlayerService with WidgetsBindingObserver {
     _log.log('loop mode set to $next', level: EventLogLevel.debug);
   }
 
+  void updateTrackRating(String id, int rating) {
+    final index = _currentQueue.indexWhere((t) => (t['id']?.toString() ?? '') == id);
+    if (index != -1) {
+      _currentQueue[index]['userRating'] = rating;
+      _log.log('updated track rating for $id to $rating in queue', level: EventLogLevel.debug);
+    }
+  }
+
+  void updateTrackStarred(String id, bool starred) {
+    final index = _currentQueue.indexWhere((t) => (t['id']?.toString() ?? '') == id);
+    if (index != -1) {
+      if (starred) {
+        _currentQueue[index]['starred'] = DateTime.now().toIso8601String();
+      } else {
+        _currentQueue[index].remove('starred');
+      }
+      _log.log('updated track starred status for $id to $starred in queue', level: EventLogLevel.debug);
+    }
+  }
+
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _positionSaveTimer?.cancel();

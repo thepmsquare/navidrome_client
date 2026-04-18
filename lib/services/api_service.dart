@@ -63,6 +63,30 @@ class ApiService {
     }
   }
 
+  Future<void> setRating(String id, int rating) async {
+    try {
+      await _get('setRating', {'id': id, 'rating': rating.toString()});
+    } catch (e) {
+      debugPrint('setRating failed: $e');
+    }
+  }
+
+  Future<void> star(String id) async {
+    try {
+      await _get('star', {'id': id});
+    } catch (e) {
+      debugPrint('star failed: $e');
+    }
+  }
+
+  Future<void> unstar(String id) async {
+    try {
+      await _get('unstar', {'id': id});
+    } catch (e) {
+      debugPrint('unstar failed: $e');
+    }
+  }
+
   Future<Map<String, dynamic>> _get(
     String method, [
     Map<String, String> params = const {},
@@ -309,8 +333,8 @@ class ApiService {
     final response = await _get('getSongList', {
       'size': count.toString(),
       'offset': offset.toString(),
-      'orderBy': ?orderBy,
-      'orderDirection': ?orderDirection,
+      if (orderBy != null) 'orderBy': orderBy,
+      if (orderDirection != null) 'orderDirection': orderDirection,
     });
 
     final songList = response['songList'];

@@ -694,7 +694,7 @@ class _HomePageState extends State<HomePage> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          ?trailing,
+          if (trailing != null) trailing,
         ],
       ),
     );
