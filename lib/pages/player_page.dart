@@ -19,6 +19,7 @@ class PlayerPage extends StatefulWidget {
 
 class _PlayerPageState extends State<PlayerPage> {
   final PlayerService _playerService = PlayerService();
+  bool _hasTriggeredSwipe = false;
 
   @override
   Widget build(BuildContext context) {
@@ -85,88 +86,130 @@ class _PlayerPageState extends State<PlayerPage> {
                             children: [
                               if (!isVeryShort) const Spacer(flex: 2),
                               
-                              // Cover Art
-                              Flexible(
-                                flex: isShort ? 12 : 20,
-                                child: AspectRatio(
-                                  aspectRatio: 1,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(32),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: colorScheme.shadow.withValues(alpha: 0.15),
-                                          blurRadius: 40,
-                                          offset: const Offset(0, 10),
+                              // Cover Art + metadata swipe zone (gestures do NOT cover progress/controls)
+                              GestureDetector(
+                                behavior: HitTestBehavior.translucent,
+                                onVerticalDragUpdate: (details) {
+                                  if (!_hasTriggeredSwipe && details.primaryDelta! > 10) {
+                                    setState(() => _hasTriggeredSwipe = true);
+                                    Navigator.pop(context);
+                                  }
+                                },
+                                onVerticalDragEnd: (_) => setState(() => _hasTriggeredSwipe = false),
+                                onVerticalDragCancel: () => setState(() => _hasTriggeredSwipe = false),
+                                onHorizontalDragUpdate: (details) {
+                                  if (!_hasTriggeredSwipe) {
+                                    if (details.primaryDelta! > 10) {
+                                      setState(() => _hasTriggeredSwipe = true);
+                                      _playerService.skipToPrevious();
+                                    } else if (details.primaryDelta! < -10) {
+                                      setState(() => _hasTriggeredSwipe = true);
+                                      _playerService.skipToNext();
+                                    }
+                                  }
+                                },
+                                onHorizontalDragEnd: (_) => setState(() => _hasTriggeredSwipe = false),
+                                onHorizontalDragCancel: () => setState(() => _hasTriggeredSwipe = false),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // Cover Art
+                                    AspectRatio(
+                                      aspectRatio: 1,
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(32),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: colorScheme.shadow.withValues(alpha: 0.15),
+                                              blurRadius: 40,
+                                              offset: const Offset(0, 10),
+                                            ),
+                                          ],
                                         ),
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(32),
+                                          child: AnimatedSwitcher(
+                                            duration: const Duration(milliseconds: 300),
+                                            child: coverArtUrl != null
+                                                ? Image.network(
+                                                    coverArtUrl,
+                                                    key: ValueKey(coverArtUrl),
+                                                    fit: BoxFit.cover,
+                                                  )
+                                                : Container(
+                                                    key: const ValueKey('placeholder'),
+                                                    color: colorScheme.surfaceContainerHighest,
+                                                    child: Icon(
+                                                      Icons.music_note_rounded,
+                                                      size: isShort ? 60 : 100,
+                                                      color: colorScheme.primary.withValues(alpha: 0.5),
+                                                    ),
+                                                  ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+
+                                    SizedBox(height: isVeryShort ? 12 : isShort ? 16 : 24),
+
+                                    // Title & Artist
+                                    Column(
+                                      children: [
+                                        AnimatedSwitcher(
+                                          duration: const Duration(milliseconds: 300),
+                                          child: Text(
+                                            title,
+                                            key: ValueKey('title_$title'),
+                                            textAlign: TextAlign.center,
+                                            style: (isShort ? theme.textTheme.titleLarge : theme.textTheme.headlineMedium)?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                              color: colorScheme.onSurface,
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        AnimatedSwitcher(
+                                          duration: const Duration(milliseconds: 300),
+                                          child: Text(
+                                            artist,
+                                            key: ValueKey('artist_$artist'),
+                                            textAlign: TextAlign.center,
+                                            style: (isShort ? theme.textTheme.titleMedium : theme.textTheme.titleLarge)?.copyWith(
+                                              color: colorScheme.primary,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (!isVeryShort) ...[
+                                          const SizedBox(height: 4),
+                                          AnimatedSwitcher(
+                                            duration: const Duration(milliseconds: 300),
+                                            child: Text(
+                                              album.toLowerCase(),
+                                              key: ValueKey('album_$album'),
+                                              textAlign: TextAlign.center,
+                                              style: theme.textTheme.bodyMedium?.copyWith(
+                                                color: colorScheme.onSurfaceVariant,
+                                                letterSpacing: 0.5,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
                                       ],
                                     ),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(32),
-                                      child: coverArtUrl != null
-                                          ? Image.network(
-                                              coverArtUrl,
-                                              fit: BoxFit.cover,
-                                            )
-                                          : Container(
-                                              color: colorScheme.surfaceContainerHighest,
-                                              child: Icon(
-                                                Icons.music_note_rounded,
-                                                size: isShort ? 60 : 100,
-                                                color: colorScheme.primary.withValues(alpha: 0.5),
-                                              ),
-                                            ),
-                                    ),
-                                  ),
+                                    const SizedBox(height: 16),
+                                    _buildRatingWidget(track, colorScheme),
+                                  ],
                                 ),
                               ),
-                              
-                              if (isVeryShort) const SizedBox(height: 16)
-                              else Spacer(flex: isShort ? 2 : 4),
 
-                              // Title & Artist
-                              Column(
-                                children: [
-                                  Text(
-                                    title,
-                                    textAlign: TextAlign.center,
-                                    style: (isShort ? theme.textTheme.titleLarge : theme.textTheme.headlineMedium)?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: colorScheme.onSurface,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    artist,
-                                    textAlign: TextAlign.center,
-                                    style: (isShort ? theme.textTheme.titleMedium : theme.textTheme.titleLarge)?.copyWith(
-                                      color: colorScheme.primary,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  if (!isVeryShort) ...[
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      album.toLowerCase(),
-                                      textAlign: TextAlign.center,
-                                      style: theme.textTheme.bodyMedium?.copyWith(
-                                        color: colorScheme.onSurfaceVariant,
-                                        letterSpacing: 0.5,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              _buildRatingWidget(track, colorScheme),
-
-                              if (isVeryShort) const SizedBox(height: 16)
-                              else Spacer(flex: isShort ? 2 : 4),
+                              SizedBox(height: isVeryShort ? 12 : isShort ? 16 : 24),
 
                               // Progress Bar
                               StreamBuilder<Duration>(
