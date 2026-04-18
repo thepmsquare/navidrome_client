@@ -1,10 +1,10 @@
 # changelog
 
-## 1.0.0+8 (in progress)
+## 1.0.0+8
 
 - add universal search tab.
 - fix navigation issues within application.
-- add like and rating options in media player
+- add like and rating options in media player.
 - start doing swipe gestures on player page.
 
 ## 1.0.0+7
