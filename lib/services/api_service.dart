@@ -63,6 +63,23 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>?> getLyrics(String artist, String title) async {
+    try {
+      final response = await _get('getLyrics', {
+        'artist': artist,
+        'title': title,
+      });
+      final lyrics = response['lyrics'];
+      if (lyrics == null) return null;
+      if (lyrics is Map) return Map<String, dynamic>.from(lyrics);
+      if (lyrics is List && lyrics.isNotEmpty) return Map<String, dynamic>.from(lyrics.first);
+      return null;
+    } catch (e) {
+      debugPrint('getLyrics failed: $e');
+      return null;
+    }
+  }
+
   Future<void> setRating(String id, int rating) async {
     try {
       await _get('setRating', {'id': id, 'rating': rating.toString()});

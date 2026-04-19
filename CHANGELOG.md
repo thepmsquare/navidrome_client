@@ -1,5 +1,9 @@
 # changelog
 
+## 1.0.0+9 (in progress)
+
+- add lyrics page and integrate lrclib.
+
 ## 1.0.0+8
 
 - add universal search tab.
