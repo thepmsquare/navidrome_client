@@ -23,6 +23,9 @@ class _PlayerPageState extends State<PlayerPage> {
   late final LyricsService _lyricsService;
   bool _hasTriggeredSwipe = false;
   bool _showLyrics = false;
+  // local drag position shown while the user is scrubbing the seek bar;
+  // null means we display the live stream position
+  double? _dragValue;
 
   @override
   void initState() {
@@ -98,7 +101,10 @@ class _PlayerPageState extends State<PlayerPage> {
                   },
                   child: _showLyrics
                       ? _LyricsView(
-                          key: const ValueKey('lyrics'),
+                          // keyed by track id so the widget fully rebuilds on
+                          // track change, preventing stale lyrics and avoiding
+                          // setState calls on a disposed widget from in-flight requests
+                          key: ValueKey('lyrics_${track['id']}'),
                           track: track,
                           lyricsService: _lyricsService,
                           playerService: _playerService,
@@ -135,10 +141,10 @@ class _PlayerPageState extends State<PlayerPage> {
                                           if (!_hasTriggeredSwipe) {
                                             if (details.primaryDelta! > 10) {
                                               setState(() => _hasTriggeredSwipe = true);
-                                              _playerService.skipToPrevious();
+                                              _playerService.skipToPrevious().catchError((_) {});
                                             } else if (details.primaryDelta! < -10) {
                                               setState(() => _hasTriggeredSwipe = true);
-                                              _playerService.skipToNext();
+                                              _playerService.skipToNext().catchError((_) {});
                                             }
                                           }
                                         },
@@ -257,11 +263,19 @@ class _PlayerPageState extends State<PlayerPage> {
                                                   thumbColor: colorScheme.primary,
                                                 ),
                                                 child: Slider(
-                                                  value: position.inSeconds.toDouble(),
+                                                  value: (_dragValue ?? position.inSeconds.toDouble()).clamp(
+                                                    0.0,
+                                                    total.inSeconds.toDouble().clamp(0.01, double.infinity),
+                                                  ),
                                                   min: 0,
                                                   max: total.inSeconds.toDouble().clamp(0.01, double.infinity),
-                                                  onChanged: (value) {
+                                                  onChangeStart: (_) => setState(
+                                                    () => _dragValue = position.inSeconds.toDouble(),
+                                                  ),
+                                                  onChanged: (value) => setState(() => _dragValue = value),
+                                                  onChangeEnd: (value) {
                                                     _playerService.seek(Duration(seconds: value.toInt()));
+                                                    setState(() => _dragValue = null);
                                                   },
                                                 ),
                                               ),
@@ -313,7 +327,7 @@ class _PlayerPageState extends State<PlayerPage> {
                                           IconButton.filledTonal(
                                             iconSize: isShort ? 28 : 32,
                                             icon: const Icon(Icons.skip_previous_rounded),
-                                            onPressed: () => _playerService.skipToPrevious(),
+                                            onPressed: () => _playerService.skipToPrevious().catchError((_) {}),
                                           ),
                                           StreamBuilder<PlayerState>(
                                             stream: _playerService.player.playerStateStream,
@@ -336,7 +350,7 @@ class _PlayerPageState extends State<PlayerPage> {
                                           IconButton.filledTonal(
                                             iconSize: isShort ? 28 : 32,
                                             icon: const Icon(Icons.skip_next_rounded),
-                                            onPressed: () => _playerService.skipToNext(),
+                                            onPressed: () => _playerService.skipToNext().catchError((_) {}),
                                           ),
                                           StreamBuilder<LoopMode>(
                                             stream: _playerService.player.loopModeStream,

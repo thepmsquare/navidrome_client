@@ -23,6 +23,7 @@ class PlayerService with WidgetsBindingObserver {
   final _log = EventLogService();
   Timer? _positionSaveTimer;
   bool _stopPlaybackOnTaskRemoved = false;
+  bool _wasPlayingBeforeInterruption = false;
 
   PlayerService._internal() {
     _init();
@@ -32,6 +33,26 @@ class PlayerService with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     final session = await AudioSession.instance;
     await session.configure(const AudioSessionConfiguration.music());
+    await session.setActive(true);
+
+    // handle audio interruptions (phone calls, navigation prompts, other apps)
+    session.interruptionEventStream.listen((event) {
+      if (event.begin) {
+        _wasPlayingBeforeInterruption = _player.playing;
+        if (event.type == AudioInterruptionType.duck) {
+          _player.setVolume(0.5);
+        } else {
+          _player.pause();
+        }
+      } else {
+        if (event.type == AudioInterruptionType.duck) {
+          _player.setVolume(1.0);
+        } else if (_wasPlayingBeforeInterruption) {
+          _player.play();
+        }
+        _wasPlayingBeforeInterruption = false;
+      }
+    });
 
     // load initial setting for stopping playback on task removal
     _stopPlaybackOnTaskRemoved = await _sessionService.stopPlaybackOnTaskRemoved;
@@ -76,6 +97,10 @@ class PlayerService with WidgetsBindingObserver {
       (_) {},
       onError: (Object e, StackTrace st) {
         _log.log('playback event error', level: EventLogLevel.error, error: e, stackTrace: st);
+        // attempt to skip past a broken/unreachable track so the queue continues
+        if (_currentQueue.length > 1) {
+          _player.seekToNext().catchError((_) {});
+        }
       },
     );
 
@@ -100,8 +125,11 @@ class PlayerService with WidgetsBindingObserver {
   }
 
   Future<void> _saveCurrentPosition() async {
-    if (_player.playing || _player.position > Duration.zero) {
-      await _sessionService.setLastPositionMs(_player.position.inMilliseconds);
+    // Only persist a non-zero position. Writing 0 during buffering would
+    // clobber a valid restored position on the next app launch.
+    final pos = _player.position;
+    if (pos > Duration.zero) {
+      await _sessionService.setLastPositionMs(pos.inMilliseconds);
     }
   }
 
@@ -192,6 +220,9 @@ class PlayerService with WidgetsBindingObserver {
 
     _currentQueue = queue;
     _apiService = apiService;
+    // reset scrobble guards so the first restored track is submitted correctly
+    _lastScrobbledId = null;
+    _lastSubmittedId = null;
 
     late ConcatenatingAudioSource playlist;
     try {
@@ -238,6 +269,7 @@ class PlayerService with WidgetsBindingObserver {
     );
 
     final playlistList = <AudioSource>[];
+    final validQueue = <Map<String, dynamic>>[];
     for (int i = 0; i < queue.length; i++) {
       final track = queue[i];
       final trackId = track['id']?.toString() ?? '';
@@ -248,6 +280,8 @@ class PlayerService with WidgetsBindingObserver {
         _log.log('skipping track at index $i: missing id', level: EventLogLevel.warning);
         continue;
       }
+
+      validQueue.add(track);
 
       final artUri = localCoverPath != null
           ? Uri.file(localCoverPath)
@@ -268,6 +302,13 @@ class PlayerService with WidgetsBindingObserver {
       );
     }
 
+    // Sync _currentQueue to only the tracks that made it into the playlist.
+    // Any skipped (empty-id) tracks would otherwise cause a permanent index
+    // offset between _currentQueue and ConcatenatingAudioSource.
+    if (validQueue.length != queue.length) {
+      _currentQueue = validQueue;
+    }
+
     _log.log('audio source built: ${playlistList.length}/${queue.length} tracks', level: EventLogLevel.debug);
 
     return ConcatenatingAudioSource(
@@ -280,6 +321,7 @@ class PlayerService with WidgetsBindingObserver {
   Future<void> resume() => _player.play();
   Future<void> stop() => _player.stop();
   Future<void> seek(Duration position) => _player.seek(position);
+  Future<void> seekToIndex(int index) => _player.seek(Duration.zero, index: index);
   Future<void> skipToNext() => _player.seekToNext();
   Future<void> skipToPrevious() => _player.seekToPrevious();
 
@@ -290,10 +332,13 @@ class PlayerService with WidgetsBindingObserver {
   Future<void> removeFromQueue(int index) async {
     if (index < 0 || index >= _currentQueue.length) return;
 
-    _currentQueue.removeAt(index);
-    _playlist?.removeAt(index);
+    // bail if the playlist is not loaded — mutating _currentQueue alone would
+    // create a permanent index offset between _currentQueue and the audio source
+    if (_playlist == null) return;
 
-    // bug fix: if the queue becomes empty, stop the player
+    _currentQueue.removeAt(index);
+    await _playlist!.removeAt(index);
+
     if (_currentQueue.isEmpty) {
       await stop();
     }
@@ -306,10 +351,13 @@ class PlayerService with WidgetsBindingObserver {
     if (oldIndex < 0 || oldIndex >= _currentQueue.length) return;
     if (newIndex < 0 || newIndex >= _currentQueue.length) return;
 
+    // bail if the playlist is not loaded to prevent index desync
+    if (_playlist == null) return;
+
     final item = _currentQueue.removeAt(oldIndex);
     _currentQueue.insert(newIndex, item);
 
-    _playlist?.move(oldIndex, newIndex);
+    await _playlist!.move(oldIndex, newIndex);
 
     _sessionService.setLastQueue(_currentQueue);
     _log.log('reordered queue: $oldIndex to $newIndex', level: EventLogLevel.debug);
@@ -365,6 +413,9 @@ class PlayerService with WidgetsBindingObserver {
     }
   }
 
+  // PlayerService is a singleton that lives for the entire app lifetime.
+  // dispose() should only be called from the root widget's dispose() if the
+  // app ever tears down the player intentionally (e.g., on logout).
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _positionSaveTimer?.cancel();

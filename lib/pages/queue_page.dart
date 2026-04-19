@@ -83,7 +83,7 @@ class _QueuePageState extends State<QueuePage> {
                 apiService: widget.apiService,
                 isPlaying: isPlaying,
                 onTap: () {
-                  _playerService.player.seek(Duration.zero, index: index);
+                  _playerService.seekToIndex(index).catchError((_) {});
                 },
                 onRemove: () {
                   setState(() {

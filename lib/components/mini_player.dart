@@ -53,10 +53,10 @@ class _MiniPlayerState extends State<MiniPlayer> {
               if (!_hasTriggered) {
                 if (details.primaryDelta! > 10) {
                   setState(() => _hasTriggered = true);
-                  playerService.skipToPrevious();
+                  playerService.skipToPrevious().catchError((_) {});
                 } else if (details.primaryDelta! < -10) {
                   setState(() => _hasTriggered = true);
-                  playerService.skipToNext();
+                  playerService.skipToNext().catchError((_) {});
                 }
               }
             },
@@ -162,7 +162,7 @@ class _MiniPlayerState extends State<MiniPlayer> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                              onPressed: () => playerService.skipToPrevious(),
+                              onPressed: () => playerService.skipToPrevious().catchError((_) {}),
                               icon: const Icon(Icons.skip_previous_rounded, size: 28),
                             ),
                             IconButton.filledTonal(
@@ -181,7 +181,7 @@ class _MiniPlayerState extends State<MiniPlayer> {
                               ),
                             ),
                             IconButton(
-                              onPressed: () => playerService.skipToNext(),
+                              onPressed: () => playerService.skipToNext().catchError((_) {}),
                               icon: const Icon(Icons.skip_next_rounded, size: 28),
                             ),
                           ],
