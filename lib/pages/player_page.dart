@@ -101,6 +101,7 @@ class _PlayerPageState extends State<PlayerPage> {
                           key: const ValueKey('lyrics'),
                           track: track,
                           lyricsService: _lyricsService,
+                          playerService: _playerService,
                         )
                       : LayoutBuilder(
                           key: const ValueKey('player'),
@@ -450,56 +451,113 @@ class _PlayerPageState extends State<PlayerPage> {
   }
 }
 
-class _LyricsView extends StatelessWidget {
+class _LyricsView extends StatefulWidget {
   final Map<String, dynamic> track;
   final LyricsService lyricsService;
+  final PlayerService playerService;
 
   const _LyricsView({
     super.key,
     required this.track,
     required this.lyricsService,
+    required this.playerService,
   });
+
+  @override
+  State<_LyricsView> createState() => _LyricsViewState();
+}
+
+class _LyricsViewState extends State<_LyricsView> {
+  final ScrollController _scrollController = ScrollController();
+  int _currentIndex = -1;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToIndex(int index) {
+    if (index < 0 || !_scrollController.hasClients) return;
+    
+    // Approximate line height + padding
+    const lineHeight = 60.0; 
+    final offset = index * lineHeight;
+    
+    _scrollController.animateTo(
+      (offset - 200).clamp(0, _scrollController.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final title = (track['title'] ?? 'unknown title').toString();
-    final artist = (track['artist'] ?? 'unknown artist').toString();
+    final title = (widget.track['title'] ?? 'unknown title').toString();
+    final artist = (widget.track['artist'] ?? 'unknown artist').toString();
 
-    return FutureBuilder<String?>(
-      future: lyricsService.getLyrics(track),
+    return FutureBuilder<LyricsData?>(
+      future: widget.lyricsService.getLyrics(widget.track),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(),
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final lyricsData = snapshot.data;
+        if (lyricsData == null || (lyricsData.plain == null && !lyricsData.hasSynced)) {
+          return _buildNoLyrics(theme, colorScheme);
+        }
+
+        if (lyricsData.hasSynced) {
+          return StreamBuilder<Duration>(
+            stream: widget.playerService.player.positionStream,
+            builder: (context, positionSnapshot) {
+              final position = positionSnapshot.data ?? Duration.zero;
+              final synced = lyricsData.synced!;
+              
+              final index = synced.lastIndexWhere((line) => line.time <= position);
+              if (index != _currentIndex && index != -1) {
+                _currentIndex = index;
+                WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToIndex(index));
+              }
+
+              return ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+                itemCount: synced.length,
+                itemBuilder: (context, i) {
+                  final isCurrent = i == index;
+                  final line = synced[i];
+                  
+                  return GestureDetector(
+                    onTap: () => widget.playerService.seek(line.time),
+                    child: AnimatedPadding(
+                      duration: const Duration(milliseconds: 200),
+                      padding: EdgeInsets.symmetric(vertical: isCurrent ? 12 : 8),
+                      child: AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 200),
+                        style: theme.textTheme.headlineSmall!.copyWith(
+                          fontSize: isCurrent ? 24 : 20,
+                          fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                          color: isCurrent 
+                              ? colorScheme.primary 
+                              : colorScheme.onSurface.withValues(alpha: 0.5),
+                        ),
+                        child: Text(
+                          line.text.toLowerCase(),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
           );
         }
 
-        final lyricsText = snapshot.data;
-
-        if (lyricsText == null || lyricsText.trim().isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.sentiment_dissatisfied_rounded,
-                  size: 64,
-                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'no lyrics found',
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
+        // Fallback to plain lyrics
         return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
           child: Column(
@@ -520,7 +578,7 @@ class _LyricsView extends StatelessWidget {
               ),
               const SizedBox(height: 32),
               Text(
-                lyricsText.toLowerCase(),
+                lyricsData.plain!.toLowerCase(),
                 style: theme.textTheme.bodyLarge?.copyWith(
                   height: 1.8,
                   fontSize: 18,
@@ -533,6 +591,28 @@ class _LyricsView extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildNoLyrics(ThemeData theme, ColorScheme colorScheme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.sentiment_dissatisfied_rounded,
+            size: 64,
+            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'no lyrics found',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
