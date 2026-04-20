@@ -18,6 +18,7 @@ class OfflineService extends ChangeNotifier {
   static const String _albumListCacheFile = 'album_list_cache.json';
   static const String _playlistListCacheFile = 'playlist_list_cache.json';
   static const String _trackListCacheFile = 'track_list_cache.json';
+  static const String _artistListCacheFile = 'artist_list_cache.json';
 
   final Dio _dio = Dio();
 
@@ -119,7 +120,8 @@ class OfflineService extends ChangeNotifier {
   String _playlistMetaPath(String basePath, String playlistId) => '$basePath/meta/playlist_$playlistId.json';
   String _albumListCachePath(String basePath) => '$basePath/meta/$_albumListCacheFile';
   String _playlistListCachePath(String basePath) => '$basePath/meta/$_playlistListCacheFile';
-  String _trackListCachePath(String basePath) => '$basePath/meta/$_trackListCacheFile';
+  static String _trackListCachePath(String basePath) => '$basePath/meta/$_trackListCacheFile';
+  static String _artistListCachePath(String basePath) => '$basePath/meta/$_artistListCacheFile';
 
   // ---------------------------------------------------------------------------
   // Synchronous status checks — #7: O(1) using in-memory sets
@@ -632,6 +634,26 @@ class OfflineService extends ChangeNotifier {
     }
   }
 
+  Future<void> saveArtistListCache(List<Map<String, dynamic>> artists) async {
+    final base = await _getStoragePath();
+    await File(_artistListCachePath(base)).writeAsString(jsonEncode(artists));
+  }
+
+  Future<List<Map<String, dynamic>>?> getCachedArtistList() async {
+    try {
+      final base = await _getStoragePath();
+      final file = File(_artistListCachePath(base));
+      if (!await file.exists()) return null;
+      final decoded = jsonDecode(await file.readAsString()) as List<dynamic>;
+      return List<Map<String, dynamic>>.from(
+        decoded.map((e) => Map<String, dynamic>.from(e as Map)),
+      );
+    } catch (e) {
+      debugPrint('failed to read artist list cache: $e');
+      return null;
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Offline mode toggle
   // ---------------------------------------------------------------------------
@@ -675,6 +697,7 @@ class OfflineService extends ChangeNotifier {
         _albumListCacheFile,
         _playlistListCacheFile,
         _trackListCacheFile,
+        _artistListCacheFile,
       };
 
       await for (final entity in metaDir.list()) {

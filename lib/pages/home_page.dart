@@ -21,9 +21,11 @@ import 'package:navidrome_client/services/export_service.dart';
 import 'package:navidrome_client/pages/albums_page.dart';
 import 'package:navidrome_client/pages/tracks_page.dart';
 import 'package:navidrome_client/pages/playlists_page.dart';
+import 'package:navidrome_client/pages/artists_page.dart';
+import 'package:navidrome_client/pages/artist_details_page.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
-enum LibraryView { home, albums, playlists, tracks }
+enum LibraryView { home, albums, playlists, tracks, artists }
 
 enum TrackSortOrder {
   name,
@@ -613,8 +615,20 @@ class _HomePageState extends State<HomePage> {
                                 'unknown artist',
                           ),
                           onTap: () {
-                            // artists are not yet fully implemented in this client
-                            // but we show them in search results
+                            if (_apiService == null) return;
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ArtistDetailsPage(
+                                  artist: artist,
+                                  apiService: _apiService!,
+                                ),
+                              ),
+                            ).then((_) {
+                              if (mounted && _selectedIndex == 2) {
+                                _universalSearchFocusNode.requestFocus();
+                              }
+                            });
                           },
                         ),
                       ),
@@ -751,6 +765,20 @@ class _HomePageState extends State<HomePage> {
                         MaterialPageRoute(
                           builder: (context) =>
                               AlbumsPage(apiService: _apiService!),
+                        ),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.person_rounded),
+                    title: const Text('artists'),
+                    onTap: () {
+                      if (_apiService == null) return;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              ArtistsPage(apiService: _apiService!),
                         ),
                       );
                     },

@@ -3,6 +3,7 @@
 ## 1.0.0+9 (in progress)
 
 - add lyrics page and integrate lrclib.
+- add artists page in library.
 
 ## 1.0.0+8
 

@@ -216,6 +216,66 @@ class ApiService {
     return List<Map<String, dynamic>>.from(albums);
   }
 
+  Future<List<Map<String, dynamic>>> getArtists() async {
+    final response = await _get('getArtists');
+
+    final artistsRoot = response['artists'];
+    if (artistsRoot == null) return [];
+
+    final indexes = artistsRoot['index'];
+    if (indexes == null) return [];
+
+    List<Map<String, dynamic>> allArtists = [];
+    if (indexes is Map) {
+      final artists = indexes['artist'];
+      if (artists is List) {
+        allArtists.addAll(List<Map<String, dynamic>>.from(artists));
+      } else if (artists is Map) {
+        allArtists.add(Map<String, dynamic>.from(artists));
+      }
+    } else if (indexes is List) {
+      for (final index in indexes) {
+        final artists = index['artist'];
+        if (artists is List) {
+          allArtists.addAll(List<Map<String, dynamic>>.from(artists));
+        } else if (artists is Map) {
+          allArtists.add(Map<String, dynamic>.from(artists));
+        }
+      }
+    }
+
+    return allArtists;
+  }
+
+  Future<List<Map<String, dynamic>>> searchArtists(
+    String query, {
+    int count = 50,
+    int offset = 0,
+  }) async {
+    final response = await _get('search3', {
+      'query': query,
+      'artistCount': count.toString(),
+      'artistOffset': offset.toString(),
+    });
+
+    final searchResult = response['searchResult3'];
+    if (searchResult == null) return [];
+
+    final artists = searchResult['artist'];
+    if (artists == null) return [];
+
+    if (artists is Map) {
+      return [Map<String, dynamic>.from(artists)];
+    }
+
+    return List<Map<String, dynamic>>.from(artists);
+  }
+
+  Future<Map<String, dynamic>?> getArtist(String id) async {
+    final response = await _get('getArtist', {'id': id});
+    return response['artist'];
+  }
+
   Future<List<Map<String, dynamic>>> getPlaylists() async {
     final response = await _get('getPlaylists');
 
