@@ -186,11 +186,22 @@ class OfflineService extends ChangeNotifier {
     final path = _coverPath(base, coverArtId);
     if (await File(path).exists()) return; // already have it
 
+    final tempPath = '$path.temp';
     try {
-      await _dio.download(apiService.getCoverArtUrl(coverArtId, size: 600), path);
-      notifyListeners(); // notify to update images (OfflineImage)
+      await _dio.download(apiService.getCoverArtUrl(coverArtId, size: 600), tempPath);
+      final tempFile = File(tempPath);
+      if (await tempFile.exists()) {
+        await tempFile.rename(path);
+        notifyListeners(); // notify to update images (OfflineImage)
+      }
     } catch (e) {
       debugPrint('cover art $coverArtId download failed: $e');
+      final tempFile = File(tempPath);
+      if (await tempFile.exists()) {
+        try {
+          await tempFile.delete();
+        } catch (_) {}
+      }
     }
   }
 
@@ -200,7 +211,34 @@ class OfflineService extends ChangeNotifier {
     if (coverArtId == null) return null;
     final base = await _getStoragePath();
     final path = _coverPath(base, coverArtId);
-    return await File(path).exists() ? path : null;
+    final file = File(path);
+    
+    if (await file.exists()) {
+      try {
+        final randomAccessFile = await file.open(mode: FileMode.read);
+        final bytes = await randomAccessFile.read(4);
+        await randomAccessFile.close();
+        
+        bool isValid = false;
+        if (bytes.length >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF) isValid = true; // JPEG
+        else if (bytes.length >= 4 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) isValid = true; // PNG
+        else if (bytes.length >= 4 && bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x38) isValid = true; // GIF
+        else if (bytes.length >= 4 && bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46) isValid = true; // WEBP (RIFF)
+        
+        if (isValid) {
+          return path;
+        }
+        
+        // If not a valid image, delete the corrupted file
+        await file.delete();
+        debugPrint('deleted corrupted cover art file: $path');
+      } catch (e) {
+        debugPrint('error checking cover art file: $e');
+        // if we couldn't read it (e.g. locked), return null to fallback safely
+        return null;
+      }
+    }
+    return null;
   }
 
   // ---------------------------------------------------------------------------
