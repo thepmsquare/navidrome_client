@@ -138,6 +138,15 @@ class _ConnectPageState extends State<ConnectPage> {
     }
   }
 
+  Future<void> _handleDemoMode() async {
+    setState(() {
+      _urlController.text = 'https://demo.navidrome.org';
+      _usernameController.text = 'demo';
+      _passwordController.text = 'demo';
+    });
+    _handleConnect();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -312,6 +321,12 @@ class _ConnectPageState extends State<ConnectPage> {
                               onPressed: _isLoading ? null : _handleImport,
                               icon: const Icon(Icons.file_open_rounded),
                               label: const Text('import profile'),
+                            ),
+                            const SizedBox(height: 4),
+                            TextButton.icon(
+                              onPressed: _isLoading ? null : _handleDemoMode,
+                              icon: const Icon(Icons.play_circle_outline_rounded),
+                              label: const Text('try demo mode'),
                             ),
                           ],
                         ),

@@ -4,6 +4,7 @@
 
 - add lyrics page and integrate lrclib.
 - add artists page in library.
+- add demo mode for google play review.
 
 ## 1.0.0+8
 
