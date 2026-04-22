@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:navidrome_client/pages/connect_page.dart';
 import 'package:navidrome_client/pages/home_page.dart';
@@ -10,25 +11,36 @@ import 'package:navidrome_client/services/session_service.dart';
 import 'package:navidrome_client/utils/constants.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  // #11: load stop playback setting for android initialization
-  final stopPlaybackOnTaskRemoved = await SessionService().stopPlaybackOnTaskRemoved;
+  await SentryFlutter.init(
+    (options) {
+      options.dsn = 'https://2b0b77baab7bf5de9dd39d82ac52b6ac@o4511263909740544.ingest.de.sentry.io/4511263935103056';
+      options.tracesSampleRate = 1.0;
+      options.profilesSampleRate = 1.0;
+    },
+    appRunner: () async {
+      WidgetsFlutterBinding.ensureInitialized();
+      // #11: load stop playback setting for android initialization
+      final stopPlaybackOnTaskRemoved =
+          await SessionService().stopPlaybackOnTaskRemoved;
 
-  await JustAudioBackground.init(
-    androidNotificationChannelId: 'com.ryanheise.audioservice.audio',
-    androidNotificationChannelName: 'audio playback',
-    // On Android, if stopPlaybackOnTaskRemoved is true, we make the notification
-    // non-ongoing so it can be automatically dismissed or swiped away properly.
-    androidNotificationOngoing: Platform.isAndroid ? !stopPlaybackOnTaskRemoved : true,
-    androidNotificationIcon: 'drawable/ic_notification',
+      await JustAudioBackground.init(
+        androidNotificationChannelId: 'com.ryanheise.audioservice.audio',
+        androidNotificationChannelName: 'audio playback',
+        // On Android, if stopPlaybackOnTaskRemoved is true, we make the notification
+        // non-ongoing so it can be automatically dismissed or swiped away properly.
+        androidNotificationOngoing:
+            Platform.isAndroid ? !stopPlaybackOnTaskRemoved : true,
+        androidNotificationIcon: 'drawable/ic_notification',
+      );
+      // load offline state into memory before any UI renders
+      await OfflineService().initialize();
+
+      final authService = AuthService();
+      final isLoggedIn = await authService.isLoggedIn;
+
+      runApp(MyApp(isLoggedIn: isLoggedIn));
+    },
   );
-  // load offline state into memory before any UI renders
-  await OfflineService().initialize();
-
-  final authService = AuthService();
-  final isLoggedIn = await authService.isLoggedIn;
-  
-  runApp(MyApp(isLoggedIn: isLoggedIn));
 }
 
 class MyApp extends StatelessWidget {
@@ -164,6 +176,9 @@ class MyApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: baseTheme,
           darkTheme: baseDarkTheme,
+          navigatorObservers: [
+            SentryNavigatorObserver(),
+          ],
           initialRoute: isLoggedIn ? '/home' : '/connect',
           routes: {
             '/connect': (context) => const ConnectPage(),

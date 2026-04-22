@@ -5,6 +5,7 @@
 - add lyrics page and integrate lrclib.
 - add artists page in library.
 - add demo mode for google play review.
+- integrate sentry for error tracking and performance monitoring.
 
 ## 1.0.0+8
 

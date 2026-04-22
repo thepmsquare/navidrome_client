@@ -977,6 +977,14 @@ class _HomePageState extends State<HomePage> {
                   },
                 ),
               ),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.bolt_rounded),
+                  title: const Text('trigger test error'),
+                  subtitle: const Text('verify sentry integration'),
+                  onTap: () => throw Exception('sentry test error'),
+                ),
+              ),
               const SizedBox(height: 8),
               Card(
                 child: ListTile(

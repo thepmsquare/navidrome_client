@@ -37,6 +37,9 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <meta-data
+            android:name="io.sentry.dsn"
+            android:value="https://2b0b77baab7bf5de9dd39d82ac52b6ac@o4511263909740544.ingest.de.sentry.io/4511263935103056" />
 
         <service android:name="com.ryanheise.audioservice.AudioService"
             android:foregroundServiceType="mediaPlayback"

@@ -23,8 +23,10 @@ dependencies:
   background_downloader: ^9.5.4
   file_picker: ^8.1.4
   package_info_plus: ^8.1.0
+  sentry_flutter: ^9.18.0
 
 dev_dependencies:
+  sentry_dart_plugin: ^3.3.0
   flutter_test:
     sdk: flutter
   flutter_launcher_icons: ^0.14.4
@@ -41,3 +43,9 @@ flutter_launcher_icons:
   adaptive_icon_background: "#000000"
   adaptive_icon_foreground: "assets/branding/foreground_layer_colored.png"
   adaptive_icon_monochrome: "assets/branding/transparent_icon.png"
+
+sentry:
+  upload_debug_symbols: true
+  upload_source_maps: true
+  project: navidrome-client-by-thepmsquare
+  org: parth-mangtani
