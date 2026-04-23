@@ -1,11 +1,12 @@
 # changelog
 
-## 1.0.0+9 (in progress)
+## 1.0.0+9
 
 - add lyrics page and integrate lrclib.
 - add artists page in library.
 - add demo mode for google play review.
 - integrate sentry for error tracking and performance monitoring.
+- update button placement in player page.
 
 ## 1.0.0+8
 

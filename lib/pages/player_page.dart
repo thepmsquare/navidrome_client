@@ -47,25 +47,6 @@ class _PlayerPageState extends State<PlayerPage> {
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: Icon(_showLyrics ? Icons.music_note_rounded : Icons.lyrics_rounded),
-            onPressed: () => setState(() => _showLyrics = !_showLyrics),
-            tooltip: _showLyrics ? 'show player' : 'show lyrics',
-          ),
-          IconButton(
-            icon: const Icon(Icons.queue_music_rounded),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => QueuePage(apiService: widget.apiService),
-                ),
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: Column(
         children: [
@@ -311,66 +292,66 @@ class _PlayerPageState extends State<PlayerPage> {
                                       Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                         children: [
-                                          StreamBuilder<bool>(
-                                            stream: _playerService.player.shuffleModeEnabledStream,
-                                            builder: (context, snapshot) {
-                                              final enabled = snapshot.data ?? false;
-                                              return IconButton(
-                                                icon: const Icon(Icons.shuffle_rounded),
-                                                onPressed: () => _playerService.toggleShuffleMode(),
-                                                color: enabled ? colorScheme.primary : colorScheme.onSurfaceVariant,
-                                                iconSize: isShort ? 20 : 24,
-                                                tooltip: 'shuffle',
-                                              );
-                                            },
-                                          ),
-                                          IconButton.filledTonal(
-                                            iconSize: isShort ? 28 : 32,
-                                            icon: const Icon(Icons.skip_previous_rounded),
-                                            onPressed: () => _playerService.skipToPrevious().catchError((_) {}),
-                                          ),
-                                          StreamBuilder<PlayerState>(
-                                            stream: _playerService.player.playerStateStream,
-                                            builder: (context, snapshot) {
-                                              final playing = snapshot.data?.playing ?? false;
-                                              return IconButton.filled(
-                                                iconSize: isShort ? 40 : 56,
-                                                padding: EdgeInsets.all(isShort ? 12 : 16),
-                                                icon: Icon(playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
-                                                onPressed: () {
-                                                  if (playing) {
-                                                    _playerService.pause();
-                                                  } else {
-                                                    _playerService.resume();
-                                                  }
-                                                },
-                                              );
-                                            },
-                                          ),
-                                          IconButton.filledTonal(
-                                            iconSize: isShort ? 28 : 32,
-                                            icon: const Icon(Icons.skip_next_rounded),
-                                            onPressed: () => _playerService.skipToNext().catchError((_) {}),
-                                          ),
-                                          StreamBuilder<LoopMode>(
-                                            stream: _playerService.player.loopModeStream,
-                                            builder: (context, snapshot) {
-                                              final mode = snapshot.data ?? LoopMode.off;
-                                              final isOff = mode == LoopMode.off;
-                                              final isOne = mode == LoopMode.one;
-                                              
-                                              return IconButton(
-                                                icon: Icon(isOne ? Icons.repeat_one_rounded : Icons.repeat_rounded),
-                                                onPressed: () => _playerService.toggleLoopMode(),
-                                                color: isOff ? colorScheme.onSurfaceVariant : colorScheme.primary,
-                                                iconSize: isShort ? 20 : 24,
-                                                tooltip: 'repeat',
-                                              );
-                                            },
-                                          ),
-                                        ],
-                                      ),
-                                      if (!isVeryShort) const Spacer(flex: 3),
+                                            StreamBuilder<bool>(
+                                              stream: _playerService.player.shuffleModeEnabledStream,
+                                              builder: (context, snapshot) {
+                                                final enabled = snapshot.data ?? false;
+                                                return IconButton(
+                                                  icon: const Icon(Icons.shuffle_rounded),
+                                                  onPressed: () => _playerService.toggleShuffleMode(),
+                                                  color: enabled ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                                                  iconSize: isShort ? 20 : 24,
+                                                  tooltip: 'shuffle',
+                                                );
+                                              },
+                                            ),
+                                            IconButton.filledTonal(
+                                              iconSize: isShort ? 28 : 32,
+                                              icon: const Icon(Icons.skip_previous_rounded),
+                                              onPressed: () => _playerService.skipToPrevious().catchError((_) {}),
+                                            ),
+                                            StreamBuilder<PlayerState>(
+                                              stream: _playerService.player.playerStateStream,
+                                              builder: (context, snapshot) {
+                                                final playing = snapshot.data?.playing ?? false;
+                                                return IconButton.filled(
+                                                  iconSize: isShort ? 40 : 56,
+                                                  padding: EdgeInsets.all(isShort ? 12 : 16),
+                                                  icon: Icon(playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
+                                                  onPressed: () {
+                                                    if (playing) {
+                                                      _playerService.pause();
+                                                    } else {
+                                                      _playerService.resume();
+                                                    }
+                                                  },
+                                                );
+                                              },
+                                            ),
+                                            IconButton.filledTonal(
+                                              iconSize: isShort ? 28 : 32,
+                                              icon: const Icon(Icons.skip_next_rounded),
+                                              onPressed: () => _playerService.skipToNext().catchError((_) {}),
+                                            ),
+                                            StreamBuilder<LoopMode>(
+                                              stream: _playerService.player.loopModeStream,
+                                              builder: (context, snapshot) {
+                                                final mode = snapshot.data ?? LoopMode.off;
+                                                final isOff = mode == LoopMode.off;
+                                                final isOne = mode == LoopMode.one;
+                                                
+                                                return IconButton(
+                                                  icon: Icon(isOne ? Icons.repeat_one_rounded : Icons.repeat_rounded),
+                                                  onPressed: () => _playerService.toggleLoopMode(),
+                                                  color: isOff ? colorScheme.onSurfaceVariant : colorScheme.primary,
+                                                  iconSize: isShort ? 20 : 24,
+                                                  tooltip: 'repeat',
+                                                );
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                        if (!isVeryShort) const Spacer(flex: 3),
                                     ],
                                   ),
                                 ),
@@ -424,7 +405,7 @@ class _PlayerPageState extends State<PlayerPage> {
           }),
         ),
         Positioned(
-          right: 0,
+          left: 0,
           child: IconButton(
             icon: Icon(
               isStarred ? Icons.favorite_rounded : Icons.favorite_border_rounded,
@@ -451,6 +432,50 @@ class _PlayerPageState extends State<PlayerPage> {
                 widget.apiService.unstar(trackId);
               }
             },
+          ),
+        ),
+        Positioned(
+          right: 0,
+          child: PopupMenuButton<String>(
+            icon: Icon(
+              Icons.more_vert_rounded,
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+              size: 28,
+            ),
+            onSelected: (value) {
+              if (value == 'lyrics') {
+                setState(() => _showLyrics = !_showLyrics);
+              } else if (value == 'queue') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => QueuePage(apiService: widget.apiService),
+                  ),
+                );
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'lyrics',
+                child: Row(
+                  children: [
+                    Icon(_showLyrics ? Icons.music_note_rounded : Icons.lyrics_rounded, size: 20),
+                    const SizedBox(width: 12),
+                    Text(_showLyrics ? 'show player' : 'show lyrics'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'queue',
+                child: Row(
+                  children: [
+                    Icon(Icons.queue_music_rounded, size: 20),
+                    const SizedBox(width: 12),
+                    Text('show queue'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ],
