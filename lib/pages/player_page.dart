@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:navidrome_client/services/player_service.dart';
@@ -21,7 +22,8 @@ class PlayerPage extends StatefulWidget {
 class _PlayerPageState extends State<PlayerPage> {
   final PlayerService _playerService = PlayerService();
   late final LyricsService _lyricsService;
-  bool _hasTriggeredSwipe = false;
+  late final PageController _pageController;
+  late final StreamSubscription<int?> _currentIndexSubscription;
   bool _showLyrics = false;
   // local drag position shown while the user is scrubbing the seek bar;
   // null means we display the live stream position
@@ -31,6 +33,28 @@ class _PlayerPageState extends State<PlayerPage> {
   void initState() {
     super.initState();
     _lyricsService = LyricsService(widget.apiService);
+    
+    final initialPage = _playerService.player.currentIndex ?? 0;
+    _pageController = PageController(initialPage: initialPage);
+
+    _currentIndexSubscription = _playerService.currentIndexStream.listen((index) {
+      if (index != null && _pageController.hasClients) {
+        if (_pageController.page?.round() != index) {
+          _pageController.animateToPage(
+            index,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _currentIndexSubscription.cancel();
+    _pageController.dispose();
+    super.dispose();
   }
 
   @override
@@ -58,14 +82,6 @@ class _PlayerPageState extends State<PlayerPage> {
                 final track = _playerService.currentTrack;
                 if (track == null) return const Center(child: Text("no track playing"));
 
-                final title = (track['title'] ?? 'unknown title').toString();
-                final artist = (track['artist'] ?? 'unknown artist').toString();
-                final album = (track['album'] ?? 'unknown album').toString();
-                final coverArtId = track['coverArt'];
-                final coverArtUrl = coverArtId != null
-                    ? widget.apiService.getCoverArtUrl(coverArtId, size: 800)
-                    : null;
-
                 return AnimatedSwitcher(
                   duration: const Duration(milliseconds: 400),
                   transitionBuilder: (child, animation) {
@@ -82,9 +98,6 @@ class _PlayerPageState extends State<PlayerPage> {
                   },
                   child: _showLyrics
                       ? _LyricsView(
-                          // keyed by track id so the widget fully rebuilds on
-                          // track change, preventing stale lyrics and avoiding
-                          // setState calls on a disposed widget from in-flight requests
                           key: ValueKey('lyrics_${track['id']}'),
                           track: track,
                           lyricsService: _lyricsService,
@@ -108,121 +121,107 @@ class _PlayerPageState extends State<PlayerPage> {
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       if (!isVeryShort) const Spacer(flex: 2),
-                                      GestureDetector(
-                                        behavior: HitTestBehavior.translucent,
-                                        onVerticalDragUpdate: (details) {
-                                          if (!_hasTriggeredSwipe && details.primaryDelta! > 10) {
-                                            setState(() => _hasTriggeredSwipe = true);
-                                            Navigator.pop(context);
-                                          }
-                                        },
-                                        onVerticalDragEnd: (_) => setState(() => _hasTriggeredSwipe = false),
-                                        onVerticalDragCancel: () => setState(() => _hasTriggeredSwipe = false),
-                                        onHorizontalDragUpdate: (details) {
-                                          if (!_hasTriggeredSwipe) {
-                                            if (details.primaryDelta! > 10) {
-                                              setState(() => _hasTriggeredSwipe = true);
-                                              _playerService.skipToPrevious().catchError((_) {});
-                                            } else if (details.primaryDelta! < -10) {
-                                              setState(() => _hasTriggeredSwipe = true);
-                                              _playerService.skipToNext().catchError((_) {});
-                                            }
-                                          }
-                                        },
-                                        onHorizontalDragEnd: (_) => setState(() => _hasTriggeredSwipe = false),
-                                        onHorizontalDragCancel: () => setState(() => _hasTriggeredSwipe = false),
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            AspectRatio(
-                                              aspectRatio: 1,
-                                              child: Container(
-                                                decoration: BoxDecoration(
-                                                  borderRadius: BorderRadius.circular(32),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: colorScheme.shadow.withValues(alpha: 0.15),
-                                                      blurRadius: 40,
-                                                      offset: const Offset(0, 10),
-                                                    ),
-                                                  ],
-                                                ),
-                                                child: ClipRRect(
-                                                  borderRadius: BorderRadius.circular(32),
-                                                  child: AnimatedSwitcher(
-                                                    duration: const Duration(milliseconds: 300),
-                                                    child: coverArtUrl != null
-                                                        ? Image.network(
-                                                            coverArtUrl,
-                                                            key: ValueKey(coverArtUrl),
-                                                            fit: BoxFit.cover,
-                                                          )
-                                                        : Container(
-                                                            key: const ValueKey('placeholder'),
-                                                            color: colorScheme.surfaceContainerHighest,
-                                                            child: Icon(
-                                                              Icons.music_note_rounded,
-                                                              size: isShort ? 60 : 100,
-                                                              color: colorScheme.primary.withValues(alpha: 0.5),
+                                      Expanded(
+                                        flex: 10,
+                                        child: PageView.builder(
+                                          controller: _pageController,
+                                          padEnds: false,
+                                          onPageChanged: (index) {
+                                            _playerService.seekToIndex(index).catchError((_) {});
+                                          },
+                                          itemCount: _playerService.currentQueue.length,
+                                          itemBuilder: (context, index) {
+                                            final itemTrack = _playerService.currentQueue[index];
+                                            final itemTitle = (itemTrack['title'] ?? 'unknown title').toString();
+                                            final itemArtist = (itemTrack['artist'] ?? 'unknown artist').toString();
+                                            final itemAlbum = (itemTrack['album'] ?? 'unknown album').toString();
+                                            final itemCoverArtId = itemTrack['coverArt'];
+                                            final itemCoverArtUrl = itemCoverArtId != null
+                                                ? widget.apiService.getCoverArtUrl(itemCoverArtId, size: 800)
+                                                : null;
+
+                                            return Padding(
+                                              padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                                              child: Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Flexible(
+                                                    child: AspectRatio(
+                                                      aspectRatio: 1,
+                                                      child: Container(
+                                                        decoration: BoxDecoration(
+                                                          borderRadius: BorderRadius.circular(32),
+                                                          boxShadow: [
+                                                            BoxShadow(
+                                                              color: colorScheme.shadow.withValues(alpha: 0.15),
+                                                              blurRadius: 40,
+                                                              offset: const Offset(0, 10),
                                                             ),
-                                                          ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            SizedBox(height: isVeryShort ? 12 : isShort ? 16 : 24),
-                                            Column(
-                                              children: [
-                                                AnimatedSwitcher(
-                                                  duration: const Duration(milliseconds: 300),
-                                                  child: Text(
-                                                    title,
-                                                    key: ValueKey('title_$title'),
-                                                    textAlign: TextAlign.center,
-                                                    style: (isShort ? theme.textTheme.titleLarge : theme.textTheme.headlineMedium)?.copyWith(
-                                                      fontWeight: FontWeight.bold,
-                                                      color: colorScheme.onSurface,
-                                                    ),
-                                                    maxLines: 2,
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 8),
-                                                AnimatedSwitcher(
-                                                  duration: const Duration(milliseconds: 300),
-                                                  child: Text(
-                                                    artist,
-                                                    key: ValueKey('artist_$artist'),
-                                                    textAlign: TextAlign.center,
-                                                    style: (isShort ? theme.textTheme.titleMedium : theme.textTheme.titleLarge)?.copyWith(
-                                                      color: colorScheme.primary,
-                                                    ),
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                                if (!isVeryShort) ...[
-                                                  const SizedBox(height: 4),
-                                                  AnimatedSwitcher(
-                                                    duration: const Duration(milliseconds: 300),
-                                                    child: Text(
-                                                      album.toLowerCase(),
-                                                      key: ValueKey('album_$album'),
-                                                      textAlign: TextAlign.center,
-                                                      style: theme.textTheme.bodyMedium?.copyWith(
-                                                        color: colorScheme.onSurfaceVariant,
-                                                        letterSpacing: 0.5,
+                                                          ],
+                                                        ),
+                                                        child: ClipRRect(
+                                                          borderRadius: BorderRadius.circular(32),
+                                                          child: itemCoverArtUrl != null
+                                                              ? Image.network(
+                                                                  itemCoverArtUrl,
+                                                                  fit: BoxFit.cover,
+                                                                )
+                                                              : Container(
+                                                                  color: colorScheme.surfaceContainerHighest,
+                                                                  child: Icon(
+                                                                    Icons.music_note_rounded,
+                                                                    size: isShort ? 60 : 100,
+                                                                    color: colorScheme.primary.withValues(alpha: 0.5),
+                                                                  ),
+                                                                ),
+                                                        ),
                                                       ),
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
                                                     ),
                                                   ),
+                                                  SizedBox(height: isVeryShort ? 12 : isShort ? 16 : 24),
+                                                  Column(
+                                                    children: [
+                                                      Text(
+                                                        itemTitle,
+                                                        textAlign: TextAlign.center,
+                                                        style: (isShort ? theme.textTheme.titleLarge : theme.textTheme.headlineMedium)?.copyWith(
+                                                          fontWeight: FontWeight.bold,
+                                                          color: colorScheme.onSurface,
+                                                        ),
+                                                        maxLines: 2,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                      const SizedBox(height: 8),
+                                                      Text(
+                                                        itemArtist,
+                                                        textAlign: TextAlign.center,
+                                                        style: (isShort ? theme.textTheme.titleMedium : theme.textTheme.titleLarge)?.copyWith(
+                                                          color: colorScheme.primary,
+                                                        ),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                      if (!isVeryShort) ...[
+                                                        const SizedBox(height: 4),
+                                                        Text(
+                                                          itemAlbum.toLowerCase(),
+                                                          textAlign: TextAlign.center,
+                                                          style: theme.textTheme.bodyMedium?.copyWith(
+                                                            color: colorScheme.onSurfaceVariant,
+                                                            letterSpacing: 0.5,
+                                                          ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                      ],
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 16),
+                                                  _buildRatingWidget(itemTrack, colorScheme),
                                                 ],
-                                              ],
-                                            ),
-                                            const SizedBox(height: 16),
-                                            _buildRatingWidget(track, colorScheme),
-                                          ],
+                                              ),
+                                            );
+                                          },
                                         ),
                                       ),
                                       SizedBox(height: isVeryShort ? 12 : isShort ? 16 : 24),

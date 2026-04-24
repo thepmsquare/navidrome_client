@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:navidrome_client/services/player_service.dart';
@@ -15,7 +16,36 @@ class MiniPlayer extends StatefulWidget {
 }
 
 class _MiniPlayerState extends State<MiniPlayer> {
+  final PlayerService _playerService = PlayerService();
+  late final PageController _pageController;
+  late final StreamSubscription<int?> _currentIndexSubscription;
   bool _hasTriggered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final initialPage = _playerService.player.currentIndex ?? 0;
+    _pageController = PageController(initialPage: initialPage);
+
+    _currentIndexSubscription = _playerService.currentIndexStream.listen((index) {
+      if (index != null && _pageController.hasClients) {
+        if (_pageController.page?.round() != index) {
+          _pageController.animateToPage(
+            index,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _currentIndexSubscription.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,18 +54,10 @@ class _MiniPlayerState extends State<MiniPlayer> {
     final colorScheme = theme.colorScheme;
 
     return StreamBuilder<int?>(
-      stream: playerService.currentIndexStream,
+      stream: _playerService.currentIndexStream,
       builder: (context, snapshot) {
-        final track = playerService.currentTrack;
+        final track = _playerService.currentTrack;
         if (track == null) return const SizedBox.shrink();
-
-        // note: we are preserving the original case from the api for metadata.
-        final title = (track['title'] ?? 'unknown title').toString();
-        final artist = (track['artist'] ?? 'unknown artist').toString();
-        final coverArtId = track['coverArt'];
-        final coverArtUrl = coverArtId != null && widget.apiService != null
-            ? widget.apiService!.getCoverArtUrl(coverArtId)
-            : null;
 
         return Padding(
           padding: const EdgeInsets.only(left: 12, right: 12, bottom: 12),
@@ -49,19 +71,6 @@ class _MiniPlayerState extends State<MiniPlayer> {
             },
             onVerticalDragEnd: (_) => setState(() => _hasTriggered = false),
             onVerticalDragCancel: () => setState(() => _hasTriggered = false),
-            onHorizontalDragUpdate: (details) {
-              if (!_hasTriggered) {
-                if (details.primaryDelta! > 10) {
-                  setState(() => _hasTriggered = true);
-                  playerService.skipToPrevious().catchError((_) {});
-                } else if (details.primaryDelta! < -10) {
-                  setState(() => _hasTriggered = true);
-                  playerService.skipToNext().catchError((_) {});
-                }
-              }
-            },
-            onHorizontalDragEnd: (_) => setState(() => _hasTriggered = false),
-            onHorizontalDragCancel: () => setState(() => _hasTriggered = false),
             child: Card(
               elevation: 4,
               shadowColor: Colors.black.withValues(alpha: 0.2),
@@ -81,66 +90,73 @@ class _MiniPlayerState extends State<MiniPlayer> {
                 ),
                 child: Row(
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: SizedBox(
-                        width: 56,
-                        height: 56,
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 300),
-                          child: OfflineImage(
-                            key: ValueKey(coverArtId?.toString() ?? 'placeholder'),
-                            coverArtId: coverArtId?.toString(),
-                            remoteUrl: coverArtUrl,
-                            fit: BoxFit.cover,
-                            placeholder: _buildPlaceholder(),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 300),
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                title,
-                                key: ValueKey('title_$title'),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.onSecondaryContainer,
+                      child: PageView.builder(
+                        controller: _pageController,
+                        onPageChanged: (index) {
+                          _playerService.seekToIndex(index).catchError((_) {});
+                        },
+                        itemCount: _playerService.currentQueue.length,
+                        itemBuilder: (context, index) {
+                          final itemTrack = _playerService.currentQueue[index];
+                          final itemTitle = (itemTrack['title'] ?? 'unknown title').toString();
+                          final itemArtist = (itemTrack['artist'] ?? 'unknown artist').toString();
+                          final itemCoverArtId = itemTrack['coverArt'];
+                          final itemCoverArtUrl = itemCoverArtId != null && widget.apiService != null
+                              ? widget.apiService!.getCoverArtUrl(itemCoverArtId)
+                              : null;
+
+                          return Row(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: SizedBox(
+                                  width: 56,
+                                  height: 56,
+                                  child: OfflineImage(
+                                    key: ValueKey(itemCoverArtId?.toString() ?? 'placeholder_$index'),
+                                    coverArtId: itemCoverArtId?.toString(),
+                                    remoteUrl: itemCoverArtUrl,
+                                    fit: BoxFit.cover,
+                                    placeholder: _buildPlaceholder(),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 300),
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                artist,
-                                key: ValueKey('artist_$artist'),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: colorScheme.onSecondaryContainer
-                                      .withValues(alpha: 0.7),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      itemTitle,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: colorScheme.onSecondaryContainer,
+                                      ),
+                                    ),
+                                    Text(
+                                      itemArtist,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        color: colorScheme.onSecondaryContainer
+                                            .withValues(alpha: 0.7),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ),
-                          ),
-                        ],
+                            ],
+                          );
+                        },
                       ),
                     ),
+                    const SizedBox(width: 8),
                     StreamBuilder<PlayerState>(
-                      stream: playerService.player.playerStateStream,
+                      stream: _playerService.player.playerStateStream,
                       builder: (context, snapshot) {
                         final playerState = snapshot.data;
                         final processingState = playerState?.processingState;
@@ -162,15 +178,15 @@ class _MiniPlayerState extends State<MiniPlayer> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                              onPressed: () => playerService.skipToPrevious().catchError((_) {}),
+                              onPressed: () => _playerService.skipToPrevious().catchError((_) {}),
                               icon: const Icon(Icons.skip_previous_rounded, size: 28),
                             ),
                             IconButton.filledTonal(
                               onPressed: () {
                                 if (playing) {
-                                  playerService.pause();
+                                  _playerService.pause();
                                 } else {
-                                  playerService.resume();
+                                  _playerService.resume();
                                 }
                               },
                               icon: Icon(
@@ -181,7 +197,7 @@ class _MiniPlayerState extends State<MiniPlayer> {
                               ),
                             ),
                             IconButton(
-                              onPressed: () => playerService.skipToNext().catchError((_) {}),
+                              onPressed: () => _playerService.skipToNext().catchError((_) {}),
                               icon: const Icon(Icons.skip_next_rounded, size: 28),
                             ),
                           ],
