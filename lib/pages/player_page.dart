@@ -6,6 +6,8 @@ import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/components/offline_indicator.dart';
 import 'package:navidrome_client/pages/queue_page.dart';
 import 'package:navidrome_client/services/lyrics_service.dart';
+import 'package:navidrome_client/pages/artist_details_page.dart';
+import 'package:navidrome_client/pages/album_details_page.dart';
 
 class PlayerPage extends StatefulWidget {
   final ApiService apiService;
@@ -192,26 +194,70 @@ class _PlayerPageState extends State<PlayerPage> {
                                                         overflow: TextOverflow.ellipsis,
                                                       ),
                                                       const SizedBox(height: 8),
-                                                      Text(
-                                                        itemArtist,
-                                                        textAlign: TextAlign.center,
-                                                        style: (isShort ? theme.textTheme.titleMedium : theme.textTheme.titleLarge)?.copyWith(
-                                                          color: colorScheme.primary,
-                                                        ),
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
-                                                      ),
-                                                      if (!isVeryShort) ...[
-                                                        const SizedBox(height: 4),
-                                                        Text(
-                                                          itemAlbum.toLowerCase(),
+                                                      GestureDetector(
+                                                        onTap: () {
+                                                          final artistId = itemTrack['artistId']?.toString();
+                                                          if (artistId != null) {
+                                                            Navigator.push(
+                                                              context,
+                                                              MaterialPageRoute(
+                                                                builder: (context) => ArtistDetailsPage(
+                                                                  artist: {
+                                                                    'id': artistId,
+                                                                    'name': itemArtist,
+                                                                    'coverArt': itemTrack['artistCoverArt'] ?? itemTrack['coverArt'],
+                                                                  },
+                                                                  apiService: widget.apiService,
+                                                                ),
+                                                              ),
+                                                            );
+                                                          }
+                                                        },
+                                                        child: Text(
+                                                          itemArtist,
                                                           textAlign: TextAlign.center,
-                                                          style: theme.textTheme.bodyMedium?.copyWith(
-                                                            color: colorScheme.onSurfaceVariant,
-                                                            letterSpacing: 0.5,
+                                                          style: (isShort ? theme.textTheme.titleMedium : theme.textTheme.titleLarge)?.copyWith(
+                                                            color: colorScheme.primary,
+                                                            decoration: TextDecoration.underline,
+                                                            decorationColor: colorScheme.primary.withValues(alpha: 0.5),
                                                           ),
                                                           maxLines: 1,
                                                           overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                      ),
+                                                      if (!isVeryShort) ...[
+                                                        const SizedBox(height: 4),
+                                                        GestureDetector(
+                                                          onTap: () {
+                                                            final albumId = itemTrack['albumId']?.toString();
+                                                            if (albumId != null) {
+                                                              Navigator.push(
+                                                                context,
+                                                                MaterialPageRoute(
+                                                                  builder: (context) => AlbumDetailsPage(
+                                                                    album: {
+                                                                      'id': albumId,
+                                                                      'name': itemAlbum,
+                                                                      'coverArt': itemTrack['coverArt'],
+                                                                    },
+                                                                    apiService: widget.apiService,
+                                                                  ),
+                                                                ),
+                                                              );
+                                                            }
+                                                          },
+                                                          child: Text(
+                                                            itemAlbum,
+                                                            textAlign: TextAlign.center,
+                                                            style: theme.textTheme.bodyMedium?.copyWith(
+                                                              color: colorScheme.onSurfaceVariant,
+                                                              letterSpacing: 0.5,
+                                                              decoration: TextDecoration.underline,
+                                                              decorationColor: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                                                            ),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
                                                         ),
                                                       ],
                                                     ],

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:navidrome_client/components/track_list_item.dart';
 import 'package:navidrome_client/components/mini_player.dart';
 import 'package:navidrome_client/pages/player_page.dart';
+import 'package:navidrome_client/pages/artist_details_page.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/player_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
@@ -274,6 +275,24 @@ class _PlaylistDetailsPageState extends State<PlaylistDetailsPage> {
                                 apiService: widget.apiService,
                                 onTap: () {
                                   PlayerService().play(tracks, index, widget.apiService);
+                                },
+                                onArtistTap: () {
+                                  final artistId = track['artistId']?.toString();
+                                  if (artistId != null) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => ArtistDetailsPage(
+                                          artist: {
+                                            'id': artistId,
+                                            'name': track['artist'],
+                                            'coverArt': track['artistCoverArt'] ?? track['coverArt'],
+                                          },
+                                          apiService: widget.apiService,
+                                        ),
+                                      ),
+                                    );
+                                  }
                                 },
                               );
                             },

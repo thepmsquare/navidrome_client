@@ -499,6 +499,24 @@ class _HomePageState extends State<HomePage> {
                                   ),
                                 );
                               },
+                              onArtistTap: () {
+                                final artistId = album['artistId']?.toString();
+                                if (artistId != null) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ArtistDetailsPage(
+                                        artist: {
+                                          'id': artistId,
+                                          'name': album['artist'],
+                                          'coverArt': album['coverArt'],
+                                        },
+                                        apiService: _apiService!,
+                                      ),
+                                    ),
+                                  );
+                                }
+                              },
                             );
                           },
                         ),
@@ -540,6 +558,24 @@ class _HomePageState extends State<HomePage> {
                                 index,
                                 _apiService!,
                               );
+                            },
+                            onArtistTap: () {
+                              final artistId = track['artistId']?.toString();
+                              if (artistId != null) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ArtistDetailsPage(
+                                      artist: {
+                                        'id': artistId,
+                                        'name': track['artist'],
+                                        'coverArt': track['artistCoverArt'] ?? track['coverArt'],
+                                      },
+                                      apiService: _apiService!,
+                                    ),
+                                  ),
+                                );
+                              }
                             },
                           );
                         },
@@ -611,7 +647,7 @@ class _HomePageState extends State<HomePage> {
                             child: Icon(Icons.person_rounded),
                           ),
                           title: Text(
-                            artist['name']?.toString().toLowerCase() ??
+                            artist['name']?.toString() ??
                                 'unknown artist',
                           ),
                           onTap: () {
@@ -659,6 +695,24 @@ class _HomePageState extends State<HomePage> {
                               }
                             });
                           },
+                          onArtistTap: () {
+                            final artistId = album['artistId']?.toString();
+                            if (artistId != null) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ArtistDetailsPage(
+                                    artist: {
+                                      'id': artistId,
+                                      'name': album['artist'],
+                                      'coverArt': album['coverArt'],
+                                    },
+                                    apiService: _apiService!,
+                                  ),
+                                ),
+                              );
+                            }
+                          },
                         );
                       }),
                     ],
@@ -682,6 +736,24 @@ class _HomePageState extends State<HomePage> {
                               index,
                               _apiService!,
                             );
+                          },
+                          onArtistTap: () {
+                            final artistId = track['artistId']?.toString();
+                            if (artistId != null) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ArtistDetailsPage(
+                                    artist: {
+                                      'id': artistId,
+                                      'name': track['artist'],
+                                      'coverArt': track['artistCoverArt'] ?? track['coverArt'],
+                                    },
+                                    apiService: _apiService!,
+                                  ),
+                                ),
+                              );
+                            }
                           },
                         );
                       }),

@@ -10,6 +10,8 @@ class TrackListItem extends StatefulWidget {
   final Map<String, dynamic> track;
   final String? coverArtUrl;
   final VoidCallback? onTap;
+  final VoidCallback? onArtistTap;
+  final VoidCallback? onAlbumTap;
   final ApiService? apiService;
 
   const TrackListItem({
@@ -17,6 +19,8 @@ class TrackListItem extends StatefulWidget {
     required this.track,
     this.coverArtUrl,
     this.onTap,
+    this.onArtistTap,
+    this.onAlbumTap,
     this.apiService,
   });
 
@@ -127,12 +131,18 @@ class _TrackListItemState extends State<TrackListItem> {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    artist,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
+                  GestureDetector(
+                    onTap: widget.onArtistTap,
+                    child: Text(
+                      artist,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: widget.onArtistTap != null 
+                            ? colorScheme.primary 
+                            : colorScheme.onSurfaceVariant,
+                        fontWeight: widget.onArtistTap != null ? FontWeight.bold : FontWeight.normal,
+                      ),
                     ),
                   ),
                 ],

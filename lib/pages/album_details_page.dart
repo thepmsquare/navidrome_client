@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:navidrome_client/components/track_list_item.dart';
 import 'package:navidrome_client/components/mini_player.dart';
 import 'package:navidrome_client/pages/player_page.dart';
+import 'package:navidrome_client/pages/artist_details_page.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/player_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
@@ -180,18 +181,54 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                             ),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: Text(
-                                  albumName,
-                                  style: theme.textTheme.headlineSmall?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    shadows: const [
-                                      Shadow(blurRadius: 12, color: Colors.black54, offset: Offset(0, 2)),
-                                    ],
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Text(
+                                      albumName,
+                                      style: theme.textTheme.titleMedium?.copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        shadows: const [
+                                          Shadow(blurRadius: 12, color: Colors.black54, offset: Offset(0, 2)),
+                                        ],
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  GestureDetector(
+                                    onTap: () {
+                                      final artistId = widget.album['artistId']?.toString();
+                                      if (artistId != null) {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => ArtistDetailsPage(
+                                              artist: {
+                                                'id': artistId,
+                                                'name': widget.album['artist'],
+                                                'coverArt': widget.album['coverArt'],
+                                              },
+                                              apiService: widget.apiService,
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    child: Text(
+                                      (widget.album['artist'] ?? '').toString(),
+                                      style: theme.textTheme.labelMedium?.copyWith(
+                                        color: Colors.white70,
+                                        decoration: TextDecoration.underline,
+                                        decorationColor: Colors.white30,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -292,6 +329,24 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                                 apiService: widget.apiService,
                                 onTap: () {
                                   PlayerService().play(tracks, index, widget.apiService);
+                                },
+                                onArtistTap: () {
+                                  final artistId = track['artistId']?.toString();
+                                  if (artistId != null) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => ArtistDetailsPage(
+                                          artist: {
+                                            'id': artistId,
+                                            'name': track['artist'],
+                                            'coverArt': track['artistCoverArt'] ?? track['coverArt'],
+                                          },
+                                          apiService: widget.apiService,
+                                        ),
+                                      ),
+                                    );
+                                  }
                                 },
                               );
                             },

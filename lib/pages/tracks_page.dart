@@ -4,6 +4,7 @@ import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
 import 'package:navidrome_client/services/player_service.dart';
 import 'package:navidrome_client/pages/home_page.dart' show TrackSortOrder;
+import 'package:navidrome_client/pages/artist_details_page.dart';
 
 class TracksPage extends StatefulWidget {
   final ApiService apiService;
@@ -294,6 +295,24 @@ class _TracksPageState extends State<TracksPage> {
                         apiService: widget.apiService,
                         onTap: () {
                           PlayerService().play(tracks, index, widget.apiService);
+                        },
+                        onArtistTap: () {
+                          final artistId = track['artistId']?.toString();
+                          if (artistId != null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ArtistDetailsPage(
+                                  artist: {
+                                    'id': artistId,
+                                    'name': track['artist'],
+                                    'coverArt': track['artistCoverArt'] ?? track['coverArt'],
+                                  },
+                                  apiService: widget.apiService,
+                                ),
+                              ),
+                            );
+                          }
                         },
                       );
                     },

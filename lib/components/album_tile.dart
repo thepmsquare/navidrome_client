@@ -7,12 +7,14 @@ class AlbumTile extends StatelessWidget {
   final Map<String, dynamic> album;
   final ApiService apiService;
   final VoidCallback onTap;
+  final VoidCallback? onArtistTap;
 
   const AlbumTile({
     super.key,
     required this.album,
     required this.apiService,
     required this.onTap,
+    this.onArtistTap,
   });
 
   Future<void> _playAlbum(BuildContext context) async {
@@ -115,12 +117,18 @@ class AlbumTile extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                Text(
-                  artist,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+                GestureDetector(
+                  onTap: onArtistTap,
+                  child: Text(
+                    artist,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: onArtistTap != null 
+                          ? colorScheme.primary 
+                          : colorScheme.onSurfaceVariant,
+                      fontWeight: onArtistTap != null ? FontWeight.bold : FontWeight.normal,
+                    ),
                   ),
                 ),
               ],

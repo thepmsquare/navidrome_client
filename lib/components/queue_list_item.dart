@@ -61,7 +61,7 @@ class QueueListItem extends StatelessWidget {
         ],
       ),
       title: Text(
-        title.toLowerCase(),
+        title,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: theme.textTheme.bodyLarge?.copyWith(
@@ -70,7 +70,7 @@ class QueueListItem extends StatelessWidget {
         ),
       ),
       subtitle: Text(
-        artist.toLowerCase(),
+        artist,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: theme.textTheme.bodySmall?.copyWith(

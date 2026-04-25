@@ -153,6 +153,24 @@ class _ArtistDetailsPageState extends State<ArtistDetailsPage> {
                           ),
                         );
                       },
+                      onArtistTap: () {
+                        final artistId = album['artistId']?.toString();
+                        if (artistId != null) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ArtistDetailsPage(
+                                artist: {
+                                  'id': artistId,
+                                  'name': album['artist'],
+                                  'coverArt': album['coverArt'],
+                                },
+                                apiService: widget.apiService,
+                              ),
+                            ),
+                          );
+                        }
+                      },
                     );
                   },
                   childCount: _albums.length,

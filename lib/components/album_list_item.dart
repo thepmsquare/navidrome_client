@@ -7,12 +7,14 @@ class AlbumListItem extends StatefulWidget {
   final Map<String, dynamic> album;
   final String? coverArtUrl;
   final VoidCallback onTap;
+  final VoidCallback? onArtistTap;
 
   const AlbumListItem({
     super.key,
     required this.album,
     this.coverArtUrl,
     required this.onTap,
+    this.onArtistTap,
   });
 
   @override
@@ -126,12 +128,18 @@ class _AlbumListItemState extends State<AlbumListItem> {
                         const SizedBox(width: 4),
                       ],
                       Flexible(
-                        child: Text(
-                          artist,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
+                        child: GestureDetector(
+                          onTap: widget.onArtistTap,
+                          child: Text(
+                            artist,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: widget.onArtistTap != null 
+                                  ? colorScheme.primary 
+                                  : colorScheme.onSurfaceVariant,
+                              fontWeight: widget.onArtistTap != null ? FontWeight.bold : FontWeight.normal,
+                            ),
                           ),
                         ),
                       ),
