@@ -7,7 +7,7 @@ class AlbumTile extends StatelessWidget {
   final Map<String, dynamic> album;
   final ApiService apiService;
   final VoidCallback onTap;
-  final VoidCallback? onArtistTap;
+  final void Function(Map<String, dynamic> artist)? onArtistTap;
 
   const AlbumTile({
     super.key,
@@ -39,7 +39,6 @@ class AlbumTile extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     final String name = (album['name'] ?? 'unknown album').toString();
-    final String artist = (album['artist'] ?? 'unknown artist').toString();
     final String? coverArtId = album['coverArt']?.toString();
     final String? coverArtUrl = coverArtId != null
         ? apiService.getCoverArtUrl(coverArtId, size: 300)
@@ -65,7 +64,11 @@ class AlbumTile extends StatelessWidget {
                       fit: BoxFit.cover,
                       placeholder: Container(
                         color: colorScheme.surfaceContainerHighest,
-                        child: const Icon(Icons.album_rounded, size: 48, color: Colors.grey),
+                        child: const Icon(
+                          Icons.album_rounded,
+                          size: 48,
+                          color: Colors.grey,
+                        ),
                       ),
                     ),
                   ),
@@ -117,24 +120,82 @@ class AlbumTile extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                GestureDetector(
-                  onTap: onArtistTap,
-                  child: Text(
-                    artist,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: onArtistTap != null 
-                          ? colorScheme.primary 
-                          : colorScheme.onSurfaceVariant,
-                      fontWeight: onArtistTap != null ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                ),
+                _buildArtistLinks(theme, colorScheme),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildArtistLinks(ThemeData theme, ColorScheme colorScheme) {
+    final List<dynamic>? artists = album['artists'];
+    final String artistName = (album['artist'] ?? 'unknown artist').toString();
+
+    if (artists != null && artists.isNotEmpty) {
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: artists.map((artist) {
+            final name = artist['name']?.toString() ?? 'unknown';
+
+            return Container(
+              margin: const EdgeInsets.only(right: 6),
+              child: InkWell(
+                onTap: () => onArtistTap?.call(Map<String, dynamic>.from(artist)),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: colorScheme.secondaryContainer.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Text(
+                    name,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSecondaryContainer,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      );
+    }
+
+    return InkWell(
+      onTap: () {
+        if (onArtistTap != null) {
+          onArtistTap!({'id': album['artistId'], 'name': album['artist']});
+        }
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+        decoration: BoxDecoration(
+          color: colorScheme.secondaryContainer.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+          ),
+        ),
+        child: Text(
+          artistName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSecondaryContainer,
+            fontWeight: FontWeight.bold,
+            fontSize: 10,
+          ),
+        ),
       ),
     );
   }

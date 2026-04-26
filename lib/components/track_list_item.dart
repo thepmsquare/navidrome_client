@@ -10,7 +10,7 @@ class TrackListItem extends StatefulWidget {
   final Map<String, dynamic> track;
   final String? coverArtUrl;
   final VoidCallback? onTap;
-  final VoidCallback? onArtistTap;
+  final void Function(Map<String, dynamic> artist)? onArtistTap;
   final VoidCallback? onAlbumTap;
   final ApiService? apiService;
 
@@ -50,7 +50,10 @@ class _TrackListItemState extends State<TrackListItem> {
   void _onOfflineServiceChanged() {
     final status = _offline.isTrackOfflineSync(_trackId);
     if (status != _isOffline) {
-      if (mounted) setState(() { _isOffline = status; });
+      if (mounted)
+        setState(() {
+          _isOffline = status;
+        });
     }
   }
 
@@ -91,13 +94,12 @@ class _TrackListItemState extends State<TrackListItem> {
 
     // note: we are preserving the original case from the api for metadata.
     final String title = (widget.track['title'] ?? 'unknown title').toString();
-    final String artist = (widget.track['artist'] ?? 'unknown artist').toString();
 
-    final int durationInSeconds = (widget.track['duration'] as num?)?.toInt() ?? 0;
+    final int durationInSeconds =
+        (widget.track['duration'] as num?)?.toInt() ?? 0;
     final int minutes = durationInSeconds ~/ 60;
     final int seconds = durationInSeconds % 60;
     final String duration = '$minutes:${seconds.toString().padLeft(2, '0')}';
-
 
     return InkWell(
       onTap: widget.onTap,
@@ -131,20 +133,7 @@ class _TrackListItemState extends State<TrackListItem> {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  GestureDetector(
-                    onTap: widget.onArtistTap,
-                    child: Text(
-                      artist,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: widget.onArtistTap != null 
-                            ? colorScheme.primary 
-                            : colorScheme.onSurfaceVariant,
-                        fontWeight: widget.onArtistTap != null ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                  ),
+                  _buildArtistLinks(theme, colorScheme),
                 ],
               ),
             ),
@@ -189,16 +178,17 @@ class _TrackListItemState extends State<TrackListItem> {
       return SizedBox(
         width: 20,
         height: 20,
-        child: CircularProgressIndicator(
-          value: _progress,
-          strokeWidth: 2,
-        ),
+        child: CircularProgressIndicator(value: _progress, strokeWidth: 2),
       );
     }
 
     return IconButton(
       icon: const Icon(Icons.download_for_offline_rounded, size: 20),
-      onPressed: () => _offline.downloadTrack(widget.track, widget.apiService!, isExplicit: true),
+      onPressed: () => _offline.downloadTrack(
+        widget.track,
+        widget.apiService!,
+        isExplicit: true,
+      ),
       style: IconButton.styleFrom(
         padding: EdgeInsets.zero,
         minimumSize: const Size(32, 32),
@@ -216,7 +206,7 @@ class _TrackListItemState extends State<TrackListItem> {
 
   Future<void> _showDeleteConfirmation(BuildContext context) async {
     final title = (widget.track['title'] ?? 'unknown title').toString();
-    
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -244,5 +234,78 @@ class _TrackListItemState extends State<TrackListItem> {
         });
       }
     }
+  }
+
+  Widget _buildArtistLinks(ThemeData theme, ColorScheme colorScheme) {
+    final List<dynamic>? artists = widget.track['artists'];
+
+    if (artists != null && artists.isNotEmpty) {
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: artists.map((artist) {
+            final name = artist['name']?.toString() ?? 'unknown';
+
+            return Container(
+              margin: const EdgeInsets.only(right: 6),
+              child: InkWell(
+                onTap: () => widget.onArtistTap?.call(Map<String, dynamic>.from(artist)),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: colorScheme.secondaryContainer.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Text(
+                    name,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSecondaryContainer,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      );
+    }
+
+    final String artistName = (widget.track['artist'] ?? 'unknown artist').toString();
+
+    return InkWell(
+      onTap: () {
+        if (widget.onArtistTap != null) {
+          widget.onArtistTap!({
+            'id': widget.track['artistId'],
+            'name': widget.track['artist'],
+          });
+        }
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: colorScheme.secondaryContainer.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+          ),
+        ),
+        child: Text(
+          artistName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSecondaryContainer,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
   }
 }

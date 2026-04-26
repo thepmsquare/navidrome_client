@@ -7,7 +7,7 @@ class AlbumListItem extends StatefulWidget {
   final Map<String, dynamic> album;
   final String? coverArtUrl;
   final VoidCallback onTap;
-  final VoidCallback? onArtistTap;
+  final void Function(Map<String, dynamic> artist)? onArtistTap;
 
   const AlbumListItem({
     super.key,
@@ -42,8 +42,84 @@ class _AlbumListItemState extends State<AlbumListItem> {
   void _onOfflineServiceChanged() {
     final status = _offline.isAlbumOfflineSync(_albumId);
     if (status != _isOffline) {
-      if (mounted) setState(() { _isOffline = status; });
+      if (mounted)
+        setState(() {
+          _isOffline = status;
+        });
     }
+  }
+
+  Widget _buildArtistLinks(ThemeData theme, ColorScheme colorScheme) {
+    final List<dynamic>? artists = widget.album['artists'];
+    final String artistName = (widget.album['artist'] ?? 'unknown artist')
+        .toString();
+
+    if (artists != null && artists.isNotEmpty) {
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: artists.map((artist) {
+            final name = artist['name']?.toString() ?? 'unknown';
+
+            return Container(
+              margin: const EdgeInsets.only(right: 6),
+              child: InkWell(
+                onTap: () => widget.onArtistTap?.call(Map<String, dynamic>.from(artist)),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: colorScheme.secondaryContainer.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Text(
+                    name,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSecondaryContainer,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      );
+    }
+
+    return InkWell(
+      onTap: () {
+        if (widget.onArtistTap != null) {
+          widget.onArtistTap!({
+            'id': widget.album['artistId'],
+            'name': widget.album['artist'],
+          });
+        }
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: colorScheme.secondaryContainer.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+          ),
+        ),
+        child: Text(
+          artistName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSecondaryContainer,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
   }
 
   void _subscribeToProgress() {
@@ -71,7 +147,6 @@ class _AlbumListItemState extends State<AlbumListItem> {
 
     // note: we are preserving the original case from the api for metadata.
     final String name = (widget.album['name'] ?? 'unknown album').toString();
-    final String artist = (widget.album['artist'] ?? 'unknown artist').toString();
     final int songCount = (widget.album['songCount'] as num?)?.toInt() ?? 0;
 
     final bool isDownloading = _progress > 0 && _progress < 1.0;
@@ -127,22 +202,7 @@ class _AlbumListItemState extends State<AlbumListItem> {
                         ),
                         const SizedBox(width: 4),
                       ],
-                      Flexible(
-                        child: GestureDetector(
-                          onTap: widget.onArtistTap,
-                          child: Text(
-                            artist,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: widget.onArtistTap != null 
-                                  ? colorScheme.primary 
-                                  : colorScheme.onSurfaceVariant,
-                              fontWeight: widget.onArtistTap != null ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                        ),
-                      ),
+                      Flexible(child: _buildArtistLinks(theme, colorScheme)),
                     ],
                   ),
                 ],

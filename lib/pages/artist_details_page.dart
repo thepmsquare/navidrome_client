@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:navidrome_client/components/album_list_item.dart';
 import 'package:navidrome_client/pages/album_details_page.dart';
 import 'package:navidrome_client/services/api_service.dart';
-import 'package:navidrome_client/services/offline_service.dart';
 import 'package:navidrome_client/components/offline_image.dart';
 
 class ArtistDetailsPage extends StatefulWidget {
@@ -68,7 +67,6 @@ class _ArtistDetailsPageState extends State<ArtistDetailsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isOfflineMode = OfflineService().isOfflineMode;
 
     final String artistName = (widget.artist['name'] ?? 'unknown artist').toString();
     final String? coverArtId = widget.artist['coverArt']?.toString();
@@ -153,23 +151,19 @@ class _ArtistDetailsPageState extends State<ArtistDetailsPage> {
                           ),
                         );
                       },
-                      onArtistTap: () {
-                        final artistId = album['artistId']?.toString();
-                        if (artistId != null) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ArtistDetailsPage(
-                                artist: {
-                                  'id': artistId,
-                                  'name': album['artist'],
-                                  'coverArt': album['coverArt'],
-                                },
-                                apiService: widget.apiService,
-                              ),
+                      onArtistTap: (artist) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ArtistDetailsPage(
+                              artist: {
+                                ...artist,
+                                'coverArt': artist['coverArt'] ?? album['coverArt'],
+                              },
+                              apiService: widget.apiService,
                             ),
-                          );
-                        }
+                          ),
+                        );
                       },
                     );
                   },

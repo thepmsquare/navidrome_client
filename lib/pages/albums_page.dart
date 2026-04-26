@@ -253,23 +253,19 @@ class _AlbumsPageState extends State<AlbumsPage> {
                             ),
                           );
                         },
-                        onArtistTap: () {
-                          final artistId = album['artistId']?.toString();
-                          if (artistId != null) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ArtistDetailsPage(
-                                  artist: {
-                                    'id': artistId,
-                                    'name': album['artist'],
-                                    'coverArt': album['coverArt'],
-                                  },
-                                  apiService: widget.apiService,
-                                ),
+                        onArtistTap: (artist) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ArtistDetailsPage(
+                                artist: {
+                                  ...artist,
+                                  'coverArt': artist['coverArt'] ?? album['coverArt'],
+                                },
+                                apiService: widget.apiService,
                               ),
-                            );
-                          }
+                            ),
+                          );
                         },
                       );
                     },

@@ -330,23 +330,19 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                                 onTap: () {
                                   PlayerService().play(tracks, index, widget.apiService);
                                 },
-                                onArtistTap: () {
-                                  final artistId = track['artistId']?.toString();
-                                  if (artistId != null) {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => ArtistDetailsPage(
-                                          artist: {
-                                            'id': artistId,
-                                            'name': track['artist'],
-                                            'coverArt': track['artistCoverArt'] ?? track['coverArt'],
-                                          },
-                                          apiService: widget.apiService,
-                                        ),
+                                onArtistTap: (artist) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ArtistDetailsPage(
+                                        artist: {
+                                          ...artist,
+                                          'coverArt': artist['coverArt'] ?? track['artistCoverArt'] ?? track['coverArt'],
+                                        },
+                                        apiService: widget.apiService,
                                       ),
-                                    );
-                                  }
+                                    ),
+                                  );
                                 },
                               );
                             },

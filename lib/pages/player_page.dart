@@ -81,8 +81,9 @@ class _PlayerPageState extends State<PlayerPage> {
               stream: _playerService.currentIndexStream,
               builder: (context, snapshot) {
                 final track = _playerService.currentTrack;
-                if (track == null)
+                if (track == null) {
                   return const Center(child: Text("no track playing"));
+                }
 
                 return AnimatedSwitcher(
                   duration: const Duration(milliseconds: 400),
@@ -267,62 +268,11 @@ class _PlayerPageState extends State<PlayerPage> {
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                             const SizedBox(height: 6),
-                                            GestureDetector(
-                                              onTap: () {
-                                                final artistId =
-                                                    track['artistId']
-                                                        ?.toString();
-                                                if (artistId != null) {
-                                                  Navigator.push(
-                                                    context,
-                                                    MaterialPageRoute(
-                                                      builder: (context) => ArtistDetailsPage(
-                                                        artist: {
-                                                          'id': artistId,
-                                                          'name':
-                                                              (track['artist'] ??
-                                                                      'unknown artist')
-                                                                  .toString(),
-                                                          'coverArt':
-                                                              track['artistCoverArt'] ??
-                                                              track['coverArt'],
-                                                        },
-                                                        apiService:
-                                                            widget.apiService,
-                                                      ),
-                                                    ),
-                                                  );
-                                                }
-                                              },
-                                              child: Text(
-                                                (track['artist'] ??
-                                                        'unknown artist')
-                                                    .toString(),
-                                                textAlign: TextAlign.center,
-                                                style:
-                                                    (isShort
-                                                            ? theme
-                                                                  .textTheme
-                                                                  .titleMedium
-                                                            : theme
-                                                                  .textTheme
-                                                                  .titleLarge)
-                                                        ?.copyWith(
-                                                          color: colorScheme
-                                                              .primary,
-                                                          decoration:
-                                                              TextDecoration
-                                                                  .underline,
-                                                          decorationColor:
-                                                              colorScheme
-                                                                  .primary
-                                                                  .withValues(
-                                                                    alpha: 0.5,
-                                                                  ),
-                                                        ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
+                                            Wrap(
+                                              alignment: WrapAlignment.center,
+                                              spacing: 4,
+                                              runSpacing: 4,
+                                              children: _buildArtistWidgets(track, context, theme, colorScheme, isShort),
                                             ),
                                             if (!isVeryShort) ...[
                                               const SizedBox(height: 2),
@@ -355,8 +305,7 @@ class _PlayerPageState extends State<PlayerPage> {
                                                 child: Text(
                                                   (track['album'] ??
                                                           'unknown album')
-                                                      .toString()
-                                                      .toLowerCase(),
+                                                      .toString(),
                                                   textAlign: TextAlign.center,
                                                   style: theme
                                                       .textTheme
@@ -770,6 +719,91 @@ class _PlayerPageState extends State<PlayerPage> {
     final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     return "$minutes:$seconds";
   }
+
+  List<Widget> _buildArtistWidgets(
+    Map<String, dynamic> track,
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+    bool isShort,
+  ) {
+    final List<dynamic>? artists = track['artists'];
+    final String? singleArtistName = track['artist']?.toString();
+    final String? singleArtistId = track['artistId']?.toString();
+
+    if (artists != null && artists.isNotEmpty) {
+      final List<Widget> widgets = [];
+      for (int i = 0; i < artists.length; i++) {
+        final artist = artists[i];
+        final name = artist['name']?.toString() ?? 'unknown';
+        final id = artist['id']?.toString();
+
+        widgets.add(
+          ActionChip(
+            label: Text(name),
+            onPressed: () {
+              if (id != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ArtistDetailsPage(
+                      artist: {
+                        'id': id,
+                        'name': name,
+                        'coverArt': track['artistCoverArt'] ?? track['coverArt'],
+                      },
+                      apiService: widget.apiService,
+                    ),
+                  ),
+                );
+              }
+            },
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+            visualDensity: VisualDensity.compact,
+            labelStyle: (isShort ? theme.textTheme.labelLarge : theme.textTheme.titleSmall)?.copyWith(
+              color: colorScheme.primary,
+              fontWeight: FontWeight.bold,
+            ),
+            side: BorderSide(color: colorScheme.primary.withValues(alpha: 0.2)),
+            backgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.3),
+          ),
+        );
+      }
+      return widgets;
+    }
+
+    // Fallback to single artist
+    return [
+      ActionChip(
+        label: Text(singleArtistName ?? 'unknown artist'),
+        onPressed: () {
+          if (singleArtistId != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ArtistDetailsPage(
+                  artist: {
+                    'id': singleArtistId,
+                    'name': singleArtistName,
+                    'coverArt': track['artistCoverArt'] ?? track['coverArt'],
+                  },
+                  apiService: widget.apiService,
+                ),
+              ),
+            );
+          }
+        },
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+        visualDensity: VisualDensity.compact,
+        labelStyle: (isShort ? theme.textTheme.labelLarge : theme.textTheme.titleSmall)?.copyWith(
+          color: colorScheme.primary,
+          fontWeight: FontWeight.bold,
+        ),
+        side: BorderSide(color: colorScheme.primary.withValues(alpha: 0.2)),
+        backgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.3),
+      ),
+    ];
+  }
 }
 
 class _LyricsView extends StatefulWidget {
@@ -947,3 +981,4 @@ class _LyricsViewState extends State<_LyricsView> {
     );
   }
 }
+
