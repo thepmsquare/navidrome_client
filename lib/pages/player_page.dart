@@ -12,10 +12,7 @@ import 'package:navidrome_client/pages/album_details_page.dart';
 class PlayerPage extends StatefulWidget {
   final ApiService apiService;
 
-  const PlayerPage({
-    super.key,
-    required this.apiService,
-  });
+  const PlayerPage({super.key, required this.apiService});
 
   @override
   State<PlayerPage> createState() => _PlayerPageState();
@@ -35,11 +32,13 @@ class _PlayerPageState extends State<PlayerPage> {
   void initState() {
     super.initState();
     _lyricsService = LyricsService(widget.apiService);
-    
+
     final initialPage = _playerService.player.currentIndex ?? 0;
     _pageController = PageController(initialPage: initialPage);
 
-    _currentIndexSubscription = _playerService.currentIndexStream.listen((index) {
+    _currentIndexSubscription = _playerService.currentIndexStream.listen((
+      index,
+    ) {
       if (index != null && _pageController.hasClients) {
         if (_pageController.page?.round() != index) {
           _pageController.animateToPage(
@@ -82,7 +81,8 @@ class _PlayerPageState extends State<PlayerPage> {
               stream: _playerService.currentIndexStream,
               builder: (context, snapshot) {
                 final track = _playerService.currentTrack;
-                if (track == null) return const Center(child: Text("no track playing"));
+                if (track == null)
+                  return const Center(child: Text("no track playing"));
 
                 return AnimatedSwitcher(
                   duration: const Duration(milliseconds: 400),
@@ -118,212 +118,390 @@ class _PlayerPageState extends State<PlayerPage> {
                                   vertical: isVeryShort ? 8.0 : 16.0,
                                 ),
                                 child: ConstrainedBox(
-                                  constraints: const BoxConstraints(maxWidth: 500),
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 500,
+                                  ),
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      if (!isVeryShort) const Spacer(flex: 2),
+                                      if (!isVeryShort) const Spacer(flex: 1),
                                       Expanded(
-                                        flex: 10,
+                                        flex: 20,
                                         child: PageView.builder(
                                           controller: _pageController,
                                           padEnds: false,
                                           onPageChanged: (index) {
-                                            _playerService.seekToIndex(index).catchError((_) {});
+                                            _playerService
+                                                .seekToIndex(index)
+                                                .catchError((_) {});
                                           },
-                                          itemCount: _playerService.currentQueue.length,
+                                          itemCount: _playerService
+                                              .currentQueue
+                                              .length,
                                           itemBuilder: (context, index) {
-                                            final itemTrack = _playerService.currentQueue[index];
-                                            final itemTitle = (itemTrack['title'] ?? 'unknown title').toString();
-                                            final itemArtist = (itemTrack['artist'] ?? 'unknown artist').toString();
-                                            final itemAlbum = (itemTrack['album'] ?? 'unknown album').toString();
-                                            final itemCoverArtId = itemTrack['coverArt'];
-                                            final itemCoverArtUrl = itemCoverArtId != null
-                                                ? widget.apiService.getCoverArtUrl(itemCoverArtId, size: 800)
+                                            final itemTrack = _playerService
+                                                .currentQueue[index];
+                                            final itemCoverArtId =
+                                                itemTrack['coverArt'];
+                                            final itemCoverArtUrl =
+                                                itemCoverArtId != null
+                                                ? widget.apiService
+                                                      .getCoverArtUrl(
+                                                        itemCoverArtId,
+                                                        size: 800,
+                                                      )
                                                 : null;
 
                                             return Padding(
-                                              padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 4.0,
+                                                  ),
                                               child: Column(
-                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
                                                 children: [
                                                   Flexible(
                                                     child: AspectRatio(
                                                       aspectRatio: 1,
                                                       child: Container(
                                                         decoration: BoxDecoration(
-                                                          borderRadius: BorderRadius.circular(32),
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                40,
+                                                              ),
                                                           boxShadow: [
                                                             BoxShadow(
-                                                              color: colorScheme.shadow.withValues(alpha: 0.15),
-                                                              blurRadius: 40,
-                                                              offset: const Offset(0, 10),
+                                                              color: colorScheme
+                                                                  .shadow
+                                                                  .withValues(
+                                                                    alpha: 0.25,
+                                                                  ),
+                                                              blurRadius: 50,
+                                                              offset:
+                                                                  const Offset(
+                                                                    0,
+                                                                    15,
+                                                                  ),
+                                                              spreadRadius: -5,
                                                             ),
                                                           ],
                                                         ),
                                                         child: ClipRRect(
-                                                          borderRadius: BorderRadius.circular(32),
-                                                          child: itemCoverArtUrl != null
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                10,
+                                                              ),
+                                                          child:
+                                                              itemCoverArtUrl !=
+                                                                  null
                                                               ? Image.network(
                                                                   itemCoverArtUrl,
-                                                                  fit: BoxFit.cover,
+                                                                  fit: BoxFit
+                                                                      .cover,
                                                                 )
                                                               : Container(
-                                                                  color: colorScheme.surfaceContainerHighest,
+                                                                  color: colorScheme
+                                                                      .surfaceContainerHighest,
                                                                   child: Icon(
-                                                                    Icons.music_note_rounded,
-                                                                    size: isShort ? 60 : 100,
-                                                                    color: colorScheme.primary.withValues(alpha: 0.5),
+                                                                    Icons
+                                                                        .music_note_rounded,
+                                                                    size:
+                                                                        isShort
+                                                                        ? 60
+                                                                        : 100,
+                                                                    color: colorScheme
+                                                                        .primary
+                                                                        .withValues(
+                                                                          alpha:
+                                                                              0.5,
+                                                                        ),
                                                                   ),
                                                                 ),
                                                         ),
                                                       ),
                                                     ),
                                                   ),
-                                                  SizedBox(height: isVeryShort ? 12 : isShort ? 16 : 24),
-                                                  Column(
-                                                    children: [
-                                                      Text(
-                                                        itemTitle,
-                                                        textAlign: TextAlign.center,
-                                                        style: (isShort ? theme.textTheme.titleLarge : theme.textTheme.headlineMedium)?.copyWith(
-                                                          fontWeight: FontWeight.bold,
-                                                          color: colorScheme.onSurface,
-                                                        ),
-                                                        maxLines: 2,
-                                                        overflow: TextOverflow.ellipsis,
-                                                      ),
-                                                      const SizedBox(height: 8),
-                                                      GestureDetector(
-                                                        onTap: () {
-                                                          final artistId = itemTrack['artistId']?.toString();
-                                                          if (artistId != null) {
-                                                            Navigator.push(
-                                                              context,
-                                                              MaterialPageRoute(
-                                                                builder: (context) => ArtistDetailsPage(
-                                                                  artist: {
-                                                                    'id': artistId,
-                                                                    'name': itemArtist,
-                                                                    'coverArt': itemTrack['artistCoverArt'] ?? itemTrack['coverArt'],
-                                                                  },
-                                                                  apiService: widget.apiService,
-                                                                ),
-                                                              ),
-                                                            );
-                                                          }
-                                                        },
-                                                        child: Text(
-                                                          itemArtist,
-                                                          textAlign: TextAlign.center,
-                                                          style: (isShort ? theme.textTheme.titleMedium : theme.textTheme.titleLarge)?.copyWith(
-                                                            color: colorScheme.primary,
-                                                            decoration: TextDecoration.underline,
-                                                            decorationColor: colorScheme.primary.withValues(alpha: 0.5),
-                                                          ),
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow.ellipsis,
-                                                        ),
-                                                      ),
-                                                      if (!isVeryShort) ...[
-                                                        const SizedBox(height: 4),
-                                                        GestureDetector(
-                                                          onTap: () {
-                                                            final albumId = itemTrack['albumId']?.toString();
-                                                            if (albumId != null) {
-                                                              Navigator.push(
-                                                                context,
-                                                                MaterialPageRoute(
-                                                                  builder: (context) => AlbumDetailsPage(
-                                                                    album: {
-                                                                      'id': albumId,
-                                                                      'name': itemAlbum,
-                                                                      'coverArt': itemTrack['coverArt'],
-                                                                    },
-                                                                    apiService: widget.apiService,
-                                                                  ),
-                                                                ),
-                                                              );
-                                                            }
-                                                          },
-                                                          child: Text(
-                                                            itemAlbum,
-                                                            textAlign: TextAlign.center,
-                                                            style: theme.textTheme.bodyMedium?.copyWith(
-                                                              color: colorScheme.onSurfaceVariant,
-                                                              letterSpacing: 0.5,
-                                                              decoration: TextDecoration.underline,
-                                                              decorationColor: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                                                            ),
-                                                            maxLines: 1,
-                                                            overflow: TextOverflow.ellipsis,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 16),
-                                                  _buildRatingWidget(itemTrack, colorScheme),
                                                 ],
                                               ),
                                             );
                                           },
                                         ),
                                       ),
-                                      SizedBox(height: isVeryShort ? 12 : isShort ? 16 : 24),
+                                      SizedBox(
+                                        height: isVeryShort
+                                            ? 8
+                                            : isShort
+                                            ? 12
+                                            : 16,
+                                      ),
+                                      AnimatedSwitcher(
+                                        duration: const Duration(
+                                          milliseconds: 300,
+                                        ),
+                                        child: Column(
+                                          key: ValueKey(
+                                            'metadata_${track['id']}',
+                                          ),
+                                          children: [
+                                            Text(
+                                              (track['title'] ??
+                                                      'unknown title')
+                                                  .toString(),
+                                              textAlign: TextAlign.center,
+                                              style:
+                                                  (isShort
+                                                          ? theme
+                                                                .textTheme
+                                                                .titleLarge
+                                                          : theme
+                                                                .textTheme
+                                                                .headlineMedium)
+                                                      ?.copyWith(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: colorScheme
+                                                            .onSurface,
+                                                      ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 6),
+                                            GestureDetector(
+                                              onTap: () {
+                                                final artistId =
+                                                    track['artistId']
+                                                        ?.toString();
+                                                if (artistId != null) {
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (context) => ArtistDetailsPage(
+                                                        artist: {
+                                                          'id': artistId,
+                                                          'name':
+                                                              (track['artist'] ??
+                                                                      'unknown artist')
+                                                                  .toString(),
+                                                          'coverArt':
+                                                              track['artistCoverArt'] ??
+                                                              track['coverArt'],
+                                                        },
+                                                        apiService:
+                                                            widget.apiService,
+                                                      ),
+                                                    ),
+                                                  );
+                                                }
+                                              },
+                                              child: Text(
+                                                (track['artist'] ??
+                                                        'unknown artist')
+                                                    .toString(),
+                                                textAlign: TextAlign.center,
+                                                style:
+                                                    (isShort
+                                                            ? theme
+                                                                  .textTheme
+                                                                  .titleMedium
+                                                            : theme
+                                                                  .textTheme
+                                                                  .titleLarge)
+                                                        ?.copyWith(
+                                                          color: colorScheme
+                                                              .primary,
+                                                          decoration:
+                                                              TextDecoration
+                                                                  .underline,
+                                                          decorationColor:
+                                                              colorScheme
+                                                                  .primary
+                                                                  .withValues(
+                                                                    alpha: 0.5,
+                                                                  ),
+                                                        ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            if (!isVeryShort) ...[
+                                              const SizedBox(height: 2),
+                                              GestureDetector(
+                                                onTap: () {
+                                                  final albumId =
+                                                      track['albumId']
+                                                          ?.toString();
+                                                  if (albumId != null) {
+                                                    Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (context) => AlbumDetailsPage(
+                                                          album: {
+                                                            'id': albumId,
+                                                            'name':
+                                                                (track['album'] ??
+                                                                        'unknown album')
+                                                                    .toString(),
+                                                            'coverArt':
+                                                                track['coverArt'],
+                                                          },
+                                                          apiService:
+                                                              widget.apiService,
+                                                        ),
+                                                      ),
+                                                    );
+                                                  }
+                                                },
+                                                child: Text(
+                                                  (track['album'] ??
+                                                          'unknown album')
+                                                      .toString()
+                                                      .toLowerCase(),
+                                                  textAlign: TextAlign.center,
+                                                  style: theme
+                                                      .textTheme
+                                                      .bodyMedium
+                                                      ?.copyWith(
+                                                        color: colorScheme
+                                                            .onSurfaceVariant,
+                                                        letterSpacing: 0.5,
+                                                      ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                            const SizedBox(height: 12),
+                                            _buildRatingWidget(
+                                              track,
+                                              colorScheme,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        height: isVeryShort
+                                            ? 8
+                                            : isShort
+                                            ? 12
+                                            : 16,
+                                      ),
                                       StreamBuilder<Duration>(
-                                        stream: _playerService.player.positionStream,
+                                        stream: _playerService
+                                            .player
+                                            .positionStream,
                                         builder: (context, snapshot) {
-                                          final position = snapshot.data ?? Duration.zero;
-                                          final total = _playerService.player.duration ?? Duration.zero;
+                                          final position =
+                                              snapshot.data ?? Duration.zero;
+                                          final total =
+                                              _playerService.player.duration ??
+                                              Duration.zero;
 
                                           return Column(
                                             children: [
                                               SliderTheme(
                                                 data: SliderTheme.of(context).copyWith(
                                                   trackHeight: isShort ? 4 : 8,
-                                                  thumbShape: RoundSliderThumbShape(enabledThumbRadius: isShort ? 4 : 6),
-                                                  overlayShape: RoundSliderOverlayShape(overlayRadius: isShort ? 12 : 16),
-                                                  activeTrackColor: colorScheme.primary,
-                                                  inactiveTrackColor: colorScheme.surfaceContainerHighest,
-                                                  thumbColor: colorScheme.primary,
+                                                  thumbShape:
+                                                      RoundSliderThumbShape(
+                                                        enabledThumbRadius:
+                                                            isShort ? 4 : 6,
+                                                      ),
+                                                  overlayShape:
+                                                      RoundSliderOverlayShape(
+                                                        overlayRadius: isShort
+                                                            ? 12
+                                                            : 16,
+                                                      ),
+                                                  activeTrackColor:
+                                                      colorScheme.primary,
+                                                  inactiveTrackColor: colorScheme
+                                                      .surfaceContainerHighest,
+                                                  thumbColor:
+                                                      colorScheme.primary,
                                                 ),
                                                 child: Slider(
-                                                  value: (_dragValue ?? position.inSeconds.toDouble()).clamp(
-                                                    0.0,
-                                                    total.inSeconds.toDouble().clamp(0.01, double.infinity),
-                                                  ),
+                                                  value:
+                                                      (_dragValue ??
+                                                              position.inSeconds
+                                                                  .toDouble())
+                                                          .clamp(
+                                                            0.0,
+                                                            total.inSeconds
+                                                                .toDouble()
+                                                                .clamp(
+                                                                  0.01,
+                                                                  double
+                                                                      .infinity,
+                                                                ),
+                                                          ),
                                                   min: 0,
-                                                  max: total.inSeconds.toDouble().clamp(0.01, double.infinity),
-                                                  onChangeStart: (_) => setState(
-                                                    () => _dragValue = position.inSeconds.toDouble(),
-                                                  ),
-                                                  onChanged: (value) => setState(() => _dragValue = value),
+                                                  max: total.inSeconds
+                                                      .toDouble()
+                                                      .clamp(
+                                                        0.01,
+                                                        double.infinity,
+                                                      ),
+                                                  onChangeStart: (_) =>
+                                                      setState(
+                                                        () => _dragValue =
+                                                            position.inSeconds
+                                                                .toDouble(),
+                                                      ),
+                                                  onChanged: (value) =>
+                                                      setState(
+                                                        () =>
+                                                            _dragValue = value,
+                                                      ),
                                                   onChangeEnd: (value) {
-                                                    _playerService.seek(Duration(seconds: value.toInt()));
-                                                    setState(() => _dragValue = null);
+                                                    _playerService.seek(
+                                                      Duration(
+                                                        seconds: value.toInt(),
+                                                      ),
+                                                    );
+                                                    setState(
+                                                      () => _dragValue = null,
+                                                    );
                                                   },
                                                 ),
                                               ),
                                               const SizedBox(height: 4),
                                               Padding(
-                                                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 4.0,
+                                                    ),
                                                 child: Row(
-                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment
+                                                          .spaceBetween,
                                                   children: [
                                                     Text(
                                                       _formatDuration(position),
-                                                      style: theme.textTheme.labelMedium?.copyWith(
-                                                        color: colorScheme.onSurfaceVariant,
-                                                        fontFeatures: const [FontFeature.tabularFigures()],
-                                                      ),
+                                                      style: theme
+                                                          .textTheme
+                                                          .labelMedium
+                                                          ?.copyWith(
+                                                            color: colorScheme
+                                                                .onSurfaceVariant,
+                                                            fontFeatures: const [
+                                                              FontFeature.tabularFigures(),
+                                                            ],
+                                                          ),
                                                     ),
                                                     Text(
                                                       _formatDuration(total),
-                                                      style: theme.textTheme.labelMedium?.copyWith(
-                                                        color: colorScheme.onSurfaceVariant,
-                                                        fontFeatures: const [FontFeature.tabularFigures()],
-                                                      ),
+                                                      style: theme
+                                                          .textTheme
+                                                          .labelMedium
+                                                          ?.copyWith(
+                                                            color: colorScheme
+                                                                .onSurfaceVariant,
+                                                            fontFeatures: const [
+                                                              FontFeature.tabularFigures(),
+                                                            ],
+                                                          ),
                                                     ),
                                                   ],
                                                 ),
@@ -332,71 +510,115 @@ class _PlayerPageState extends State<PlayerPage> {
                                           );
                                         },
                                       ),
-                                      if (isVeryShort) const SizedBox(height: 16)
-                                      else Spacer(flex: isShort ? 2 : 4),
+                                      if (isVeryShort)
+                                        const SizedBox(height: 16)
+                                      else
+                                        Spacer(flex: isShort ? 2 : 4),
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceEvenly,
                                         children: [
-                                            StreamBuilder<bool>(
-                                              stream: _playerService.player.shuffleModeEnabledStream,
-                                              builder: (context, snapshot) {
-                                                final enabled = snapshot.data ?? false;
-                                                return IconButton(
-                                                  icon: const Icon(Icons.shuffle_rounded),
-                                                  onPressed: () => _playerService.toggleShuffleMode(),
-                                                  color: enabled ? colorScheme.primary : colorScheme.onSurfaceVariant,
-                                                  iconSize: isShort ? 20 : 24,
-                                                  tooltip: 'shuffle',
-                                                );
-                                              },
+                                          StreamBuilder<bool>(
+                                            stream: _playerService
+                                                .player
+                                                .shuffleModeEnabledStream,
+                                            builder: (context, snapshot) {
+                                              final enabled =
+                                                  snapshot.data ?? false;
+                                              return IconButton(
+                                                icon: const Icon(
+                                                  Icons.shuffle_rounded,
+                                                ),
+                                                onPressed: () => _playerService
+                                                    .toggleShuffleMode(),
+                                                color: enabled
+                                                    ? colorScheme.primary
+                                                    : colorScheme
+                                                          .onSurfaceVariant,
+                                                iconSize: isShort ? 20 : 24,
+                                                tooltip: 'shuffle',
+                                              );
+                                            },
+                                          ),
+                                          IconButton.filledTonal(
+                                            iconSize: isShort ? 28 : 32,
+                                            icon: const Icon(
+                                              Icons.skip_previous_rounded,
                                             ),
-                                            IconButton.filledTonal(
-                                              iconSize: isShort ? 28 : 32,
-                                              icon: const Icon(Icons.skip_previous_rounded),
-                                              onPressed: () => _playerService.skipToPrevious().catchError((_) {}),
+                                            onPressed: () => _playerService
+                                                .skipToPrevious()
+                                                .catchError((_) {}),
+                                          ),
+                                          StreamBuilder<PlayerState>(
+                                            stream: _playerService
+                                                .player
+                                                .playerStateStream,
+                                            builder: (context, snapshot) {
+                                              final playing =
+                                                  snapshot.data?.playing ??
+                                                  false;
+                                              return IconButton.filled(
+                                                iconSize: isShort ? 40 : 56,
+                                                padding: EdgeInsets.all(
+                                                  isShort ? 12 : 16,
+                                                ),
+                                                icon: Icon(
+                                                  playing
+                                                      ? Icons.pause_rounded
+                                                      : Icons
+                                                            .play_arrow_rounded,
+                                                ),
+                                                onPressed: () {
+                                                  if (playing) {
+                                                    _playerService.pause();
+                                                  } else {
+                                                    _playerService.resume();
+                                                  }
+                                                },
+                                              );
+                                            },
+                                          ),
+                                          IconButton.filledTonal(
+                                            iconSize: isShort ? 28 : 32,
+                                            icon: const Icon(
+                                              Icons.skip_next_rounded,
                                             ),
-                                            StreamBuilder<PlayerState>(
-                                              stream: _playerService.player.playerStateStream,
-                                              builder: (context, snapshot) {
-                                                final playing = snapshot.data?.playing ?? false;
-                                                return IconButton.filled(
-                                                  iconSize: isShort ? 40 : 56,
-                                                  padding: EdgeInsets.all(isShort ? 12 : 16),
-                                                  icon: Icon(playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
-                                                  onPressed: () {
-                                                    if (playing) {
-                                                      _playerService.pause();
-                                                    } else {
-                                                      _playerService.resume();
-                                                    }
-                                                  },
-                                                );
-                                              },
-                                            ),
-                                            IconButton.filledTonal(
-                                              iconSize: isShort ? 28 : 32,
-                                              icon: const Icon(Icons.skip_next_rounded),
-                                              onPressed: () => _playerService.skipToNext().catchError((_) {}),
-                                            ),
-                                            StreamBuilder<LoopMode>(
-                                              stream: _playerService.player.loopModeStream,
-                                              builder: (context, snapshot) {
-                                                final mode = snapshot.data ?? LoopMode.off;
-                                                final isOff = mode == LoopMode.off;
-                                                final isOne = mode == LoopMode.one;
-                                                
-                                                return IconButton(
-                                                  icon: Icon(isOne ? Icons.repeat_one_rounded : Icons.repeat_rounded),
-                                                  onPressed: () => _playerService.toggleLoopMode(),
-                                                  color: isOff ? colorScheme.onSurfaceVariant : colorScheme.primary,
-                                                  iconSize: isShort ? 20 : 24,
-                                                  tooltip: 'repeat',
-                                                );
-                                              },
-                                            ),
-                                          ],
-                                        ),
-                                        if (!isVeryShort) const Spacer(flex: 3),
+                                            onPressed: () => _playerService
+                                                .skipToNext()
+                                                .catchError((_) {}),
+                                          ),
+                                          StreamBuilder<LoopMode>(
+                                            stream: _playerService
+                                                .player
+                                                .loopModeStream,
+                                            builder: (context, snapshot) {
+                                              final mode =
+                                                  snapshot.data ?? LoopMode.off;
+                                              final isOff =
+                                                  mode == LoopMode.off;
+                                              final isOne =
+                                                  mode == LoopMode.one;
+
+                                              return IconButton(
+                                                icon: Icon(
+                                                  isOne
+                                                      ? Icons.repeat_one_rounded
+                                                      : Icons.repeat_rounded,
+                                                ),
+                                                onPressed: () => _playerService
+                                                    .toggleLoopMode(),
+                                                color: isOff
+                                                    ? colorScheme
+                                                          .onSurfaceVariant
+                                                    : colorScheme.primary,
+                                                iconSize: isShort ? 20 : 24,
+                                                tooltip: 'repeat',
+                                              );
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                      if (!isVeryShort) const Spacer(flex: 3),
                                     ],
                                   ),
                                 ),
@@ -413,7 +635,10 @@ class _PlayerPageState extends State<PlayerPage> {
     );
   }
 
-  Widget _buildRatingWidget(Map<String, dynamic> track, ColorScheme colorScheme) {
+  Widget _buildRatingWidget(
+    Map<String, dynamic> track,
+    ColorScheme colorScheme,
+  ) {
     final int userRating = (track['userRating'] as num?)?.toInt() ?? 0;
     final String trackId = track['id']?.toString() ?? '';
     final bool isStarred = track['starred'] != null;
@@ -432,17 +657,19 @@ class _PlayerPageState extends State<PlayerPage> {
               padding: const EdgeInsets.symmetric(horizontal: 2),
               icon: Icon(
                 isSelected ? Icons.star_rounded : Icons.star_outline_rounded,
-                color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                color: isSelected
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                 size: 28,
               ),
               onPressed: () {
                 if (trackId.isEmpty) return;
                 final newRating = (starIndex == userRating) ? 0 : starIndex;
-                
+
                 setState(() {
                   track['userRating'] = newRating;
                 });
-                
+
                 _playerService.updateTrackRating(trackId, newRating);
                 widget.apiService.setRating(trackId, newRating);
               },
@@ -453,14 +680,18 @@ class _PlayerPageState extends State<PlayerPage> {
           left: 0,
           child: IconButton(
             icon: Icon(
-              isStarred ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-              color: isStarred ? Colors.redAccent : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+              isStarred
+                  ? Icons.favorite_rounded
+                  : Icons.favorite_border_rounded,
+              color: isStarred
+                  ? Colors.redAccent
+                  : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               size: 28,
             ),
             onPressed: () {
               if (trackId.isEmpty) return;
               final newStarred = !isStarred;
-              
+
               setState(() {
                 if (newStarred) {
                   track['starred'] = DateTime.now().toIso8601String();
@@ -468,9 +699,9 @@ class _PlayerPageState extends State<PlayerPage> {
                   track.remove('starred');
                 }
               });
-              
+
               _playerService.updateTrackStarred(trackId, newStarred);
-              
+
               if (newStarred) {
                 widget.apiService.star(trackId);
               } else {
@@ -494,7 +725,8 @@ class _PlayerPageState extends State<PlayerPage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => QueuePage(apiService: widget.apiService),
+                    builder: (context) =>
+                        QueuePage(apiService: widget.apiService),
                   ),
                 );
               }
@@ -504,7 +736,12 @@ class _PlayerPageState extends State<PlayerPage> {
                 value: 'lyrics',
                 child: Row(
                   children: [
-                    Icon(_showLyrics ? Icons.music_note_rounded : Icons.lyrics_rounded, size: 20),
+                    Icon(
+                      _showLyrics
+                          ? Icons.music_note_rounded
+                          : Icons.lyrics_rounded,
+                      size: 20,
+                    ),
                     const SizedBox(width: 12),
                     Text(_showLyrics ? 'show player' : 'show lyrics'),
                   ],
@@ -563,11 +800,11 @@ class _LyricsViewState extends State<_LyricsView> {
 
   void _scrollToIndex(int index) {
     if (index < 0 || !_scrollController.hasClients) return;
-    
+
     // Approximate line height + padding
-    const lineHeight = 60.0; 
+    const lineHeight = 60.0;
     final offset = index * lineHeight;
-    
+
     _scrollController.animateTo(
       (offset - 200).clamp(0, _scrollController.position.maxScrollExtent),
       duration: const Duration(milliseconds: 300),
@@ -590,7 +827,8 @@ class _LyricsViewState extends State<_LyricsView> {
         }
 
         final lyricsData = snapshot.data;
-        if (lyricsData == null || (lyricsData.plain == null && !lyricsData.hasSynced)) {
+        if (lyricsData == null ||
+            (lyricsData.plain == null && !lyricsData.hasSynced)) {
           return _buildNoLyrics(theme, colorScheme);
         }
 
@@ -600,38 +838,47 @@ class _LyricsViewState extends State<_LyricsView> {
             builder: (context, positionSnapshot) {
               final position = positionSnapshot.data ?? Duration.zero;
               final synced = lyricsData.synced!;
-              
-              final index = synced.lastIndexWhere((line) => line.time <= position);
+
+              final index = synced.lastIndexWhere(
+                (line) => line.time <= position,
+              );
               if (index != _currentIndex && index != -1) {
                 _currentIndex = index;
-                WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToIndex(index));
+                WidgetsBinding.instance.addPostFrameCallback(
+                  (_) => _scrollToIndex(index),
+                );
               }
 
               return ListView.builder(
                 controller: _scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 40,
+                ),
                 itemCount: synced.length,
                 itemBuilder: (context, i) {
                   final isCurrent = i == index;
                   final line = synced[i];
-                  
+
                   return GestureDetector(
                     onTap: () => widget.playerService.seek(line.time),
                     child: AnimatedPadding(
                       duration: const Duration(milliseconds: 200),
-                      padding: EdgeInsets.symmetric(vertical: isCurrent ? 12 : 8),
+                      padding: EdgeInsets.symmetric(
+                        vertical: isCurrent ? 12 : 8,
+                      ),
                       child: AnimatedDefaultTextStyle(
                         duration: const Duration(milliseconds: 200),
                         style: theme.textTheme.headlineSmall!.copyWith(
                           fontSize: isCurrent ? 24 : 20,
-                          fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                          color: isCurrent 
-                              ? colorScheme.primary 
+                          fontWeight: isCurrent
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: isCurrent
+                              ? colorScheme.primary
                               : colorScheme.onSurface.withValues(alpha: 0.5),
                         ),
-                        child: Text(
-                          line.text.toLowerCase(),
-                        ),
+                        child: Text(line.text.toLowerCase()),
                       ),
                     ),
                   );

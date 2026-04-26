@@ -49,7 +49,6 @@ class _MiniPlayerState extends State<MiniPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    final playerService = PlayerService();
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -90,7 +89,9 @@ class _MiniPlayerState extends State<MiniPlayer> {
                 ),
                 child: Row(
                   children: [
-                    Expanded(
+                    SizedBox(
+                      width: 56,
+                      height: 56,
                       child: PageView.builder(
                         controller: _pageController,
                         onPageChanged: (index) {
@@ -99,59 +100,53 @@ class _MiniPlayerState extends State<MiniPlayer> {
                         itemCount: _playerService.currentQueue.length,
                         itemBuilder: (context, index) {
                           final itemTrack = _playerService.currentQueue[index];
-                          final itemTitle = (itemTrack['title'] ?? 'unknown title').toString();
-                          final itemArtist = (itemTrack['artist'] ?? 'unknown artist').toString();
                           final itemCoverArtId = itemTrack['coverArt'];
                           final itemCoverArtUrl = itemCoverArtId != null && widget.apiService != null
                               ? widget.apiService!.getCoverArtUrl(itemCoverArtId)
                               : null;
 
-                          return Row(
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: SizedBox(
-                                  width: 56,
-                                  height: 56,
-                                  child: OfflineImage(
-                                    key: ValueKey(itemCoverArtId?.toString() ?? 'placeholder_$index'),
-                                    coverArtId: itemCoverArtId?.toString(),
-                                    remoteUrl: itemCoverArtUrl,
-                                    fit: BoxFit.cover,
-                                    placeholder: _buildPlaceholder(),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      itemTitle,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.titleMedium?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: colorScheme.onSecondaryContainer,
-                                      ),
-                                    ),
-                                    Text(
-                                      itemArtist,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: theme.textTheme.bodyMedium?.copyWith(
-                                        color: colorScheme.onSecondaryContainer
-                                            .withValues(alpha: 0.7),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: OfflineImage(
+                              key: ValueKey(itemCoverArtId?.toString() ?? 'placeholder_$index'),
+                              coverArtId: itemCoverArtId?.toString(),
+                              remoteUrl: itemCoverArtUrl,
+                              fit: BoxFit.cover,
+                              placeholder: _buildPlaceholder(),
+                            ),
                           );
                         },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        child: Column(
+                          key: ValueKey('mini_metadata_${track['id']}'),
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              (track['title'] ?? 'unknown title').toString(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.onSecondaryContainer,
+                              ),
+                            ),
+                            Text(
+                              (track['artist'] ?? 'unknown artist').toString(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSecondaryContainer
+                                    .withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
