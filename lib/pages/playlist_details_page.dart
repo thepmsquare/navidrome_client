@@ -222,7 +222,7 @@ class _PlaylistDetailsPageState extends State<PlaylistDetailsPage> {
                             ),
                           ],
                         ),
-                        titlePadding: const EdgeInsets.only(left: 56, bottom: 16, right: 16),
+                        titlePadding: const EdgeInsets.only(left: 16, bottom: 16, right: 16),
                         background: Stack(
                           fit: StackFit.expand,
                           children: [

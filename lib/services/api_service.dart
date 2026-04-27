@@ -276,6 +276,22 @@ class ApiService {
     return response['artist'];
   }
 
+  Future<List<Map<String, dynamic>>> getArtistTracks(String id) async {
+    // some servers might not support getSongsByArtist, but it's common in modern ones like navidrome.
+    try {
+      final response = await _get('getSongsByArtist', {'id': id});
+      final songsByArtist = response['songsByArtist'];
+      if (songsByArtist == null) return [];
+      final songs = songsByArtist['song'];
+      if (songs == null) return [];
+      if (songs is Map) return [Map<String, dynamic>.from(songs)];
+      return List<Map<String, dynamic>>.from(songs);
+    } catch (e) {
+      debugPrint('getSongsByArtist failed, falling back to album tracks: $e');
+      return [];
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getPlaylists() async {
     final response = await _get('getPlaylists');
 
@@ -420,10 +436,6 @@ class ApiService {
     final songs = songList['song'];
     if (songs == null) return [];
 
-    if (songs is Map) {
-      return [Map<String, dynamic>.from(songs)];
-    }
-
-    return List<Map<String, dynamic>>.from(songs);
+    return songs is Map ? [Map<String, dynamic>.from(songs)] : List<Map<String, dynamic>>.from(songs);
   }
 }

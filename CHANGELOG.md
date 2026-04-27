@@ -1,5 +1,12 @@
 # changelog
 
+## 1.0.0+10
+
+- minor improvement in animation in player and mini player.
+- add links for artist and albums in multiple places.
+- add play button in artists page.
+- fix padding of play button in album and playlists page.
+
 ## 1.0.0+9
 
 - add lyrics page and integrate lrclib.
