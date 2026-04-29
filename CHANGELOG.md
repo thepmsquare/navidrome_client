@@ -1,5 +1,9 @@
 # changelog
 
+## 1.0.0+11 (in progress)
+
+- bug fix: stop music play on log out.
+
 ## 1.0.0+10
 
 - minor improvement in animation in player and mini player.

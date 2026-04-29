@@ -244,6 +244,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _handleLogout() async {
+    await PlayerService().clearQueue();
     await _authService.logout();
     if (mounted) Navigator.pushReplacementNamed(context, '/connect');
   }

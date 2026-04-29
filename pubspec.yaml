@@ -1,7 +1,7 @@
 name: navidrome_client
 description: "a client for navidrome server for android platform."
 publish_to: "none"
-version: 1.0.0+10
+version: 1.0.0+11
 
 environment:
   sdk: ^3.11.4
