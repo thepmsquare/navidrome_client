@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:navidrome_client/services/offline_service.dart';
 
 /// #6: StatefulWidget resolves the local path once in initState,
@@ -99,13 +100,15 @@ class _OfflineImageState extends State<OfflineImage> {
 
   Widget _buildRemote() {
     if (widget.remoteUrl == null) return widget.placeholder;
-    return Image.network(
-      widget.remoteUrl!,
+    return CachedNetworkImage(
+      imageUrl: widget.remoteUrl!,
       width: widget.width,
       height: widget.height,
       fit: widget.fit,
-      gaplessPlayback: true,
-      errorBuilder: (context, error, stackTrace) => widget.placeholder,
+      placeholder: (context, url) => widget.placeholder,
+      errorWidget: (context, url, error) => widget.placeholder,
+      fadeInDuration: const Duration(milliseconds: 150),
+      fadeOutDuration: const Duration(milliseconds: 150),
     );
   }
 }

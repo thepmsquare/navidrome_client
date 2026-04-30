@@ -89,15 +89,14 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _initApiService().then((_) {
+    // run init and session load in parallel for faster startup
+    Future.wait([_initApiService(), _loadSessionState()]).then((_) {
       _loadHomeContent();
       // restore playback session once API is ready
       if (_apiService != null) {
         PlayerService().restoreSession(_apiService!);
       }
     });
-
-    _loadSessionState();
 
     // listen for log changes to update the error badge in settings
     _logErrorCount = _eventLog.errorCount;
@@ -133,13 +132,19 @@ class _HomePageState extends State<HomePage> {
     // Only rebuild the whole page if we are in offline mode (to filter the list).
     // Individual items (TrackListItem, etc.) already handle their own icons via listeners.
     if (OfflineService().isOfflineMode) {
-      setState(() {});
+      setState(() {
+        // intentional: triggers rebuild to re-evaluate _isOfflineMode getter
+      });
     }
   }
 
   void _onOfflineModeChanged() {
-    if (mounted) {
-      setState(() {});
+    if (!mounted) return;
+    // only rebuild if the selected tab cares about offline state (home or library)
+    if (_selectedIndex <= 1) {
+      setState(() {
+        // intentional: triggers rebuild to re-evaluate _isOfflineMode getter
+      });
     }
   }
 

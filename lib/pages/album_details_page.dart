@@ -280,11 +280,14 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                         background: Stack(
                           fit: StackFit.expand,
                           children: [
-                            OfflineImage(
-                              coverArtId: coverArtId,
-                              remoteUrl: coverArtUrl,
-                              fit: BoxFit.cover,
-                              placeholder: Container(color: colorScheme.surfaceContainerHighest),
+                            Hero(
+                              tag: 'album_cover_${widget.album['id']}',
+                              child: OfflineImage(
+                                coverArtId: coverArtId,
+                                remoteUrl: coverArtUrl,
+                                fit: BoxFit.cover,
+                                placeholder: Container(color: colorScheme.surfaceContainerHighest),
+                              ),
                             ),
                             DecoratedBox(
                               decoration: BoxDecoration(

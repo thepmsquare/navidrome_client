@@ -4,6 +4,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:navidrome_client/services/player_service.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/components/offline_indicator.dart';
+import 'package:navidrome_client/components/offline_image.dart';
 import 'package:navidrome_client/pages/queue_page.dart';
 import 'package:navidrome_client/services/lyrics_service.dart';
 import 'package:navidrome_client/pages/artist_details_page.dart';
@@ -193,32 +194,29 @@ class _PlayerPageState extends State<PlayerPage> {
                                                               BorderRadius.circular(
                                                                 10,
                                                               ),
-                                                          child:
-                                                              itemCoverArtUrl !=
-                                                                  null
-                                                              ? Image.network(
-                                                                  itemCoverArtUrl,
-                                                                  fit: BoxFit
-                                                                      .cover,
-                                                                )
-                                                              : Container(
-                                                                  color: colorScheme
-                                                                      .surfaceContainerHighest,
-                                                                  child: Icon(
-                                                                    Icons
-                                                                        .music_note_rounded,
-                                                                    size:
-                                                                        isShort
-                                                                        ? 60
-                                                                        : 100,
-                                                                    color: colorScheme
-                                                                        .primary
-                                                                        .withValues(
-                                                                          alpha:
-                                                                              0.5,
-                                                                        ),
-                                                                  ),
-                                                                ),
+                                                          child: OfflineImage(
+                                                            coverArtId: itemCoverArtId?.toString(),
+                                                            remoteUrl: itemCoverArtUrl,
+                                                            fit: BoxFit.cover,
+                                                            placeholder: Container(
+                                                              color: colorScheme
+                                                                  .surfaceContainerHighest,
+                                                              child: Icon(
+                                                                Icons
+                                                                    .music_note_rounded,
+                                                                size:
+                                                                    isShort
+                                                                    ? 60
+                                                                    : 100,
+                                                                color: colorScheme
+                                                                    .primary
+                                                                    .withValues(
+                                                                      alpha:
+                                                                          0.5,
+                                                                    ),
+                                                              ),
+                                                            ),
+                                                          ),
                                                         ),
                                                       ),
                                                     ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:navidrome_client/components/album_list_item.dart';
 import 'package:navidrome_client/pages/album_details_page.dart';
@@ -17,6 +18,7 @@ class AlbumsPage extends StatefulWidget {
 class _AlbumsPageState extends State<AlbumsPage> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
   
   List<Map<String, dynamic>> _albums = [];
   bool _isLoading = true;
@@ -49,6 +51,7 @@ class _AlbumsPageState extends State<AlbumsPage> {
   void dispose() {
     _scrollController.dispose();
     _searchController.dispose();
+    _searchDebounce?.cancel();
     OfflineService().offlineModeNotifier.removeListener(_onOfflineModeChanged);
     super.dispose();
   }
@@ -138,10 +141,20 @@ class _AlbumsPageState extends State<AlbumsPage> {
   }
 
   void _onSearchChanged(String query) {
-    setState(() {
-      _searchQuery = query;
+    _searchDebounce?.cancel();
+    if (query.isEmpty) {
+      setState(() {
+        _searchQuery = '';
+      });
+      _loadAlbums(refresh: true);
+      return;
+    }
+    _searchDebounce = Timer(const Duration(milliseconds: 500), () {
+      setState(() {
+        _searchQuery = query;
+      });
+      _loadAlbums(refresh: true);
     });
-    _loadAlbums(refresh: true);
   }
 
   @override

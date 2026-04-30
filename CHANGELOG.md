@@ -3,6 +3,7 @@
 ## 1.0.0+11 (in progress)
 
 - bug fix: stop music play on log out.
+- cache network images and other performance tweaks.
 
 ## 1.0.0+10
 

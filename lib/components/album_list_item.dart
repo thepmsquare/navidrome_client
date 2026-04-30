@@ -160,12 +160,15 @@ class _AlbumListItemState extends State<AlbumListItem> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: OfflineImage(
-                coverArtId: widget.album['coverArt']?.toString(),
-                remoteUrl: widget.coverArtUrl,
-                width: 64,
-                height: 64,
-                placeholder: _buildPlaceholder(),
+              child: Hero(
+                tag: 'album_cover_$_albumId',
+                child: OfflineImage(
+                  coverArtId: widget.album['coverArt']?.toString(),
+                  remoteUrl: widget.coverArtUrl,
+                  width: 64,
+                  height: 64,
+                  placeholder: _buildPlaceholder(),
+                ),
               ),
             ),
             const SizedBox(width: 16),

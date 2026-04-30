@@ -24,6 +24,7 @@ dependencies:
   file_picker: ^8.1.4
   package_info_plus: ^8.1.0
   sentry_flutter: ^9.18.0
+  cached_network_image: ^3.4.1
 
 dev_dependencies:
   sentry_dart_plugin: ^3.3.0

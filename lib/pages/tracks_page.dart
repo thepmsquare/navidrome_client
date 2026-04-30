@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:navidrome_client/components/track_list_item.dart';
 import 'package:navidrome_client/services/api_service.dart';
@@ -18,6 +19,7 @@ class TracksPage extends StatefulWidget {
 class _TracksPageState extends State<TracksPage> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
   
   List<Map<String, dynamic>> _tracks = [];
   bool _isLoading = true;
@@ -57,6 +59,7 @@ class _TracksPageState extends State<TracksPage> {
   void dispose() {
     _scrollController.dispose();
     _searchController.dispose();
+    _searchDebounce?.cancel();
     OfflineService().offlineModeNotifier.removeListener(_onOfflineModeChanged);
     super.dispose();
   }
@@ -171,10 +174,20 @@ class _TracksPageState extends State<TracksPage> {
   }
 
   void _onSearchChanged(String query) {
-    setState(() {
-      _searchQuery = query;
+    _searchDebounce?.cancel();
+    if (query.isEmpty) {
+      setState(() {
+        _searchQuery = '';
+      });
+      _loadTracks(refresh: true);
+      return;
+    }
+    _searchDebounce = Timer(const Duration(milliseconds: 500), () {
+      setState(() {
+        _searchQuery = query;
+      });
+      _loadTracks(refresh: true);
     });
-    _loadTracks(refresh: true);
   }
 
   @override

@@ -19,9 +19,15 @@ void main() async {
     },
     appRunner: () async {
       WidgetsFlutterBinding.ensureInitialized();
+
+      // run independent init steps in parallel for faster cold start
+      final results = await Future.wait([
+        SessionService().stopPlaybackOnTaskRemoved,
+        OfflineService().initialize().then((_) => null),
+      ]);
+
       // #11: load stop playback setting for android initialization
-      final stopPlaybackOnTaskRemoved =
-          await SessionService().stopPlaybackOnTaskRemoved;
+      final stopPlaybackOnTaskRemoved = results[0] as bool;
 
       await JustAudioBackground.init(
         androidNotificationChannelId: 'com.ryanheise.audioservice.audio',
@@ -32,8 +38,6 @@ void main() async {
             Platform.isAndroid ? !stopPlaybackOnTaskRemoved : true,
         androidNotificationIcon: 'drawable/ic_notification',
       );
-      // load offline state into memory before any UI renders
-      await OfflineService().initialize();
 
       final authService = AuthService();
       final isLoggedIn = await authService.isLoggedIn;

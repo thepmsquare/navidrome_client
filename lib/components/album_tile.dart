@@ -58,16 +58,19 @@ class AlbumTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                   child: AspectRatio(
                     aspectRatio: 1,
-                    child: OfflineImage(
-                      coverArtId: coverArtId,
-                      remoteUrl: coverArtUrl,
-                      fit: BoxFit.cover,
-                      placeholder: Container(
-                        color: colorScheme.surfaceContainerHighest,
-                        child: const Icon(
-                          Icons.album_rounded,
-                          size: 48,
-                          color: Colors.grey,
+                    child: Hero(
+                      tag: 'album_cover_${album['id']}',
+                      child: OfflineImage(
+                        coverArtId: coverArtId,
+                        remoteUrl: coverArtUrl,
+                        fit: BoxFit.cover,
+                        placeholder: Container(
+                          color: colorScheme.surfaceContainerHighest,
+                          child: const Icon(
+                            Icons.album_rounded,
+                            size: 48,
+                            color: Colors.grey,
+                          ),
                         ),
                       ),
                     ),
