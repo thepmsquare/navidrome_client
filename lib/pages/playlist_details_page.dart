@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:navidrome_client/components/track_list_item.dart';
-import 'package:navidrome_client/components/mini_player.dart';
-import 'package:navidrome_client/pages/player_page.dart';
 import 'package:navidrome_client/pages/artist_details_page.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/player_service.dart';
@@ -297,23 +295,6 @@ class _PlaylistDetailsPageState extends State<PlaylistDetailsPage> {
                         ),
                       ),
                   ],
-                ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: MiniPlayer(
-                    apiService: widget.apiService,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => PlayerPage(apiService: widget.apiService),
-                          fullscreenDialog: true,
-                        ),
-                      );
-                    },
-                  ),
                 ),
               ],
             ),

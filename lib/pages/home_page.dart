@@ -5,9 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:navidrome_client/components/album_list_item.dart';
 import 'package:navidrome_client/components/album_tile.dart';
 import 'package:navidrome_client/components/track_list_item.dart';
-import 'package:navidrome_client/components/mini_player.dart';
 import 'package:navidrome_client/utils/disk_utility.dart';
-import 'package:navidrome_client/pages/player_page.dart';
 import 'package:navidrome_client/pages/album_details_page.dart';
 import 'package:navidrome_client/pages/event_log_page.dart';
 import 'package:navidrome_client/services/api_service.dart';
@@ -355,54 +353,31 @@ class _HomePageState extends State<HomePage> {
           children: [
             const OfflineIndicator(),
             Expanded(
-              child: Stack(
-                children: [
-                  IndexedStack(
-                    index: _selectedIndex,
-                    children: List.generate(4, (index) {
-                      return Navigator(
-                        key: _navigatorKeys[index],
-                        onGenerateRoute: (settings) {
-                          return MaterialPageRoute(
-                            builder: (context) {
-                              switch (index) {
-                                case 0:
-                                  return _buildHomeView();
-                                case 1:
-                                  return _buildLibraryView();
-                                case 2:
-                                  return _buildSearchView();
-                                case 3:
-                                  return _buildSettingsView();
-                                default:
-                                  return const SizedBox.shrink();
-                              }
-                            },
-                          );
+              child: IndexedStack(
+                index: _selectedIndex,
+                children: List.generate(4, (index) {
+                  return Navigator(
+                    key: _navigatorKeys[index],
+                    onGenerateRoute: (settings) {
+                      return MaterialPageRoute(
+                        builder: (context) {
+                          switch (index) {
+                            case 0:
+                              return _buildHomeView();
+                            case 1:
+                              return _buildLibraryView();
+                            case 2:
+                              return _buildSearchView();
+                            case 3:
+                              return _buildSettingsView();
+                            default:
+                              return const SizedBox.shrink();
+                          }
                         },
                       );
-                    }),
-                  ),
-                  if (_apiService != null)
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: MiniPlayer(
-                        apiService: _apiService!,
-                        onTap: () {
-                          // PlayerPage is still pushed globally to overlay everything
-                          Navigator.of(context, rootNavigator: true).push(
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  PlayerPage(apiService: _apiService!),
-                              fullscreenDialog: true,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                ],
+                    },
+                  );
+                }),
               ),
             ),
           ],
