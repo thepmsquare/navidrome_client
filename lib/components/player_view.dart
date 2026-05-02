@@ -106,286 +106,274 @@ class _PlayerViewState extends State<PlayerView> {
                         lyricsService: _lyricsService,
                         playerService: _playerService,
                       )
-                    : LayoutBuilder(
+                    : Center(
                         key: const ValueKey('player'),
-                        builder: (context, constraints) {
-                          final isShort = constraints.maxHeight < 680;
-                          final isVeryShort = constraints.maxHeight < 550;
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24.0,
+                            vertical: 16.0,
+                          ),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 500),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Spacer(flex: 1),
+                                Expanded(
+                                  flex: 20,
+                                  child: PageView.builder(
+                                    controller: _pageController,
+                                    padEnds: false,
+                                    onPageChanged: (index) {
+                                      _playerService.seekToIndex(index).catchError((_) {});
+                                    },
+                                    itemCount: _playerService.currentQueue.length,
+                                    itemBuilder: (context, index) {
+                                      final itemTrack = _playerService.currentQueue[index];
+                                      final itemCoverArtId = itemTrack['coverArt'];
+                                      final itemCoverArtUrl = itemCoverArtId != null
+                                          ? widget.apiService.getCoverArtUrl(
+                                              itemCoverArtId,
+                                              size: 800,
+                                            )
+                                          : null;
 
-                          return Center(
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 24.0,
-                                vertical: isVeryShort ? 8.0 : 16.0,
-                              ),
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 500),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    if (!isVeryShort) const Spacer(flex: 1),
-                                    Expanded(
-                                      flex: 20,
-                                      child: PageView.builder(
-                                        controller: _pageController,
-                                        padEnds: false,
-                                        onPageChanged: (index) {
-                                          _playerService.seekToIndex(index).catchError((_) {});
-                                        },
-                                        itemCount: _playerService.currentQueue.length,
-                                        itemBuilder: (context, index) {
-                                          final itemTrack = _playerService.currentQueue[index];
-                                          final itemCoverArtId = itemTrack['coverArt'];
-                                          final itemCoverArtUrl = itemCoverArtId != null
-                                              ? widget.apiService.getCoverArtUrl(
-                                                  itemCoverArtId,
-                                                  size: 800,
-                                                )
-                                              : null;
-
-                                          return Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                                            child: Column(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                Flexible(
-                                                  child: AspectRatio(
-                                                    aspectRatio: 1,
-                                                    child: Container(
-                                                      decoration: BoxDecoration(
-                                                        borderRadius: BorderRadius.circular(40),
-                                                        boxShadow: [
-                                                          BoxShadow(
-                                                            color: colorScheme.shadow.withValues(alpha: 0.25),
-                                                            blurRadius: 50,
-                                                            offset: const Offset(0, 15),
-                                                            spreadRadius: -5,
-                                                          ),
-                                                        ],
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Flexible(
+                                              child: AspectRatio(
+                                                aspectRatio: 1,
+                                                child: Container(
+                                                  decoration: BoxDecoration(
+                                                    borderRadius: BorderRadius.circular(40),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: colorScheme.shadow.withValues(alpha: 0.25),
+                                                        blurRadius: 50,
+                                                        offset: const Offset(0, 15),
+                                                        spreadRadius: -5,
                                                       ),
-                                                      child: ClipRRect(
-                                                        borderRadius: BorderRadius.circular(10),
-                                                        child: OfflineImage(
-                                                          coverArtId: itemCoverArtId?.toString(),
-                                                          remoteUrl: itemCoverArtUrl,
-                                                          fit: BoxFit.cover,
-                                                          placeholder: Container(
-                                                            color: colorScheme.surfaceContainerHighest,
-                                                            child: Icon(
-                                                              Icons.music_note_rounded,
-                                                              size: isShort ? 60 : 100,
-                                                              color: colorScheme.primary.withValues(alpha: 0.5),
-                                                            ),
-                                                          ),
+                                                    ],
+                                                  ),
+                                                  child: ClipRRect(
+                                                    borderRadius: BorderRadius.circular(10),
+                                                    child: OfflineImage(
+                                                      coverArtId: itemCoverArtId?.toString(),
+                                                      remoteUrl: itemCoverArtUrl,
+                                                      fit: BoxFit.cover,
+                                                      placeholder: Container(
+                                                        color: colorScheme.surfaceContainerHighest,
+                                                        child: Icon(
+                                                          Icons.music_note_rounded,
+                                                          size: 100,
+                                                          color: colorScheme.primary.withValues(alpha: 0.5),
                                                         ),
                                                       ),
                                                     ),
                                                   ),
                                                 ),
-                                              ],
+                                              ),
                                             ),
-                                          );
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 300),
+                                  child: Column(
+                                    key: ValueKey('metadata_${track['id']}'),
+                                    children: [
+                                      Text(
+                                        (track['title'] ?? 'unknown title').toString(),
+                                        textAlign: TextAlign.center,
+                                        style: theme.textTheme.headlineMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: colorScheme.onSurface,
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Wrap(
+                                        alignment: WrapAlignment.center,
+                                        spacing: 4,
+                                        runSpacing: 4,
+                                        children: _buildArtistWidgets(track, context, theme, colorScheme),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      GestureDetector(
+                                        onTap: () {
+                                          final albumId = track['albumId']?.toString();
+                                          if (albumId != null) {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) => AlbumDetailsPage(
+                                                  album: {
+                                                    'id': albumId,
+                                                    'name': (track['album'] ?? 'unknown album').toString(),
+                                                    'coverArt': track['coverArt'],
+                                                  },
+                                                  apiService: widget.apiService,
+                                                ),
+                                              ),
+                                            );
+                                          }
                                         },
-                                      ),
-                                    ),
-                                    SizedBox(height: isVeryShort ? 8 : isShort ? 12 : 16),
-                                    AnimatedSwitcher(
-                                      duration: const Duration(milliseconds: 300),
-                                      child: Column(
-                                        key: ValueKey('metadata_${track['id']}'),
-                                        children: [
-                                          Text(
-                                            (track['title'] ?? 'unknown title').toString(),
-                                            textAlign: TextAlign.center,
-                                            style: (isShort
-                                                    ? theme.textTheme.titleLarge
-                                                    : theme.textTheme.headlineMedium)
-                                                ?.copyWith(
-                                              fontWeight: FontWeight.bold,
-                                              color: colorScheme.onSurface,
-                                            ),
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
+                                        child: Text(
+                                          (track['album'] ?? 'unknown album').toString(),
+                                          textAlign: TextAlign.center,
+                                          style: theme.textTheme.bodyMedium?.copyWith(
+                                            color: colorScheme.onSurfaceVariant,
+                                            letterSpacing: 0.5,
                                           ),
-                                          const SizedBox(height: 6),
-                                          Wrap(
-                                            alignment: WrapAlignment.center,
-                                            spacing: 4,
-                                            runSpacing: 4,
-                                            children: _buildArtistWidgets(track, context, theme, colorScheme, isShort),
-                                          ),
-                                          if (!isVeryShort) ...[
-                                            const SizedBox(height: 2),
-                                            GestureDetector(
-                                              onTap: () {
-                                                final albumId = track['albumId']?.toString();
-                                                if (albumId != null) {
-                                                  Navigator.push(
-                                                    context,
-                                                    MaterialPageRoute(
-                                                      builder: (context) => AlbumDetailsPage(
-                                                        album: {
-                                                          'id': albumId,
-                                                          'name': (track['album'] ?? 'unknown album').toString(),
-                                                          'coverArt': track['coverArt'],
-                                                        },
-                                                        apiService: widget.apiService,
-                                                      ),
-                                                    ),
-                                                  );
-                                                }
-                                              },
-                                              child: Text(
-                                                (track['album'] ?? 'unknown album').toString(),
-                                                textAlign: TextAlign.center,
-                                                style: theme.textTheme.bodyMedium?.copyWith(
-                                                  color: colorScheme.onSurfaceVariant,
-                                                  letterSpacing: 0.5,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
-                                          const SizedBox(height: 12),
-                                          _buildRatingWidget(track, colorScheme),
-                                        ],
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
-                                    ),
-                                    SizedBox(height: isVeryShort ? 8 : isShort ? 12 : 16),
-                                    StreamBuilder<Duration>(
-                                      stream: _playerService.player.positionStream,
-                                      builder: (context, snapshot) {
-                                        final position = snapshot.data ?? Duration.zero;
-                                        final total = _playerService.player.duration ?? Duration.zero;
+                                      const SizedBox(height: 12),
+                                      _buildRatingWidget(track, colorScheme),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                StreamBuilder<Duration>(
+                                  stream: _playerService.player.positionStream,
+                                  builder: (context, snapshot) {
+                                    final position = snapshot.data ?? Duration.zero;
+                                    final total = _playerService.player.duration ?? Duration.zero;
 
-                                        return Column(
-                                          children: [
-                                            SliderTheme(
-                                              data: SliderTheme.of(context).copyWith(
-                                                trackHeight: isShort ? 4 : 8,
-                                                thumbShape: RoundSliderThumbShape(
-                                                  enabledThumbRadius: isShort ? 4 : 6,
-                                                ),
-                                                overlayShape: RoundSliderOverlayShape(
-                                                  overlayRadius: isShort ? 12 : 16,
-                                                ),
-                                                activeTrackColor: colorScheme.primary,
-                                                inactiveTrackColor: colorScheme.surfaceContainerHighest,
-                                                thumbColor: colorScheme.primary,
-                                              ),
-                                              child: Slider(
-                                                value: (_dragValue ?? position.inSeconds.toDouble()).clamp(
-                                                  0.0,
-                                                  total.inSeconds.toDouble().clamp(0.01, double.infinity),
-                                                ),
-                                                min: 0,
-                                                max: total.inSeconds.toDouble().clamp(0.01, double.infinity),
-                                                onChangeStart: (_) => setState(() => _dragValue = position.inSeconds.toDouble()),
-                                                onChanged: (value) => setState(() => _dragValue = value),
-                                                onChangeEnd: (value) {
-                                                  _playerService.seek(Duration(seconds: value.toInt()));
-                                                  setState(() => _dragValue = null);
-                                                },
-                                              ),
+                                    return Column(
+                                      children: [
+                                        SliderTheme(
+                                          data: SliderTheme.of(context).copyWith(
+                                            trackHeight: 8,
+                                            thumbShape: const RoundSliderThumbShape(
+                                              enabledThumbRadius: 6,
                                             ),
-                                            const SizedBox(height: 4),
-                                            Padding(
-                                              padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                                              child: Row(
-                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                children: [
-                                                  Text(
-                                                    _formatDuration(position),
-                                                    style: theme.textTheme.labelMedium?.copyWith(
-                                                      color: colorScheme.onSurfaceVariant,
-                                                      fontFeatures: const [FontFeature.tabularFigures()],
-                                                    ),
-                                                  ),
-                                                  Text(
-                                                    _formatDuration(total),
-                                                    style: theme.textTheme.labelMedium?.copyWith(
-                                                      color: colorScheme.onSurfaceVariant,
-                                                      fontFeatures: const [FontFeature.tabularFigures()],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
+                                            overlayShape: const RoundSliderOverlayShape(
+                                              overlayRadius: 16,
                                             ),
-                                          ],
+                                            activeTrackColor: colorScheme.primary,
+                                            inactiveTrackColor: colorScheme.surfaceContainerHighest,
+                                            thumbColor: colorScheme.primary,
+                                          ),
+                                          child: Slider(
+                                            value: (_dragValue ?? position.inSeconds.toDouble()).clamp(
+                                              0.0,
+                                              total.inSeconds.toDouble().clamp(0.01, double.infinity),
+                                            ),
+                                            min: 0,
+                                            max: total.inSeconds.toDouble().clamp(0.01, double.infinity),
+                                            onChangeStart: (_) => setState(() => _dragValue = position.inSeconds.toDouble()),
+                                            onChanged: (value) => setState(() => _dragValue = value),
+                                            onChangeEnd: (value) {
+                                              _playerService.seek(Duration(seconds: value.toInt()));
+                                              setState(() => _dragValue = null);
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(
+                                                _formatDuration(position),
+                                                style: theme.textTheme.labelMedium?.copyWith(
+                                                  color: colorScheme.onSurfaceVariant,
+                                                  fontFeatures: const [FontFeature.tabularFigures()],
+                                                ),
+                                              ),
+                                              Text(
+                                                _formatDuration(total),
+                                                style: theme.textTheme.labelMedium?.copyWith(
+                                                  color: colorScheme.onSurfaceVariant,
+                                                  fontFeatures: const [FontFeature.tabularFigures()],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                                const Spacer(flex: 4),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    StreamBuilder<bool>(
+                                      stream: _playerService.player.shuffleModeEnabledStream,
+                                      builder: (context, snapshot) {
+                                        final enabled = snapshot.data ?? false;
+                                        return IconButton(
+                                          icon: const Icon(Icons.shuffle_rounded),
+                                          onPressed: () => _playerService.toggleShuffleMode(),
+                                          color: enabled ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                                          iconSize: 24,
+                                          tooltip: 'shuffle',
                                         );
                                       },
                                     ),
-                                    if (isVeryShort) const SizedBox(height: 16) else Spacer(flex: isShort ? 2 : 4),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                      children: [
-                                        StreamBuilder<bool>(
-                                          stream: _playerService.player.shuffleModeEnabledStream,
-                                          builder: (context, snapshot) {
-                                            final enabled = snapshot.data ?? false;
-                                            return IconButton(
-                                              icon: const Icon(Icons.shuffle_rounded),
-                                              onPressed: () => _playerService.toggleShuffleMode(),
-                                              color: enabled ? colorScheme.primary : colorScheme.onSurfaceVariant,
-                                              iconSize: isShort ? 20 : 24,
-                                              tooltip: 'shuffle',
-                                            );
-                                          },
-                                        ),
-                                        IconButton.filledTonal(
-                                          iconSize: isShort ? 28 : 32,
-                                          icon: const Icon(Icons.skip_previous_rounded),
-                                          onPressed: () => _playerService.skipToPrevious().catchError((_) {}),
-                                        ),
-                                        StreamBuilder<PlayerState>(
-                                          stream: _playerService.player.playerStateStream,
-                                          builder: (context, snapshot) {
-                                            final playing = snapshot.data?.playing ?? false;
-                                            return IconButton.filled(
-                                              iconSize: isShort ? 40 : 56,
-                                              padding: EdgeInsets.all(isShort ? 12 : 16),
-                                              icon: Icon(playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
-                                              onPressed: () {
-                                                if (playing) {
-                                                  _playerService.pause();
-                                                } else {
-                                                  _playerService.resume();
-                                                }
-                                              },
-                                            );
-                                          },
-                                        ),
-                                        IconButton.filledTonal(
-                                          iconSize: isShort ? 28 : 32,
-                                          icon: const Icon(Icons.skip_next_rounded),
-                                          onPressed: () => _playerService.skipToNext().catchError((_) {}),
-                                        ),
-                                        StreamBuilder<LoopMode>(
-                                          stream: _playerService.player.loopModeStream,
-                                          builder: (context, snapshot) {
-                                            final mode = snapshot.data ?? LoopMode.off;
-                                            final isOff = mode == LoopMode.off;
-                                            final isOne = mode == LoopMode.one;
-
-                                            return IconButton(
-                                              icon: Icon(isOne ? Icons.repeat_one_rounded : Icons.repeat_rounded),
-                                              onPressed: () => _playerService.toggleLoopMode(),
-                                              color: isOff ? colorScheme.onSurfaceVariant : colorScheme.primary,
-                                              iconSize: isShort ? 20 : 24,
-                                              tooltip: 'repeat',
-                                            );
-                                          },
-                                        ),
-                                      ],
+                                    IconButton.filledTonal(
+                                      iconSize: 32,
+                                      icon: const Icon(Icons.skip_previous_rounded),
+                                      onPressed: () => _playerService.skipToPrevious().catchError((_) {}),
                                     ),
-                                    if (!isVeryShort) const Spacer(flex: 3),
+                                    StreamBuilder<PlayerState>(
+                                      stream: _playerService.player.playerStateStream,
+                                      builder: (context, snapshot) {
+                                        final playing = snapshot.data?.playing ?? false;
+                                        return IconButton.filled(
+                                          iconSize: 56,
+                                          padding: const EdgeInsets.all(16),
+                                          icon: Icon(playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
+                                          onPressed: () {
+                                            if (playing) {
+                                              _playerService.pause();
+                                            } else {
+                                              _playerService.resume();
+                                            }
+                                          },
+                                        );
+                                      },
+                                    ),
+                                    IconButton.filledTonal(
+                                      iconSize: 32,
+                                      icon: const Icon(Icons.skip_next_rounded),
+                                      onPressed: () => _playerService.skipToNext().catchError((_) {}),
+                                    ),
+                                    StreamBuilder<LoopMode>(
+                                      stream: _playerService.player.loopModeStream,
+                                      builder: (context, snapshot) {
+                                        final mode = snapshot.data ?? LoopMode.off;
+                                        final isOff = mode == LoopMode.off;
+                                        final isOne = mode == LoopMode.one;
+
+                                        return IconButton(
+                                          icon: Icon(isOne ? Icons.repeat_one_rounded : Icons.repeat_rounded),
+                                          onPressed: () => _playerService.toggleLoopMode(),
+                                          color: isOff ? colorScheme.onSurfaceVariant : colorScheme.primary,
+                                          iconSize: 24,
+                                          tooltip: 'repeat',
+                                        );
+                                      },
+                                    ),
                                   ],
                                 ),
-                              ),
+                                const Spacer(flex: 3),
+                              ],
                             ),
-                          );
-                        },
+                          ),
+                        ),
                       ),
               );
             },
@@ -488,7 +476,7 @@ class _PlayerViewState extends State<PlayerView> {
                 child: Row(
                   children: [
                     Icon(Icons.queue_music_rounded, size: 20),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Text('show queue'),
                   ],
                 ),
@@ -507,7 +495,7 @@ class _PlayerViewState extends State<PlayerView> {
     return "$minutes:$seconds";
   }
 
-  List<Widget> _buildArtistWidgets(Map<String, dynamic> track, BuildContext context, ThemeData theme, ColorScheme colorScheme, bool isShort) {
+  List<Widget> _buildArtistWidgets(Map<String, dynamic> track, BuildContext context, ThemeData theme, ColorScheme colorScheme) {
     final List<dynamic>? artists = track['artists'];
     final String? singleArtistName = track['artist']?.toString();
     final String? singleArtistId = track['artistId']?.toString();
@@ -533,7 +521,7 @@ class _PlayerViewState extends State<PlayerView> {
           },
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
           visualDensity: VisualDensity.compact,
-          labelStyle: (isShort ? theme.textTheme.labelLarge : theme.textTheme.titleSmall)?.copyWith(
+          labelStyle: theme.textTheme.titleSmall?.copyWith(
             color: colorScheme.primary,
             fontWeight: FontWeight.bold,
           ),
@@ -561,7 +549,7 @@ class _PlayerViewState extends State<PlayerView> {
         },
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
         visualDensity: VisualDensity.compact,
-        labelStyle: (isShort ? theme.textTheme.labelLarge : theme.textTheme.titleSmall)?.copyWith(
+        labelStyle: theme.textTheme.titleSmall?.copyWith(
           color: colorScheme.primary,
           fontWeight: FontWeight.bold,
         ),

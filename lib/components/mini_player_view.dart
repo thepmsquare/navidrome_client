@@ -1,35 +1,70 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:navidrome_client/services/player_service.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/components/offline_image.dart';
 import 'package:just_audio/just_audio.dart';
 
-class MiniPlayerView extends StatelessWidget {
+class MiniPlayerView extends StatefulWidget {
   final ApiService apiService;
-  final PageController pageController;
   final VoidCallback onTap;
 
   const MiniPlayerView({
     super.key,
     required this.apiService,
-    required this.pageController,
     required this.onTap,
   });
+
+  @override
+  State<MiniPlayerView> createState() => _MiniPlayerViewState();
+}
+
+class _MiniPlayerViewState extends State<MiniPlayerView> {
+  final _playerService = PlayerService();
+  late final PageController _pageController;
+  late final StreamSubscription<int?> _indexSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    final initialPage = _playerService.player.currentIndex ?? 0;
+    _pageController = PageController(initialPage: initialPage);
+
+    // Keep the album art PageView in sync when the player advances tracks
+    // (e.g. auto-next, skip, or a swipe from the full PlayerView).
+    _indexSubscription = _playerService.currentIndexStream.listen((index) {
+      if (index != null && _pageController.hasClients) {
+        if (_pageController.page?.round() != index) {
+          _pageController.animateToPage(
+            index,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _indexSubscription.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final playerService = PlayerService();
 
     return StreamBuilder<int?>(
-      stream: playerService.currentIndexStream,
+      stream: _playerService.currentIndexStream,
       builder: (context, snapshot) {
-        final track = playerService.currentTrack;
+        final track = _playerService.currentTrack;
         if (track == null) return const SizedBox.shrink();
 
         return Card(
-          elevation: 0, // miniplayer package handles its own shadow/elevation usually
+          elevation: 0,
           margin: EdgeInsets.zero,
           color: colorScheme.secondaryContainer,
           shape: RoundedRectangleBorder(
@@ -47,28 +82,34 @@ class MiniPlayerView extends StatelessWidget {
             ),
             child: Row(
               children: [
+                // Album art — explicit 56×56 so OfflineImage has a definite
+                // size to render into inside the PageView's scroll direction.
                 SizedBox(
                   width: 56,
                   height: 56,
                   child: PageView.builder(
-                    controller: pageController,
+                    controller: _pageController,
                     onPageChanged: (index) {
-                      playerService.seekToIndex(index).catchError((_) {});
+                      _playerService.seekToIndex(index).catchError((_) {});
                     },
-                    itemCount: playerService.currentQueue.length,
+                    itemCount: _playerService.currentQueue.length,
                     itemBuilder: (context, index) {
-                      final itemTrack = playerService.currentQueue[index];
+                      final itemTrack = _playerService.currentQueue[index];
                       final itemCoverArtId = itemTrack['coverArt'];
                       final itemCoverArtUrl = itemCoverArtId != null
-                          ? apiService.getCoverArtUrl(itemCoverArtId)
+                          ? widget.apiService.getCoverArtUrl(itemCoverArtId)
                           : null;
 
                       return ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: OfflineImage(
-                          key: ValueKey(itemCoverArtId?.toString() ?? 'placeholder_$index'),
+                          key: ValueKey(
+                            itemCoverArtId?.toString() ?? 'placeholder_$index',
+                          ),
                           coverArtId: itemCoverArtId?.toString(),
                           remoteUrl: itemCoverArtUrl,
+                          width: 56,
+                          height: 56,
                           fit: BoxFit.cover,
                           placeholder: _buildPlaceholder(),
                         ),
@@ -99,7 +140,8 @@ class MiniPlayerView extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSecondaryContainer.withValues(alpha: 0.7),
+                            color: colorScheme.onSecondaryContainer
+                                .withValues(alpha: 0.7),
                           ),
                         ),
                       ],
@@ -108,7 +150,7 @@ class MiniPlayerView extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 StreamBuilder<PlayerState>(
-                  stream: playerService.player.playerStateStream,
+                  stream: _playerService.player.playerStateStream,
                   builder: (context, snapshot) {
                     final playerState = snapshot.data;
                     final processingState = playerState?.processingState;
@@ -130,24 +172,28 @@ class MiniPlayerView extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          onPressed: () => playerService.skipToPrevious().catchError((_) {}),
+                          onPressed: () =>
+                              _playerService.skipToPrevious().catchError((_) {}),
                           icon: const Icon(Icons.skip_previous_rounded, size: 28),
                         ),
                         IconButton.filledTonal(
                           onPressed: () {
                             if (playing) {
-                              playerService.pause();
+                              _playerService.pause();
                             } else {
-                              playerService.resume();
+                              _playerService.resume();
                             }
                           },
                           icon: Icon(
-                            playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                            playing
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
                             size: 32,
                           ),
                         ),
                         IconButton(
-                          onPressed: () => playerService.skipToNext().catchError((_) {}),
+                          onPressed: () =>
+                              _playerService.skipToNext().catchError((_) {}),
                           icon: const Icon(Icons.skip_next_rounded, size: 28),
                         ),
                       ],

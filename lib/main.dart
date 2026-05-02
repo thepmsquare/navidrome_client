@@ -9,7 +9,6 @@ import 'package:navidrome_client/services/auth_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
 import 'package:navidrome_client/services/session_service.dart';
 import 'package:navidrome_client/utils/constants.dart';
-import 'package:navidrome_client/components/persistent_player.dart';
 
 void main() async {
   await SentryFlutter.init(
@@ -189,7 +188,6 @@ class MyApp extends StatelessWidget {
             '/connect': (context) => const ConnectPage(),
             '/home': (context) => const HomePage(),
           },
-          builder: (context, child) => PersistentPlayer(child: child!),
         );
       },
     );

@@ -22,6 +22,9 @@ import 'package:navidrome_client/pages/playlists_page.dart';
 import 'package:navidrome_client/pages/artists_page.dart';
 import 'package:navidrome_client/pages/artist_details_page.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:miniplayer/miniplayer.dart';
+import 'package:navidrome_client/components/mini_player_view.dart';
+import 'package:navidrome_client/components/player_view.dart';
 
 enum LibraryView { home, albums, playlists, tracks, artists }
 
@@ -83,6 +86,9 @@ class _HomePageState extends State<HomePage> {
 
   // #7/#4: read synchronously from in-memory state after initialize()
   bool get _isOfflineMode => OfflineService().isOfflineMode;
+
+  final MiniplayerController _miniPlayerController = MiniplayerController();
+  static const double _miniPlayerHeight = 84;
 
   @override
   void initState() {
@@ -349,56 +355,130 @@ class _HomePageState extends State<HomePage> {
         SystemNavigator.pop();
       },
       child: Scaffold(
-        body: Column(
+        body: Stack(
           children: [
-            const OfflineIndicator(),
-            Expanded(
-              child: IndexedStack(
-                index: _selectedIndex,
-                children: List.generate(4, (index) {
-                  return Navigator(
-                    key: _navigatorKeys[index],
-                    onGenerateRoute: (settings) {
-                      return MaterialPageRoute(
-                        builder: (context) {
-                          switch (index) {
-                            case 0:
-                              return _buildHomeView();
-                            case 1:
-                              return _buildLibraryView();
-                            case 2:
-                              return _buildSearchView();
-                            case 3:
-                              return _buildSettingsView();
-                            default:
-                              return const SizedBox.shrink();
-                          }
+            Column(
+              children: [
+                const OfflineIndicator(),
+                Expanded(
+                  child: IndexedStack(
+                    index: _selectedIndex,
+                    children: List.generate(4, (index) {
+                      return Navigator(
+                        key: _navigatorKeys[index],
+                        onGenerateRoute: (settings) {
+                          return MaterialPageRoute(
+                            builder: (context) {
+                              switch (index) {
+                                case 0:
+                                  return _buildHomeView();
+                                case 1:
+                                  return _buildLibraryView();
+                                case 2:
+                                  return _buildSearchView();
+                                case 3:
+                                  return _buildSettingsView();
+                                default:
+                                  return const SizedBox.shrink();
+                              }
+                            },
+                          );
                         },
+                      );
+                    }),
+                  ),
+                ),
+              ],
+            ),
+            if (_apiService != null)
+              StreamBuilder<int?>(
+                stream: PlayerService().currentIndexStream,
+                builder: (context, snapshot) {
+                  final track = PlayerService().currentTrack;
+                  if (track == null) return const SizedBox.shrink();
+
+                  final maxH = MediaQuery.of(context).size.height;
+
+                  return Miniplayer(
+                    controller: _miniPlayerController,
+                    minHeight: _miniPlayerHeight,
+                    maxHeight: maxH,
+                    builder: (height, percentage) {
+                      // Full player slides up from below:
+                      // at percentage=0 it is shifted down (off-screen),
+                      // at percentage=1 it sits flush at the top of the panel.
+                      final slideY =
+                          (maxH - _miniPlayerHeight) * (1.0 - percentage);
+
+                      // Mini player fades out in the first 15 % of the drag.
+                      final miniVisible = percentage < 0.15;
+                      final miniOpacity = miniVisible
+                          ? (1.0 - percentage / 0.15).clamp(0.0, 1.0)
+                          : 0.0;
+
+                      return Stack(
+                        clipBehavior: Clip.hardEdge,
+                        children: [
+                          // Full player — always in tree, slides in from below.
+                          IgnorePointer(
+                            ignoring: percentage < 0.5,
+                            child: Transform.translate(
+                              offset: Offset(0, slideY),
+                              child: SizedBox(
+                                height: maxH,
+                                child: PlayerView(
+                                  apiService: _apiService!,
+                                  onMinimize: () => _miniPlayerController
+                                      .animateToHeight(state: PanelState.MIN),
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Mini player — fades out at the start of the drag.
+                          if (miniVisible)
+                            Positioned(
+                              bottom: 0,
+                              left: 0,
+                              right: 0,
+                              child: IgnorePointer(
+                                ignoring: !miniVisible,
+                                child: Opacity(
+                                  opacity: miniOpacity,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(
+                                      left: 12,
+                                      right: 12,
+                                      bottom: 12,
+                                    ),
+                                    child: MiniPlayerView(
+                                      apiService: _apiService!,
+                                      onTap: () =>
+                                          _miniPlayerController.animateToHeight(
+                                            state: PanelState.MAX,
+                                          ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       );
                     },
                   );
-                }),
+                },
               ),
-            ),
           ],
         ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _selectedIndex,
           onDestinationSelected: (index) {
             if (index == _selectedIndex) {
-              // pop to root of current tab if re-selected
               _navigatorKeys[index].currentState?.popUntil((r) => r.isFirst);
             } else {
-              setState(() {
-                _selectedIndex = index;
-              });
+              setState(() => _selectedIndex = index);
               _sessionService.setLastTabIndex(index);
             }
-
-            if (index == 3) {
-              _refreshStorageStats();
-            }
-
+            if (index == 3) _refreshStorageStats();
             if (index == 2) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted) _universalSearchFocusNode.requestFocus();
@@ -487,7 +567,9 @@ class _HomePageState extends State<HomePage> {
                                     builder: (context) => ArtistDetailsPage(
                                       artist: {
                                         ...artist,
-                                        'coverArt': artist['coverArt'] ?? album['coverArt'],
+                                        'coverArt':
+                                            artist['coverArt'] ??
+                                            album['coverArt'],
                                       },
                                       apiService: _apiService!,
                                     ),
@@ -543,7 +625,10 @@ class _HomePageState extends State<HomePage> {
                                   builder: (context) => ArtistDetailsPage(
                                     artist: {
                                       ...artist,
-                                      'coverArt': artist['coverArt'] ?? track['artistCoverArt'] ?? track['coverArt'],
+                                      'coverArt':
+                                          artist['coverArt'] ??
+                                          track['artistCoverArt'] ??
+                                          track['coverArt'],
                                     },
                                     apiService: _apiService!,
                                   ),
@@ -620,8 +705,7 @@ class _HomePageState extends State<HomePage> {
                             child: Icon(Icons.person_rounded),
                           ),
                           title: Text(
-                            artist['name']?.toString() ??
-                                'unknown artist',
+                            artist['name']?.toString() ?? 'unknown artist',
                           ),
                           onTap: () {
                             if (_apiService == null) return;
@@ -675,7 +759,8 @@ class _HomePageState extends State<HomePage> {
                                 builder: (context) => ArtistDetailsPage(
                                   artist: {
                                     ...artist,
-                                    'coverArt': artist['coverArt'] ?? album['coverArt'],
+                                    'coverArt':
+                                        artist['coverArt'] ?? album['coverArt'],
                                   },
                                   apiService: _apiService!,
                                 ),
@@ -713,7 +798,10 @@ class _HomePageState extends State<HomePage> {
                                 builder: (context) => ArtistDetailsPage(
                                   artist: {
                                     ...artist,
-                                    'coverArt': artist['coverArt'] ?? track['artistCoverArt'] ?? track['coverArt'],
+                                    'coverArt':
+                                        artist['coverArt'] ??
+                                        track['artistCoverArt'] ??
+                                        track['coverArt'],
                                   },
                                   apiService: _apiService!,
                                 ),

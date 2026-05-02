@@ -23,7 +23,13 @@ class PlayerService with WidgetsBindingObserver {
   final _log = EventLogService();
   Timer? _positionSaveTimer;
   bool _stopPlaybackOnTaskRemoved = false;
+  // Tracks whether a real audio interruption (call, navigation, etc.) paused us.
   bool _wasPlayingBeforeInterruption = false;
+  // Tracks whether the player was playing when the app went to background,
+  // used to resume after a screen lock/unlock cycle that has no audio event.
+  bool _wasPlayingBeforeBackground = false;
+  // True while a real audio interruption is active (begin fired, end not yet).
+  bool _audioInterruptionActive = false;
 
   PlayerService._internal() {
     _init();
@@ -38,6 +44,7 @@ class PlayerService with WidgetsBindingObserver {
     // handle audio interruptions (phone calls, navigation prompts, other apps)
     session.interruptionEventStream.listen((event) {
       if (event.begin) {
+        _audioInterruptionActive = true;
         _wasPlayingBeforeInterruption = _player.playing;
         if (event.type == AudioInterruptionType.duck) {
           _player.setVolume(0.5);
@@ -45,6 +52,10 @@ class PlayerService with WidgetsBindingObserver {
           _player.pause();
         }
       } else {
+        // Guard: ignore end events that arrive without a paired begin.
+        // This can happen on some devices during screen lock/unlock.
+        if (!_audioInterruptionActive) return;
+        _audioInterruptionActive = false;
         if (event.type == AudioInterruptionType.duck) {
           _player.setVolume(1.0);
         } else if (_wasPlayingBeforeInterruption) {
@@ -113,6 +124,19 @@ class PlayerService with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
       _saveCurrentPosition();
+      // Remember whether we were playing so we can recover after a lock/unlock
+      // cycle that generates no audio interruption event (or an unpaired one).
+      _wasPlayingBeforeBackground = _player.playing;
+    }
+
+    // Safety net: resume playback after screen unlock if the only reason the
+    // player stopped was the OS locking the screen (no real audio interruption).
+    if (state == AppLifecycleState.resumed) {
+      if (_wasPlayingBeforeBackground && !_player.playing && !_audioInterruptionActive) {
+        _log.log('resuming playback after screen unlock', level: EventLogLevel.debug);
+        _player.play();
+      }
+      _wasPlayingBeforeBackground = false;
     }
 
     // handle stopping playback when app is swiped away from recents (Android specific)
