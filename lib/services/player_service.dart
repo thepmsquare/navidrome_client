@@ -79,6 +79,9 @@ class PlayerService with WidgetsBindingObserver {
           _lastScrobbledId = id;
           _log.log('now playing track id=$id', level: EventLogLevel.info);
           _apiService?.scrobble(id, submission: false);
+          if (_apiService != null) {
+            _maybeAutoDownload(track, _apiService!);
+          }
         }
       }
     });
@@ -351,6 +354,57 @@ class PlayerService with WidgetsBindingObserver {
 
   void setStopPlaybackOnTaskRemoved(bool value) {
     _stopPlaybackOnTaskRemoved = value;
+  }
+
+  /// Fire-and-forget: auto-download the current track if the feature is enabled
+  /// and the storage cap has not been exceeded.
+  void _maybeAutoDownload(Map<String, dynamic> track, ApiService apiService) {
+    () async {
+      try {
+        final enabled = await _sessionService.autoDownloadPlayed;
+        if (!enabled) return;
+
+        final trackId = track['id']?.toString() ?? '';
+        if (trackId.isEmpty) return;
+
+        final offlineService = OfflineService();
+        if (offlineService.isTrackOfflineSync(trackId)) return;
+
+        final maxBytes = await _sessionService.autoDownloadMaxBytes;
+        final lruEvict = await _sessionService.autoDownloadLruEvict;
+
+        var currentSize = await offlineService.getOfflineTracksSizeBytes();
+
+        // evict oldest auto-downloaded tracks until we have room or nothing left
+        while (currentSize >= maxBytes && lruEvict) {
+          final evicted = await offlineService.evictOldestAutoDownload();
+          if (evicted == null) break;
+          _log.log(
+            'auto-download: evicted $evicted to make room',
+            level: EventLogLevel.debug,
+          );
+          currentSize = await offlineService.getOfflineTracksSizeBytes();
+        }
+
+        if (currentSize >= maxBytes) {
+          _log.log(
+            'auto-download: skipping $trackId — storage cap reached (${currentSize}B >= ${maxBytes}B)',
+            level: EventLogLevel.debug,
+          );
+          return;
+        }
+
+        _log.log('auto-download: queuing $trackId', level: EventLogLevel.debug);
+        await offlineService.downloadTrack(track, apiService, isExplicit: false);
+      } catch (e, st) {
+        _log.log(
+          'auto-download failed',
+          level: EventLogLevel.warning,
+          error: e,
+          stackTrace: st,
+        );
+      }
+    }();
   }
 
   Future<void> removeFromQueue(int index) async {

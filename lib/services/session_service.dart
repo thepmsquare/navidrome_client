@@ -9,6 +9,9 @@ class SessionService {
   static const String _keyLastIndex = 'last_playback_index';
   static const String _keyLastPosition = 'last_playback_position_ms';
   static const String _keyStopPlaybackOnTaskRemoved = 'stop_playback_on_task_removed';
+  static const String _keyAutoDownloadPlayed = 'auto_download_played';
+  static const String _keyAutoDownloadMaxBytes = 'auto_download_max_bytes';
+  static const String _keyAutoDownloadLruEvict = 'auto_download_lru_evict';
 
   static final SessionService _instance = SessionService._internal();
   factory SessionService() => _instance;
@@ -116,6 +119,37 @@ class SessionService {
   Future<void> setStopPlaybackOnTaskRemoved(bool value) async {
     final prefs = await _getPrefs;
     await prefs.setBool(_keyStopPlaybackOnTaskRemoved, value);
+  }
+
+  Future<bool> get autoDownloadPlayed async {
+    final prefs = await _getPrefs;
+    return prefs.getBool(_keyAutoDownloadPlayed) ?? true;
+  }
+
+  Future<void> setAutoDownloadPlayed(bool value) async {
+    final prefs = await _getPrefs;
+    await prefs.setBool(_keyAutoDownloadPlayed, value);
+  }
+
+  // stored as bytes; default 1 GiB
+  Future<int> get autoDownloadMaxBytes async {
+    final prefs = await _getPrefs;
+    return prefs.getInt(_keyAutoDownloadMaxBytes) ?? 1073741824;
+  }
+
+  Future<void> setAutoDownloadMaxBytes(int bytes) async {
+    final prefs = await _getPrefs;
+    await prefs.setInt(_keyAutoDownloadMaxBytes, bytes);
+  }
+
+  Future<bool> get autoDownloadLruEvict async {
+    final prefs = await _getPrefs;
+    return prefs.getBool(_keyAutoDownloadLruEvict) ?? true;
+  }
+
+  Future<void> setAutoDownloadLruEvict(bool value) async {
+    final prefs = await _getPrefs;
+    await prefs.setBool(_keyAutoDownloadLruEvict, value);
   }
 }
 

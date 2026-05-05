@@ -59,6 +59,9 @@ class _HomePageState extends State<HomePage> {
   bool _isRefreshingStorage = false;
   int _logErrorCount = 0;
   bool _stopPlaybackOnTaskRemoved = true;
+  bool _autoDownloadPlayed = true;
+  double _autoDownloadMaxGib = 1.0;
+  bool _autoDownloadLruEvict = true;
   String _appVersion = '';
 
   List<Map<String, dynamic>> _mostPlayedAlbums = [];
@@ -174,6 +177,17 @@ class _HomePageState extends State<HomePage> {
       // session-persistent settings
       _stopPlaybackOnTaskRemoved =
           await _sessionService.stopPlaybackOnTaskRemoved;
+
+      final autoEnabled = await _sessionService.autoDownloadPlayed;
+      final autoMaxBytes = await _sessionService.autoDownloadMaxBytes;
+      final autoLru = await _sessionService.autoDownloadLruEvict;
+      if (mounted) {
+        setState(() {
+          _autoDownloadPlayed = autoEnabled;
+          _autoDownloadMaxGib = autoMaxBytes / (1024 * 1024 * 1024);
+          _autoDownloadLruEvict = autoLru;
+        });
+      }
     } else {
       // mark first run as complete after first render
       await _sessionService.setNotFirstRun();
@@ -317,6 +331,58 @@ class _HomePageState extends State<HomePage> {
         _stopPlaybackOnTaskRemoved = value;
       });
     }
+  }
+
+  Future<void> _toggleAutoDownloadPlayed(bool value) async {
+    await _sessionService.setAutoDownloadPlayed(value);
+    if (mounted) setState(() => _autoDownloadPlayed = value);
+  }
+
+  Future<void> _toggleAutoDownloadLruEvict(bool value) async {
+    await _sessionService.setAutoDownloadLruEvict(value);
+    if (mounted) setState(() => _autoDownloadLruEvict = value);
+  }
+
+  Future<void> _showCapInputDialog() async {
+    final controller = TextEditingController(
+      text: _autoDownloadMaxGib.toStringAsFixed(
+        _autoDownloadMaxGib == _autoDownloadMaxGib.truncateToDouble() ? 0 : 2,
+      ),
+    );
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('storage cap'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            suffixText: 'gib',
+            hintText: '1.0',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('save'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      final parsed = double.tryParse(controller.text.trim());
+      if (parsed != null && parsed > 0) {
+        final bytes = (parsed * 1024 * 1024 * 1024).round();
+        await _sessionService.setAutoDownloadMaxBytes(bytes);
+        if (mounted) setState(() => _autoDownloadMaxGib = parsed);
+      }
+    }
+    controller.dispose();
   }
 
   @override
@@ -1038,6 +1104,35 @@ class _HomePageState extends State<HomePage> {
                               onPressed: _refreshStorageStats,
                             ),
                     ),
+                    SwitchListTile(
+                      secondary: const Icon(Icons.download_rounded),
+                      title: const Text('auto-download played songs'),
+                      subtitle: const Text(
+                        'automatically save songs to offline storage as they play',
+                      ),
+                      value: _autoDownloadPlayed,
+                      onChanged: _toggleAutoDownloadPlayed,
+                    ),
+                    if (_autoDownloadPlayed) ...[
+                      ListTile(
+                        leading: const Icon(Icons.storage_rounded),
+                        title: const Text('storage cap'),
+                        subtitle: Text(
+                          '${_autoDownloadMaxGib.toStringAsFixed(_autoDownloadMaxGib == _autoDownloadMaxGib.truncateToDouble() ? 0 : 2)} gib',
+                        ),
+                        trailing: const Icon(Icons.edit_rounded),
+                        onTap: _showCapInputDialog,
+                      ),
+                      SwitchListTile(
+                        secondary: const Icon(Icons.auto_delete_rounded),
+                        title: const Text('evict oldest when storage is full'),
+                        subtitle: const Text(
+                          'remove the oldest auto-downloaded song to make room for new ones',
+                        ),
+                        value: _autoDownloadLruEvict,
+                        onChanged: _toggleAutoDownloadLruEvict,
+                      ),
+                    ],
                     if (_offlineSize > 0)
                       Padding(
                         padding: const EdgeInsets.all(8.0),

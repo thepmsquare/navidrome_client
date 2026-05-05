@@ -15,6 +15,7 @@ class OfflineService extends ChangeNotifier {
   static const String _offlineAlbumsKey = 'offline_albums';
   static const String _offlinePlaylistsKey = 'offline_playlists';
   static const String _offlineModeKey = 'offline_mode';
+  static const String _autoDownloadOrderKey = 'auto_download_order';
   static const String _albumListCacheFile = 'album_list_cache.json';
   static const String _playlistListCacheFile = 'playlist_list_cache.json';
   static const String _trackListCacheFile = 'track_list_cache.json';
@@ -33,6 +34,9 @@ class OfflineService extends ChangeNotifier {
   bool _isOfflineMode = false;
   bool _isAutoOffline = false;
   bool _isInitialized = false;
+
+  // LRU order for auto-downloaded tracks — oldest at index 0
+  List<String> _autoDownloadOrder = [];
 
   // #20: notify UI of offline mode changes
   final ValueNotifier<bool> offlineModeNotifier = ValueNotifier(false);
@@ -64,6 +68,7 @@ class OfflineService extends ChangeNotifier {
     _offlinePlaylistIds = Set<String>.from(prefs.getStringList(_offlinePlaylistsKey) ?? []);
     _isOfflineMode = prefs.getBool(_offlineModeKey) ?? false;
     offlineModeNotifier.value = _isOfflineMode;
+    _autoDownloadOrder = List<String>.from(prefs.getStringList(_autoDownloadOrderKey) ?? []);
     _isInitialized = true;
 
     // automatic check on startup
@@ -174,6 +179,7 @@ class OfflineService extends ChangeNotifier {
       await prefs.setStringList(_explicitOfflineTracksKey, _explicitOfflineTrackIds.toList());
       await prefs.setStringList(_offlineAlbumsKey, _offlineAlbumIds.toList());
       await prefs.setStringList(_offlinePlaylistsKey, _offlinePlaylistIds.toList());
+      await prefs.setStringList(_autoDownloadOrderKey, _autoDownloadOrder);
     });
   }
 
@@ -247,6 +253,45 @@ class OfflineService extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
+  // Offline tracks size & LRU eviction
+  // ---------------------------------------------------------------------------
+
+  /// Returns the total size in bytes of all cached track audio files.
+  Future<int> getOfflineTracksSizeBytes() async {
+    final base = await _getStoragePath();
+    final tracksDir = Directory('$base/tracks');
+    int total = 0;
+    if (await tracksDir.exists()) {
+      await for (final entity in tracksDir.list(recursive: false, followLinks: false)) {
+        if (entity is File) {
+          try {
+            total += await entity.length();
+          } catch (_) {}
+        }
+      }
+    }
+    return total;
+  }
+
+  /// Deletes the oldest auto-downloaded track and returns its ID, or null if
+  /// there are no auto-downloaded tracks to evict.
+  Future<String?> evictOldestAutoDownload() async {
+    while (_autoDownloadOrder.isNotEmpty) {
+      final oldest = _autoDownloadOrder.removeAt(0);
+      if (!_offlineTrackIds.contains(oldest)) continue; // already gone
+      final base = await _getStoragePath();
+      final file = File(_trackPath(base, oldest));
+      if (await file.exists()) await file.delete();
+      _offlineTrackIds.remove(oldest);
+      _requestPersistence();
+      notifyListeners();
+      debugPrint('auto-download evicted: $oldest');
+      return oldest;
+    }
+    return null;
+  }
+
+  // ---------------------------------------------------------------------------
   // Track download
   // ---------------------------------------------------------------------------
 
@@ -300,7 +345,13 @@ class OfflineService extends ChangeNotifier {
         }
 
         _offlineTrackIds.add(trackId);
-        if (isExplicit) _explicitOfflineTrackIds.add(trackId);
+        if (isExplicit) {
+          _explicitOfflineTrackIds.add(trackId);
+        } else {
+          // track insertion order for LRU eviction
+          _autoDownloadOrder.remove(trackId); // avoid duplicates
+          _autoDownloadOrder.add(trackId);
+        }
         
         _requestPersistence();
         _emitProgress(trackId, 1.0, done: true);
@@ -455,6 +506,7 @@ class OfflineService extends ChangeNotifier {
 
     _offlineTrackIds.remove(trackId);
     _explicitOfflineTrackIds.remove(trackId);
+    _autoDownloadOrder.remove(trackId);
     _requestPersistence();
     notifyListeners();
   }
@@ -757,6 +809,7 @@ class OfflineService extends ChangeNotifier {
     _explicitOfflineTrackIds.clear();
     _offlineAlbumIds.clear();
     _offlinePlaylistIds.clear();
+    _autoDownloadOrder.clear();
     _requestPersistence();
     notifyListeners();
   }

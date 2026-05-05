@@ -5,6 +5,7 @@
 - bug fix: stop music play on log out.
 - cache network images and other performance tweaks.
 - remove offline mode from profile exports.
+- add auto-download played songs with configurable storage cap and lru eviction (both on by default).
 
 ## 1.0.0+10
 
