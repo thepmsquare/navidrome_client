@@ -4,7 +4,6 @@ import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/auth_service.dart';
 import 'package:navidrome_client/utils/constants.dart';
 import 'package:navidrome_client/services/export_service.dart';
-import 'package:navidrome_client/services/offline_service.dart';
 import 'package:navidrome_client/services/session_service.dart';
 
 class ConnectPage extends StatefulWidget {
@@ -122,9 +121,6 @@ class _ConnectPageState extends State<ConnectPage> {
       });
 
       // Apply other preferences if present
-      if (data['offline_mode'] != null) {
-        await OfflineService().setOfflineMode(data['offline_mode'] as bool);
-      }
       if (data['stop_playback_on_task_removed'] != null) {
         await SessionService().setStopPlaybackOnTaskRemoved(data['stop_playback_on_task_removed'] as bool);
       }

@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:navidrome_client/services/auth_service.dart';
-import 'package:navidrome_client/services/offline_service.dart';
 import 'package:navidrome_client/services/session_service.dart';
 
 class ExportService {
@@ -11,7 +10,6 @@ class ExportService {
   ExportService._internal();
 
   final _authService = AuthService();
-  final _offlineService = OfflineService();
   final _sessionService = SessionService();
 
   Future<bool> exportSettings() async {
@@ -21,7 +19,6 @@ class ExportService {
         'server_url': await _authService.serverUrl,
         'username': await _authService.username,
         'password': await _authService.password,
-        'offline_mode': _offlineService.isOfflineMode,
         'stop_playback_on_task_removed': await _sessionService.stopPlaybackOnTaskRemoved,
         'export_date': DateTime.now().toIso8601String(),
         'version': 1,

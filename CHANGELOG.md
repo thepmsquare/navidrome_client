@@ -4,6 +4,7 @@
 
 - bug fix: stop music play on log out.
 - cache network images and other performance tweaks.
+- remove offline mode from profile exports.
 
 ## 1.0.0+10
 
