@@ -92,6 +92,7 @@ class _HomePageState extends State<HomePage> {
 
   final MiniplayerController _miniPlayerController = MiniplayerController();
   static const double _miniPlayerHeight = 84;
+  final ValueNotifier<double> _playerExpandProgress = ValueNotifier(0.0);
 
   @override
   void initState() {
@@ -470,6 +471,11 @@ class _HomePageState extends State<HomePage> {
                     minHeight: _miniPlayerHeight,
                     maxHeight: maxH,
                     builder: (height, percentage) {
+                      // Update expansion progress for hiding bottom nav
+                      Future.microtask(() {
+                        if (mounted) _playerExpandProgress.value = percentage;
+                      });
+
                       // Full player slides up from below:
                       // at percentage=0 it is shifted down (off-screen),
                       // at percentage=1 it sits flush at the top of the panel.
@@ -535,40 +541,48 @@ class _HomePageState extends State<HomePage> {
               ),
           ],
         ),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _selectedIndex,
-          onDestinationSelected: (index) {
-            if (index == _selectedIndex) {
-              _navigatorKeys[index].currentState?.popUntil((r) => r.isFirst);
-            } else {
-              setState(() => _selectedIndex = index);
-              _sessionService.setLastTabIndex(index);
-            }
-            if (index == 3) _refreshStorageStats();
-            if (index == 2) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) _universalSearchFocusNode.requestFocus();
-              });
-            }
+        bottomNavigationBar: ValueListenableBuilder<double>(
+          valueListenable: _playerExpandProgress,
+          builder: (context, value, child) {
+            // Hide the navigation bar as soon as the player starts expanding
+            if (value > 0.05) return const SizedBox.shrink();
+
+            return NavigationBar(
+              selectedIndex: _selectedIndex,
+              onDestinationSelected: (index) {
+                if (index == _selectedIndex) {
+                  _navigatorKeys[index].currentState?.popUntil((r) => r.isFirst);
+                } else {
+                  setState(() => _selectedIndex = index);
+                  _sessionService.setLastTabIndex(index);
+                }
+                if (index == 3) _refreshStorageStats();
+                if (index == 2) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) _universalSearchFocusNode.requestFocus();
+                  });
+                }
+              },
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.home_rounded),
+                  label: 'home',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.library_music_rounded),
+                  label: 'library',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.search_rounded),
+                  label: 'search',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.settings_rounded),
+                  label: 'settings',
+                ),
+              ],
+            );
           },
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_rounded),
-              label: 'home',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.library_music_rounded),
-              label: 'library',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.search_rounded),
-              label: 'search',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.settings_rounded),
-              label: 'settings',
-            ),
-          ],
         ),
       ),
     );
