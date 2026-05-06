@@ -24,17 +24,22 @@ class PlayerView extends StatefulWidget {
   State<PlayerView> createState() => _PlayerViewState();
 }
 
-class _PlayerViewState extends State<PlayerView> {
+class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
   final PlayerService _playerService = PlayerService();
   late final LyricsService _lyricsService;
   late final PageController _pageController;
   late final StreamSubscription<int?> _currentIndexSubscription;
   bool _showLyrics = false;
   double? _dragValue;
+  // Guards against seekToIndex firing when the page change is programmatic
+  // (e.g. the stream listener syncing the PageView to the player's current
+  // index after a background song transition).
+  bool _isAnimatingProgrammatically = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _lyricsService = LyricsService(widget.apiService);
 
     final initialPage = _playerService.player.currentIndex ?? 0;
@@ -43,11 +48,14 @@ class _PlayerViewState extends State<PlayerView> {
     _currentIndexSubscription = _playerService.currentIndexStream.listen((index) {
       if (index != null && _pageController.hasClients) {
         if (_pageController.page?.round() != index) {
+          _isAnimatingProgrammatically = true;
           _pageController.animateToPage(
             index,
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
-          );
+          ).whenComplete(() {
+            _isAnimatingProgrammatically = false;
+          });
         }
       }
     });
@@ -57,7 +65,17 @@ class _PlayerViewState extends State<PlayerView> {
   void dispose() {
     _currentIndexSubscription.cancel();
     _pageController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Force UI refresh on resume to sync the timeline/slider with the
+      // latest player position.
+      setState(() {});
+    }
   }
 
   @override
@@ -125,7 +143,9 @@ class _PlayerViewState extends State<PlayerView> {
                                     controller: _pageController,
                                     padEnds: false,
                                     onPageChanged: (index) {
-                                      _playerService.seekToIndex(index).catchError((_) {});
+                                      if (!_isAnimatingProgrammatically) {
+                                        _playerService.seekToIndex(index).catchError((_) {});
+                                      }
                                     },
                                     itemCount: _playerService.currentQueue.length,
                                     itemBuilder: (context, index) {
@@ -246,7 +266,7 @@ class _PlayerViewState extends State<PlayerView> {
                                 StreamBuilder<Duration>(
                                   stream: _playerService.player.positionStream,
                                   builder: (context, snapshot) {
-                                    final position = snapshot.data ?? Duration.zero;
+                                    final position = snapshot.data ?? _playerService.player.position;
                                     final total = _playerService.player.duration ?? Duration.zero;
 
                                     return Column(

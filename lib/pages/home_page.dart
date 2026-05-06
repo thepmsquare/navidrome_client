@@ -496,8 +496,10 @@ class _HomePageState extends State<HomePage> {
                             ignoring: percentage < 0.5,
                             child: Transform.translate(
                               offset: Offset(0, slideY),
-                              child: SizedBox(
-                                height: maxH,
+                              child: OverflowBox(
+                                minHeight: maxH,
+                                maxHeight: maxH,
+                                alignment: Alignment.topCenter,
                                 child: PlayerView(
                                   apiService: _apiService!,
                                   onMinimize: () => _miniPlayerController

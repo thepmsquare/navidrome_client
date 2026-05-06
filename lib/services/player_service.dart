@@ -23,13 +23,10 @@ class PlayerService with WidgetsBindingObserver {
   final _log = EventLogService();
   Timer? _positionSaveTimer;
   bool _stopPlaybackOnTaskRemoved = false;
-  // Tracks whether a real audio interruption (call, navigation, etc.) paused us.
-  bool _wasPlayingBeforeInterruption = false;
-  // Tracks whether the player was playing when the app went to background,
-  // used to resume after a screen lock/unlock cycle that has no audio event.
-  bool _wasPlayingBeforeBackground = false;
   // True while a real audio interruption is active (begin fired, end not yet).
   bool _audioInterruptionActive = false;
+  // Cached audio session reference for re-activation on resume.
+  AudioSession? _audioSession;
 
   PlayerService._internal() {
     _init();
@@ -38,6 +35,7 @@ class PlayerService with WidgetsBindingObserver {
   Future<void> _init() async {
     WidgetsBinding.instance.addObserver(this);
     final session = await AudioSession.instance;
+    _audioSession = session;
     await session.configure(const AudioSessionConfiguration.music());
     await session.setActive(true);
 
@@ -45,23 +43,22 @@ class PlayerService with WidgetsBindingObserver {
     session.interruptionEventStream.listen((event) {
       if (event.begin) {
         _audioInterruptionActive = true;
-        _wasPlayingBeforeInterruption = _player.playing;
         if (event.type == AudioInterruptionType.duck) {
           _player.setVolume(0.5);
         } else {
           _player.pause();
         }
       } else {
-        // Guard: ignore end events that arrive without a paired begin.
-        // This can happen on some devices during screen lock/unlock.
         if (!_audioInterruptionActive) return;
         _audioInterruptionActive = false;
         if (event.type == AudioInterruptionType.duck) {
           _player.setVolume(1.0);
-        } else if (_wasPlayingBeforeInterruption) {
+        } else {
+          // Just call play. just_audio is smart enough to handle its own 
+          // internal state, and we've removed the manual 'resume' logic
+          // that was causing conflicts.
           _player.play();
         }
-        _wasPlayingBeforeInterruption = false;
       }
     });
 
@@ -100,13 +97,6 @@ class PlayerService with WidgetsBindingObserver {
       }
     });
 
-    // Log player errors to the event log so they're visible on the debug screen.
-    _player.playerStateStream.listen((state) {
-      if (state.processingState == ProcessingState.idle && _currentQueue.isNotEmpty) {
-        _log.log('player returned to idle unexpectedly', level: EventLogLevel.warning);
-      }
-    });
-
     _player.playbackEventStream.listen(
       (_) {},
       onError: (Object e, StackTrace st) {
@@ -127,25 +117,16 @@ class PlayerService with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
       _saveCurrentPosition();
-      // Remember whether we were playing so we can recover after a lock/unlock
-      // cycle that generates no audio interruption event (or an unpaired one).
-      _wasPlayingBeforeBackground = _player.playing;
     }
 
-    // Safety net: resume playback after screen unlock if the only reason the
-    // player stopped was the OS locking the screen (no real audio interruption).
     if (state == AppLifecycleState.resumed) {
-      if (_wasPlayingBeforeBackground && !_player.playing && !_audioInterruptionActive) {
-        _log.log('resuming playback after screen unlock', level: EventLogLevel.debug);
-        _player.play();
-      }
-      _wasPlayingBeforeBackground = false;
+      // Re-activate session just in case, but don't touch the player.
+      _audioSession?.setActive(true);
     }
 
     // handle stopping playback when app is swiped away from recents (Android specific)
     if (state == AppLifecycleState.detached) {
       if (_stopPlaybackOnTaskRemoved) {
-        _log.log('app detached, stopping playback per user setting', level: EventLogLevel.info);
         _player.stop();
       }
     }

@@ -6,6 +6,7 @@
 - cache network images and other performance tweaks.
 - remove offline mode from profile exports.
 - add auto-download played songs with configurable storage cap and lru eviction (both on by default).
+- bug fix: prevent playback from stopping on unlock after a song transition while locked.
 
 ## 1.0.0+10
 

@@ -23,6 +23,7 @@ class _MiniPlayerViewState extends State<MiniPlayerView> {
   final _playerService = PlayerService();
   late final PageController _pageController;
   late final StreamSubscription<int?> _indexSubscription;
+  bool _isAnimatingProgrammatically = false;
 
   @override
   void initState() {
@@ -35,11 +36,14 @@ class _MiniPlayerViewState extends State<MiniPlayerView> {
     _indexSubscription = _playerService.currentIndexStream.listen((index) {
       if (index != null && _pageController.hasClients) {
         if (_pageController.page?.round() != index) {
+          _isAnimatingProgrammatically = true;
           _pageController.animateToPage(
             index,
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
-          );
+          ).whenComplete(() {
+            _isAnimatingProgrammatically = false;
+          });
         }
       }
     });
@@ -90,7 +94,9 @@ class _MiniPlayerViewState extends State<MiniPlayerView> {
                   child: PageView.builder(
                     controller: _pageController,
                     onPageChanged: (index) {
-                      _playerService.seekToIndex(index).catchError((_) {});
+                      if (!_isAnimatingProgrammatically) {
+                        _playerService.seekToIndex(index).catchError((_) {});
+                      }
                     },
                     itemCount: _playerService.currentQueue.length,
                     itemBuilder: (context, index) {
