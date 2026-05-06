@@ -1,6 +1,6 @@
 # changelog
 
-## 1.0.0+11 (in progress)
+## 1.0.0+11
 
 - bug fix: stop music play on log out.
 - cache network images and other performance tweaks.
