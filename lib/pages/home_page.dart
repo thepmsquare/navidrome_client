@@ -482,11 +482,8 @@ class _HomePageState extends State<HomePage> {
                       final slideY =
                           (maxH - _miniPlayerHeight) * (1.0 - percentage);
 
-                      // Mini player fades out in the first 15 % of the drag.
-                      final miniVisible = percentage < 0.15;
-                      final miniOpacity = miniVisible
-                          ? (1.0 - percentage / 0.15).clamp(0.0, 1.0)
-                          : 0.0;
+                      // Mini player slides up and out as the panel expands.
+                      final miniSlideY = -percentage * _miniPlayerHeight;
 
                       return Stack(
                         clipBehavior: Clip.hardEdge,
@@ -508,35 +505,33 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ),
                           ),
-                          // Mini player — fades out at the start of the drag.
-                          if (miniVisible)
-                            Positioned(
-                              bottom: 0,
-                              left: 0,
-                              right: 0,
-                              child: IgnorePointer(
-                                ignoring: !miniVisible,
-                                child: Opacity(
-                                  opacity: miniOpacity,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(
-                                      left: 12,
-                                      right: 12,
-                                      bottom: 12,
-                                    ),
-                                    child: MiniPlayerView(
-                                      apiService: _apiService!,
-                                      onTap: () =>
-                                          _miniPlayerController.animateToHeight(
-                                            state: PanelState.MAX,
-                                          ),
-                                    ),
-                                  ),
+                          // Mini player — slides up the top as expansion happens.
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: _miniPlayerHeight,
+                            child: Transform.translate(
+                              offset: Offset(0, miniSlideY),
+                              child: Padding(
+                                padding: const EdgeInsets.only(
+                                  left: 12,
+                                  right: 12,
+                                  bottom: 12,
+                                ),
+                                child: MiniPlayerView(
+                                  apiService: _apiService!,
+                                  onTap: () =>
+                                      _miniPlayerController.animateToHeight(
+                                        state: PanelState.MAX,
+                                      ),
                                 ),
                               ),
                             ),
+                          ),
                         ],
                       );
+
                     },
                   );
                 },
