@@ -220,11 +220,25 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                       const SizedBox(height: 6),
-                                      Wrap(
-                                        alignment: WrapAlignment.center,
-                                        spacing: 4,
-                                        runSpacing: 4,
-                                        children: _buildArtistWidgets(track, context, theme, colorScheme),
+                                      Center(
+                                        child: SingleChildScrollView(
+                                          scrollDirection: Axis.horizontal,
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: _buildArtistWidgets(
+                                                    track,
+                                                    context,
+                                                    theme,
+                                                    colorScheme)
+                                                .map((w) => Padding(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 2),
+                                                      child: w,
+                                                    ))
+                                                .toList(),
+                                          ),
+                                        ),
                                       ),
                                       const SizedBox(height: 2),
                                       GestureDetector(

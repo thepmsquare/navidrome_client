@@ -274,20 +274,6 @@ class _PlaylistDetailsPageState extends State<PlaylistDetailsPage> {
                                 onTap: () {
                                   PlayerService().play(tracks, index, widget.apiService);
                                 },
-                                onArtistTap: (artist) {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => ArtistDetailsPage(
-                                        artist: {
-                                          ...artist,
-                                          'coverArt': artist['coverArt'] ?? track['artistCoverArt'] ?? track['coverArt'],
-                                        },
-                                        apiService: widget.apiService,
-                                      ),
-                                    ),
-                                  );
-                                },
                               );
                             },
                             childCount: _tracksToDisplay.length,

@@ -266,20 +266,6 @@ class _AlbumsPageState extends State<AlbumsPage> {
                             ),
                           );
                         },
-                        onArtistTap: (artist) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ArtistDetailsPage(
-                                artist: {
-                                  ...artist,
-                                  'coverArt': artist['coverArt'] ?? album['coverArt'],
-                                },
-                                apiService: widget.apiService,
-                              ),
-                            ),
-                          );
-                        },
                       );
                     },
                     childCount:

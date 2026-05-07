@@ -246,28 +246,37 @@ class _TrackListItemState extends State<TrackListItem> {
           children: artists.map((artist) {
             final name = artist['name']?.toString() ?? 'unknown';
 
+            final child = Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: colorScheme.secondaryContainer.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                ),
+              ),
+              child: Text(
+                name,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSecondaryContainer,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            );
+
+            if (widget.onArtistTap == null) {
+              return Container(
+                margin: const EdgeInsets.only(right: 6),
+                child: child,
+              );
+            }
+
             return Container(
               margin: const EdgeInsets.only(right: 6),
               child: InkWell(
                 onTap: () => widget.onArtistTap?.call(Map<String, dynamic>.from(artist)),
                 borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: colorScheme.secondaryContainer.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-                    ),
-                  ),
-                  child: Text(
-                    name,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onSecondaryContainer,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
+                child: child,
               ),
             );
           }).toList(),
@@ -277,35 +286,37 @@ class _TrackListItemState extends State<TrackListItem> {
 
     final String artistName = (widget.track['artist'] ?? 'unknown artist').toString();
 
-    return InkWell(
-      onTap: () {
-        if (widget.onArtistTap != null) {
-          widget.onArtistTap!({
-            'id': widget.track['artistId'],
-            'name': widget.track['artist'],
-          });
-        }
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(
-          color: colorScheme.secondaryContainer.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-          ),
-        ),
-        child: Text(
-          artistName,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: colorScheme.onSecondaryContainer,
-            fontWeight: FontWeight.bold,
-          ),
+    final child = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: colorScheme.secondaryContainer.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
       ),
+      child: Text(
+        artistName,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSecondaryContainer,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+
+    if (widget.onArtistTap == null) return child;
+
+    return InkWell(
+      onTap: () {
+        widget.onArtistTap!({
+          'id': widget.track['artistId'],
+          'name': widget.track['artist'],
+        });
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: child,
     );
   }
 }

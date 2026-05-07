@@ -196,36 +196,14 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                                       ),
                                     ),
                                   ),
-                                  GestureDetector(
-                                    onTap: () {
-                                      final artistId = widget.album['artistId']?.toString();
-                                      if (artistId != null) {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => ArtistDetailsPage(
-                                              artist: {
-                                                'id': artistId,
-                                                'name': widget.album['artist'],
-                                                'coverArt': widget.album['coverArt'],
-                                              },
-                                              apiService: widget.apiService,
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                    child: Text(
-                                      (widget.album['artist'] ?? '').toString(),
-                                      style: theme.textTheme.labelMedium?.copyWith(
-                                        color: Colors.white70,
-                                        decoration: TextDecoration.underline,
-                                        decorationColor: Colors.white30,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
+                                   Text(
+                                     (widget.album['artist'] ?? '').toString(),
+                                     style: theme.textTheme.labelMedium?.copyWith(
+                                       color: Colors.white70,
+                                     ),
+                                     maxLines: 1,
+                                     overflow: TextOverflow.ellipsis,
+                                   ),
                                 ],
                               ),
                             ),
@@ -330,20 +308,6 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                                 apiService: widget.apiService,
                                 onTap: () {
                                   PlayerService().play(tracks, index, widget.apiService);
-                                },
-                                onArtistTap: (artist) {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => ArtistDetailsPage(
-                                        artist: {
-                                          ...artist,
-                                          'coverArt': artist['coverArt'] ?? track['artistCoverArt'] ?? track['coverArt'],
-                                        },
-                                        apiService: widget.apiService,
-                                      ),
-                                    ),
-                                  );
                                 },
                               );
                             },

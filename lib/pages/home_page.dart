@@ -634,22 +634,6 @@ class _HomePageState extends State<HomePage> {
                                   ),
                                 );
                               },
-                              onArtistTap: (artist) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => ArtistDetailsPage(
-                                      artist: {
-                                        ...artist,
-                                        'coverArt':
-                                            artist['coverArt'] ??
-                                            album['coverArt'],
-                                      },
-                                      apiService: _apiService!,
-                                    ),
-                                  ),
-                                );
-                              },
                             );
                           },
                         ),
@@ -690,23 +674,6 @@ class _HomePageState extends State<HomePage> {
                                 _randomTracks,
                                 index,
                                 _apiService!,
-                              );
-                            },
-                            onArtistTap: (artist) {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ArtistDetailsPage(
-                                    artist: {
-                                      ...artist,
-                                      'coverArt':
-                                          artist['coverArt'] ??
-                                          track['artistCoverArt'] ??
-                                          track['coverArt'],
-                                    },
-                                    apiService: _apiService!,
-                                  ),
-                                ),
                               );
                             },
                           );
@@ -826,21 +793,6 @@ class _HomePageState extends State<HomePage> {
                               }
                             });
                           },
-                          onArtistTap: (artist) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ArtistDetailsPage(
-                                  artist: {
-                                    ...artist,
-                                    'coverArt':
-                                        artist['coverArt'] ?? album['coverArt'],
-                                  },
-                                  apiService: _apiService!,
-                                ),
-                              ),
-                            );
-                          },
                         );
                       }),
                     ],
@@ -863,23 +815,6 @@ class _HomePageState extends State<HomePage> {
                               _universalSearchTracks,
                               index,
                               _apiService!,
-                            );
-                          },
-                          onArtistTap: (artist) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ArtistDetailsPage(
-                                  artist: {
-                                    ...artist,
-                                    'coverArt':
-                                        artist['coverArt'] ??
-                                        track['artistCoverArt'] ??
-                                        track['coverArt'],
-                                  },
-                                  apiService: _apiService!,
-                                ),
-                              ),
                             );
                           },
                         );

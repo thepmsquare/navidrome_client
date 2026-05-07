@@ -3,6 +3,7 @@
 ## 1.0.0+12 (in progress)
 
 - minor improvement in animation in player and mini player again.
+- remove artist navigation through chips on all places expect music player.
 
 ## 1.0.0+11
 
