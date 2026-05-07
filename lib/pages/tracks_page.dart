@@ -5,7 +5,6 @@ import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
 import 'package:navidrome_client/services/player_service.dart';
 import 'package:navidrome_client/pages/home_page.dart' show TrackSortOrder;
-import 'package:navidrome_client/pages/artist_details_page.dart';
 
 class TracksPage extends StatefulWidget {
   final ApiService apiService;

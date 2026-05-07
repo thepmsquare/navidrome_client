@@ -7,6 +7,7 @@ class AlbumListItem extends StatefulWidget {
   final Map<String, dynamic> album;
   final String? coverArtUrl;
   final VoidCallback onTap;
+  final String? heroTag;
   final void Function(Map<String, dynamic> artist)? onArtistTap;
 
   const AlbumListItem({
@@ -14,6 +15,7 @@ class AlbumListItem extends StatefulWidget {
     required this.album,
     this.coverArtUrl,
     required this.onTap,
+    this.heroTag,
     this.onArtistTap,
   });
 
@@ -42,10 +44,11 @@ class _AlbumListItemState extends State<AlbumListItem> {
   void _onOfflineServiceChanged() {
     final status = _offline.isAlbumOfflineSync(_albumId);
     if (status != _isOffline) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _isOffline = status;
         });
+      }
     }
   }
 
@@ -172,7 +175,7 @@ class _AlbumListItemState extends State<AlbumListItem> {
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Hero(
-                tag: 'album_cover_$_albumId',
+                tag: widget.heroTag ?? 'album_cover_$_albumId',
                 child: OfflineImage(
                   coverArtId: widget.album['coverArt']?.toString(),
                   remoteUrl: widget.coverArtUrl,

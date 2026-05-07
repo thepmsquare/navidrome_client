@@ -7,6 +7,7 @@ class AlbumTile extends StatelessWidget {
   final Map<String, dynamic> album;
   final ApiService apiService;
   final VoidCallback onTap;
+  final String? heroTag;
   final void Function(Map<String, dynamic> artist)? onArtistTap;
 
   const AlbumTile({
@@ -14,6 +15,7 @@ class AlbumTile extends StatelessWidget {
     required this.album,
     required this.apiService,
     required this.onTap,
+    this.heroTag,
     this.onArtistTap,
   });
 
@@ -59,7 +61,7 @@ class AlbumTile extends StatelessWidget {
                   child: AspectRatio(
                     aspectRatio: 1,
                     child: Hero(
-                      tag: 'album_cover_${album['id']}',
+                      tag: heroTag ?? 'album_cover_${album['id']}',
                       child: OfflineImage(
                         coverArtId: coverArtId,
                         remoteUrl: coverArtUrl,

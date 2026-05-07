@@ -620,9 +620,11 @@ class _HomePageState extends State<HomePage> {
                               const SizedBox(width: 16),
                           itemBuilder: (context, index) {
                             final album = _mostPlayedAlbums[index];
+                            final heroTag = 'most_played_${album['id']}';
                             return AlbumTile(
                               album: album,
                               apiService: _apiService!,
+                              heroTag: heroTag,
                               onTap: () {
                                 Navigator.push(
                                   context,
@@ -630,6 +632,7 @@ class _HomePageState extends State<HomePage> {
                                     builder: (context) => AlbumDetailsPage(
                                       album: album,
                                       apiService: _apiService!,
+                                      heroTag: heroTag,
                                     ),
                                   ),
                                 );
@@ -775,9 +778,11 @@ class _HomePageState extends State<HomePage> {
                             _apiService != null && coverArtId != null
                             ? _apiService!.getCoverArtUrl(coverArtId)
                             : null;
+                        final heroTag = 'search_album_${album['id']}';
                         return AlbumListItem(
                           album: album,
                           coverArtUrl: coverArtUrl,
+                          heroTag: heroTag,
                           onTap: () {
                             Navigator.push(
                               context,
@@ -785,6 +790,7 @@ class _HomePageState extends State<HomePage> {
                                 builder: (context) => AlbumDetailsPage(
                                   album: album,
                                   apiService: _apiService!,
+                                  heroTag: heroTag,
                                 ),
                               ),
                             ).then((_) {

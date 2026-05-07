@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:navidrome_client/components/album_list_item.dart';
 import 'package:navidrome_client/pages/album_details_page.dart';
-import 'package:navidrome_client/pages/artist_details_page.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
 
@@ -252,9 +251,11 @@ class _AlbumsPageState extends State<AlbumsPage> {
                           ? widget.apiService.getCoverArtUrl(coverArtId)
                           : null;
 
+                      final heroTag = 'library_album_${album['id']}';
                       return AlbumListItem(
                         album: album,
                         coverArtUrl: coverArtUrl,
+                        heroTag: heroTag,
                         onTap: () {
                           Navigator.push(
                             context,
@@ -262,6 +263,7 @@ class _AlbumsPageState extends State<AlbumsPage> {
                               builder: (context) => AlbumDetailsPage(
                                 album: album,
                                 apiService: widget.apiService,
+                                heroTag: heroTag,
                               ),
                             ),
                           );

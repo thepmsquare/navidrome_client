@@ -50,10 +50,11 @@ class _TrackListItemState extends State<TrackListItem> {
   void _onOfflineServiceChanged() {
     final status = _offline.isTrackOfflineSync(_trackId);
     if (status != _isOffline) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _isOffline = status;
         });
+      }
     }
   }
 

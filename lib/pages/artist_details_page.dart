@@ -195,9 +195,11 @@ class _ArtistDetailsPageState extends State<ArtistDetailsPage> {
                             ? widget.apiService.getCoverArtUrl(albumCoverArtId)
                             : null;
 
+                        final heroTag = 'artist_album_${album['id']}';
                         return AlbumListItem(
                           album: album,
                           coverArtUrl: albumCoverArtUrl,
+                          heroTag: heroTag,
                           onTap: () {
                             Navigator.push(
                               context,
@@ -205,6 +207,7 @@ class _ArtistDetailsPageState extends State<ArtistDetailsPage> {
                                 builder: (context) => AlbumDetailsPage(
                                   album: album,
                                   apiService: widget.apiService,
+                                  heroTag: heroTag,
                                 ),
                               ),
                             );

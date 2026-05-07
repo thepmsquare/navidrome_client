@@ -15,7 +15,6 @@ void main() async {
     (options) {
       options.dsn = 'https://2b0b77baab7bf5de9dd39d82ac52b6ac@o4511263909740544.ingest.de.sentry.io/4511263935103056';
       options.tracesSampleRate = 1.0;
-      options.profilesSampleRate = 1.0;
     },
     appRunner: () async {
       WidgetsFlutterBinding.ensureInitialized();
