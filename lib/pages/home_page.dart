@@ -476,11 +476,8 @@ class _HomePageState extends State<HomePage> {
                         if (mounted) _playerExpandProgress.value = percentage;
                       });
 
-                      // Full player slides up from below:
-                      // at percentage=0 it is shifted down (off-screen),
-                      // at percentage=1 it sits flush at the top of the panel.
-                      final slideY =
-                          (maxH - _miniPlayerHeight) * (1.0 - percentage);
+                      // Full player slides up to follow the mini player's bottom edge.
+                      final slideY = _miniPlayerHeight * (1.0 - percentage);
 
                       // Mini player slides up and out as the panel expands.
                       final miniSlideY = -percentage * _miniPlayerHeight;
