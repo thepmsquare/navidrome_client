@@ -1,5 +1,9 @@
 # changelog
 
+## 1.0.0+13 (in progress)
+
+- add padding bottom to settings page.
+
 ## 1.0.0+12
 
 - minor improvement in animation in player and mini player again.

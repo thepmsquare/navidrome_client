@@ -923,6 +923,7 @@ class _HomePageState extends State<HomePage> {
                       );
                     },
                   ),
+                  const SizedBox(height: 100),
                 ],
               ),
             ),
@@ -1245,7 +1246,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 100),
               ],
             ],
           ),
