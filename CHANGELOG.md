@@ -3,6 +3,8 @@
 ## 1.0.0+13 (in progress)
 
 - add padding bottom to settings page.
+- simplify settings by moving common options into submenus (downloads and advanced).
+- update default: 'stop playback on task removal' is now on by default.
 
 ## 1.0.0+12
 

@@ -113,7 +113,7 @@ class SessionService {
 
   Future<bool> get stopPlaybackOnTaskRemoved async {
     final prefs = await _getPrefs;
-    return prefs.getBool(_keyStopPlaybackOnTaskRemoved) ?? false;
+    return prefs.getBool(_keyStopPlaybackOnTaskRemoved) ?? true;
   }
 
   Future<void> setStopPlaybackOnTaskRemoved(bool value) async {

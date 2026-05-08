@@ -5,26 +5,22 @@ import 'package:flutter/services.dart';
 import 'package:navidrome_client/components/album_list_item.dart';
 import 'package:navidrome_client/components/album_tile.dart';
 import 'package:navidrome_client/components/track_list_item.dart';
-import 'package:navidrome_client/utils/disk_utility.dart';
 import 'package:navidrome_client/pages/album_details_page.dart';
-import 'package:navidrome_client/pages/event_log_page.dart';
 import 'package:navidrome_client/services/api_service.dart';
-import 'package:navidrome_client/services/event_log_service.dart';
 import 'package:navidrome_client/services/player_service.dart';
 import 'package:navidrome_client/services/auth_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
 import 'package:navidrome_client/components/offline_indicator.dart';
 import 'package:navidrome_client/services/session_service.dart';
-import 'package:navidrome_client/services/export_service.dart';
 import 'package:navidrome_client/pages/albums_page.dart';
 import 'package:navidrome_client/pages/tracks_page.dart';
 import 'package:navidrome_client/pages/playlists_page.dart';
 import 'package:navidrome_client/pages/artists_page.dart';
 import 'package:navidrome_client/pages/artist_details_page.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:miniplayer/miniplayer.dart';
 import 'package:navidrome_client/components/mini_player_view.dart';
 import 'package:navidrome_client/components/player_view.dart';
+import 'package:navidrome_client/pages/settings/settings_page.dart';
 
 enum LibraryView { home, albums, playlists, tracks, artists }
 
@@ -52,17 +48,8 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final _authService = AuthService();
   final _sessionService = SessionService();
-  final _eventLog = EventLogService();
   // final ScrollController _scrollController = ScrollController();
   int _selectedIndex = 0; // default to Home per user's "first time" request
-  int _offlineSize = 0;
-  bool _isRefreshingStorage = false;
-  int _logErrorCount = 0;
-  bool _stopPlaybackOnTaskRemoved = true;
-  bool _autoDownloadPlayed = true;
-  double _autoDownloadMaxGib = 1.0;
-  bool _autoDownloadLruEvict = true;
-  String _appVersion = '';
 
   List<Map<String, dynamic>> _mostPlayedAlbums = [];
   List<Map<String, dynamic>> _randomTracks = [];
@@ -106,33 +93,9 @@ class _HomePageState extends State<HomePage> {
       }
     });
 
-    // listen for log changes to update the error badge in settings
-    _logErrorCount = _eventLog.errorCount;
-    _eventLog.changeNotifier.addListener(_onLogChanged);
-
     // #20: listen for auto-toggles
     OfflineService().offlineModeNotifier.addListener(_onOfflineModeChanged);
     OfflineService().addListener(_onOfflineCompletion);
-
-    _loadAppVersion();
-  }
-
-  Future<void> _loadAppVersion() async {
-    final packageInfo = await PackageInfo.fromPlatform();
-    if (mounted) {
-      setState(() {
-        _appVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
-      });
-    }
-  }
-
-  void _onLogChanged() {
-    final count = _eventLog.errorCount;
-    if (count != _logErrorCount && mounted) {
-      setState(() {
-        _logErrorCount = count;
-      });
-    }
   }
 
   void _onOfflineCompletion() {
@@ -160,33 +123,10 @@ class _HomePageState extends State<HomePage> {
     final isFirstRun = await _sessionService.isFirstRun;
     if (!isFirstRun) {
       final tabIndex = await _sessionService.lastTabIndex;
-      // final libViewName = await _sessionService.lastLibraryView;
-
-      // LibraryView? libView;
-      // if (libViewName != null) {
-      //   try {
-      //     libView = LibraryView.values.byName(libViewName);
-      //   } catch (_) {}
-      // }
 
       if (mounted) {
         setState(() {
           _selectedIndex = tabIndex;
-        });
-      }
-
-      // session-persistent settings
-      _stopPlaybackOnTaskRemoved =
-          await _sessionService.stopPlaybackOnTaskRemoved;
-
-      final autoEnabled = await _sessionService.autoDownloadPlayed;
-      final autoMaxBytes = await _sessionService.autoDownloadMaxBytes;
-      final autoLru = await _sessionService.autoDownloadLruEvict;
-      if (mounted) {
-        setState(() {
-          _autoDownloadPlayed = autoEnabled;
-          _autoDownloadMaxGib = autoMaxBytes / (1024 * 1024 * 1024);
-          _autoDownloadLruEvict = autoLru;
         });
       }
     } else {
@@ -200,7 +140,6 @@ class _HomePageState extends State<HomePage> {
     _universalSearchController.dispose();
     _universalSearchFocusNode.dispose();
     _debounce?.cancel();
-    _eventLog.changeNotifier.removeListener(_onLogChanged);
     OfflineService().offlineModeNotifier.removeListener(_onOfflineModeChanged);
     OfflineService().removeListener(_onOfflineCompletion);
     super.dispose();
@@ -267,11 +206,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _handleLogout() async {
-    await PlayerService().clearQueue();
-    await _authService.logout();
-    if (mounted) Navigator.pushReplacementNamed(context, '/connect');
-  }
 
   void _onUniversalSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
@@ -318,72 +252,8 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _toggleOfflineMode(bool value) async {
     await OfflineService().setOfflineMode(value);
-    // trigger rebuild — _isOfflineMode and _albumsToDisplay are getters
-    // that reflect the new value immediately
     // trigger rebuild — _isOfflineMode reflecting new value immediately
     setState(() {});
-  }
-
-  Future<void> _toggleStopPlaybackOnTaskRemoved(bool value) async {
-    await _sessionService.setStopPlaybackOnTaskRemoved(value);
-    PlayerService().setStopPlaybackOnTaskRemoved(value);
-    if (mounted) {
-      setState(() {
-        _stopPlaybackOnTaskRemoved = value;
-      });
-    }
-  }
-
-  Future<void> _toggleAutoDownloadPlayed(bool value) async {
-    await _sessionService.setAutoDownloadPlayed(value);
-    if (mounted) setState(() => _autoDownloadPlayed = value);
-  }
-
-  Future<void> _toggleAutoDownloadLruEvict(bool value) async {
-    await _sessionService.setAutoDownloadLruEvict(value);
-    if (mounted) setState(() => _autoDownloadLruEvict = value);
-  }
-
-  Future<void> _showCapInputDialog() async {
-    final controller = TextEditingController(
-      text: _autoDownloadMaxGib.toStringAsFixed(
-        _autoDownloadMaxGib == _autoDownloadMaxGib.truncateToDouble() ? 0 : 2,
-      ),
-    );
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('storage cap'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            suffixText: 'gib',
-            hintText: '1.0',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('save'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true) {
-      final parsed = double.tryParse(controller.text.trim());
-      if (parsed != null && parsed > 0) {
-        final bytes = (parsed * 1024 * 1024 * 1024).round();
-        await _sessionService.setAutoDownloadMaxBytes(bytes);
-        if (mounted) setState(() => _autoDownloadMaxGib = parsed);
-      }
-    }
-    controller.dispose();
   }
 
   @override
@@ -550,7 +420,6 @@ class _HomePageState extends State<HomePage> {
                   setState(() => _selectedIndex = index);
                   _sessionService.setLastTabIndex(index);
                 }
-                if (index == 3) _refreshStorageStats();
                 if (index == 2) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (mounted) _universalSearchFocusNode.requestFocus();
@@ -848,7 +717,7 @@ class _HomePageState extends State<HomePage> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          ?trailing,
+          if (trailing != null) trailing,
         ],
       ),
     );
@@ -935,323 +804,7 @@ class _HomePageState extends State<HomePage> {
 
   // Old builders removed
 
-  Future<void> _refreshStorageStats() async {
-    if (_isRefreshingStorage) return;
-    setState(() {
-      _isRefreshingStorage = true;
-    });
-
-    try {
-      final size = await DiskUtility.getOfflineSize();
-      if (mounted) {
-        setState(() {
-          _offlineSize = size;
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isRefreshingStorage = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _confirmClearDownloads() async {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        icon: Icon(
-          Icons.warning_amber_rounded,
-          color: colorScheme.error,
-          size: 48,
-        ),
-        title: Text(
-          'clear all downloads?',
-          style: theme.textTheme.headlineSmall?.copyWith(
-            color: colorScheme.error,
-            fontWeight: FontWeight.bold,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        content: const Text(
-          'this action is permanent and will remove all of your offline music and metadata. you will need to re-download everything if you want to listen offline again.',
-          textAlign: TextAlign.center,
-        ),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: colorScheme.error,
-              foregroundColor: colorScheme.onError,
-            ),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('clear all'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      if (mounted) {
-        setState(() {
-          _isRefreshingStorage = true;
-        });
-        try {
-          await OfflineService().clearAllDownloads();
-          final size = await DiskUtility.getOfflineSize();
-          if (mounted) {
-            setState(() {
-              _offlineSize = size;
-            });
-          }
-        } finally {
-          if (mounted) {
-            setState(() {
-              _isRefreshingStorage = false;
-            });
-          }
-        }
-      }
-    }
-  }
-
   Widget _buildSettingsView() {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Column(
-      children: [
-        AppBar(title: const Text('settings'), primary: !_isOfflineMode),
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Card(
-                child: Column(
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.download_for_offline_rounded),
-                      title: const Text('downloads'),
-                      subtitle: Text(
-                        '${DiskUtility.formatBytes(_offlineSize)} of media saved offline',
-                      ),
-                      trailing: _isRefreshingStorage
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : IconButton(
-                              icon: const Icon(Icons.refresh_rounded),
-                              onPressed: _refreshStorageStats,
-                            ),
-                    ),
-                    SwitchListTile(
-                      secondary: const Icon(Icons.download_rounded),
-                      title: const Text('auto-download played songs'),
-                      subtitle: const Text(
-                        'automatically save songs to offline storage as they play',
-                      ),
-                      value: _autoDownloadPlayed,
-                      onChanged: _toggleAutoDownloadPlayed,
-                    ),
-                    if (_autoDownloadPlayed) ...[
-                      ListTile(
-                        leading: const Icon(Icons.storage_rounded),
-                        title: const Text('storage cap'),
-                        subtitle: Text(
-                          '${_autoDownloadMaxGib.toStringAsFixed(_autoDownloadMaxGib == _autoDownloadMaxGib.truncateToDouble() ? 0 : 2)} gib',
-                        ),
-                        trailing: const Icon(Icons.edit_rounded),
-                        onTap: _showCapInputDialog,
-                      ),
-                      SwitchListTile(
-                        secondary: const Icon(Icons.auto_delete_rounded),
-                        title: const Text('evict oldest when storage is full'),
-                        subtitle: const Text(
-                          'remove the oldest auto-downloaded song to make room for new ones',
-                        ),
-                        value: _autoDownloadLruEvict,
-                        onChanged: _toggleAutoDownloadLruEvict,
-                      ),
-                    ],
-                    if (_offlineSize > 0)
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: OutlinedButton.icon(
-                          onPressed: _confirmClearDownloads,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: colorScheme.error,
-                            side: BorderSide(color: colorScheme.error),
-                          ),
-                          icon: const Icon(Icons.delete_forever_rounded),
-                          label: const Text('clear all downloads'),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              Card(
-                child: SwitchListTile(
-                  secondary: const Icon(Icons.offline_pin_rounded),
-                  title: const Text('offline mode'),
-                  subtitle: const Text('only show downloaded content'),
-                  value: _isOfflineMode,
-                  onChanged: _toggleOfflineMode,
-                ),
-              ),
-              if (Platform.isAndroid)
-                Card(
-                  child: SwitchListTile(
-                    secondary: const Icon(Icons.stop_circle_rounded),
-                    title: const Text(
-                      'stop playback when app is removed from background tasks',
-                    ),
-                    subtitle: const Text(
-                      'automatically stop music when swiped away from recent apps',
-                    ),
-                    value: _stopPlaybackOnTaskRemoved,
-                    onChanged: _toggleStopPlaybackOnTaskRemoved,
-                  ),
-                ),
-              Card(
-                child: ListTile(
-                  leading: Badge(
-                    isLabelVisible: _logErrorCount > 0,
-                    label: Text(
-                      _logErrorCount > 99 ? '99+' : _logErrorCount.toString(),
-                    ),
-                    backgroundColor: colorScheme.error,
-                    textColor: colorScheme.onError,
-                    child: const Icon(Icons.bug_report_rounded),
-                  ),
-                  title: const Text('event log'),
-                  subtitle: const Text('debug events and errors'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const EventLogPage(),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.bolt_rounded),
-                  title: const Text('trigger test error'),
-                  subtitle: const Text('verify sentry integration'),
-                  onTap: () => throw Exception('sentry test error'),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.backup_rounded),
-                  title: const Text('backup configuration'),
-                  subtitle: const Text(
-                    'save your server details and settings to a file',
-                  ),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () async {
-                    final theme = Theme.of(context);
-                    final colorScheme = theme.colorScheme;
-
-                    final confirmed = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        icon: Icon(
-                          Icons.warning_amber_rounded,
-                          color: colorScheme.error,
-                          size: 48,
-                        ),
-                        title: Text(
-                          'security warning',
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            color: colorScheme.error,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        content: const Text(
-                          'the backup file will contain your server password in plain text. please ensure you save this file in a secure location and do not share it with others.',
-                          textAlign: TextAlign.center,
-                        ),
-                        actionsAlignment: MainAxisAlignment.center,
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('cancel'),
-                          ),
-                          FilledButton(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: colorScheme.primary,
-                              foregroundColor: colorScheme.onPrimary,
-                            ),
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text('i understand, backup'),
-                          ),
-                        ],
-                      ),
-                    );
-
-                    if (confirmed == true) {
-                      final success = await ExportService().exportSettings();
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              success
-                                  ? 'backup created successfully'
-                                  : 'failed to create backup',
-                            ),
-                          ),
-                        );
-                      }
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(height: 8),
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.logout_rounded),
-                  title: const Text('logout'),
-                  subtitle: const Text('sign out of your navidrome server'),
-                  onTap: _handleLogout,
-                  textColor: colorScheme.error,
-                  iconColor: colorScheme.error,
-                ),
-              ),
-              if (_appVersion.isNotEmpty) ...[
-                const SizedBox(height: 32),
-                Center(
-                  child: Text(
-                    'version $_appVersion',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant.withValues(
-                        alpha: 0.5,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 100),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
+    return const SettingsPage();
   }
 }
