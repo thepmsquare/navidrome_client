@@ -26,6 +26,7 @@ dependencies:
   sentry_flutter: ^9.18.0
   cached_network_image: ^3.4.1
   miniplayer: ^1.0.1
+  flutter_markdown: ^0.7.3
 
 dev_dependencies:
   sentry_dart_plugin: ^3.3.0
@@ -38,6 +39,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/branding/
+    - CHANGELOG.md
 
 flutter_launcher_icons:
   android: true

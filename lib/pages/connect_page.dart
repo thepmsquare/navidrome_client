@@ -5,6 +5,7 @@ import 'package:navidrome_client/services/auth_service.dart';
 import 'package:navidrome_client/utils/constants.dart';
 import 'package:navidrome_client/services/export_service.dart';
 import 'package:navidrome_client/services/session_service.dart';
+import 'package:navidrome_client/services/version_service.dart';
 
 class ConnectPage extends StatefulWidget {
   const ConnectPage({super.key});
@@ -30,6 +31,11 @@ class _ConnectPageState extends State<ConnectPage> {
   void initState() {
     super.initState();
     _urlController.addListener(_onUrlChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        VersionService().checkAndShowGreeting(context);
+      }
+    });
   }
 
   void _onUrlChanged() {

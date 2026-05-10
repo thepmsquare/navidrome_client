@@ -21,6 +21,7 @@ import 'package:miniplayer/miniplayer.dart';
 import 'package:navidrome_client/components/mini_player_view.dart';
 import 'package:navidrome_client/components/player_view.dart';
 import 'package:navidrome_client/pages/settings/settings_page.dart';
+import 'package:navidrome_client/services/version_service.dart';
 
 enum LibraryView { home, albums, playlists, tracks, artists }
 
@@ -90,6 +91,9 @@ class _HomePageState extends State<HomePage> {
       // restore playback session once API is ready
       if (_apiService != null) {
         PlayerService().restoreSession(_apiService!);
+      }
+      if (mounted) {
+        VersionService().checkAndShowGreeting(context);
       }
     });
 

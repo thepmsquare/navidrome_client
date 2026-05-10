@@ -12,6 +12,7 @@ class SessionService {
   static const String _keyAutoDownloadPlayed = 'auto_download_played';
   static const String _keyAutoDownloadMaxBytes = 'auto_download_max_bytes';
   static const String _keyAutoDownloadLruEvict = 'auto_download_lru_evict';
+  static const String _keyLastVersion = 'last_version';
 
   static final SessionService _instance = SessionService._internal();
   factory SessionService() => _instance;
@@ -55,6 +56,16 @@ class SessionService {
   Future<void> setLastLibraryView(String view) async {
     final prefs = await _getPrefs;
     await prefs.setString(_keyLastLibraryView, view);
+  }
+
+  Future<String?> get lastVersion async {
+    final prefs = await _getPrefs;
+    return prefs.getString(_keyLastVersion);
+  }
+
+  Future<void> setLastVersion(String version) async {
+    final prefs = await _getPrefs;
+    await prefs.setString(_keyLastVersion, version);
   }
 
   // ---------------------------------------------------------------------------

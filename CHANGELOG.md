@@ -5,6 +5,7 @@
 - add padding bottom to settings page.
 - simplify settings by moving common options into submenus (downloads and advanced).
 - update default: 'stop playback on task removal' is now on by default.
+- make the version number in settings page clickable to show changelog.
 
 ## 1.0.0+12
 
