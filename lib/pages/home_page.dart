@@ -21,6 +21,8 @@ import 'package:miniplayer/miniplayer.dart';
 import 'package:navidrome_client/components/mini_player_view.dart';
 import 'package:navidrome_client/components/player_view.dart';
 import 'package:navidrome_client/pages/settings/settings_page.dart';
+import 'package:navidrome_client/pages/sync_page.dart';
+
 import 'package:navidrome_client/services/version_service.dart';
 
 enum LibraryView { home, albums, playlists, tracks, artists }
@@ -69,6 +71,7 @@ class _HomePageState extends State<HomePage> {
   bool _isUniversalSearching = false;
 
   final List<GlobalKey<NavigatorState>> _navigatorKeys = [
+    GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
@@ -304,7 +307,7 @@ class _HomePageState extends State<HomePage> {
                 Expanded(
                   child: IndexedStack(
                     index: _selectedIndex,
-                    children: List.generate(4, (index) {
+                    children: List.generate(5, (index) {
                       return Navigator(
                         key: _navigatorKeys[index],
                         onGenerateRoute: (settings) {
@@ -318,6 +321,8 @@ class _HomePageState extends State<HomePage> {
                                 case 2:
                                   return _buildSearchView();
                                 case 3:
+                                  return _buildSyncView();
+                                case 4:
                                   return _buildSettingsView();
                                 default:
                                   return const SizedBox.shrink();
@@ -442,6 +447,10 @@ class _HomePageState extends State<HomePage> {
                 NavigationDestination(
                   icon: Icon(Icons.search_rounded),
                   label: 'search',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.sync_rounded),
+                  label: 'sync',
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.settings_rounded),
@@ -807,6 +816,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   // Old builders removed
+
+  Widget _buildSyncView() {
+    return const SyncPage();
+  }
 
   Widget _buildSettingsView() {
     return const SettingsPage();
