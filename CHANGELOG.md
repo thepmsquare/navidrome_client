@@ -1,5 +1,9 @@
 # changelog
 
+## 1.0.0+14 (in progress)
+
+- add list of songs being played on other devices in the sync page. (experimental).
+
 ## 1.0.0+13
 
 - add padding bottom to settings page.

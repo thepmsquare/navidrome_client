@@ -133,8 +133,6 @@ class PlayerService with WidgetsBindingObserver {
   }
 
   Future<void> _saveCurrentPosition() async {
-    // Only persist a non-zero position. Writing 0 during buffering would
-    // clobber a valid restored position on the next app launch.
     final pos = _player.position;
     if (pos > Duration.zero) {
       await _sessionService.setLastPositionMs(pos.inMilliseconds);

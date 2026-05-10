@@ -438,4 +438,29 @@ class ApiService {
 
     return songs is Map ? [Map<String, dynamic>.from(songs)] : List<Map<String, dynamic>>.from(songs);
   }
+
+  Future<List<Map<String, dynamic>>> getNowPlaying() async {
+    final response = await _get('getNowPlaying');
+    final nowPlaying = response['nowPlaying'];
+    if (nowPlaying == null) return [];
+
+    final entries = nowPlaying['entry'];
+    if (entries == null) return [];
+
+    if (entries is Map) {
+      return [Map<String, dynamic>.from(entries)];
+    }
+
+    return List<Map<String, dynamic>>.from(entries);
+  }
+
+  Future<Map<String, dynamic>> getPlayQueue() async {
+    try {
+      final response = await _get('getPlayQueue');
+      return response['playQueue'] ?? {};
+    } catch (e) {
+      debugPrint('getPlayQueue failed: $e');
+      return {};
+    }
+  }
 }
