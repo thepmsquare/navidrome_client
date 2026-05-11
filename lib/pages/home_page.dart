@@ -56,6 +56,7 @@ class _HomePageState extends State<HomePage> {
 
   List<Map<String, dynamic>> _mostPlayedAlbums = [];
   List<Map<String, dynamic>> _randomTracks = [];
+  List<Map<String, dynamic>> _homeSections = [];
   bool _isLoadingHome = false;
   // bool _isFetchingMore = false;
   ApiService? _apiService;
@@ -128,17 +129,34 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadSessionState() async {
     final isFirstRun = await _sessionService.isFirstRun;
+    final homeSections = await _sessionService.homeSections;
+
     if (!isFirstRun) {
       final tabIndex = await _sessionService.lastTabIndex;
 
       if (mounted) {
         setState(() {
           _selectedIndex = tabIndex;
+          _homeSections = homeSections;
         });
       }
     } else {
       // mark first run as complete after first render
       await _sessionService.setNotFirstRun();
+      if (mounted) {
+        setState(() {
+          _homeSections = homeSections;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadHomeSections() async {
+    final homeSections = await _sessionService.homeSections;
+    if (mounted) {
+      setState(() {
+        _homeSections = homeSections;
+      });
     }
   }
 
@@ -428,6 +446,9 @@ class _HomePageState extends State<HomePage> {
                 } else {
                   setState(() => _selectedIndex = index);
                   _sessionService.setLastTabIndex(index);
+                  if (index == 0) {
+                    _loadHomeSections();
+                  }
                 }
                 if (index == 2) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -488,84 +509,18 @@ class _HomePageState extends State<HomePage> {
                 child: ListView(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   children: [
-                    // Most Played Section
-                    if (_mostPlayedAlbums.isNotEmpty) ...[
-                      _buildSectionHeader('most played'),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 220,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          scrollDirection: Axis.horizontal,
-                          itemCount: _mostPlayedAlbums.length,
-                          separatorBuilder: (context, index) =>
-                              const SizedBox(width: 16),
-                          itemBuilder: (context, index) {
-                            final album = _mostPlayedAlbums[index];
-                            final heroTag = 'most_played_${album['id']}';
-                            return AlbumTile(
-                              album: album,
-                              apiService: _apiService!,
-                              heroTag: heroTag,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => AlbumDetailsPage(
-                                      album: album,
-                                      apiService: _apiService!,
-                                      heroTag: heroTag,
-                                    ),
-                                  ),
-                                );
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                    ],
-
-                    // Random Tracks Section
-                    if (_randomTracks.isNotEmpty) ...[
-                      _buildSectionHeader(
-                        'random tracks',
-                        trailing: IconButton(
-                          icon: const Icon(Icons.refresh_rounded, size: 20),
-                          onPressed: _refreshRandomTracks,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        padding: EdgeInsets.zero,
-                        itemCount: _randomTracks.length,
-                        itemBuilder: (context, index) {
-                          final track = _randomTracks[index];
-                          final String? coverArtId = track['coverArt']
-                              ?.toString();
-                          final String? coverArtUrl =
-                              _apiService != null && coverArtId != null
-                              ? _apiService!.getCoverArtUrl(coverArtId)
-                              : null;
-
-                          return TrackListItem(
-                            track: track,
-                            coverArtUrl: coverArtUrl,
-                            apiService: _apiService,
-                            onTap: () {
-                              PlayerService().play(
-                                _randomTracks,
-                                index,
-                                _apiService!,
-                              );
-                            },
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 100), // padding for mini player
-                    ],
+                    ..._homeSections
+                        .where((s) => s['visible'] == true)
+                        .map((section) {
+                      final id = section['id'];
+                      if (id == 'most_played') {
+                        return _buildMostPlayedSection();
+                      } else if (id == 'random_tracks') {
+                        return _buildRandomTracksSection();
+                      }
+                      return const SizedBox.shrink();
+                    }),
+                    const SizedBox(height: 100), // padding for mini player
                   ],
                 ),
               ),
@@ -815,7 +770,90 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Old builders removed
+  Widget _buildMostPlayedSection() {
+    if (_mostPlayedAlbums.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('most played'),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 220,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            scrollDirection: Axis.horizontal,
+            itemCount: _mostPlayedAlbums.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 16),
+            itemBuilder: (context, index) {
+              final album = _mostPlayedAlbums[index];
+              final heroTag = 'most_played_${album['id']}';
+              return AlbumTile(
+                album: album,
+                apiService: _apiService!,
+                heroTag: heroTag,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AlbumDetailsPage(
+                        album: album,
+                        apiService: _apiService!,
+                        heroTag: heroTag,
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  Widget _buildRandomTracksSection() {
+    if (_randomTracks.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader(
+          'random tracks',
+          trailing: IconButton(
+            icon: const Icon(Icons.refresh_rounded, size: 20),
+            onPressed: _refreshRandomTracks,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          itemCount: _randomTracks.length,
+          itemBuilder: (context, index) {
+            final track = _randomTracks[index];
+            final String? coverArtId = track['coverArt']?.toString();
+            final String? coverArtUrl = _apiService != null && coverArtId != null
+                ? _apiService!.getCoverArtUrl(coverArtId)
+                : null;
+
+            return TrackListItem(
+              track: track,
+              coverArtUrl: coverArtUrl,
+              apiService: _apiService,
+              onTap: () {
+                PlayerService().play(
+                  _randomTracks,
+                  index,
+                  _apiService!,
+                );
+              },
+            );
+          },
+        ),
+      ],
+    );
+  }
 
   Widget _buildSyncView() {
     return const SyncPage();

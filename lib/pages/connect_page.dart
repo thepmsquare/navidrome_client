@@ -130,6 +130,12 @@ class _ConnectPageState extends State<ConnectPage> {
       if (data['stop_playback_on_task_removed'] != null) {
         await SessionService().setStopPlaybackOnTaskRemoved(data['stop_playback_on_task_removed'] as bool);
       }
+      if (data['home_sections'] != null) {
+        final List<dynamic> homeSections = data['home_sections'];
+        await SessionService().setHomeSections(
+          homeSections.map((e) => Map<String, dynamic>.from(e as Map)).toList(),
+        );
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

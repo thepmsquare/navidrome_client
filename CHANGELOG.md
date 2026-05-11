@@ -3,6 +3,7 @@
 ## 1.0.0+14 (in progress)
 
 - add list of songs being played on other devices in the sync page. (experimental).
+- add support to reorder and hide sections in home page.
 
 ## 1.0.0+13
 

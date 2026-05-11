@@ -20,6 +20,7 @@ class ExportService {
         'username': await _authService.username,
         'password': await _authService.password,
         'stop_playback_on_task_removed': await _sessionService.stopPlaybackOnTaskRemoved,
+        'home_sections': await _sessionService.homeSections,
         'export_date': DateTime.now().toIso8601String(),
         'version': 1,
       };

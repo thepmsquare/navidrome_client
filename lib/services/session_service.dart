@@ -12,6 +12,7 @@ class SessionService {
   static const String _keyAutoDownloadPlayed = 'auto_download_played';
   static const String _keyAutoDownloadMaxBytes = 'auto_download_max_bytes';
   static const String _keyAutoDownloadLruEvict = 'auto_download_lru_evict';
+  static const String _keyHomeSections = 'home_sections';
   static const String _keyLastVersion = 'last_version';
 
   static final SessionService _instance = SessionService._internal();
@@ -161,6 +162,35 @@ class SessionService {
   Future<void> setAutoDownloadLruEvict(bool value) async {
     final prefs = await _getPrefs;
     await prefs.setBool(_keyAutoDownloadLruEvict, value);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Home Page
+  // ---------------------------------------------------------------------------
+
+  Future<List<Map<String, dynamic>>> get homeSections async {
+    final prefs = await _getPrefs;
+    final data = prefs.getString(_keyHomeSections);
+    if (data == null) {
+      return [
+        {'id': 'most_played', 'visible': true},
+        {'id': 'random_tracks', 'visible': true},
+      ];
+    }
+    try {
+      final decoded = jsonDecode(data) as List;
+      return decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } catch (_) {
+      return [
+        {'id': 'most_played', 'visible': true},
+        {'id': 'random_tracks', 'visible': true},
+      ];
+    }
+  }
+
+  Future<void> setHomeSections(List<Map<String, dynamic>> sections) async {
+    final prefs = await _getPrefs;
+    await prefs.setString(_keyHomeSections, jsonEncode(sections));
   }
 }
 

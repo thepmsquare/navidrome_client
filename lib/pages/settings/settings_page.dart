@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:navidrome_client/pages/settings/advanced_settings_page.dart';
 import 'package:navidrome_client/pages/settings/downloads_settings_page.dart';
+import 'package:navidrome_client/pages/settings/home_page_settings_page.dart';
 import 'package:navidrome_client/services/auth_service.dart';
 import 'package:navidrome_client/services/event_log_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
@@ -102,6 +103,20 @@ class _SettingsPageState extends State<SettingsPage> {
                           context,
                           MaterialPageRoute(
                             builder: (context) => const DownloadsSettingsPage(),
+                          ),
+                        );
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.home_max_rounded),
+                      title: const Text('home page'),
+                      subtitle: const Text('rearrange and hide home sections'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const HomePageSettingsPage(),
                           ),
                         );
                       },
