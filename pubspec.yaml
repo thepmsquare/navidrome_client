@@ -1,7 +1,7 @@
 name: navidrome_client
 description: "a client for navidrome server for android platform."
 publish_to: "none"
-version: 1.0.0+14
+version: 1.0.0+15
 
 environment:
   sdk: ^3.11.4
@@ -27,6 +27,7 @@ dependencies:
   cached_network_image: ^3.4.1
   miniplayer: ^1.0.1
   flutter_markdown: ^0.7.3
+  fuzzy: ^0.5.1
 
 dev_dependencies:
   sentry_dart_plugin: ^3.3.0

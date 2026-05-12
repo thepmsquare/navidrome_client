@@ -4,6 +4,7 @@
 
 - add list of songs being played on other devices in the sync page. (experimental).
 - add support to reorder and hide sections in home page.
+- implement fuzzy search across the app.
 
 ## 1.0.0+13
 

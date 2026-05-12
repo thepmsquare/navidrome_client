@@ -3,6 +3,7 @@ import 'package:navidrome_client/components/artist_list_item.dart';
 import 'package:navidrome_client/pages/artist_details_page.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
+import 'package:navidrome_client/utils/search_utils.dart';
 
 class ArtistsPage extends StatefulWidget {
   final ApiService apiService;
@@ -81,12 +82,27 @@ class _ArtistsPageState extends State<ArtistsPage> {
           _hasMore = false;
         }
       } else {
-        newArtists = await widget.apiService.searchArtists(
-          _searchQuery,
-          count: _limit,
-          offset: _offset,
-        );
-        if (newArtists.length < _limit) _hasMore = false;
+        if (_isOfflineMode) {
+          final cached = _artists;
+          _hasMore = false;
+          newArtists = SearchUtils.fuzzySearch(
+            cached,
+            _searchQuery,
+            keys: ['name'],
+          );
+        } else {
+          final results = await widget.apiService.searchArtists(
+            _searchQuery,
+            count: _limit,
+            offset: _offset,
+          );
+          newArtists = SearchUtils.reRank(
+            results,
+            _searchQuery,
+            keys: ['name'],
+          );
+          if (results.length < _limit) _hasMore = false;
+        }
       }
 
       if ((_offset == 0 || refresh) && _searchQuery.isEmpty) {

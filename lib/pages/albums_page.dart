@@ -4,6 +4,7 @@ import 'package:navidrome_client/components/album_list_item.dart';
 import 'package:navidrome_client/pages/album_details_page.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
+import 'package:navidrome_client/utils/search_utils.dart';
 
 class AlbumsPage extends StatefulWidget {
   final ApiService apiService;
@@ -79,11 +80,29 @@ class _AlbumsPageState extends State<AlbumsPage> {
     try {
       final newAlbums = _searchQuery.isEmpty
           ? await widget.apiService.getAlbums(count: _limit, offset: _offset)
-          : await widget.apiService.searchAlbums(
-              _searchQuery,
-              count: _limit,
-              offset: _offset,
-            );
+          : _isOfflineMode
+              ? (() {
+                  final cached = _albums; // in offline mode, _albums is already loaded from cache or displayed
+                  // however, we want to search within the WHOLE cache
+                  _hasMore = false;
+                  return SearchUtils.fuzzySearch(
+                    cached,
+                    _searchQuery,
+                    keys: ['name', 'artist'],
+                  );
+                })()
+              : await (() async {
+                  final results = await widget.apiService.searchAlbums(
+                    _searchQuery,
+                    count: _limit,
+                    offset: _offset,
+                  );
+                  return SearchUtils.reRank(
+                    results,
+                    _searchQuery,
+                    keys: ['name', 'artist'],
+                  );
+                })();
 
       if (_offset == 0 || refresh) {
         await OfflineService().saveAlbumListCache(newAlbums);

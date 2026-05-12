@@ -24,6 +24,7 @@ import 'package:navidrome_client/pages/settings/settings_page.dart';
 import 'package:navidrome_client/pages/sync_page.dart';
 
 import 'package:navidrome_client/services/version_service.dart';
+import 'package:navidrome_client/utils/search_utils.dart';
 
 enum LibraryView { home, albums, playlists, tracks, artists }
 
@@ -260,9 +261,21 @@ class _HomePageState extends State<HomePage> {
       final results = await _apiService!.searchAll(query);
       if (mounted) {
         setState(() {
-          _universalSearchArtists = results['artists']!;
-          _universalSearchAlbums = results['albums']!;
-          _universalSearchTracks = results['songs']!;
+          _universalSearchArtists = SearchUtils.reRank(
+            results['artists']!,
+            query,
+            keys: ['name'],
+          );
+          _universalSearchAlbums = SearchUtils.reRank(
+            results['albums']!,
+            query,
+            keys: ['name', 'artist'],
+          );
+          _universalSearchTracks = SearchUtils.reRank(
+            results['songs']!,
+            query,
+            keys: ['title', 'artist', 'album'],
+          );
           _isUniversalSearching = false;
         });
       }

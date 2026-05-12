@@ -5,6 +5,7 @@ import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
 import 'package:navidrome_client/services/player_service.dart';
 import 'package:navidrome_client/pages/home_page.dart' show TrackSortOrder;
+import 'package:navidrome_client/utils/search_utils.dart';
 
 class TracksPage extends StatefulWidget {
   final ApiService apiService;
@@ -115,7 +116,30 @@ class _TracksPageState extends State<TracksPage> {
           newTracks = await widget.apiService.searchSongs('*', count: _limit, offset: _offset);
         }
       } else {
-        newTracks = await widget.apiService.searchSongs(_searchQuery, count: _limit, offset: _offset);
+        if (_isOfflineMode) {
+          final cached = await OfflineService().getCachedTrackList();
+          if (cached != null) {
+            newTracks = SearchUtils.fuzzySearch(
+              cached,
+              _searchQuery,
+              keys: ['title', 'artist', 'album'],
+            );
+            _hasMore = false;
+          } else {
+            newTracks = [];
+          }
+        } else {
+          final results = await widget.apiService.searchSongs(
+            _searchQuery,
+            count: _limit,
+            offset: _offset,
+          );
+          newTracks = SearchUtils.reRank(
+            results,
+            _searchQuery,
+            keys: ['title', 'artist', 'album'],
+          );
+        }
       }
 
       if (_offset == 0 || refresh) {
