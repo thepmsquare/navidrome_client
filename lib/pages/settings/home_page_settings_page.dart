@@ -39,6 +39,8 @@ class _HomePageSettingsPageState extends State<HomePageSettingsPage> {
         return 'most played';
       case 'random_tracks':
         return 'random tracks';
+      case 'recently_played':
+        return 'recently played';
       default:
         return id;
     }
@@ -50,6 +52,8 @@ class _HomePageSettingsPageState extends State<HomePageSettingsPage> {
         return Icons.history_rounded;
       case 'random_tracks':
         return Icons.shuffle_rounded;
+      case 'recently_played':
+        return Icons.history_rounded;
       default:
         return Icons.drag_handle_rounded;
     }

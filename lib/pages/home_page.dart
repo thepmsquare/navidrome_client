@@ -57,6 +57,7 @@ class _HomePageState extends State<HomePage> {
 
   List<Map<String, dynamic>> _mostPlayedAlbums = [];
   List<Map<String, dynamic>> _randomTracks = [];
+  List<Map<String, dynamic>> _recentlyPlayedAlbums = [];
   List<Map<String, dynamic>> _homeSections = [];
   bool _isLoadingHome = false;
   // bool _isFetchingMore = false;
@@ -182,12 +183,14 @@ class _HomePageState extends State<HomePage> {
       final results = await Future.wait([
         _apiService!.getAlbums(type: 'frequent', count: 20),
         _apiService!.getRandomSongs(count: 10),
+        _apiService!.getAlbums(type: 'recent', count: 20),
       ]);
 
       if (mounted) {
         setState(() {
           _mostPlayedAlbums = results[0];
           _randomTracks = results[1];
+          _recentlyPlayedAlbums = results[2];
           _isLoadingHome = false;
         });
       }
@@ -530,6 +533,8 @@ class _HomePageState extends State<HomePage> {
                         return _buildMostPlayedSection();
                       } else if (id == 'random_tracks') {
                         return _buildRandomTracksSection();
+                      } else if (id == 'recently_played') {
+                        return _buildRecentlyPlayedSection();
                       }
                       return const SizedBox.shrink();
                     }),
@@ -864,6 +869,48 @@ class _HomePageState extends State<HomePage> {
             );
           },
         ),
+      ],
+    );
+  }
+
+  Widget _buildRecentlyPlayedSection() {
+    if (_recentlyPlayedAlbums.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('recently played'),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 220,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            scrollDirection: Axis.horizontal,
+            itemCount: _recentlyPlayedAlbums.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 16),
+            itemBuilder: (context, index) {
+              final album = _recentlyPlayedAlbums[index];
+              final heroTag = 'recently_played_${album['id']}';
+              return AlbumTile(
+                album: album,
+                apiService: _apiService!,
+                heroTag: heroTag,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AlbumDetailsPage(
+                        album: album,
+                        apiService: _apiService!,
+                        heroTag: heroTag,
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 24),
       ],
     );
   }

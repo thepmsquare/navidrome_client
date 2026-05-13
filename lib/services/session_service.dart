@@ -175,15 +175,24 @@ class SessionService {
       return [
         {'id': 'most_played', 'visible': true},
         {'id': 'random_tracks', 'visible': true},
+        {'id': 'recently_played', 'visible': true},
       ];
     }
     try {
       final decoded = jsonDecode(data) as List;
-      return decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      final sections = decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      
+      // Ensure recently_played is present (for existing users)
+      if (!sections.any((s) => s['id'] == 'recently_played')) {
+        sections.add({'id': 'recently_played', 'visible': true});
+      }
+      
+      return sections;
     } catch (_) {
       return [
         {'id': 'most_played', 'visible': true},
         {'id': 'random_tracks', 'visible': true},
+        {'id': 'recently_played', 'visible': true},
       ];
     }
   }

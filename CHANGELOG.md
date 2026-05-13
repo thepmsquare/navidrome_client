@@ -1,10 +1,11 @@
 # changelog
 
-## 1.0.0+14 (in progress)
+## 1.0.0+14
 
 - add list of songs being played on other devices in the sync page. (experimental).
 - add support to reorder and hide sections in home page.
 - implement fuzzy search across the app.
+- add recently played albums section to the homepage.
 
 ## 1.0.0+13
 
