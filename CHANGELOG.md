@@ -1,5 +1,9 @@
 # changelog
 
+## 1.0.0+15 (in progress)
+
+- fix logout functionality.
+
 ## 1.0.0+14
 
 - add list of songs being played on other devices in the sync page. (experimental).

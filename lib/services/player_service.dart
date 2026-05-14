@@ -429,6 +429,13 @@ class PlayerService with WidgetsBindingObserver {
     _log.log('queue cleared', level: EventLogLevel.info);
   }
 
+  Future<void> reset() async {
+    await clearQueue();
+    _lastScrobbledId = null;
+    _lastSubmittedId = null;
+    _log.log('player service reset', level: EventLogLevel.debug);
+  }
+
   Future<void> toggleShuffleMode() async {
     final enabled = !_player.shuffleModeEnabled;
     await _player.setShuffleModeEnabled(enabled);

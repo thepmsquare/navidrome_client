@@ -771,6 +771,23 @@ class OfflineService extends ChangeNotifier {
     }
   }
 
+  /// Resets in-memory state and optionally clears all downloads.
+  Future<void> clearState({bool deleteFiles = false}) async {
+    _persistenceTimer?.cancel();
+    if (deleteFiles) {
+      await clearAllDownloads();
+    } else {
+      _offlineTrackIds.clear();
+      _explicitOfflineTrackIds.clear();
+      _offlineAlbumIds.clear();
+      _offlinePlaylistIds.clear();
+      _autoDownloadOrder.clear();
+    }
+    _isOfflineMode = false;
+    offlineModeNotifier.value = false;
+    notifyListeners();
+  }
+
   /// #11: Clear all music downloads and specific metadata, but preserve internal list caches.
   Future<void> clearAllDownloads() async {
     final base = await _getStoragePath();

@@ -55,7 +55,54 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _handleLogout() async {
-    await PlayerService().clearQueue();
+    final deleteDownloads = await showDialog<bool?>(
+      context: context,
+      builder: (context) {
+        bool delete = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('logout'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('are you sure you want to sign out?'),
+                  const SizedBox(height: 16),
+                  CheckboxListTile(
+                    title: const Text('delete offline downloads'),
+                    value: delete,
+                    onChanged: (val) =>
+                        setDialogState(() => delete = val ?? false),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, delete),
+                  child: Text(
+                    'logout',
+                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (deleteDownloads == null) return;
+
+    await PlayerService().reset();
+    await OfflineService().clearState(deleteFiles: deleteDownloads);
+    EventLogService().clear();
     await _authService.logout();
     if (mounted) Navigator.pushReplacementNamed(context, '/connect');
   }
