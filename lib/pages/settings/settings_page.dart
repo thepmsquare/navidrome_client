@@ -104,7 +104,10 @@ class _SettingsPageState extends State<SettingsPage> {
     await OfflineService().clearState(deleteFiles: deleteDownloads);
     EventLogService().clear();
     await _authService.logout();
-    if (mounted) Navigator.pushReplacementNamed(context, '/connect');
+    if (mounted) {
+      Navigator.of(context, rootNavigator: true)
+          .pushReplacementNamed('/connect');
+    }
   }
 
   @override
