@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:navidrome_client/services/api_service.dart';
+import 'package:navidrome_client/services/lyrics_service.dart';
 import 'package:background_downloader/background_downloader.dart';
 
 class OfflineService extends ChangeNotifier {
@@ -110,10 +111,12 @@ class OfflineService extends ChangeNotifier {
     final tracksDir = Directory('${baseDir.path}/offline/tracks');
     final coversDir = Directory('${baseDir.path}/offline/covers');
     final metaDir = Directory('${baseDir.path}/offline/meta');
+    final lyricsDir = Directory('${baseDir.path}/offline/lyrics');
 
     await tracksDir.create(recursive: true);
     await coversDir.create(recursive: true);
     await metaDir.create(recursive: true);
+    await lyricsDir.create(recursive: true);
 
     _cachedStoragePath = '${baseDir.path}/offline';
     return _cachedStoragePath!;
@@ -123,6 +126,7 @@ class OfflineService extends ChangeNotifier {
   String _coverPath(String basePath, String coverArtId) => '$basePath/covers/$coverArtId.jpg';
   String _albumMetaPath(String basePath, String albumId) => '$basePath/meta/album_$albumId.json';
   String _playlistMetaPath(String basePath, String playlistId) => '$basePath/meta/playlist_$playlistId.json';
+  String _lyricsPath(String basePath, String trackId) => '$basePath/lyrics/$trackId.json';
   String _albumListCachePath(String basePath) => '$basePath/meta/$_albumListCacheFile';
   String _playlistListCachePath(String basePath) => '$basePath/meta/$_playlistListCacheFile';
   static String _trackListCachePath(String basePath) => '$basePath/meta/$_trackListCacheFile';
@@ -253,6 +257,44 @@ class OfflineService extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
+  // Lyrics storage
+  // ---------------------------------------------------------------------------
+
+  Future<void> downloadLyrics(Map<String, dynamic> track, ApiService apiService) async {
+    final trackId = track['id'] as String;
+    final base = await _getStoragePath();
+    final path = _lyricsPath(base, trackId);
+    
+    if (await File(path).exists()) return;
+
+    try {
+      final lyricsService = LyricsService(apiService);
+      final lyrics = await lyricsService.getLyrics(track);
+      if (lyrics != null) {
+        await File(path).writeAsString(jsonEncode(lyrics.toJson()));
+        debugPrint('saved lyrics for track $trackId');
+      }
+    } catch (e) {
+      debugPrint('failed to download lyrics for track $trackId: $e');
+    }
+  }
+
+  Future<LyricsData?> getCachedLyrics(String trackId) async {
+    try {
+      final base = await _getStoragePath();
+      final path = _lyricsPath(base, trackId);
+      final file = File(path);
+      if (!await file.exists()) return null;
+      
+      final content = await file.readAsString();
+      return LyricsData.fromJson(jsonDecode(content));
+    } catch (e) {
+      debugPrint('failed to load cached lyrics for track $trackId: $e');
+      return null;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Offline tracks size & LRU eviction
   // ---------------------------------------------------------------------------
 
@@ -282,6 +324,8 @@ class OfflineService extends ChangeNotifier {
       final base = await _getStoragePath();
       final file = File(_trackPath(base, oldest));
       if (await file.exists()) await file.delete();
+      final lyricsFile = File(_lyricsPath(base, oldest));
+      if (await lyricsFile.exists()) await lyricsFile.delete();
       _offlineTrackIds.remove(oldest);
       _requestPersistence();
       notifyListeners();
@@ -343,6 +387,9 @@ class OfflineService extends ChangeNotifier {
         if (coverArtId != null) {
           await downloadCoverArt(coverArtId, apiService);
         }
+
+        // download and save lyrics
+        await downloadLyrics(track, apiService);
 
         _offlineTrackIds.add(trackId);
         if (isExplicit) {
@@ -503,6 +550,9 @@ class OfflineService extends ChangeNotifier {
     final base = await _getStoragePath();
     final file = File(_trackPath(base, trackId));
     if (await file.exists()) await file.delete();
+
+    final lyricsFile = File(_lyricsPath(base, trackId));
+    if (await lyricsFile.exists()) await lyricsFile.delete();
 
     _offlineTrackIds.remove(trackId);
     _explicitOfflineTrackIds.remove(trackId);
@@ -795,12 +845,15 @@ class OfflineService extends ChangeNotifier {
     // Clear tracks and covers
     final tracksDir = Directory('$base/tracks');
     final coversDir = Directory('$base/covers');
+    final lyricsDir = Directory('$base/lyrics');
     if (await tracksDir.exists()) await tracksDir.delete(recursive: true);
     if (await coversDir.exists()) await coversDir.delete(recursive: true);
+    if (await lyricsDir.exists()) await lyricsDir.delete(recursive: true);
 
     // Recreate empty directories
     await tracksDir.create(recursive: true);
     await coversDir.create(recursive: true);
+    await lyricsDir.create(recursive: true);
 
     // Surgical clear of meta directory
     final metaDir = Directory('$base/meta');

@@ -2,11 +2,22 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:navidrome_client/services/api_service.dart';
+import 'package:navidrome_client/services/offline_service.dart';
 
 class LyricLine {
   final Duration time;
   final String text;
   LyricLine(this.time, this.text);
+
+  Map<String, dynamic> toJson() => {
+        'timeMs': time.inMilliseconds,
+        'text': text,
+      };
+
+  factory LyricLine.fromJson(Map<String, dynamic> json) => LyricLine(
+        Duration(milliseconds: json['timeMs'] as int),
+        json['text'] as String,
+      );
 }
 
 class LyricsData {
@@ -14,6 +25,19 @@ class LyricsData {
   final List<LyricLine>? synced;
   LyricsData({this.plain, this.synced});
   bool get hasSynced => synced != null && synced!.isNotEmpty;
+
+  Map<String, dynamic> toJson() => {
+        'plain': plain,
+        'synced': synced?.map((l) => l.toJson()).toList(),
+      };
+
+  factory LyricsData.fromJson(Map<String, dynamic> json) {
+    final syncedJson = json['synced'] as List?;
+    return LyricsData(
+      plain: json['plain'] as String?,
+      synced: syncedJson?.map((l) => LyricLine.fromJson(Map<String, dynamic>.from(l))).toList(),
+    );
+  }
 }
 
 class LyricsService {
@@ -29,6 +53,15 @@ class LyricsService {
     final duration = (track['duration'] as num?)?.toInt() ?? 0;
 
     if (title.isEmpty || artist.isEmpty) return null;
+    
+    final trackId = track['id']?.toString();
+    if (trackId != null) {
+      final offlineLyrics = await OfflineService().getCachedLyrics(trackId);
+      if (offlineLyrics != null) {
+        debugPrint('using offline lyrics for track $trackId');
+        return offlineLyrics;
+      }
+    }
 
     // 1. Try Navidrome
     try {

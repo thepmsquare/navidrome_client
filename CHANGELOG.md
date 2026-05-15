@@ -3,6 +3,7 @@
 ## 1.0.0+15 (in progress)
 
 - fix logout functionality.
+- download lyrics on song download.
 
 ## 1.0.0+14
 
