@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:audio_session/audio_session.dart';
+import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:just_audio_background/just_audio_background.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/event_log_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
@@ -14,6 +14,7 @@ class PlayerService with WidgetsBindingObserver {
   factory PlayerService() => _instance;
 
   final AudioPlayer _player = AudioPlayer();
+  AudioPlayer get player => _player;
   List<Map<String, dynamic>> _currentQueue = [];
   ConcatenatingAudioSource? _playlist;
   ApiService? _apiService;
@@ -28,16 +29,35 @@ class PlayerService with WidgetsBindingObserver {
   // Cached audio session reference for re-activation on resume.
   AudioSession? _audioSession;
 
+  late final Future<void> _initFuture;
+  bool _isInitialized = false;
+
   PlayerService._internal() {
-    _init();
+    _initFuture = _init();
+  }
+
+  Future<void> ensureInitialized() async {
+    await _initFuture;
   }
 
   Future<void> _init() async {
+    if (_isInitialized) return;
     WidgetsBinding.instance.addObserver(this);
     final session = await AudioSession.instance;
     _audioSession = session;
-    await session.configure(const AudioSessionConfiguration.music());
-    await session.setActive(true);
+    await session.configure(const AudioSessionConfiguration(
+      avAudioSessionCategory: AVAudioSessionCategory.playback,
+      avAudioSessionMode: AVAudioSessionMode.defaultMode,
+      avAudioSessionRouteSharingPolicy: AVAudioSessionRouteSharingPolicy.defaultPolicy,
+      avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.none,
+      androidAudioAttributes: AndroidAudioAttributes(
+        contentType: AndroidAudioContentType.music,
+        usage: AndroidAudioUsage.media,
+      ),
+      androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
+    ));
+    // Note: We don't call setActive(true) here anymore. 
+    // We'll call it right before we actually start playing.
 
     // handle audio interruptions (phone calls, navigation prompts, other apps)
     session.interruptionEventStream.listen((event) {
@@ -62,12 +82,18 @@ class PlayerService with WidgetsBindingObserver {
       }
     });
 
+    session.becomingNoisyEventStream.listen((_) {
+      _log.log('audio becoming noisy (headphones unplugged), pausing', level: EventLogLevel.info);
+      _player.pause();
+    });
+
     // load initial setting for stopping playback on task removal
     _stopPlaybackOnTaskRemoved = await _sessionService.stopPlaybackOnTaskRemoved;
 
     // Bug 1 fix: use ?.toString() ?? '' instead of `as String` to avoid _TypeError
     // on null or non-String id values (some Subsonic implementations return int ids).
     _player.currentIndexStream.listen((index) {
+      _log.log('player index changed to $index', level: EventLogLevel.debug);
       if (index != null && index >= 0 && index < _currentQueue.length) {
         _sessionService.setLastIndex(index);
         final track = _currentQueue[index];
@@ -98,7 +124,9 @@ class PlayerService with WidgetsBindingObserver {
     });
 
     _player.playbackEventStream.listen(
-      (_) {},
+      (event) {
+        _log.log('playback event: ${event.processingState}, position: ${event.updatePosition}', level: EventLogLevel.debug);
+      },
       onError: (Object e, StackTrace st) {
         _log.log('playback event error', level: EventLogLevel.error, error: e, stackTrace: st);
         // attempt to skip past a broken/unreachable track so the queue continues
@@ -110,6 +138,8 @@ class PlayerService with WidgetsBindingObserver {
 
     // periodic position saving
     _positionSaveTimer = Timer.periodic(sessionSaveInterval, (_) => _saveCurrentPosition());
+
+    _isInitialized = true;
     _log.log('player service initialised', level: EventLogLevel.debug);
   }
 
@@ -139,7 +169,6 @@ class PlayerService with WidgetsBindingObserver {
     }
   }
 
-  AudioPlayer get player => _player;
   List<Map<String, dynamic>> get currentQueue => _currentQueue;
 
   Stream<int?> get currentIndexStream => _player.currentIndexStream;
@@ -156,6 +185,8 @@ class PlayerService with WidgetsBindingObserver {
   }
 
   Future<void> play(List<Map<String, dynamic>> queue, int initialIndex, ApiService apiService) async {
+    await ensureInitialized();
+
     // Check if the new queue is the same as the current one.
     bool isSameQueue = _currentQueue.length == queue.length && _currentQueue.isNotEmpty;
     if (isSameQueue) {
@@ -169,6 +200,7 @@ class PlayerService with WidgetsBindingObserver {
 
     if (isSameQueue) {
       try {
+        await _audioSession?.setActive(true);
         await _player.seek(Duration.zero, index: initialIndex);
         await _player.play();
         return;
@@ -198,9 +230,15 @@ class PlayerService with WidgetsBindingObserver {
     }
 
     try {
-      await _player.stop();
       _playlist = playlist;
+      // Do NOT call _player.stop() here — just_audio handles stopping
+      // internally when setAudioSource is called with a new source.
+      // Calling stop() first causes just_audio_background to reset its
+      // AudioHandler state, briefly clearing the MediaSession queue and
+      // breaking headphone skip gestures.
       await _player.setAudioSource(playlist, initialIndex: initialIndex);
+      _log.log('activating audio session', level: EventLogLevel.info);
+      await _audioSession?.setActive(true);
       await _player.play();
       _log.log('playback started', level: EventLogLevel.info);
     } catch (e, st) {
@@ -214,6 +252,7 @@ class PlayerService with WidgetsBindingObserver {
   }
 
   Future<void> restoreSession(ApiService apiService) async {
+    await ensureInitialized();
     _log.log('restoring playback session', level: EventLogLevel.info);
     final queue = await _sessionService.lastQueue;
     if (queue == null || queue.isEmpty) {
@@ -299,6 +338,9 @@ class PlayerService with WidgetsBindingObserver {
         title: (track['title']?.toString()) ?? 'unknown',
         artist: track['artist']?.toString(),
         artUri: artUri,
+        duration: Duration(
+          seconds: int.tryParse(track['duration']?.toString() ?? '0') ?? 0,
+        ),
       );
 
       playlistList.add(
@@ -323,13 +365,34 @@ class PlayerService with WidgetsBindingObserver {
     );
   }
 
-  Future<void> pause() => _player.pause();
-  Future<void> resume() => _player.play();
-  Future<void> stop() => _player.stop();
-  Future<void> seek(Duration position) => _player.seek(position);
-  Future<void> seekToIndex(int index) => _player.seek(Duration.zero, index: index);
-  Future<void> skipToNext() => _player.seekToNext();
-  Future<void> skipToPrevious() => _player.seekToPrevious();
+  Future<void> pause() {
+    _log.log('pause requested', level: EventLogLevel.info);
+    return _player.pause();
+  }
+  Future<void> resume() {
+    _log.log('resume requested', level: EventLogLevel.info);
+    return _player.play();
+  }
+  Future<void> stop() {
+    _log.log('stop requested', level: EventLogLevel.info);
+    return _player.stop();
+  }
+  Future<void> seek(Duration position) {
+    _log.log('seek requested to $position', level: EventLogLevel.info);
+    return _player.seek(position);
+  }
+  Future<void> seekToIndex(int index) {
+    _log.log('seek to index $index requested', level: EventLogLevel.info);
+    return _player.seek(Duration.zero, index: index);
+  }
+  Future<void> skipToNext() {
+    _log.log('skip to next requested', level: EventLogLevel.info);
+    return _player.seekToNext();
+  }
+  Future<void> skipToPrevious() {
+    _log.log('skip to previous requested', level: EventLogLevel.info);
+    return _player.seekToPrevious();
+  }
 
   void setStopPlaybackOnTaskRemoved(bool value) {
     _stopPlaybackOnTaskRemoved = value;

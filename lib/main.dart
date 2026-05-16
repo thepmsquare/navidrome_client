@@ -2,7 +2,9 @@ import 'dart:io' show Platform;
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
-import 'package:just_audio_background/just_audio_background.dart';
+import 'package:audio_service/audio_service.dart';
+import 'package:navidrome_client/services/audio_handler.dart';
+import 'package:navidrome_client/services/player_service.dart';
 import 'package:navidrome_client/pages/connect_page.dart';
 import 'package:navidrome_client/pages/home_page.dart';
 import 'package:navidrome_client/services/auth_service.dart';
@@ -28,14 +30,17 @@ void main() async {
       // #11: load stop playback setting for android initialization
       final stopPlaybackOnTaskRemoved = results[0] as bool;
 
-      await JustAudioBackground.init(
-        androidNotificationChannelId: 'com.ryanheise.audioservice.audio',
-        androidNotificationChannelName: 'audio playback',
-        // On Android, if stopPlaybackOnTaskRemoved is true, we make the notification
-        // non-ongoing so it can be automatically dismissed or swiped away properly.
-        androidNotificationOngoing:
-            Platform.isAndroid ? !stopPlaybackOnTaskRemoved : true,
-        androidNotificationIcon: 'drawable/ic_notification',
+      final playerService = PlayerService();
+      await AudioService.init(
+        builder: () => NavidromeAudioHandler(playerService.player),
+        config: AudioServiceConfig(
+          androidNotificationChannelId: 'com.thepmsquare.navidrome_client.playback',
+          androidNotificationChannelName: 'audio playback',
+          androidNotificationOngoing: Platform.isAndroid ? !stopPlaybackOnTaskRemoved : true,
+          androidNotificationIcon: 'mipmap/ic_launcher',
+          androidStopForegroundOnPause: false,
+          preloadArtwork: true,
+        ),
       );
 
       final authService = AuthService();

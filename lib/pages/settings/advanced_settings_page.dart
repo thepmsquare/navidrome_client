@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:navidrome_client/pages/event_log_page.dart';
+import 'package:navidrome_client/services/audio_handler.dart';
 import 'package:navidrome_client/services/event_log_service.dart';
 import 'package:navidrome_client/services/export_service.dart';
 import 'package:navidrome_client/services/player_service.dart';
@@ -17,6 +18,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
   final _sessionService = SessionService();
   final _eventLog = EventLogService();
   bool _stopPlaybackOnTaskRemoved = true;
+  bool _legacyHeadsetMultiClick = true;
   int _logErrorCount = 0;
 
   @override
@@ -44,9 +46,11 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
 
   Future<void> _loadSettings() async {
     final stopPlayback = await _sessionService.stopPlaybackOnTaskRemoved;
+    final legacyHeadset = await _sessionService.legacyHeadsetMultiClick;
     if (mounted) {
       setState(() {
         _stopPlaybackOnTaskRemoved = stopPlayback;
+        _legacyHeadsetMultiClick = legacyHeadset;
       });
     }
   }
@@ -57,6 +61,16 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
     if (mounted) {
       setState(() {
         _stopPlaybackOnTaskRemoved = value;
+      });
+    }
+  }
+
+  Future<void> _toggleLegacyHeadsetMultiClick(bool value) async {
+    await _sessionService.setLegacyHeadsetMultiClick(value);
+    NavidromeAudioHandler.instance?.setLegacyHeadsetMultiClick(value);
+    if (mounted) {
+      setState(() {
+        _legacyHeadsetMultiClick = value;
       });
     }
   }
@@ -85,6 +99,22 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
                 ),
                 value: _stopPlaybackOnTaskRemoved,
                 onChanged: _toggleStopPlaybackOnTaskRemoved,
+              ),
+            ),
+          if (Platform.isAndroid)
+            const SizedBox(height: 8),
+          if (Platform.isAndroid)
+            Card(
+              child: SwitchListTile(
+                secondary: const Icon(Icons.headset_rounded),
+                title: const Text(
+                  'legacy headset multi-click controls',
+                ),
+                subtitle: const Text(
+                  'enable double/triple tap skip for generic headsets that only send play/pause clicks',
+                ),
+                value: _legacyHeadsetMultiClick,
+                onChanged: _toggleLegacyHeadsetMultiClick,
               ),
             ),
           const SizedBox(height: 8),
