@@ -14,8 +14,6 @@ class SessionService {
   static const String _keyAutoDownloadLruEvict = 'auto_download_lru_evict';
   static const String _keyHomeSections = 'home_sections';
   static const String _keyLastVersion = 'last_version';
-  static const String _keyLegacyHeadsetMultiClick = 'legacy_headset_multi_click';
-  static const String _keyQueueMigrationComplete = 'queue_migration_complete';
 
   static final SessionService _instance = SessionService._internal();
   factory SessionService() => _instance;
@@ -71,21 +69,10 @@ class SessionService {
     await prefs.setString(_keyLastVersion, version);
   }
 
-  Future<bool> get isQueueMigrationComplete async {
-    final prefs = await _getPrefs;
-    return prefs.getBool(_keyQueueMigrationComplete) ?? false;
-  }
-
-  Future<void> setQueueMigrationComplete() async {
-    final prefs = await _getPrefs;
-    await prefs.setBool(_keyQueueMigrationComplete, true);
-  }
-
   // ---------------------------------------------------------------------------
   // Playback
   // ---------------------------------------------------------------------------
 
-  @Deprecated('use authoritative sqlite database queue instead')
   Future<List<Map<String, dynamic>>?> get lastQueue async {
     final prefs = await _getPrefs;
     final data = prefs.getString(_keyLastQueue);
@@ -98,7 +85,6 @@ class SessionService {
     }
   }
 
-  @Deprecated('use authoritative sqlite database queue instead')
   Future<void> setLastQueue(List<Map<String, dynamic>> queue) async {
     final prefs = await _getPrefs;
     await prefs.setString(_keyLastQueue, jsonEncode(queue));
@@ -176,16 +162,6 @@ class SessionService {
   Future<void> setAutoDownloadLruEvict(bool value) async {
     final prefs = await _getPrefs;
     await prefs.setBool(_keyAutoDownloadLruEvict, value);
-  }
-
-  Future<bool> get legacyHeadsetMultiClick async {
-    final prefs = await _getPrefs;
-    return prefs.getBool(_keyLegacyHeadsetMultiClick) ?? true;
-  }
-
-  Future<void> setLegacyHeadsetMultiClick(bool value) async {
-    final prefs = await _getPrefs;
-    await prefs.setBool(_keyLegacyHeadsetMultiClick, value);
   }
 
   // ---------------------------------------------------------------------------

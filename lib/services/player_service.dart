@@ -1,24 +1,19 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:audio_session/audio_session.dart';
-import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/event_log_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
 import 'package:navidrome_client/services/session_service.dart';
 import 'package:navidrome_client/utils/constants.dart';
-import 'package:navidrome_client/domain/track.dart';
-import 'package:navidrome_client/repositories/queue_repository.dart';
-import 'package:navidrome_client/services/queue_coordinator.dart';
 
 class PlayerService with WidgetsBindingObserver {
   static final PlayerService _instance = PlayerService._internal();
   factory PlayerService() => _instance;
 
   final AudioPlayer _player = AudioPlayer();
-  AudioPlayer get player => _player;
-  final QueueRepository _queueRepository = QueueRepository();
   List<Map<String, dynamic>> _currentQueue = [];
   ConcatenatingAudioSource? _playlist;
   ApiService? _apiService;
@@ -33,35 +28,16 @@ class PlayerService with WidgetsBindingObserver {
   // Cached audio session reference for re-activation on resume.
   AudioSession? _audioSession;
 
-  late final Future<void> _initFuture;
-  bool _isInitialized = false;
-
   PlayerService._internal() {
-    _initFuture = _init();
-  }
-
-  Future<void> ensureInitialized() async {
-    await _initFuture;
+    _init();
   }
 
   Future<void> _init() async {
-    if (_isInitialized) return;
     WidgetsBinding.instance.addObserver(this);
     final session = await AudioSession.instance;
     _audioSession = session;
-    await session.configure(const AudioSessionConfiguration(
-      avAudioSessionCategory: AVAudioSessionCategory.playback,
-      avAudioSessionMode: AVAudioSessionMode.defaultMode,
-      avAudioSessionRouteSharingPolicy: AVAudioSessionRouteSharingPolicy.defaultPolicy,
-      avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.none,
-      androidAudioAttributes: AndroidAudioAttributes(
-        contentType: AndroidAudioContentType.music,
-        usage: AndroidAudioUsage.media,
-      ),
-      androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
-    ));
-    // Note: We don't call setActive(true) here anymore. 
-    // We'll call it right before we actually start playing.
+    await session.configure(const AudioSessionConfiguration.music());
+    await session.setActive(true);
 
     // handle audio interruptions (phone calls, navigation prompts, other apps)
     session.interruptionEventStream.listen((event) {
@@ -86,18 +62,12 @@ class PlayerService with WidgetsBindingObserver {
       }
     });
 
-    session.becomingNoisyEventStream.listen((_) {
-      _log.log('audio becoming noisy (headphones unplugged), pausing', level: EventLogLevel.info);
-      _player.pause();
-    });
-
     // load initial setting for stopping playback on task removal
     _stopPlaybackOnTaskRemoved = await _sessionService.stopPlaybackOnTaskRemoved;
 
     // Bug 1 fix: use ?.toString() ?? '' instead of `as String` to avoid _TypeError
     // on null or non-String id values (some Subsonic implementations return int ids).
     _player.currentIndexStream.listen((index) {
-      _log.log('player index changed to $index', level: EventLogLevel.debug);
       if (index != null && index >= 0 && index < _currentQueue.length) {
         _sessionService.setLastIndex(index);
         final track = _currentQueue[index];
@@ -128,9 +98,7 @@ class PlayerService with WidgetsBindingObserver {
     });
 
     _player.playbackEventStream.listen(
-      (event) {
-        _log.log('playback event: ${event.processingState}, position: ${event.updatePosition}', level: EventLogLevel.debug);
-      },
+      (_) {},
       onError: (Object e, StackTrace st) {
         _log.log('playback event error', level: EventLogLevel.error, error: e, stackTrace: st);
         // attempt to skip past a broken/unreachable track so the queue continues
@@ -142,21 +110,6 @@ class PlayerService with WidgetsBindingObserver {
 
     // periodic position saving
     _positionSaveTimer = Timer.periodic(sessionSaveInterval, (_) => _saveCurrentPosition());
-
-    // 1. run atomic one-time play queue migration from shared preferences
-    await _migrateLegacyQueueIfNeeded();
-
-    // 2. load initial queue from database synchronously
-    final initialTracks = await _queueRepository.getQueue();
-    _currentQueue = initialTracks.map((t) => t.toJson()).toList();
-
-    // 3. start database-authoritative queue stream subscription
-    _queueRepository.watchQueue().listen((tracks) {
-      _currentQueue = tracks.map((t) => t.toJson()).toList();
-      _log.log('player service: shadow queue mirror updated. count: ${_currentQueue.length}', level: EventLogLevel.debug);
-    });
-
-    _isInitialized = true;
     _log.log('player service initialised', level: EventLogLevel.debug);
   }
 
@@ -186,63 +139,7 @@ class PlayerService with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _migrateLegacyQueueIfNeeded() async {
-    final startTime = DateTime.now();
-    try {
-      final isComplete = await _sessionService.isQueueMigrationComplete;
-      if (isComplete) {
-        _log.log('queue migration: already completed in previous launch.', level: EventLogLevel.debug);
-        return;
-      }
-
-      final legacyQueue = await _sessionService.lastQueue;
-      if (legacyQueue == null || legacyQueue.isEmpty) {
-        _log.log('queue migration: no legacy queue to migrate.', level: EventLogLevel.info);
-        await _sessionService.setQueueMigrationComplete();
-        return;
-      }
-
-      _log.log('queue migration: starting atomic migration of ${legacyQueue.length} items...', level: EventLogLevel.info);
-
-      // parse and validate defensively using Track.fromJson
-      final tracks = <Track>[];
-      for (final raw in legacyQueue) {
-        tracks.add(Track.fromJson(raw));
-      }
-
-      final index = await _sessionService.lastIndex;
-      final safeIndex = index < tracks.length ? index : 0;
-
-      // write atomically to database using QueueRepository
-      await _queueRepository.replaceQueue(tracks);
-      
-      // set the active track index in the database table
-      if (tracks.isNotEmpty) {
-        await _queueRepository.setActiveTrack(tracks[safeIndex].id);
-      }
-
-      // verify post-migration constraints
-      final migratedQueue = await _queueRepository.getQueue();
-      final verifiedCount = migratedQueue.length;
-      final expectedCount = tracks.length;
-
-      if (verifiedCount != expectedCount) {
-        throw Exception('verification failed: queue count mismatch. expected $expectedCount, got $verifiedCount');
-      }
-
-      // successfully verified!
-      await _sessionService.setQueueMigrationComplete();
-      final duration = DateTime.now().difference(startTime);
-      _log.log('queue migration: completed successfully in ${duration.inMilliseconds}ms. count: $verifiedCount', level: EventLogLevel.info);
-    } catch (e, st) {
-      _log.log('queue migration: failed during atomic write. rolling back transaction...', level: EventLogLevel.error, error: e, stackTrace: st);
-      // clean up any database artifacts to ensure absolute rollback
-      try {
-        await _queueRepository.replaceQueue([]);
-      } catch (_) {}
-    }
-  }
-
+  AudioPlayer get player => _player;
   List<Map<String, dynamic>> get currentQueue => _currentQueue;
 
   Stream<int?> get currentIndexStream => _player.currentIndexStream;
@@ -259,118 +156,111 @@ class PlayerService with WidgetsBindingObserver {
   }
 
   Future<void> play(List<Map<String, dynamic>> queue, int initialIndex, ApiService apiService) async {
-    await ensureInitialized();
-    return QueueCoordinator().enqueue(() async {
-      _currentQueue = List.from(queue);
-      _apiService = apiService;
-      _lastScrobbledId = null;
-      _lastSubmittedId = null;
-
-      // persist session to authoritative sqlite table
-      final tracks = queue.map((raw) => Track.fromJson(raw)).toList();
-      await _queueRepository.replaceQueue(tracks);
-      if (tracks.isNotEmpty && initialIndex < tracks.length) {
-        await _queueRepository.setActiveTrack(tracks[initialIndex].id);
+    // Check if the new queue is the same as the current one.
+    bool isSameQueue = _currentQueue.length == queue.length && _currentQueue.isNotEmpty;
+    if (isSameQueue) {
+      for (int i = 0; i < queue.length; i++) {
+        if (_currentQueue[i]['id'] != queue[i]['id']) {
+          isSameQueue = false;
+          break;
+        }
       }
-      _sessionService.setLastIndex(initialIndex);
+    }
 
-      _log.log('building audio source for ${queue.length} track(s), starting at index $initialIndex', level: EventLogLevel.info);
-
-      late ConcatenatingAudioSource playlist;
+    if (isSameQueue) {
       try {
-        playlist = await _buildAudioSource(_currentQueue, apiService);
-      } catch (e, st) {
-        _log.log('failed to build audio source', level: EventLogLevel.error, error: e, stackTrace: st);
-        _currentQueue = [];
-        return;
-      }
-
-      try {
-        _playlist = playlist;
-        // Do NOT call _player.stop() here — just_audio handles stopping
-        // internally when setAudioSource is called with a new source.
-        // Calling stop() first causes just_audio_background to reset its
-        // AudioHandler state, briefly clearing the MediaSession queue and
-        // breaking headphone skip gestures.
-        await _player.setAudioSource(playlist, initialIndex: initialIndex);
-        _log.log('activating audio session', level: EventLogLevel.info);
-        await _audioSession?.setActive(true);
+        await _player.seek(Duration.zero, index: initialIndex);
         await _player.play();
-        _log.log('playback started', level: EventLogLevel.info);
+        return;
       } catch (e, st) {
-        _log.log('error loading audio source', level: EventLogLevel.error, error: e, stackTrace: st);
-        _currentQueue = [];
-        // Bug 2 fix: reset player to idle so subsequent play() calls start clean.
-        try {
-          await _player.stop();
-        } catch (_) {}
+        _log.log('error seeking to track index=$initialIndex', level: EventLogLevel.warning, error: e, stackTrace: st);
       }
-    }, 'play');
+    }
+
+    _currentQueue = List.from(queue);
+    _apiService = apiService;
+    _lastScrobbledId = null;
+    _lastSubmittedId = null;
+
+    // persist session
+    _sessionService.setLastQueue(_currentQueue);
+    _sessionService.setLastIndex(initialIndex);
+
+    _log.log('building audio source for ${queue.length} track(s), starting at index $initialIndex', level: EventLogLevel.info);
+
+    late ConcatenatingAudioSource playlist;
+    try {
+      playlist = await _buildAudioSource(_currentQueue, apiService);
+    } catch (e, st) {
+      _log.log('failed to build audio source', level: EventLogLevel.error, error: e, stackTrace: st);
+      _currentQueue = [];
+      return;
+    }
+
+    try {
+      await _player.stop();
+      _playlist = playlist;
+      await _player.setAudioSource(playlist, initialIndex: initialIndex);
+      await _player.play();
+      _log.log('playback started', level: EventLogLevel.info);
+    } catch (e, st) {
+      _log.log('error loading audio source', level: EventLogLevel.error, error: e, stackTrace: st);
+      _currentQueue = [];
+      // Bug 2 fix: reset player to idle so subsequent play() calls start clean.
+      try {
+        await _player.stop();
+      } catch (_) {}
+    }
   }
 
   Future<void> restoreSession(ApiService apiService) async {
-    await ensureInitialized();
-    return QueueCoordinator().enqueue(() async {
-      _log.log('restoring playback session', level: EventLogLevel.info);
-      final isMigrated = await _sessionService.isQueueMigrationComplete;
-      List<Map<String, dynamic>> queue;
-      if (isMigrated) {
-        final dbQueue = await _queueRepository.getQueue();
-        queue = dbQueue.map((t) => t.toJson()).toList();
-        _log.log('restoring session from authoritative database. count: ${queue.length}', level: EventLogLevel.info);
-      } else {
-        final legacy = await _sessionService.lastQueue;
-        queue = legacy ?? [];
-        _log.log('restoring session from fallback legacy storage. count: ${queue.length}', level: EventLogLevel.info);
-      }
+    _log.log('restoring playback session', level: EventLogLevel.info);
+    final queue = await _sessionService.lastQueue;
+    if (queue == null || queue.isEmpty) {
+      _log.log('no session to restore', level: EventLogLevel.debug);
+      return;
+    }
 
-      if (queue.isEmpty) {
-        _log.log('no session to restore', level: EventLogLevel.debug);
-        return;
-      }
+    final index = await _sessionService.lastIndex;
+    final positionMs = await _sessionService.lastPositionMs;
 
-      final index = await _sessionService.lastIndex;
-      final positionMs = await _sessionService.lastPositionMs;
+    _currentQueue = queue;
+    _apiService = apiService;
+    // reset scrobble guards so the first restored track is submitted correctly
+    _lastScrobbledId = null;
+    _lastSubmittedId = null;
 
-      _currentQueue = queue;
-      _apiService = apiService;
-      // reset scrobble guards so the first restored track is submitted correctly
-      _lastScrobbledId = null;
-      _lastSubmittedId = null;
+    late ConcatenatingAudioSource playlist;
+    try {
+      playlist = await _buildAudioSource(_currentQueue, apiService);
+    } catch (e, st) {
+      _log.log('failed to build audio source during session restore', level: EventLogLevel.error, error: e, stackTrace: st);
+      _currentQueue = [];
+      return;
+    }
 
-      late ConcatenatingAudioSource playlist;
+    try {
+      final safeIndex = index < queue.length ? index : 0;
+      // Bug 3 fix: clamp initialPosition to avoid out-of-range position crashing
+      // setAudioSource (track duration is unknown until loaded, so we pass the
+      // saved position and let the backend clamp it; we also guard against
+      // clearly bogus values).
+      final safePositionMs = positionMs > 0 ? positionMs : 0;
+      _playlist = playlist;
+      await _player.setAudioSource(
+        playlist,
+        initialIndex: safeIndex,
+        initialPosition: Duration(milliseconds: safePositionMs),
+      );
+      _log.log('session restored: index=$safeIndex position=${safePositionMs}ms', level: EventLogLevel.info);
+      // do not auto-play on restoration per plan
+    } catch (e, st) {
+      _log.log('error restoring session', level: EventLogLevel.error, error: e, stackTrace: st);
+      _currentQueue = [];
       try {
-        playlist = await _buildAudioSource(_currentQueue, apiService);
-      } catch (e, st) {
-        _log.log('failed to build audio source during session restore', level: EventLogLevel.error, error: e, stackTrace: st);
-        _currentQueue = [];
-        return;
-      }
-
-      try {
-        final safeIndex = index < queue.length ? index : 0;
-        // Bug 3 fix: clamp initialPosition to avoid out-of-range position crashing
-        // setAudioSource (track duration is unknown until loaded, so we pass the
-        // saved position and let the backend clamp it; we also guard against
-        // clearly bogus values).
-        final safePositionMs = positionMs > 0 ? positionMs : 0;
-        _playlist = playlist;
-        await _player.setAudioSource(
-          playlist,
-          preload: false,
-          initialIndex: safeIndex,
-          initialPosition: Duration(milliseconds: safePositionMs),
-        );
-        _log.log('session restored: index=$safeIndex position=${safePositionMs}ms', level: EventLogLevel.info);
-        // do not auto-play on restoration per plan
-      } catch (e, st) {
-        _log.log('error restoring session', level: EventLogLevel.error, error: e, stackTrace: st);
-        _currentQueue = [];
-        try {
-          await _player.stop();
-        } catch (_) {}
-      }
-    }, 'restoreSession');
+        await _player.stop();
+      } catch (_) {}
+    }
   }
 
   Future<ConcatenatingAudioSource> _buildAudioSource(List<Map<String, dynamic>> queue, ApiService apiService) async {
@@ -409,9 +299,6 @@ class PlayerService with WidgetsBindingObserver {
         title: (track['title']?.toString()) ?? 'unknown',
         artist: track['artist']?.toString(),
         artUri: artUri,
-        duration: Duration(
-          seconds: int.tryParse(track['duration']?.toString() ?? '0') ?? 0,
-        ),
       );
 
       playlistList.add(
@@ -436,34 +323,13 @@ class PlayerService with WidgetsBindingObserver {
     );
   }
 
-  Future<void> pause() {
-    _log.log('pause requested', level: EventLogLevel.info);
-    return _player.pause();
-  }
-  Future<void> resume() {
-    _log.log('resume requested', level: EventLogLevel.info);
-    return _player.play();
-  }
-  Future<void> stop() {
-    _log.log('stop requested', level: EventLogLevel.info);
-    return _player.stop();
-  }
-  Future<void> seek(Duration position) {
-    _log.log('seek requested to $position', level: EventLogLevel.info);
-    return _player.seek(position);
-  }
-  Future<void> seekToIndex(int index) {
-    _log.log('seek to index $index requested', level: EventLogLevel.info);
-    return _player.seek(Duration.zero, index: index);
-  }
-  Future<void> skipToNext() {
-    _log.log('skip to next requested', level: EventLogLevel.info);
-    return _player.seekToNext();
-  }
-  Future<void> skipToPrevious() {
-    _log.log('skip to previous requested', level: EventLogLevel.info);
-    return _player.seekToPrevious();
-  }
+  Future<void> pause() => _player.pause();
+  Future<void> resume() => _player.play();
+  Future<void> stop() => _player.stop();
+  Future<void> seek(Duration position) => _player.seek(position);
+  Future<void> seekToIndex(int index) => _player.seek(Duration.zero, index: index);
+  Future<void> skipToNext() => _player.seekToNext();
+  Future<void> skipToPrevious() => _player.seekToPrevious();
 
   void setStopPlaybackOnTaskRemoved(bool value) {
     _stopPlaybackOnTaskRemoved = value;
@@ -520,90 +386,47 @@ class PlayerService with WidgetsBindingObserver {
     }();
   }
 
-  Future<void> _verifyQueueIntegrity() async {
-    try {
-      final dbQueue = await _queueRepository.getQueue();
-      final nativePlaylistLength = _playlist?.length ?? 0;
-      final dbLength = dbQueue.length;
-
-      if (_playlist != null && dbLength != nativePlaylistLength) {
-        _log.log(
-          'queue desync warning: database length ($dbLength) does not match native playlist length ($nativePlaylistLength)!',
-          level: EventLogLevel.warning,
-        );
-        QueueCoordinator().recordDivergence();
-        // trigger safe rebuild of native playlist to ensure perfect recovery
-        final api = _apiService;
-        if (api != null && _currentQueue.isNotEmpty) {
-          _log.log('rebuilding native playlist from authoritative database to recover...', level: EventLogLevel.info);
-          QueueCoordinator().recordRebuild();
-          final safeIndex = _player.currentIndex ?? 0;
-          final playlist = await _buildAudioSource(_currentQueue, api);
-          _playlist = playlist;
-          await _player.setAudioSource(
-            playlist,
-            preload: false,
-            initialIndex: safeIndex < _currentQueue.length ? safeIndex : 0,
-          );
-        }
-      }
-    } catch (e, st) {
-      _log.log('failed to perform queue integrity verification', level: EventLogLevel.warning, error: e, stackTrace: st);
-    }
-  }
-
   Future<void> removeFromQueue(int index) async {
-    await ensureInitialized();
-    return QueueCoordinator().enqueue(() async {
-      if (index < 0 || index >= _currentQueue.length) return;
+    if (index < 0 || index >= _currentQueue.length) return;
 
-      // bail if the playlist is not loaded — mutating _currentQueue alone would
-      // create a permanent index offset between _currentQueue and the audio source
-      if (_playlist == null) return;
+    // bail if the playlist is not loaded — mutating _currentQueue alone would
+    // create a permanent index offset between _currentQueue and the audio source
+    if (_playlist == null) return;
 
-      _currentQueue.removeAt(index);
-      await _playlist!.removeAt(index);
-      await _queueRepository.removeFromQueue(index);
+    _currentQueue.removeAt(index);
+    await _playlist!.removeAt(index);
 
-      if (_currentQueue.isEmpty) {
-        await stop();
-      }
+    if (_currentQueue.isEmpty) {
+      await stop();
+    }
 
-      _log.log('removed track at index $index from queue', level: EventLogLevel.debug);
-      await _verifyQueueIntegrity();
-    }, 'removeFromQueue');
+    _sessionService.setLastQueue(_currentQueue);
+    _log.log('removed track at index $index from queue', level: EventLogLevel.debug);
   }
 
   Future<void> reorderQueue(int oldIndex, int newIndex) async {
-    await ensureInitialized();
-    return QueueCoordinator().enqueue(() async {
-      if (oldIndex < 0 || oldIndex >= _currentQueue.length) return;
-      if (newIndex < 0 || newIndex >= _currentQueue.length) return;
+    if (oldIndex < 0 || oldIndex >= _currentQueue.length) return;
+    if (newIndex < 0 || newIndex >= _currentQueue.length) return;
 
-      // bail if the playlist is not loaded to prevent index desync
-      if (_playlist == null) return;
+    // bail if the playlist is not loaded to prevent index desync
+    if (_playlist == null) return;
 
-      final item = _currentQueue.removeAt(oldIndex);
-      _currentQueue.insert(newIndex, item);
+    final item = _currentQueue.removeAt(oldIndex);
+    _currentQueue.insert(newIndex, item);
 
-      await _playlist!.move(oldIndex, newIndex);
-      await _queueRepository.reorderQueue(oldIndex, newIndex);
+    await _playlist!.move(oldIndex, newIndex);
 
-      _log.log('reordered queue: $oldIndex to $newIndex', level: EventLogLevel.debug);
-      await _verifyQueueIntegrity();
-    }, 'reorderQueue');
+    _sessionService.setLastQueue(_currentQueue);
+    _log.log('reordered queue: $oldIndex to $newIndex', level: EventLogLevel.debug);
   }
 
   Future<void> clearQueue() async {
-    await ensureInitialized();
-    return QueueCoordinator().enqueue(() async {
-      await stop();
-      _currentQueue = [];
-      _playlist = null;
-      _apiService = null;
-      await _queueRepository.replaceQueue([]);
-      _log.log('queue cleared', level: EventLogLevel.info);
-    }, 'clearQueue');
+    await stop();
+    _currentQueue = [];
+    _playlist = null;
+    _apiService = null;
+    _sessionService.setLastQueue([]);
+    _log.log('queue cleared', level: EventLogLevel.info);
   }
 
   Future<void> reset() async {
