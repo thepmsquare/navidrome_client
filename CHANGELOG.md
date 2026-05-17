@@ -5,6 +5,7 @@
 - fix logout functionality.
 - download lyrics on song download.
 - fix headset controls.
+- add test cases and improve stability.
 
 ## 1.0.0+14
 

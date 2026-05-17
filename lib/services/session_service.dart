@@ -15,6 +15,7 @@ class SessionService {
   static const String _keyHomeSections = 'home_sections';
   static const String _keyLastVersion = 'last_version';
   static const String _keyLegacyHeadsetMultiClick = 'legacy_headset_multi_click';
+  static const String _keyQueueMigrationComplete = 'queue_migration_complete';
 
   static final SessionService _instance = SessionService._internal();
   factory SessionService() => _instance;
@@ -70,10 +71,21 @@ class SessionService {
     await prefs.setString(_keyLastVersion, version);
   }
 
+  Future<bool> get isQueueMigrationComplete async {
+    final prefs = await _getPrefs;
+    return prefs.getBool(_keyQueueMigrationComplete) ?? false;
+  }
+
+  Future<void> setQueueMigrationComplete() async {
+    final prefs = await _getPrefs;
+    await prefs.setBool(_keyQueueMigrationComplete, true);
+  }
+
   // ---------------------------------------------------------------------------
   // Playback
   // ---------------------------------------------------------------------------
 
+  @deprecated
   Future<List<Map<String, dynamic>>?> get lastQueue async {
     final prefs = await _getPrefs;
     final data = prefs.getString(_keyLastQueue);
@@ -86,6 +98,7 @@ class SessionService {
     }
   }
 
+  @deprecated
   Future<void> setLastQueue(List<Map<String, dynamic>> queue) async {
     final prefs = await _getPrefs;
     await prefs.setString(_keyLastQueue, jsonEncode(queue));
