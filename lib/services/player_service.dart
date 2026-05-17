@@ -28,6 +28,15 @@ class PlayerService with WidgetsBindingObserver {
   // Cached audio session reference for re-activation on resume.
   AudioSession? _audioSession;
 
+  // Media button multi-tap detection state.
+  // Earphone double/triple taps arrive as rapid PLAY_PAUSE key events which
+  // just_audio_background translates into individual play/pause calls.  We
+  // count these rapid state-toggles and dispatch skip actions accordingly.
+  int _mediaButtonTapCount = 0;
+  Timer? _mediaButtonTapTimer;
+  bool? _mediaButtonStateBeforeTaps;
+  static const _mediaButtonTapWindow = Duration(milliseconds: 600);
+
   PlayerService._internal() {
     _init();
   }
@@ -110,6 +119,58 @@ class PlayerService with WidgetsBindingObserver {
 
     // periodic position saving
     _positionSaveTimer = Timer.periodic(sessionSaveInterval, (_) => _saveCurrentPosition());
+
+    // media button multi-tap detection.
+    // earphone double/triple taps arrive as rapid PLAY_PAUSE key events.
+    // we watch for rapid playing-state toggles and coalesce them into skip
+    // actions.  a single tap is left as a normal play/pause.
+    _player.playerStateStream.listen((state) {
+      // don't interfere during audio interruptions
+      if (_audioInterruptionActive) return;
+      // only detect when we have a queue loaded
+      if (_currentQueue.isEmpty) return;
+
+      final isPlaying = state.playing;
+      _mediaButtonTapCount++;
+
+      if (_mediaButtonTapCount == 1) {
+        // first tap — remember the state before any taps so we can
+        // restore it if we need to cancel the play/pause side-effect
+        _mediaButtonStateBeforeTaps = !isPlaying;
+      }
+
+      _mediaButtonTapTimer?.cancel();
+      _mediaButtonTapTimer = Timer(_mediaButtonTapWindow, () {
+        final taps = _mediaButtonTapCount;
+        final wasPlaying = _mediaButtonStateBeforeTaps ?? false;
+        _mediaButtonTapCount = 0;
+        _mediaButtonStateBeforeTaps = null;
+
+        if (taps == 2) {
+          _log.log(
+            'media button double-tap detected — skip to next',
+            level: EventLogLevel.debug,
+          );
+          // restore original play state then skip
+          if (wasPlaying && !_player.playing) {
+            _player.play();
+          }
+          _player.seekToNext();
+        } else if (taps >= 3) {
+          _log.log(
+            'media button triple-tap detected — skip to previous',
+            level: EventLogLevel.debug,
+          );
+          // restore original play state then skip back
+          if (wasPlaying && !_player.playing) {
+            _player.play();
+          }
+          _player.seekToPrevious();
+        }
+        // taps == 1 → normal play/pause, already handled by just_audio
+      });
+    });
+
     _log.log('player service initialised', level: EventLogLevel.debug);
   }
 
@@ -483,6 +544,7 @@ class PlayerService with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _positionSaveTimer?.cancel();
+    _mediaButtonTapTimer?.cancel();
     _player.dispose();
   }
 }

@@ -4,6 +4,7 @@
 
 - fix logout functionality.
 - download lyrics on song download.
+- add custom multi-tap detection for media buttons (earphone double/triple taps).
 
 ## 1.0.0+14
 
