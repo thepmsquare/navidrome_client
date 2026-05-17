@@ -15,7 +15,8 @@ import 'package:navidrome_client/utils/constants.dart';
 void main() async {
   await SentryFlutter.init(
     (options) {
-      options.dsn = 'https://2b0b77baab7bf5de9dd39d82ac52b6ac@o4511263909740544.ingest.de.sentry.io/4511263935103056';
+      options.dsn =
+          'https://2b0b77baab7bf5de9dd39d82ac52b6ac@o4511263909740544.ingest.de.sentry.io/4511263935103056';
       options.tracesSampleRate = 1.0;
     },
     appRunner: () async {
@@ -34,11 +35,18 @@ void main() async {
       await AudioService.init(
         builder: () => NavidromeAudioHandler(playerService.player),
         config: AudioServiceConfig(
-          androidNotificationChannelId: 'com.thepmsquare.navidrome_client.playback',
+          androidNotificationChannelId:
+              'com.thepmsquare.navidrome_client.playback',
           androidNotificationChannelName: 'audio playback',
-          androidNotificationOngoing: Platform.isAndroid ? !stopPlaybackOnTaskRemoved : true,
+          androidNotificationOngoing: Platform.isAndroid
+              ? !stopPlaybackOnTaskRemoved
+              : true,
           androidNotificationIcon: 'mipmap/ic_launcher',
-          androidStopForegroundOnPause: false,
+          // audio_service requires: !androidNotificationOngoing || androidStopForegroundOnPause
+          // so this must be at least as true as androidNotificationOngoing.
+          androidStopForegroundOnPause: Platform.isAndroid
+              ? !stopPlaybackOnTaskRemoved
+              : true,
           preloadArtwork: true,
         ),
       );
@@ -105,10 +113,7 @@ class MyApp extends StatelessWidget {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                color: lightColorScheme.primary,
-                width: 2,
-              ),
+              borderSide: BorderSide(color: lightColorScheme.primary, width: 2),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 24,
@@ -117,10 +122,7 @@ class MyApp extends StatelessWidget {
           ),
           filledButtonTheme: FilledButtonThemeData(
             style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 32,
-                vertical: 16,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -156,10 +158,7 @@ class MyApp extends StatelessWidget {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                color: darkColorScheme.primary,
-                width: 2,
-              ),
+              borderSide: BorderSide(color: darkColorScheme.primary, width: 2),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 24,
@@ -168,10 +167,7 @@ class MyApp extends StatelessWidget {
           ),
           filledButtonTheme: FilledButtonThemeData(
             style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 32,
-                vertical: 16,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -184,9 +180,7 @@ class MyApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: baseTheme,
           darkTheme: baseDarkTheme,
-          navigatorObservers: [
-            SentryNavigatorObserver(),
-          ],
+          navigatorObservers: [SentryNavigatorObserver()],
           initialRoute: isLoggedIn ? '/home' : '/connect',
           routes: {
             '/connect': (context) => const ConnectPage(),

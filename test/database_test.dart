@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/native.dart';
-import 'package:drift/drift.dart';
 import 'package:navidrome_client/domain/track.dart';
 import 'package:navidrome_client/services/database/app_database.dart';
 

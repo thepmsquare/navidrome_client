@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:navidrome_client/repositories/queue_repository.dart';
 import 'package:navidrome_client/services/event_log_service.dart';
 
 class QueueCoordinator {
@@ -7,7 +6,6 @@ class QueueCoordinator {
   factory QueueCoordinator() => _instance;
   QueueCoordinator._internal();
 
-  final QueueRepository _repository = QueueRepository();
   final _log = EventLogService();
 
   // Sequential task chain. Each new task is appended to this future.

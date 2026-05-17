@@ -261,28 +261,6 @@ class PlayerService with WidgetsBindingObserver {
   Future<void> play(List<Map<String, dynamic>> queue, int initialIndex, ApiService apiService) async {
     await ensureInitialized();
     return QueueCoordinator().enqueue(() async {
-      // Check if the new queue is the same as the current one.
-      bool isSameQueue = _currentQueue.length == queue.length && _currentQueue.isNotEmpty;
-      if (isSameQueue) {
-        for (int i = 0; i < queue.length; i++) {
-          if (_currentQueue[i]['id'] != queue[i]['id']) {
-            isSameQueue = false;
-            break;
-          }
-        }
-      }
-
-      if (isSameQueue) {
-        try {
-          await _audioSession?.setActive(true);
-          await _player.seek(Duration.zero, index: initialIndex);
-          await _player.play();
-          return;
-        } catch (e, st) {
-          _log.log('error seeking to track index=$initialIndex', level: EventLogLevel.warning, error: e, stackTrace: st);
-        }
-      }
-
       _currentQueue = List.from(queue);
       _apiService = apiService;
       _lastScrobbledId = null;
@@ -379,6 +357,7 @@ class PlayerService with WidgetsBindingObserver {
         _playlist = playlist;
         await _player.setAudioSource(
           playlist,
+          preload: false,
           initialIndex: safeIndex,
           initialPosition: Duration(milliseconds: safePositionMs),
         );
@@ -561,7 +540,11 @@ class PlayerService with WidgetsBindingObserver {
           final safeIndex = _player.currentIndex ?? 0;
           final playlist = await _buildAudioSource(_currentQueue, api);
           _playlist = playlist;
-          await _player.setAudioSource(playlist, initialIndex: safeIndex < _currentQueue.length ? safeIndex : 0);
+          await _player.setAudioSource(
+            playlist,
+            preload: false,
+            initialIndex: safeIndex < _currentQueue.length ? safeIndex : 0,
+          );
         }
       }
     } catch (e, st) {

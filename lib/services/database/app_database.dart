@@ -44,7 +44,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase._internal() : super(_openConnection());
 
   @visibleForTesting
-  AppDatabase.testing(QueryExecutor executor) : super(executor);
+  AppDatabase.testing(super.executor);
 
   @override
   int get schemaVersion => 1;

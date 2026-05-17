@@ -85,7 +85,7 @@ class SessionService {
   // Playback
   // ---------------------------------------------------------------------------
 
-  @deprecated
+  @Deprecated('use authoritative sqlite database queue instead')
   Future<List<Map<String, dynamic>>?> get lastQueue async {
     final prefs = await _getPrefs;
     final data = prefs.getString(_keyLastQueue);
@@ -98,7 +98,7 @@ class SessionService {
     }
   }
 
-  @deprecated
+  @Deprecated('use authoritative sqlite database queue instead')
   Future<void> setLastQueue(List<Map<String, dynamic>> queue) async {
     final prefs = await _getPrefs;
     await prefs.setString(_keyLastQueue, jsonEncode(queue));
