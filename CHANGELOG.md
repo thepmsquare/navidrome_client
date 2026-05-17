@@ -1,10 +1,11 @@
 # changelog
 
-## 1.0.0+15 (in progress)
+## 1.0.0+15
 
 - fix logout functionality.
 - download lyrics on song download.
 - add custom multi-tap detection for media buttons (earphone double/triple taps).
+- no internet and offline mode are now separate states.
 
 ## 1.0.0+14
 

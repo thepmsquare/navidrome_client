@@ -40,7 +40,8 @@ class OfflineService extends ChangeNotifier {
   List<String> _autoDownloadOrder = [];
 
   // #20: notify UI of offline mode changes
-  final ValueNotifier<bool> offlineModeNotifier = ValueNotifier(false);
+  // OfflineState distinguishes between user-toggled and no-internet-triggered
+  final ValueNotifier<OfflineState> offlineModeNotifier = ValueNotifier(OfflineState.online);
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
 
   // #12: track active downloads for cancellation and controller cleanup
@@ -68,15 +69,21 @@ class OfflineService extends ChangeNotifier {
     _offlineAlbumIds = Set<String>.from(prefs.getStringList(_offlineAlbumsKey) ?? []);
     _offlinePlaylistIds = Set<String>.from(prefs.getStringList(_offlinePlaylistsKey) ?? []);
     _isOfflineMode = prefs.getBool(_offlineModeKey) ?? false;
-    offlineModeNotifier.value = _isOfflineMode;
+    offlineModeNotifier.value = _isOfflineMode
+        ? (_isAutoOffline ? OfflineState.offlineNoInternet : OfflineState.offlineManual)
+        : OfflineState.online;
     _autoDownloadOrder = List<String>.from(prefs.getStringList(_autoDownloadOrderKey) ?? []);
     _isInitialized = true;
 
-    // automatic check on startup
-    final connectivity = await Connectivity().checkConnectivity();
-    if (connectivity.contains(ConnectivityResult.none) && !_isOfflineMode) {
-      await setOfflineMode(true, isAuto: true, persist: false);
-    }
+    // automatic check on startup — delay briefly to let the network stack
+    // settle after a cold start (connectivity_plus can briefly report 'none'
+    // before the OS has finished reconnecting).
+    Future.delayed(const Duration(seconds: 2), () async {
+      final connectivity = await Connectivity().checkConnectivity();
+      if (connectivity.contains(ConnectivityResult.none) && !_isOfflineMode) {
+        await setOfflineMode(true, isAuto: true, persist: false);
+      }
+    });
 
     // start listening for changes
     _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
@@ -806,7 +813,9 @@ class OfflineService extends ChangeNotifier {
   Future<void> setOfflineMode(bool value, {bool isAuto = false, bool persist = true}) async {
     _isOfflineMode = value;
     _isAutoOffline = value ? isAuto : false;
-    offlineModeNotifier.value = value;
+    offlineModeNotifier.value = value
+        ? (isAuto ? OfflineState.offlineNoInternet : OfflineState.offlineManual)
+        : OfflineState.online;
     if (persist) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_offlineModeKey, value);
@@ -819,6 +828,18 @@ class OfflineService extends ChangeNotifier {
     if (!_isOfflineMode) {
       setOfflineMode(true, isAuto: true, persist: false);
     }
+  }
+
+  /// Re-checks connectivity and exits offline mode if a connection is
+  /// available. Returns true if the retry succeeded (back online).
+  Future<bool> retryConnection() async {
+    final results = await Connectivity().checkConnectivity();
+    final hasConnection = !results.contains(ConnectivityResult.none);
+    if (hasConnection && _isOfflineMode && _isAutoOffline) {
+      await setOfflineMode(false, persist: false);
+      return true;
+    }
+    return false;
   }
 
   /// Resets in-memory state and optionally clears all downloads.
@@ -834,7 +855,7 @@ class OfflineService extends ChangeNotifier {
       _autoDownloadOrder.clear();
     }
     _isOfflineMode = false;
-    offlineModeNotifier.value = false;
+    offlineModeNotifier.value = OfflineState.online;
     notifyListeners();
   }
 
@@ -883,6 +904,16 @@ class OfflineService extends ChangeNotifier {
     _requestPersistence();
     notifyListeners();
   }
+}
+
+// ---------------------------------------------------------------------------
+// Offline state — distinguishes user-toggled from no-internet auto-toggle
+// ---------------------------------------------------------------------------
+
+enum OfflineState {
+  online,
+  offlineManual,
+  offlineNoInternet,
 }
 
 // ---------------------------------------------------------------------------

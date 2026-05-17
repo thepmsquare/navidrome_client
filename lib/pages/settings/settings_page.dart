@@ -126,14 +126,14 @@ class _SettingsPageState extends State<SettingsPage> {
             padding: const EdgeInsets.all(16),
             children: [
               Card(
-                child: ValueListenableBuilder<bool>(
+                child: ValueListenableBuilder<OfflineState>(
                   valueListenable: OfflineService().offlineModeNotifier,
-                  builder: (context, isOffline, child) {
+                  builder: (context, state, child) {
                     return SwitchListTile(
                       secondary: const Icon(Icons.offline_pin_rounded),
                       title: const Text('offline mode'),
                       subtitle: const Text('only show downloaded content'),
-                      value: isOffline,
+                      value: state != OfflineState.online,
                       onChanged: (value) => OfflineService().setOfflineMode(value),
                     );
                   },
