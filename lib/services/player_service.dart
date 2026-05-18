@@ -35,6 +35,7 @@ class PlayerService with WidgetsBindingObserver {
   int _mediaButtonTapCount = 0;
   Timer? _mediaButtonTapTimer;
   bool? _mediaButtonStateBeforeTaps;
+  bool _lastKnownPlaying = false;
   static const _mediaButtonTapWindow = Duration(milliseconds: 600);
 
   PlayerService._internal() {
@@ -129,8 +130,19 @@ class PlayerService with WidgetsBindingObserver {
       if (_audioInterruptionActive) return;
       // only detect when we have a queue loaded
       if (_currentQueue.isEmpty) return;
+      // only count actual play/pause toggles — ignore state transitions
+      // from setAudioSource (idle→loading→ready) which would otherwise be
+      // misdetected as rapid media-button taps and trigger auto-play.
+      if (state.processingState != ProcessingState.ready) return;
 
       final isPlaying = state.playing;
+
+      // only count when the playing boolean actually flips — a ready-state
+      // emission without a toggle (e.g. from setAudioSource finishing) must
+      // not be counted as a media-button tap.
+      if (isPlaying == _lastKnownPlaying) return;
+      _lastKnownPlaying = isPlaying;
+
       _mediaButtonTapCount++;
 
       if (_mediaButtonTapCount == 1) {
@@ -494,6 +506,10 @@ class PlayerService with WidgetsBindingObserver {
     await clearQueue();
     _lastScrobbledId = null;
     _lastSubmittedId = null;
+    _mediaButtonTapTimer?.cancel();
+    _mediaButtonTapCount = 0;
+    _mediaButtonStateBeforeTaps = null;
+    _lastKnownPlaying = false;
     _log.log('player service reset', level: EventLogLevel.debug);
   }
 

@@ -1,5 +1,9 @@
 # changelog
 
+## 1.0.0+16
+
+- fix bug that autoplays music on startup.
+
 ## 1.0.0+15
 
 - fix logout functionality.
