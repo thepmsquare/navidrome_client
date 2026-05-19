@@ -4,6 +4,13 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:navidrome_client/services/session_service.dart';
 
+class ChangelogEntry {
+  final String version;
+  final String notes;
+
+  const ChangelogEntry({required this.version, required this.notes});
+}
+
 class VersionService {
   static final VersionService _instance = VersionService._internal();
   factory VersionService() => _instance;
@@ -19,6 +26,8 @@ class VersionService {
 
     final sessionService = SessionService();
     final lastVersion = await sessionService.lastVersion;
+
+    if (!context.mounted) return;
 
     if (lastVersion != null && lastVersion != currentVersion) {
       await showChangelog(context, currentVersion);
@@ -39,7 +48,26 @@ class VersionService {
     }
 
     _isShowing = true;
-    final notes = await _getChangelogForVersion(targetVersion);
+    final entries = await getAllChangelogEntries();
+
+    ChangelogEntry? targetEntry;
+    final List<ChangelogEntry> previousEntries = [];
+
+    bool foundTarget = false;
+    for (var entry in entries) {
+      if (entry.version == targetVersion) {
+        targetEntry = entry;
+        foundTarget = true;
+      } else if (foundTarget) {
+        previousEntries.add(entry);
+      }
+    }
+
+    if (targetEntry == null) {
+      targetEntry = ChangelogEntry(version: targetVersion, notes: '');
+      previousEntries.addAll(entries);
+    }
+
     if (context.mounted) {
       await showDialog(
         context: context,
@@ -57,13 +85,46 @@ class VersionService {
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                if (notes.isEmpty)
+                if (targetEntry!.notes.isEmpty)
                   Text('bug fixes and performance improvements'.toLowerCase())
                 else
                   MarkdownBody(
-                    data: notes.toLowerCase(),
+                    data: targetEntry.notes.toLowerCase(),
                     shrinkWrap: true,
                   ),
+                if (previousEntries.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  Text(
+                    "previous versions:".toLowerCase(),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  ...previousEntries.map((entry) {
+                    return ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      childrenPadding: const EdgeInsets.only(left: 8, bottom: 8),
+                      shape: const Border(),
+                      collapsedShape: const Border(),
+                      title: Text(
+                        "version ${entry.version}".toLowerCase(),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                      children: [
+                        if (entry.notes.isEmpty)
+                          Text('bug fixes and performance improvements'.toLowerCase())
+                        else
+                          MarkdownBody(
+                            data: entry.notes.toLowerCase(),
+                            shrinkWrap: true,
+                          ),
+                      ],
+                    );
+                  }),
+                ],
               ],
             ),
           ),
@@ -79,27 +140,39 @@ class VersionService {
     _isShowing = false;
   }
 
-  Future<String> _getChangelogForVersion(String version) async {
+  Future<List<ChangelogEntry>> getAllChangelogEntries() async {
     try {
       final changelog = await rootBundle.loadString('CHANGELOG.md');
       final lines = changelog.split('\n');
+      final List<ChangelogEntry> entries = [];
+
+      String currentVersion = '';
       final StringBuffer buffer = StringBuffer();
-      bool foundVersion = false;
 
       for (var line in lines) {
-        if (line.startsWith('## ') && line.contains(version)) {
-          foundVersion = true;
-          continue;
-        }
-        if (foundVersion) {
-          if (line.startsWith('## ')) break;
+        if (line.startsWith('## ')) {
+          if (currentVersion.isNotEmpty) {
+            entries.add(ChangelogEntry(
+              version: currentVersion,
+              notes: buffer.toString().trim(),
+            ));
+            buffer.clear();
+          }
+          currentVersion = line.replaceAll('## ', '').trim();
+        } else if (currentVersion.isNotEmpty) {
           buffer.writeln(line);
         }
       }
-      return buffer.toString().trim();
+      if (currentVersion.isNotEmpty) {
+        entries.add(ChangelogEntry(
+          version: currentVersion,
+          notes: buffer.toString().trim(),
+        ));
+      }
+      return entries;
     } catch (e) {
       debugPrint('failed to load changelog: $e');
-      return '';
+      return [];
     }
   }
 }

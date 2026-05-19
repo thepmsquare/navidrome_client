@@ -1,5 +1,9 @@
 # changelog
 
+## 1.0.0+17 (in progress)
+
+- update whats new widget to show previous release notes.
+
 ## 1.0.0+16
 
 - fix bug that autoplays music on startup.
