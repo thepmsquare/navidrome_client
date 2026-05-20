@@ -1,5 +1,7 @@
 # changelog
 
+## 1.1.0+18
+
 ## 1.0.0+17
 
 - update whats new widget to show previous release notes.

@@ -1,7 +1,7 @@
 name: navidrome_client
-description: "a client for navidrome server for android platform."
+description: "a client for navidrome server for android and windows platforms."
 publish_to: "none"
-version: 1.0.0+17
+version: 1.1.0+18
 
 environment:
   sdk: ^3.11.4
@@ -17,13 +17,14 @@ dependencies:
   just_audio: ^0.9.46
   audio_session: ^0.1.25
   just_audio_background: ^0.0.1-beta.17
+  just_audio_windows: ^0.2.3
   path_provider: ^2.1.2
   dio: ^5.4.1
   connectivity_plus: ^6.1.1
   background_downloader: ^9.5.4
   file_picker: ^8.1.4
   package_info_plus: ^8.1.0
-  sentry_flutter: ^9.18.0
+  sentry_flutter: ^8.14.2
   cached_network_image: ^3.4.1
   miniplayer: ^1.0.1
   flutter_markdown: ^0.7.3

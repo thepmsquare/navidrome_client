@@ -28,15 +28,17 @@ void main() async {
       // #11: load stop playback setting for android initialization
       final stopPlaybackOnTaskRemoved = results[0] as bool;
 
-      await JustAudioBackground.init(
-        androidNotificationChannelId: 'com.ryanheise.audioservice.audio',
-        androidNotificationChannelName: 'audio playback',
-        // On Android, if stopPlaybackOnTaskRemoved is true, we make the notification
-        // non-ongoing so it can be automatically dismissed or swiped away properly.
-        androidNotificationOngoing:
-            Platform.isAndroid ? !stopPlaybackOnTaskRemoved : true,
-        androidNotificationIcon: 'drawable/ic_notification',
-      );
+      if (Platform.isAndroid || Platform.isIOS) {
+        await JustAudioBackground.init(
+          androidNotificationChannelId: 'com.ryanheise.audioservice.audio',
+          androidNotificationChannelName: 'audio playback',
+          // On Android, if stopPlaybackOnTaskRemoved is true, we make the notification
+          // non-ongoing so it can be automatically dismissed or swiped away properly.
+          androidNotificationOngoing:
+              Platform.isAndroid ? !stopPlaybackOnTaskRemoved : true,
+          androidNotificationIcon: 'drawable/ic_notification',
+        );
+      }
 
       final authService = AuthService();
       final isLoggedIn = await authService.isLoggedIn;
