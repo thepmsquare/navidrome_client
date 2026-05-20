@@ -1,8 +1,10 @@
 # changelog
 
-## 1.1.0+18 (in progress)
+## 1.1.0+18
 
 - add option to quick view lyrics if available.
+- rename download songs to save offline across the app.
+- add actual "download song" option in music player page to save songs in file system.
 
 ## 1.0.0+17
 
@@ -16,7 +18,7 @@
 ## 1.0.0+15
 
 - fix logout functionality.
-- download lyrics on song download.
+- save lyrics offline on saving songs offline.
 - add custom multi-tap detection for media buttons (earphone double/triple taps).
 - no internet and offline mode are now separate states.
 
@@ -30,7 +32,7 @@
 ## 1.0.0+13
 
 - add padding bottom to settings page.
-- simplify settings by moving common options into submenus (downloads and advanced).
+- simplify settings by moving common options into submenus (offline saves and advanced).
 - update default: 'stop playback on task removal' is now on by default.
 - make the version number in settings page clickable to show changelog.
 - add a placeholder sync page to explore cross-device playback synchronization.
@@ -45,7 +47,7 @@
 - bug fix: stop music play on log out.
 - cache network images and other performance tweaks.
 - remove offline mode from profile exports.
-- add auto-download played songs with configurable storage cap and lru eviction (both on by default).
+- add auto-save offline played songs with configurable storage cap and lru eviction (both on by default).
 - bug fix: prevent playback from stopping on unlock after a song transition while locked.
 
 ## 1.0.0+10

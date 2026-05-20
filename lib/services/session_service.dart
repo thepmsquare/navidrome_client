@@ -9,9 +9,9 @@ class SessionService {
   static const String _keyLastIndex = 'last_playback_index';
   static const String _keyLastPosition = 'last_playback_position_ms';
   static const String _keyStopPlaybackOnTaskRemoved = 'stop_playback_on_task_removed';
-  static const String _keyAutoDownloadPlayed = 'auto_download_played';
-  static const String _keyAutoDownloadMaxBytes = 'auto_download_max_bytes';
-  static const String _keyAutoDownloadLruEvict = 'auto_download_lru_evict';
+  static const String _keyAutoSaveOfflinePlayed = 'auto_save_offline_played';
+  static const String _keyAutoSaveOfflineMaxBytes = 'auto_save_offline_max_bytes';
+  static const String _keyAutoSaveOfflineLruEvict = 'auto_save_offline_lru_evict';
   static const String _keyHomeSections = 'home_sections';
   static const String _keyLastVersion = 'last_version';
 
@@ -133,35 +133,35 @@ class SessionService {
     await prefs.setBool(_keyStopPlaybackOnTaskRemoved, value);
   }
 
-  Future<bool> get autoDownloadPlayed async {
+  Future<bool> get autoSaveOfflinePlayed async {
     final prefs = await _getPrefs;
-    return prefs.getBool(_keyAutoDownloadPlayed) ?? true;
+    return prefs.getBool(_keyAutoSaveOfflinePlayed) ?? true;
   }
 
-  Future<void> setAutoDownloadPlayed(bool value) async {
+  Future<void> setAutoSaveOfflinePlayed(bool value) async {
     final prefs = await _getPrefs;
-    await prefs.setBool(_keyAutoDownloadPlayed, value);
+    await prefs.setBool(_keyAutoSaveOfflinePlayed, value);
   }
 
   // stored as bytes; default 1 GiB
-  Future<int> get autoDownloadMaxBytes async {
+  Future<int> get autoSaveOfflineMaxBytes async {
     final prefs = await _getPrefs;
-    return prefs.getInt(_keyAutoDownloadMaxBytes) ?? 1073741824;
+    return prefs.getInt(_keyAutoSaveOfflineMaxBytes) ?? 1073741824;
   }
 
-  Future<void> setAutoDownloadMaxBytes(int bytes) async {
+  Future<void> setAutoSaveOfflineMaxBytes(int bytes) async {
     final prefs = await _getPrefs;
-    await prefs.setInt(_keyAutoDownloadMaxBytes, bytes);
+    await prefs.setInt(_keyAutoSaveOfflineMaxBytes, bytes);
   }
 
-  Future<bool> get autoDownloadLruEvict async {
+  Future<bool> get autoSaveOfflineLruEvict async {
     final prefs = await _getPrefs;
-    return prefs.getBool(_keyAutoDownloadLruEvict) ?? true;
+    return prefs.getBool(_keyAutoSaveOfflineLruEvict) ?? true;
   }
 
-  Future<void> setAutoDownloadLruEvict(bool value) async {
+  Future<void> setAutoSaveOfflineLruEvict(bool value) async {
     final prefs = await _getPrefs;
-    await prefs.setBool(_keyAutoDownloadLruEvict, value);
+    await prefs.setBool(_keyAutoSaveOfflineLruEvict, value);
   }
 
   // ---------------------------------------------------------------------------

@@ -30,7 +30,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
 
   late final bool _isOfflineMode;
   bool _isAlbumOffline = false;
-  bool _downloadErrorShown = false;
+  bool _saveOfflineErrorShown = false;
 
   StreamSubscription<OfflineProgress>? _albumProgressSub;
 
@@ -60,13 +60,13 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
 
   void _subscribeToAlbumProgress() {
     final albumId = widget.album['id'].toString();
-    _albumProgressSub = OfflineService().getDownloadProgress(albumId).listen((p) {
+    _albumProgressSub = OfflineService().getSaveOfflineProgress(albumId).listen((p) {
       if (!mounted) return;
       
-      if (p.hasError && !_downloadErrorShown) {
-        _downloadErrorShown = true;
+      if (p.hasError && !_saveOfflineErrorShown) {
+        _saveOfflineErrorShown = true;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('some tracks failed to download. please try again.')),
+          const SnackBar(content: Text('some tracks failed to save offline. please try again.')),
         );
       }
 
@@ -211,14 +211,14 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                             ),
                             const SizedBox(width: 8),
                             StreamBuilder<OfflineProgress>(
-                              stream: OfflineService().getDownloadProgress(widget.album['id'].toString()),
+                              stream: OfflineService().getSaveOfflineProgress(widget.album['id'].toString()),
                               builder: (context, snapshot) {
                                 final p = snapshot.data;
                                 final double progress = p?.fraction ?? 0.0;
-                                final bool downloading = p != null && !p.isDone && progress > 0;
+                                final bool savingOffline = p != null && !p.isDone && progress > 0;
 
                                 return IconButton.filledTonal(
-                                  icon: downloading
+                                  icon: savingOffline
                                       ? SizedBox(
                                           width: 18,
                                           height: 18,
@@ -231,14 +231,14 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                                       : _isAlbumOffline
                                           ? const Icon(Icons.download_done_rounded, size: 20)
                                           : const Icon(Icons.download_for_offline_rounded, size: 20),
-                                  onPressed: downloading || (_isAlbumOffline && !_isOfflineMode) || (_tracks.isEmpty && !_isOfflineMode)
+                                  onPressed: savingOffline || (_isAlbumOffline && !_isOfflineMode) || (_tracks.isEmpty && !_isOfflineMode)
                                       ? null
                                       : () {
                                           if (_isAlbumOffline) {
                                             _showDeleteAlbumConfirmation(context);
                                           } else {
-                                            _downloadErrorShown = false;
-                                            OfflineService().downloadAlbum(
+                                            _saveOfflineErrorShown = false;
+                                            OfflineService().saveAlbumOffline(
                                               widget.album['id'].toString(),
                                               _tracks,
                                               widget.apiService,
@@ -332,7 +332,7 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('remove album from downloads?'),
+        title: const Text('remove album from offline saves?'),
         content: Text('this will delete all local files for "$albumName".'),
         actions: [
           TextButton(

@@ -299,7 +299,7 @@ class _TracksPageState extends State<TracksPage> {
               SliverFillRemaining(
                 child: Center(
                   child: Text(
-                    _isOfflineMode ? 'no downloaded tracks' : 'no tracks found',
+                    _isOfflineMode ? 'no offline saved tracks' : 'no tracks found',
                   ),
                 ),
               )

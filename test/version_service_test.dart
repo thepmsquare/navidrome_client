@@ -23,7 +23,7 @@ void main() {
 ## 1.0.0+15
 
 - fix logout functionality.
-- download lyrics on song download.
+- save lyrics offline on saving songs offline.
 
 ## 1.0.0+14
 
@@ -44,7 +44,7 @@ void main() {
       expect(entries[0].notes, '- fix bug that autoplays music on startup.');
 
       expect(entries[1].version, '1.0.0+15');
-      expect(entries[1].notes, '- fix logout functionality.\n- download lyrics on song download.');
+      expect(entries[1].notes, '- fix logout functionality.\n- save lyrics offline on saving songs offline.');
 
       expect(entries[2].version, '1.0.0+14');
       expect(entries[2].notes, '- implement fuzzy search.');

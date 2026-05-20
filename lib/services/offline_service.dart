@@ -16,7 +16,7 @@ class OfflineService extends ChangeNotifier {
   static const String _offlineAlbumsKey = 'offline_albums';
   static const String _offlinePlaylistsKey = 'offline_playlists';
   static const String _offlineModeKey = 'offline_mode';
-  static const String _autoDownloadOrderKey = 'auto_download_order';
+  static const String _autoSaveOfflineOrderKey = 'auto_save_offline_order';
   static const String _albumListCacheFile = 'album_list_cache.json';
   static const String _playlistListCacheFile = 'playlist_list_cache.json';
   static const String _trackListCacheFile = 'track_list_cache.json';
@@ -36,19 +36,19 @@ class OfflineService extends ChangeNotifier {
   bool _isAutoOffline = false;
   bool _isInitialized = false;
 
-  // LRU order for auto-downloaded tracks — oldest at index 0
-  List<String> _autoDownloadOrder = [];
+  // LRU order for auto-saved offline tracks — oldest at index 0
+  List<String> _autoSaveOfflineOrder = [];
 
   // #20: notify UI of offline mode changes
   // OfflineState distinguishes between user-toggled and no-internet-triggered
   final ValueNotifier<OfflineState> offlineModeNotifier = ValueNotifier(OfflineState.online);
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
 
-  // #12: track active downloads for cancellation and controller cleanup
-  final Set<String> _cancelledDownloads = {};
+  // #12: track active saves offline for cancellation and controller cleanup
+  final Set<String> _cancelledSavesOffline = {};
   final Map<String, StreamController<OfflineProgress>> _progressControllers = {};
   
-  // throttling for UI updates during download
+  // throttling for UI updates during save offline
   final Map<String, DateTime> _lastProgressEmitted = {};
   Timer? _persistenceTimer;
 
@@ -72,7 +72,7 @@ class OfflineService extends ChangeNotifier {
     offlineModeNotifier.value = _isOfflineMode
         ? (_isAutoOffline ? OfflineState.offlineNoInternet : OfflineState.offlineManual)
         : OfflineState.online;
-    _autoDownloadOrder = List<String>.from(prefs.getStringList(_autoDownloadOrderKey) ?? []);
+    _autoSaveOfflineOrder = List<String>.from(prefs.getStringList(_autoSaveOfflineOrderKey) ?? []);
     _isInitialized = true;
 
     // automatic check on startup — delay briefly to let the network stack
@@ -152,7 +152,7 @@ class OfflineService extends ChangeNotifier {
   // Progress stream — typed and cleaned up after use
   // ---------------------------------------------------------------------------
 
-  Stream<OfflineProgress> getDownloadProgress(String id) {
+  Stream<OfflineProgress> getSaveOfflineProgress(String id) {
     _progressControllers.putIfAbsent(
       id, () => StreamController<OfflineProgress>.broadcast(),
     );
@@ -164,7 +164,7 @@ class OfflineService extends ChangeNotifier {
       _progressControllers[id]?.add(OfflineProgress(fraction: fraction, isDone: done));
       _progressControllers[id]?.close();
       _progressControllers.remove(id);
-      _cancelledDownloads.remove(id);
+      _cancelledSavesOffline.remove(id);
       _lastProgressEmitted.remove(id);
       return;
     }
@@ -190,7 +190,7 @@ class OfflineService extends ChangeNotifier {
       await prefs.setStringList(_explicitOfflineTracksKey, _explicitOfflineTrackIds.toList());
       await prefs.setStringList(_offlineAlbumsKey, _offlineAlbumIds.toList());
       await prefs.setStringList(_offlinePlaylistsKey, _offlinePlaylistIds.toList());
-      await prefs.setStringList(_autoDownloadOrderKey, _autoDownloadOrder);
+      await prefs.setStringList(_autoSaveOfflineOrderKey, _autoSaveOfflineOrder);
     });
   }
 
@@ -198,7 +198,7 @@ class OfflineService extends ChangeNotifier {
   // Cover art — #duplicate prevention via in-memory check + file existence
   // ---------------------------------------------------------------------------
 
-  Future<void> downloadCoverArt(String coverArtId, ApiService apiService) async {
+  Future<void> saveCoverArtOffline(String coverArtId, ApiService apiService) async {
     final base = await _getStoragePath();
     final path = _coverPath(base, coverArtId);
     if (await File(path).exists()) return; // already have it
@@ -212,7 +212,7 @@ class OfflineService extends ChangeNotifier {
         notifyListeners(); // notify to update images (OfflineImage)
       }
     } catch (e) {
-      debugPrint('cover art $coverArtId download failed: $e');
+      debugPrint('cover art $coverArtId save offline failed: $e');
       final tempFile = File(tempPath);
       if (await tempFile.exists()) {
         try {
@@ -267,7 +267,7 @@ class OfflineService extends ChangeNotifier {
   // Lyrics storage
   // ---------------------------------------------------------------------------
 
-  Future<void> downloadLyrics(Map<String, dynamic> track, ApiService apiService) async {
+  Future<void> saveLyricsOffline(Map<String, dynamic> track, ApiService apiService) async {
     final trackId = track['id'] as String;
     final base = await _getStoragePath();
     final path = _lyricsPath(base, trackId);
@@ -282,7 +282,7 @@ class OfflineService extends ChangeNotifier {
         debugPrint('saved lyrics for track $trackId');
       }
     } catch (e) {
-      debugPrint('failed to download lyrics for track $trackId: $e');
+      debugPrint('failed to save lyrics offline for track $trackId: $e');
     }
   }
 
@@ -322,11 +322,11 @@ class OfflineService extends ChangeNotifier {
     return total;
   }
 
-  /// Deletes the oldest auto-downloaded track and returns its ID, or null if
-  /// there are no auto-downloaded tracks to evict.
-  Future<String?> evictOldestAutoDownload() async {
-    while (_autoDownloadOrder.isNotEmpty) {
-      final oldest = _autoDownloadOrder.removeAt(0);
+  /// Deletes the oldest auto-saved offline track and returns its ID, or null if
+  /// there are no auto-saved offline tracks to evict.
+  Future<String?> evictOldestAutoSaveOffline() async {
+    while (_autoSaveOfflineOrder.isNotEmpty) {
+      final oldest = _autoSaveOfflineOrder.removeAt(0);
       if (!_offlineTrackIds.contains(oldest)) continue; // already gone
       final base = await _getStoragePath();
       final file = File(_trackPath(base, oldest));
@@ -336,14 +336,14 @@ class OfflineService extends ChangeNotifier {
       _offlineTrackIds.remove(oldest);
       _requestPersistence();
       notifyListeners();
-      debugPrint('auto-download evicted: $oldest');
+      debugPrint('auto-save offline evicted: $oldest');
       return oldest;
     }
     return null;
   }
 
   // ---------------------------------------------------------------------------
-  // Track download
+  // Track save offline
   // ---------------------------------------------------------------------------
 
   /// Returns local audio path if the track is cached.
@@ -355,11 +355,11 @@ class OfflineService extends ChangeNotifier {
     return await File(path).exists() ? path : null;
   }
 
-  Future<void> downloadTrack(Map<String, dynamic> track, ApiService apiService, {bool isExplicit = false}) async {
+  Future<void> saveTrackOffline(Map<String, dynamic> track, ApiService apiService, {bool isExplicit = false}) async {
     final trackId = track['id'] as String;
     
     if (_offlineTrackIds.contains(trackId)) {
-      // #duplicate: already downloaded, tag explicit
+      // #duplicate: already saved, tag explicit
       if (isExplicit && !_explicitOfflineTrackIds.contains(trackId)) {
         _explicitOfflineTrackIds.add(trackId);
         _requestPersistence();
@@ -369,7 +369,7 @@ class OfflineService extends ChangeNotifier {
 
     final base = await _getStoragePath();
     final path = _trackPath(base, trackId);
-    _cancelledDownloads.remove(trackId);
+    _cancelledSavesOffline.remove(trackId);
 
     try {
       final task = DownloadTask(
@@ -392,61 +392,61 @@ class OfflineService extends ChangeNotifier {
         // also cache cover art (deduplication handled inside)
         final coverArtId = track['coverArt'] as String?;
         if (coverArtId != null) {
-          await downloadCoverArt(coverArtId, apiService);
+          await saveCoverArtOffline(coverArtId, apiService);
         }
 
-        // download and save lyrics
-        await downloadLyrics(track, apiService);
+        // save offline and save lyrics
+        await saveLyricsOffline(track, apiService);
 
         _offlineTrackIds.add(trackId);
         if (isExplicit) {
           _explicitOfflineTrackIds.add(trackId);
         } else {
           // track insertion order for LRU eviction
-          _autoDownloadOrder.remove(trackId); // avoid duplicates
-          _autoDownloadOrder.add(trackId);
+          _autoSaveOfflineOrder.remove(trackId); // avoid duplicates
+          _autoSaveOfflineOrder.add(trackId);
         }
         
         _requestPersistence();
         _emitProgress(trackId, 1.0, done: true);
         notifyListeners();
       } else if (status.status == TaskStatus.canceled) {
-        debugPrint('track $trackId download cancelled');
+        debugPrint('track $trackId save offline cancelled');
         final f = File(path);
         if (await f.exists()) await f.delete();
       } else {
-        debugPrint('track $trackId download failed: $status');
-        throw Exception('Download failed with status $status');
+        debugPrint('track $trackId save offline failed: $status');
+        throw Exception('Save offline failed with status $status');
       }
     } catch (e) {
-      debugPrint('track $trackId download failed: $e');
+      debugPrint('track $trackId save offline failed: $e');
       rethrow;
     }
   }
 
   // ---------------------------------------------------------------------------
-  // Album download
+  // Album save offline
   // ---------------------------------------------------------------------------
 
-  Future<void> downloadAlbum(
+  Future<void> saveAlbumOffline(
     String albumId,
     List<Map<String, dynamic>> tracks,
     ApiService apiService,
   ) async {
-    // save metadata immediately so album is openable offline even mid-download
+    // save metadata immediately so album is openable offline even mid-save offline
     await saveAlbumMetadata(albumId, tracks);
 
     final controller = _progressControllers.putIfAbsent(
       albumId, () => StreamController<OfflineProgress>.broadcast(),
     );
-    _cancelledDownloads.remove(albumId);
+    _cancelledSavesOffline.remove(albumId);
 
     int completed = 0;
     bool hasErrors = false;
 
     for (final track in tracks) {
       // #11: check if album-level cancel was requested
-      if (_cancelledDownloads.contains(albumId)) break;
+      if (_cancelledSavesOffline.contains(albumId)) break;
 
       final trackId = track['id'] as String;
       if (_offlineTrackIds.contains(trackId)) {
@@ -457,7 +457,7 @@ class OfflineService extends ChangeNotifier {
       }
 
       try {
-        await downloadTrack(track, apiService);
+        await saveTrackOffline(track, apiService);
         completed++;
         controller.add(OfflineProgress(fraction: completed / tracks.length));
       } catch (e) {
@@ -468,8 +468,8 @@ class OfflineService extends ChangeNotifier {
       }
     }
 
-    if (_cancelledDownloads.contains(albumId)) {
-      _cancelledDownloads.remove(albumId);
+    if (_cancelledSavesOffline.contains(albumId)) {
+      _cancelledSavesOffline.remove(albumId);
       _emitProgress(albumId, 1.0, done: true);
       return;
     }
@@ -484,10 +484,10 @@ class OfflineService extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
-  // Playlist download
+  // Playlist save offline
   // ---------------------------------------------------------------------------
 
-  Future<void> downloadPlaylist(
+  Future<void> savePlaylistOffline(
     String playlistId,
     List<Map<String, dynamic>> tracks,
     ApiService apiService,
@@ -498,13 +498,13 @@ class OfflineService extends ChangeNotifier {
     final controller = _progressControllers.putIfAbsent(
       playlistId, () => StreamController<OfflineProgress>.broadcast(),
     );
-    _cancelledDownloads.remove(playlistId);
+    _cancelledSavesOffline.remove(playlistId);
 
     int completed = 0;
     bool hasErrors = false;
 
     for (final track in tracks) {
-      if (_cancelledDownloads.contains(playlistId)) break;
+      if (_cancelledSavesOffline.contains(playlistId)) break;
 
       final trackId = track['id'] as String;
       if (_offlineTrackIds.contains(trackId)) {
@@ -514,7 +514,7 @@ class OfflineService extends ChangeNotifier {
       }
 
       try {
-        await downloadTrack(track, apiService);
+        await saveTrackOffline(track, apiService);
         completed++;
         controller.add(OfflineProgress(fraction: completed / tracks.length));
       } catch (e) {
@@ -525,8 +525,8 @@ class OfflineService extends ChangeNotifier {
       }
     }
 
-    if (_cancelledDownloads.contains(playlistId)) {
-      _cancelledDownloads.remove(playlistId);
+    if (_cancelledSavesOffline.contains(playlistId)) {
+      _cancelledSavesOffline.remove(playlistId);
       _emitProgress(playlistId, 1.0, done: true);
       return;
     }
@@ -544,8 +544,8 @@ class OfflineService extends ChangeNotifier {
   // Cancellation — #11
   // ---------------------------------------------------------------------------
 
-  void cancelDownload(String id) {
-    _cancelledDownloads.add(id);
+  void cancelSaveOffline(String id) {
+    _cancelledSavesOffline.add(id);
     FileDownloader().cancelTaskWithId(id);
   }
 
@@ -563,7 +563,7 @@ class OfflineService extends ChangeNotifier {
 
     _offlineTrackIds.remove(trackId);
     _explicitOfflineTrackIds.remove(trackId);
-    _autoDownloadOrder.remove(trackId);
+    _autoSaveOfflineOrder.remove(trackId);
     _requestPersistence();
     notifyListeners();
   }
@@ -842,25 +842,25 @@ class OfflineService extends ChangeNotifier {
     return false;
   }
 
-  /// Resets in-memory state and optionally clears all downloads.
+  /// Resets in-memory state and optionally clears all offline saves.
   Future<void> clearState({bool deleteFiles = false}) async {
     _persistenceTimer?.cancel();
     if (deleteFiles) {
-      await clearAllDownloads();
+      await clearAllOfflineSaves();
     } else {
       _offlineTrackIds.clear();
       _explicitOfflineTrackIds.clear();
       _offlineAlbumIds.clear();
       _offlinePlaylistIds.clear();
-      _autoDownloadOrder.clear();
+      _autoSaveOfflineOrder.clear();
     }
     _isOfflineMode = false;
     offlineModeNotifier.value = OfflineState.online;
     notifyListeners();
   }
 
-  /// #11: Clear all music downloads and specific metadata, but preserve internal list caches.
-  Future<void> clearAllDownloads() async {
+  /// #11: Clear all offline saves and specific metadata, but preserve internal list caches.
+  Future<void> clearAllOfflineSaves() async {
     final base = await _getStoragePath();
     
     // Clear tracks and covers
@@ -900,7 +900,7 @@ class OfflineService extends ChangeNotifier {
     _explicitOfflineTrackIds.clear();
     _offlineAlbumIds.clear();
     _offlinePlaylistIds.clear();
-    _autoDownloadOrder.clear();
+    _autoSaveOfflineOrder.clear();
     _requestPersistence();
     notifyListeners();
   }
@@ -931,5 +931,5 @@ class OfflineProgress {
     this.hasError = false,
   });
 
-  bool get isDownloading => !isDone && fraction > 0 && fraction < 1.0;
+  bool get isSavingOffline => !isDone && fraction > 0 && fraction < 1.0;
 }

@@ -27,9 +27,9 @@ class _PlaylistDetailsPageState extends State<PlaylistDetailsPage> {
 
   late final bool _isOfflineMode;
   bool _isPlaylistOffline = false;
-  bool _downloadErrorShown = false;
+  bool _saveOfflineErrorShown = false;
 
-  double _playlistDownloadProgress = 0.0;
+  double _playlistSaveOfflineProgress = 0.0;
   StreamSubscription<OfflineProgress>? _playlistProgressSub;
 
   @override
@@ -49,18 +49,18 @@ class _PlaylistDetailsPageState extends State<PlaylistDetailsPage> {
 
   void _subscribeToPlaylistProgress() {
     final playlistId = widget.playlist['id'].toString();
-    _playlistProgressSub = OfflineService().getDownloadProgress(playlistId).listen((p) {
+    _playlistProgressSub = OfflineService().getSaveOfflineProgress(playlistId).listen((p) {
       if (!mounted) return;
       
-      if (p.hasError && !_downloadErrorShown) {
-        _downloadErrorShown = true;
+      if (p.hasError && !_saveOfflineErrorShown) {
+        _saveOfflineErrorShown = true;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('some tracks failed to download. please try again.')),
+          const SnackBar(content: Text('some tracks failed to save offline. please try again.')),
         );
       }
 
       setState(() {
-        _playlistDownloadProgress = p.fraction;
+        _playlistSaveOfflineProgress = p.fraction;
         if (p.isDone) {
           _isPlaylistOffline = OfflineService().isPlaylistOfflineSync(widget.playlist['id'].toString());
         }
@@ -134,7 +134,7 @@ class _PlaylistDetailsPageState extends State<PlaylistDetailsPage> {
         ? widget.apiService.getCoverArtUrl(coverArtId, size: 600)
         : null;
 
-    final bool isDownloading = _playlistDownloadProgress > 0 && _playlistDownloadProgress < 1.0;
+    final bool isSavingOffline = _playlistSaveOfflineProgress > 0 && _playlistSaveOfflineProgress < 1.0;
 
     return Scaffold(
       body: Column(
@@ -185,12 +185,12 @@ class _PlaylistDetailsPageState extends State<PlaylistDetailsPage> {
                             ),
                             const SizedBox(width: 8),
                             IconButton.filledTonal(
-                              icon: isDownloading
+                              icon: isSavingOffline
                                   ? SizedBox(
                                       width: 18,
                                       height: 18,
                                       child: CircularProgressIndicator(
-                                        value: _playlistDownloadProgress,
+                                        value: _playlistSaveOfflineProgress,
                                         strokeWidth: 2,
                                         color: colorScheme.onSecondaryContainer,
                                       ),
@@ -198,14 +198,14 @@ class _PlaylistDetailsPageState extends State<PlaylistDetailsPage> {
                                   : _isPlaylistOffline
                                       ? const Icon(Icons.download_done_rounded, size: 20)
                                       : const Icon(Icons.download_for_offline_rounded, size: 20),
-                              onPressed: isDownloading || (_isPlaylistOffline && !_isOfflineMode) || (_tracks.isEmpty && !_isOfflineMode)
+                              onPressed: isSavingOffline || (_isPlaylistOffline && !_isOfflineMode) || (_tracks.isEmpty && !_isOfflineMode)
                                   ? null
                                   : () {
                                       if (_isPlaylistOffline) {
                                         _showDeletePlaylistConfirmation(context);
                                       } else {
-                                        _downloadErrorShown = false;
-                                        OfflineService().downloadPlaylist(
+                                        _saveOfflineErrorShown = false;
+                                        OfflineService().savePlaylistOffline(
                                           widget.playlist['id'].toString(),
                                           _tracks,
                                           widget.apiService,
@@ -294,7 +294,7 @@ class _PlaylistDetailsPageState extends State<PlaylistDetailsPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('remove from downloads?'),
+        title: const Text('remove from offline saves?'),
         content: Text('this will delete local files for "$name".'),
         actions: [
           TextButton(
@@ -314,7 +314,7 @@ class _PlaylistDetailsPageState extends State<PlaylistDetailsPage> {
       if (mounted) {
         setState(() {
           _isPlaylistOffline = false;
-          _playlistDownloadProgress = 0.0;
+          _playlistSaveOfflineProgress = 0.0;
         });
       }
     }

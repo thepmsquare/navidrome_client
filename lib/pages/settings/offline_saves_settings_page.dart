@@ -3,20 +3,20 @@ import 'package:navidrome_client/services/offline_service.dart';
 import 'package:navidrome_client/services/session_service.dart';
 import 'package:navidrome_client/utils/disk_utility.dart';
 
-class DownloadsSettingsPage extends StatefulWidget {
-  const DownloadsSettingsPage({super.key});
+class OfflineSavesSettingsPage extends StatefulWidget {
+  const OfflineSavesSettingsPage({super.key});
 
   @override
-  State<DownloadsSettingsPage> createState() => _DownloadsSettingsPageState();
+  State<OfflineSavesSettingsPage> createState() => _OfflineSavesSettingsPageState();
 }
 
-class _DownloadsSettingsPageState extends State<DownloadsSettingsPage> {
+class _OfflineSavesSettingsPageState extends State<OfflineSavesSettingsPage> {
   final _sessionService = SessionService();
   int _offlineSize = 0;
   bool _isRefreshingStorage = false;
-  bool _autoDownloadPlayed = true;
-  double _autoDownloadMaxGib = 1.0;
-  bool _autoDownloadLruEvict = true;
+  bool _autoSaveOfflinePlayed = true;
+  double _autoSaveOfflineMaxGib = 1.0;
+  bool _autoSaveOfflineLruEvict = true;
 
   @override
   void initState() {
@@ -26,14 +26,14 @@ class _DownloadsSettingsPageState extends State<DownloadsSettingsPage> {
   }
 
   Future<void> _loadSettings() async {
-    final autoEnabled = await _sessionService.autoDownloadPlayed;
-    final autoMaxBytes = await _sessionService.autoDownloadMaxBytes;
-    final autoLru = await _sessionService.autoDownloadLruEvict;
+    final autoEnabled = await _sessionService.autoSaveOfflinePlayed;
+    final autoMaxBytes = await _sessionService.autoSaveOfflineMaxBytes;
+    final autoLru = await _sessionService.autoSaveOfflineLruEvict;
     if (mounted) {
       setState(() {
-        _autoDownloadPlayed = autoEnabled;
-        _autoDownloadMaxGib = autoMaxBytes / (1024 * 1024 * 1024);
-        _autoDownloadLruEvict = autoLru;
+        _autoSaveOfflinePlayed = autoEnabled;
+        _autoSaveOfflineMaxGib = autoMaxBytes / (1024 * 1024 * 1024);
+        _autoSaveOfflineLruEvict = autoLru;
       });
     }
   }
@@ -60,20 +60,20 @@ class _DownloadsSettingsPageState extends State<DownloadsSettingsPage> {
     }
   }
 
-  Future<void> _toggleAutoDownloadPlayed(bool value) async {
-    await _sessionService.setAutoDownloadPlayed(value);
-    if (mounted) setState(() => _autoDownloadPlayed = value);
+  Future<void> _toggleAutoSaveOfflinePlayed(bool value) async {
+    await _sessionService.setAutoSaveOfflinePlayed(value);
+    if (mounted) setState(() => _autoSaveOfflinePlayed = value);
   }
 
-  Future<void> _toggleAutoDownloadLruEvict(bool value) async {
-    await _sessionService.setAutoDownloadLruEvict(value);
-    if (mounted) setState(() => _autoDownloadLruEvict = value);
+  Future<void> _toggleAutoSaveOfflineLruEvict(bool value) async {
+    await _sessionService.setAutoSaveOfflineLruEvict(value);
+    if (mounted) setState(() => _autoSaveOfflineLruEvict = value);
   }
 
   Future<void> _showCapInputDialog() async {
     final controller = TextEditingController(
-      text: _autoDownloadMaxGib.toStringAsFixed(
-        _autoDownloadMaxGib == _autoDownloadMaxGib.truncateToDouble() ? 0 : 2,
+      text: _autoSaveOfflineMaxGib.toStringAsFixed(
+        _autoSaveOfflineMaxGib == _autoSaveOfflineMaxGib.truncateToDouble() ? 0 : 2,
       ),
     );
     final confirmed = await showDialog<bool>(
@@ -105,14 +105,14 @@ class _DownloadsSettingsPageState extends State<DownloadsSettingsPage> {
       final parsed = double.tryParse(controller.text.trim());
       if (parsed != null && parsed > 0) {
         final bytes = (parsed * 1024 * 1024 * 1024).round();
-        await _sessionService.setAutoDownloadMaxBytes(bytes);
-        if (mounted) setState(() => _autoDownloadMaxGib = parsed);
+        await _sessionService.setAutoSaveOfflineMaxBytes(bytes);
+        if (mounted) setState(() => _autoSaveOfflineMaxGib = parsed);
       }
     }
     controller.dispose();
   }
 
-  Future<void> _confirmClearDownloads() async {
+  Future<void> _confirmClearOfflineSaves() async {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -125,7 +125,7 @@ class _DownloadsSettingsPageState extends State<DownloadsSettingsPage> {
           size: 48,
         ),
         title: Text(
-          'clear all downloads?',
+          'clear all offline saves?',
           style: theme.textTheme.headlineSmall?.copyWith(
             color: colorScheme.error,
             fontWeight: FontWeight.bold,
@@ -133,7 +133,7 @@ class _DownloadsSettingsPageState extends State<DownloadsSettingsPage> {
           textAlign: TextAlign.center,
         ),
         content: const Text(
-          'this action is permanent and will remove all of your offline music and metadata. you will need to re-download everything if you want to listen offline again.',
+          'this action is permanent and will remove all of your offline music and metadata. you will need to re-save everything offline if you want to listen offline again.',
           textAlign: TextAlign.center,
         ),
         actionsAlignment: MainAxisAlignment.center,
@@ -160,7 +160,7 @@ class _DownloadsSettingsPageState extends State<DownloadsSettingsPage> {
           _isRefreshingStorage = true;
         });
         try {
-          await OfflineService().clearAllDownloads();
+          await OfflineService().clearAllOfflineSaves();
           final size = await DiskUtility.getOfflineSize();
           if (mounted) {
             setState(() {
@@ -185,7 +185,7 @@ class _DownloadsSettingsPageState extends State<DownloadsSettingsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('downloads'),
+        title: const Text('offline saves'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -195,7 +195,7 @@ class _DownloadsSettingsPageState extends State<DownloadsSettingsPage> {
               children: [
                 ListTile(
                   leading: const Icon(Icons.download_for_offline_rounded),
-                  title: const Text('downloads'),
+                  title: const Text('offline saves'),
                   subtitle: Text(
                     '${DiskUtility.formatBytes(_offlineSize)} of media saved offline',
                   ),
@@ -212,19 +212,19 @@ class _DownloadsSettingsPageState extends State<DownloadsSettingsPage> {
                 ),
                 SwitchListTile(
                   secondary: const Icon(Icons.download_rounded),
-                  title: const Text('auto-download played songs'),
+                  title: const Text('auto-save offline played songs'),
                   subtitle: const Text(
-                    'automatically save songs to offline storage as they play',
+                    'automatically save songs offline as they play',
                   ),
-                  value: _autoDownloadPlayed,
-                  onChanged: _toggleAutoDownloadPlayed,
+                  value: _autoSaveOfflinePlayed,
+                  onChanged: _toggleAutoSaveOfflinePlayed,
                 ),
-                if (_autoDownloadPlayed) ...[
+                if (_autoSaveOfflinePlayed) ...[
                   ListTile(
                     leading: const Icon(Icons.storage_rounded),
                     title: const Text('storage cap'),
                     subtitle: Text(
-                      '${_autoDownloadMaxGib.toStringAsFixed(_autoDownloadMaxGib == _autoDownloadMaxGib.truncateToDouble() ? 0 : 2)} gib',
+                      '${_autoSaveOfflineMaxGib.toStringAsFixed(_autoSaveOfflineMaxGib == _autoSaveOfflineMaxGib.truncateToDouble() ? 0 : 2)} gib',
                     ),
                     trailing: const Icon(Icons.edit_rounded),
                     onTap: _showCapInputDialog,
@@ -233,23 +233,23 @@ class _DownloadsSettingsPageState extends State<DownloadsSettingsPage> {
                     secondary: const Icon(Icons.auto_delete_rounded),
                     title: const Text('evict oldest when storage is full'),
                     subtitle: const Text(
-                      'remove the oldest auto-downloaded song to make room for new ones',
+                      'remove the oldest auto-saved offline song to make room for new ones',
                     ),
-                    value: _autoDownloadLruEvict,
-                    onChanged: _toggleAutoDownloadLruEvict,
+                    value: _autoSaveOfflineLruEvict,
+                    onChanged: _toggleAutoSaveOfflineLruEvict,
                   ),
                 ],
                 if (_offlineSize > 0)
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: OutlinedButton.icon(
-                      onPressed: _confirmClearDownloads,
+                      onPressed: _confirmClearOfflineSaves,
                       style: OutlinedButton.styleFrom(
                         foregroundColor: colorScheme.error,
                         side: BorderSide(color: colorScheme.error),
                       ),
                       icon: const Icon(Icons.delete_forever_rounded),
-                      label: const Text('clear all downloads'),
+                      label: const Text('clear all offline saves'),
                     ),
                   ),
               ],

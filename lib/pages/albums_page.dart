@@ -244,7 +244,7 @@ class _AlbumsPageState extends State<AlbumsPage> {
               SliverFillRemaining(
                 child: Center(
                   child: Text(
-                    _isOfflineMode ? 'no downloaded albums' : 'no albums found',
+                    _isOfflineMode ? 'no offline saved albums' : 'no albums found',
                   ),
                 ),
               )

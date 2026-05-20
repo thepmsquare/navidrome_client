@@ -60,7 +60,7 @@ class _TrackListItemState extends State<TrackListItem> {
 
   void _subscribeToProgress() {
     _progressSub?.cancel();
-    _progressSub = _offline.getDownloadProgress(_trackId).listen((p) {
+    _progressSub = _offline.getSaveOfflineProgress(_trackId).listen((p) {
       if (!mounted) return;
       setState(() {
         _progress = p.fraction;
@@ -149,7 +149,7 @@ class _TrackListItemState extends State<TrackListItem> {
             ),
             if (widget.apiService != null) ...[
               const SizedBox(width: 4),
-              _buildDownloadWidget(colorScheme),
+              _buildSaveOfflineWidget(colorScheme),
             ],
           ],
         ),
@@ -157,7 +157,7 @@ class _TrackListItemState extends State<TrackListItem> {
     );
   }
 
-  Widget _buildDownloadWidget(ColorScheme colorScheme) {
+  Widget _buildSaveOfflineWidget(ColorScheme colorScheme) {
     // #14: driven by state, not by a nested FutureBuilder
     if (_isOffline) {
       return IconButton(
@@ -185,7 +185,7 @@ class _TrackListItemState extends State<TrackListItem> {
 
     return IconButton(
       icon: const Icon(Icons.download_for_offline_rounded, size: 20),
-      onPressed: () => _offline.downloadTrack(
+      onPressed: () => _offline.saveTrackOffline(
         widget.track,
         widget.apiService!,
         isExplicit: true,
@@ -211,7 +211,7 @@ class _TrackListItemState extends State<TrackListItem> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('remove from downloads?'),
+        title: const Text('remove from offline saves?'),
         content: Text('this will delete the local file for "$title".'),
         actions: [
           TextButton(

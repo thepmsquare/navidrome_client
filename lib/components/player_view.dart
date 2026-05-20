@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
@@ -10,6 +12,9 @@ import 'package:navidrome_client/pages/queue_page.dart';
 import 'package:navidrome_client/services/lyrics_service.dart';
 import 'package:navidrome_client/pages/artist_details_page.dart';
 import 'package:navidrome_client/pages/album_details_page.dart';
+import 'package:navidrome_client/services/offline_service.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:http/http.dart' as http;
 
 class PlayerView extends StatefulWidget {
   final ApiService apiService;
@@ -131,14 +136,6 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
             icon: const Icon(Icons.expand_more_rounded),
             onPressed: widget.onMinimize,
           ),
-          actions: [
-            if (_showLyrics)
-              IconButton(
-                icon: const Icon(Icons.close_rounded),
-                tooltip: 'close lyrics',
-                onPressed: () => setState(() => _showLyrics = false),
-              ),
-          ],
           backgroundColor: Colors.transparent,
           elevation: 0,
         ),
@@ -578,6 +575,8 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                   context,
                   MaterialPageRoute(builder: (context) => QueuePage(apiService: widget.apiService)),
                 );
+              } else if (value == 'download') {
+                _downloadTrackToDevice(track);
               }
             },
             itemBuilder: (context) => [
@@ -601,11 +600,118 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                   ],
                 ),
               ),
+              PopupMenuItem(
+                value: 'download',
+                child: Row(
+                  children: [
+                    const Icon(Icons.download_rounded, size: 20),
+                    const SizedBox(width: 12),
+                    Text('download track'.toLowerCase()),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
       ],
     );
+  }
+
+  Future<void> _downloadTrackToDevice(Map<String, dynamic> track) async {
+    final trackId = track['id'] as String;
+    final isOffline = OfflineService().isTrackOfflineSync(trackId);
+
+    if (!isOffline && OfflineService().isOfflineMode) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('cannot download track while offline'.toLowerCase())),
+      );
+      return;
+    }
+
+    BuildContext? dialogContext;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext ctx) {
+        dialogContext = ctx;
+        return AlertDialog(
+          content: Row(
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(width: 24),
+              Text(
+                (isOffline ? 'saving track...' : 'downloading track...')
+                    .toLowerCase(),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    try {
+      Uint8List fileBytes;
+      if (isOffline) {
+        final localPath = await OfflineService().getLocalPath(trackId);
+        if (localPath != null) {
+          fileBytes = await File(localPath).readAsBytes();
+        } else {
+          throw Exception('local file not found');
+        }
+      } else {
+        final streamUrl = widget.apiService.getStreamUrl(trackId);
+        final response = await http.get(Uri.parse(streamUrl));
+        if (response.statusCode == 200) {
+          fileBytes = response.bodyBytes;
+        } else {
+          throw Exception('failed to download track: status ${response.statusCode}');
+        }
+      }
+
+      if (dialogContext != null && dialogContext!.mounted) {
+        Navigator.of(dialogContext!).pop();
+        dialogContext = null;
+      }
+
+      final suffix = track['suffix'] ?? 'mp3';
+      final title = track['title'] ?? 'unknown';
+      final cleanTitle = title.toString().replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+      final fileName = '$cleanTitle.$suffix';
+
+      final String? outputFile = await FilePicker.platform.saveFile(
+        dialogTitle: 'save track'.toLowerCase(),
+        fileName: fileName,
+        type: FileType.audio,
+        bytes: fileBytes,
+      );
+
+      if (outputFile != null) {
+        final file = File(outputFile);
+        if (!await file.exists()) {
+          await file.writeAsBytes(fileBytes);
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('track saved successfully'.toLowerCase())),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('save cancelled'.toLowerCase())),
+          );
+        }
+      }
+    } catch (e) {
+      if (dialogContext != null && dialogContext!.mounted) {
+        Navigator.of(dialogContext!).pop();
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('failed to save track: $e'.toLowerCase())),
+        );
+      }
+    }
   }
 
   String _formatDuration(Duration d) {

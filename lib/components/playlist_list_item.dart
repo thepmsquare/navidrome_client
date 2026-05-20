@@ -45,7 +45,7 @@ class _PlaylistListItemState extends State<PlaylistListItem> {
 
   void _subscribeToProgress() {
     _progressSub?.cancel();
-    _progressSub = _offline.getDownloadProgress(_playlistId).listen((p) {
+    _progressSub = _offline.getSaveOfflineProgress(_playlistId).listen((p) {
       if (!mounted) return;
       setState(() {
         _progress = p.fraction;
@@ -69,7 +69,7 @@ class _PlaylistListItemState extends State<PlaylistListItem> {
     final String name = (widget.playlist['name'] ?? 'unknown playlist').toString();
     final int songCount = (widget.playlist['songCount'] as num?)?.toInt() ?? 0;
 
-    final bool isDownloading = _progress > 0 && _progress < 1.0;
+    final bool isSavingOffline = _progress > 0 && _progress < 1.0;
 
     return InkWell(
       onTap: widget.onTap,
@@ -104,7 +104,7 @@ class _PlaylistListItemState extends State<PlaylistListItem> {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      if (isDownloading) ...[
+                      if (isSavingOffline) ...[
                         SizedBox(
                           width: 14,
                           height: 14,

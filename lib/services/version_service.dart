@@ -75,57 +75,65 @@ class VersionService {
           title: Text(
             'app was updated with version number $targetVersion'.toLowerCase(),
           ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "what's new:".toLowerCase(),
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                if (targetEntry!.notes.isEmpty)
-                  Text('bug fixes and performance improvements'.toLowerCase())
-                else
-                  MarkdownBody(
-                    data: targetEntry.notes.toLowerCase(),
-                    shrinkWrap: true,
-                  ),
-                if (previousEntries.isNotEmpty) ...[
-                  const SizedBox(height: 24),
-                  Text(
-                    "previous versions:".toLowerCase(),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  ...previousEntries.map((entry) {
-                    return ExpansionTile(
-                      tilePadding: EdgeInsets.zero,
-                      childrenPadding: const EdgeInsets.only(left: 8, bottom: 8),
-                      shape: const Border(),
-                      collapsedShape: const Border(),
-                      title: Text(
-                        "version ${entry.version}".toLowerCase(),
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.28,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "what's new:".toLowerCase(),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    if (targetEntry!.notes.isEmpty)
+                      Text('bug fixes and performance improvements'.toLowerCase())
+                    else
+                      MarkdownBody(
+                        data: targetEntry.notes.toLowerCase(),
+                        shrinkWrap: true,
                       ),
-                      children: [
-                        if (entry.notes.isEmpty)
-                          Text('bug fixes and performance improvements'.toLowerCase())
-                        else
-                          MarkdownBody(
-                            data: entry.notes.toLowerCase(),
-                            shrinkWrap: true,
+                    if (previousEntries.isNotEmpty) ...[
+                      const SizedBox(height: 24),
+                      Text(
+                        "previous versions:".toLowerCase(),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      ...previousEntries.map((entry) {
+                        return ExpansionTile(
+                          tilePadding: EdgeInsets.zero,
+                          childrenPadding: const EdgeInsets.only(left: 8, bottom: 8),
+                          shape: const Border(),
+                          collapsedShape: const Border(),
+                          title: Text(
+                            "version ${entry.version}".toLowerCase(),
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
                           ),
-                      ],
-                    );
-                  }),
-                ],
-              ],
+                          children: [
+                            if (entry.notes.isEmpty)
+                              Text('bug fixes and performance improvements'.toLowerCase())
+                            else
+                              MarkdownBody(
+                                data: entry.notes.toLowerCase(),
+                                shrinkWrap: true,
+                              ),
+                          ],
+                        );
+                      }),
+                    ],
+                  ],
+                ),
+              ),
             ),
           ),
           actions: [

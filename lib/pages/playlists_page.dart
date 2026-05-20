@@ -174,7 +174,7 @@ class _PlaylistsPageState extends State<PlaylistsPage> {
                 child: Center(
                   child: Text(
                     _isOfflineMode
-                        ? 'no downloaded playlists'
+                        ? 'no offline saved playlists'
                         : 'no playlists found',
                   ),
                 ),

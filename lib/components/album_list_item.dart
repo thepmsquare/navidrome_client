@@ -138,7 +138,7 @@ class _AlbumListItemState extends State<AlbumListItem> {
 
   void _subscribeToProgress() {
     _progressSub?.cancel();
-    _progressSub = _offline.getDownloadProgress(_albumId).listen((p) {
+    _progressSub = _offline.getSaveOfflineProgress(_albumId).listen((p) {
       if (!mounted) return;
       setState(() {
         _progress = p.fraction;
@@ -163,7 +163,7 @@ class _AlbumListItemState extends State<AlbumListItem> {
     final String name = (widget.album['name'] ?? 'unknown album').toString();
     final int songCount = (widget.album['songCount'] as num?)?.toInt() ?? 0;
 
-    final bool isDownloading = _progress > 0 && _progress < 1.0;
+    final bool isSavingOffline = _progress > 0 && _progress < 1.0;
 
     return InkWell(
       onTap: widget.onTap,
@@ -201,7 +201,7 @@ class _AlbumListItemState extends State<AlbumListItem> {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      if (isDownloading) ...[
+                      if (isSavingOffline) ...[
                         SizedBox(
                           width: 14,
                           height: 14,

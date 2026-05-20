@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:navidrome_client/pages/settings/advanced_settings_page.dart';
-import 'package:navidrome_client/pages/settings/downloads_settings_page.dart';
+import 'package:navidrome_client/pages/settings/offline_saves_settings_page.dart';
 import 'package:navidrome_client/pages/settings/home_page_settings_page.dart';
 import 'package:navidrome_client/services/auth_service.dart';
 import 'package:navidrome_client/services/event_log_service.dart';
@@ -55,7 +55,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _handleLogout() async {
-    final deleteDownloads = await showDialog<bool?>(
+    final deleteOfflineSaves = await showDialog<bool?>(
       context: context,
       builder: (context) {
         bool delete = false;
@@ -70,7 +70,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   const Text('are you sure you want to sign out?'),
                   const SizedBox(height: 16),
                   CheckboxListTile(
-                    title: const Text('delete offline downloads'),
+                    title: const Text('delete offline saves'),
                     value: delete,
                     onChanged: (val) =>
                         setDialogState(() => delete = val ?? false),
@@ -98,10 +98,10 @@ class _SettingsPageState extends State<SettingsPage> {
       },
     );
 
-    if (deleteDownloads == null) return;
+    if (deleteOfflineSaves == null) return;
 
     await PlayerService().reset();
-    await OfflineService().clearState(deleteFiles: deleteDownloads);
+    await OfflineService().clearState(deleteFiles: deleteOfflineSaves);
     EventLogService().clear();
     await _authService.logout();
     if (mounted) {
@@ -132,7 +132,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     return SwitchListTile(
                       secondary: const Icon(Icons.offline_pin_rounded),
                       title: const Text('offline mode'),
-                      subtitle: const Text('only show downloaded content'),
+                      subtitle: const Text('only show content saved offline'),
                       value: state != OfflineState.online,
                       onChanged: (value) => OfflineService().setOfflineMode(value),
                     );
@@ -145,14 +145,14 @@ class _SettingsPageState extends State<SettingsPage> {
                   children: [
                     ListTile(
                       leading: const Icon(Icons.download_for_offline_rounded),
-                      title: const Text('downloads'),
-                      subtitle: const Text('storage usage and auto-download'),
+                      title: const Text('offline saves'),
+                      subtitle: const Text('storage usage and auto-save offline'),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const DownloadsSettingsPage(),
+                            builder: (context) => const OfflineSavesSettingsPage(),
                           ),
                         );
                       },
