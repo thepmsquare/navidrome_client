@@ -90,6 +90,14 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
             icon: const Icon(Icons.expand_more_rounded),
             onPressed: widget.onMinimize,
           ),
+          actions: [
+            if (_showLyrics)
+              IconButton(
+                icon: const Icon(Icons.close_rounded),
+                tooltip: 'close lyrics',
+                onPressed: () => setState(() => _showLyrics = false),
+              ),
+          ],
           backgroundColor: Colors.transparent,
           elevation: 0,
         ),

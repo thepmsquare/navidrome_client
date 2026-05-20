@@ -3,6 +3,7 @@
 ## 1.0.0+17 (in progress)
 
 - update whats new widget to show previous release notes.
+- add close icon on lyrics page.
 
 ## 1.0.0+16
 
