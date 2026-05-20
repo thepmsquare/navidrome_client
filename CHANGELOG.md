@@ -2,7 +2,7 @@
 
 ## 1.1.0+18 (in progress)
 
-- nothing.
+- add option to quick view lyrics if available.
 
 ## 1.0.0+17
 
