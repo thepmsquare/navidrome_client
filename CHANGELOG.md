@@ -1,6 +1,6 @@
 # changelog
 
-## 1.0.0+17 (in progress)
+## 1.0.0+17
 
 - update whats new widget to show previous release notes.
 - add close icon on lyrics page.
