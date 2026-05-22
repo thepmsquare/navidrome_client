@@ -38,6 +38,19 @@ class PlayerService with WidgetsBindingObserver {
   bool _lastKnownPlaying = false;
   static const _mediaButtonTapWindow = Duration(milliseconds: 600);
 
+  bool _programmaticActionPending = false;
+  Timer? _pendingActionTimeout;
+
+  void _markProgrammaticAction(bool targetPlaying) {
+    if (_player.playing != targetPlaying) {
+      _programmaticActionPending = true;
+      _pendingActionTimeout?.cancel();
+      _pendingActionTimeout = Timer(const Duration(seconds: 2), () {
+        _programmaticActionPending = false;
+      });
+    }
+  }
+
   PlayerService._internal() {
     _init();
   }
@@ -67,6 +80,7 @@ class PlayerService with WidgetsBindingObserver {
           // Just call play. just_audio is smart enough to handle its own 
           // internal state, and we've removed the manual 'resume' logic
           // that was causing conflicts.
+          _markProgrammaticAction(true);
           _player.play();
         }
       }
@@ -141,6 +155,17 @@ class PlayerService with WidgetsBindingObserver {
       // emission without a toggle (e.g. from setAudioSource finishing) must
       // not be counted as a media-button tap.
       if (isPlaying == _lastKnownPlaying) return;
+
+      if (_programmaticActionPending) {
+        _programmaticActionPending = false;
+        _pendingActionTimeout?.cancel();
+        _lastKnownPlaying = isPlaying;
+        _mediaButtonTapCount = 0;
+        _mediaButtonTapTimer?.cancel();
+        _mediaButtonStateBeforeTaps = null;
+        return;
+      }
+
       _lastKnownPlaying = isPlaying;
 
       _mediaButtonTapCount++;
@@ -243,6 +268,7 @@ class PlayerService with WidgetsBindingObserver {
     if (isSameQueue) {
       try {
         await _player.seek(Duration.zero, index: initialIndex);
+        _markProgrammaticAction(true);
         await _player.play();
         return;
       } catch (e, st) {
@@ -271,9 +297,11 @@ class PlayerService with WidgetsBindingObserver {
     }
 
     try {
+      _markProgrammaticAction(false);
       await _player.stop();
       _playlist = playlist;
       await _player.setAudioSource(playlist, initialIndex: initialIndex);
+      _markProgrammaticAction(true);
       await _player.play();
       _log.log('playback started', level: EventLogLevel.info);
     } catch (e, st) {
@@ -281,6 +309,7 @@ class PlayerService with WidgetsBindingObserver {
       _currentQueue = [];
       // Bug 2 fix: reset player to idle so subsequent play() calls start clean.
       try {
+        _markProgrammaticAction(false);
         await _player.stop();
       } catch (_) {}
     }
@@ -396,9 +425,20 @@ class PlayerService with WidgetsBindingObserver {
     );
   }
 
-  Future<void> pause() => _player.pause();
-  Future<void> resume() => _player.play();
-  Future<void> stop() => _player.stop();
+  Future<void> pause() {
+    _markProgrammaticAction(false);
+    return _player.pause();
+  }
+
+  Future<void> resume() {
+    _markProgrammaticAction(true);
+    return _player.play();
+  }
+
+  Future<void> stop() {
+    _markProgrammaticAction(false);
+    return _player.stop();
+  }
   Future<void> seek(Duration position) => _player.seek(position);
   Future<void> seekToIndex(int index) => _player.seek(Duration.zero, index: index);
   Future<void> skipToNext() => _player.seekToNext();
@@ -561,6 +601,7 @@ class PlayerService with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _positionSaveTimer?.cancel();
     _mediaButtonTapTimer?.cancel();
+    _pendingActionTimeout?.cancel();
     _player.dispose();
   }
 }

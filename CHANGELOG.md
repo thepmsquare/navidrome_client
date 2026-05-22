@@ -1,6 +1,10 @@
 # changelog
 
-## 1.1.0+18
+## 1.0.0+19 (in progress)
+
+- improvements to multi-tap detection for media buttons (earphone double/triple taps).
+
+## 1.0.0+18
 
 - add option to quick view lyrics if available.
 - rename download songs to save offline across the app.
