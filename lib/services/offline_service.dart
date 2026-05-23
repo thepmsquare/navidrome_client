@@ -56,6 +56,15 @@ class OfflineService extends ChangeNotifier {
   factory OfflineService() => _instance;
   OfflineService._internal();
 
+  /// Resets the initialised guard so [initialize] can be called again in tests.
+  /// Do NOT call this in production code.
+  @visibleForTesting
+  void resetForTesting() {
+    _isInitialized = false;
+    _connectivitySub?.cancel();
+    _connectivitySub = null;
+  }
+
   // ---------------------------------------------------------------------------
   // Initialization — must be called once at app startup before using sync APIs
   // ---------------------------------------------------------------------------

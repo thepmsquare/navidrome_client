@@ -1,6 +1,6 @@
 # changelog
 
-## 1.0.0+19 (in progress)
+## 1.0.0+19
 
 - bug fix: fix issue when tapping play twice on an track, player would skip the song.
 - bug fix: mini player now in sync with current playing song.
