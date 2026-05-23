@@ -76,6 +76,7 @@ class _HomePageSettingsPageState extends State<HomePageSettingsPage> {
               : ReorderableListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: _sections.length,
+                  // ignore: deprecated_member_use
                   onReorder: (oldIndex, newIndex) {
                     setState(() {
                       if (oldIndex < newIndex) {

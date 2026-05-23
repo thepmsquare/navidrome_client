@@ -62,6 +62,7 @@ class _QueuePageState extends State<QueuePage> {
 
           return ReorderableListView.builder(
             itemCount: currentQueue.length,
+            // ignore: deprecated_member_use
             onReorder: (oldIndex, newIndex) {
               if (newIndex > oldIndex) {
                 newIndex -= 1;
