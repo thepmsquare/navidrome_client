@@ -53,7 +53,6 @@ class PlayerService with WidgetsBindingObserver {
   }
 
   PlayerService._internal() {
-    print('PlayerService instance constructor: ${identityHashCode(this)}');
     _init();
   }
 
@@ -79,7 +78,7 @@ class PlayerService with WidgetsBindingObserver {
         if (event.type == AudioInterruptionType.duck) {
           _player.setVolume(1.0);
         } else {
-          // Just call play. just_audio is smart enough to handle its own 
+          // Just call play. just_audio is smart enough to handle its own
           // internal state, and we've removed the manual 'resume' logic
           // that was causing conflicts.
           _markProgrammaticAction(true);
@@ -89,12 +88,12 @@ class PlayerService with WidgetsBindingObserver {
     });
 
     // load initial setting for stopping playback on task removal
-    _stopPlaybackOnTaskRemoved = await _sessionService.stopPlaybackOnTaskRemoved;
+    _stopPlaybackOnTaskRemoved =
+        await _sessionService.stopPlaybackOnTaskRemoved;
 
     // Bug 1 fix: use ?.toString() ?? '' instead of `as String` to avoid _TypeError
     // on null or non-String id values (some Subsonic implementations return int ids).
     _player.currentIndexStream.listen((index) {
-      print('PlayerService _player.currentIndexStream emitted: $index');
       if (index != null && index >= 0 && index < _currentQueue.length) {
         _sessionService.setLastIndex(index);
         final track = _currentQueue[index];
@@ -116,9 +115,14 @@ class PlayerService with WidgetsBindingObserver {
         final track = _currentQueue[index];
         // Bug 1 fix: same safe cast here
         final id = track['id']?.toString() ?? '';
-        if (id.isNotEmpty && id != _lastSubmittedId && position.inSeconds >= 5) {
+        if (id.isNotEmpty &&
+            id != _lastSubmittedId &&
+            position.inSeconds >= 5) {
           _lastSubmittedId = id;
-          _log.log('scrobbling track id=$id (submitted)', level: EventLogLevel.debug);
+          _log.log(
+            'scrobbling track id=$id (submitted)',
+            level: EventLogLevel.debug,
+          );
           _apiService?.scrobble(id, submission: true);
         }
       }
@@ -127,7 +131,12 @@ class PlayerService with WidgetsBindingObserver {
     _player.playbackEventStream.listen(
       (_) {},
       onError: (Object e, StackTrace st) {
-        _log.log('playback event error', level: EventLogLevel.error, error: e, stackTrace: st);
+        _log.log(
+          'playback event error',
+          level: EventLogLevel.error,
+          error: e,
+          stackTrace: st,
+        );
         // attempt to skip past a broken/unreachable track so the queue continues
         if (_currentQueue.length > 1) {
           _player.seekToNext().catchError((_) {});
@@ -136,7 +145,10 @@ class PlayerService with WidgetsBindingObserver {
     );
 
     // periodic position saving
-    _positionSaveTimer = Timer.periodic(sessionSaveInterval, (_) => _saveCurrentPosition());
+    _positionSaveTimer = Timer.periodic(
+      sessionSaveInterval,
+      (_) => _saveCurrentPosition(),
+    );
 
     // media button multi-tap detection.
     // earphone double/triple taps arrive as rapid PLAY_PAUSE key events.
@@ -216,7 +228,8 @@ class PlayerService with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
       _saveCurrentPosition();
     }
 
@@ -264,10 +277,14 @@ class PlayerService with WidgetsBindingObserver {
     return '${firstId}_${lastId}_${_currentQueue.length}';
   }
 
-  Future<void> play(List<Map<String, dynamic>> queue, int initialIndex, ApiService apiService) async {
-    print('PlayerService.play instance: ${identityHashCode(this)}');
+  Future<void> play(
+    List<Map<String, dynamic>> queue,
+    int initialIndex,
+    ApiService apiService,
+  ) async {
     // Check if the new queue is the same as the current one.
-    bool isSameQueue = _currentQueue.length == queue.length && _currentQueue.isNotEmpty;
+    bool isSameQueue =
+        _currentQueue.length == queue.length && _currentQueue.isNotEmpty;
     if (isSameQueue) {
       for (int i = 0; i < queue.length; i++) {
         if (_currentQueue[i]['id'] != queue[i]['id']) {
@@ -284,7 +301,12 @@ class PlayerService with WidgetsBindingObserver {
         await _player.play();
         return;
       } catch (e, st) {
-        _log.log('error seeking to track index=$initialIndex', level: EventLogLevel.warning, error: e, stackTrace: st);
+        _log.log(
+          'error seeking to track index=$initialIndex',
+          level: EventLogLevel.warning,
+          error: e,
+          stackTrace: st,
+        );
       }
     }
 
@@ -297,13 +319,21 @@ class PlayerService with WidgetsBindingObserver {
     _sessionService.setLastQueue(_currentQueue);
     _sessionService.setLastIndex(initialIndex);
 
-    _log.log('building audio source for ${queue.length} track(s), starting at index $initialIndex', level: EventLogLevel.info);
+    _log.log(
+      'building audio source for ${queue.length} track(s), starting at index $initialIndex',
+      level: EventLogLevel.info,
+    );
 
     late ConcatenatingAudioSource playlist;
     try {
       playlist = await _buildAudioSource(_currentQueue, apiService);
     } catch (e, st) {
-      _log.log('failed to build audio source', level: EventLogLevel.error, error: e, stackTrace: st);
+      _log.log(
+        'failed to build audio source',
+        level: EventLogLevel.error,
+        error: e,
+        stackTrace: st,
+      );
       _currentQueue = [];
       return;
     }
@@ -317,7 +347,12 @@ class PlayerService with WidgetsBindingObserver {
       await _player.play();
       _log.log('playback started', level: EventLogLevel.info);
     } catch (e, st) {
-      _log.log('error loading audio source', level: EventLogLevel.error, error: e, stackTrace: st);
+      _log.log(
+        'error loading audio source',
+        level: EventLogLevel.error,
+        error: e,
+        stackTrace: st,
+      );
       _currentQueue = [];
       // Bug 2 fix: reset player to idle so subsequent play() calls start clean.
       try {
@@ -339,7 +374,10 @@ class PlayerService with WidgetsBindingObserver {
 
     // if player already has an active audio source or sequence, sync UI/memory state only
     if (_player.audioSource != null || _player.sequence != null) {
-      _log.log('player is already active, syncing in-memory state without resetting playback', level: EventLogLevel.info);
+      _log.log(
+        'player is already active, syncing in-memory state without resetting playback',
+        level: EventLogLevel.info,
+      );
       _currentQueue = queue;
       if (_player.audioSource is ConcatenatingAudioSource) {
         _playlist = _player.audioSource as ConcatenatingAudioSource;
@@ -359,7 +397,12 @@ class PlayerService with WidgetsBindingObserver {
     try {
       playlist = await _buildAudioSource(_currentQueue, apiService);
     } catch (e, st) {
-      _log.log('failed to build audio source during session restore', level: EventLogLevel.error, error: e, stackTrace: st);
+      _log.log(
+        'failed to build audio source during session restore',
+        level: EventLogLevel.error,
+        error: e,
+        stackTrace: st,
+      );
       _currentQueue = [];
       return;
     }
@@ -377,10 +420,18 @@ class PlayerService with WidgetsBindingObserver {
         initialIndex: safeIndex,
         initialPosition: Duration(milliseconds: safePositionMs),
       );
-      _log.log('session restored: index=$safeIndex position=${safePositionMs}ms', level: EventLogLevel.info);
+      _log.log(
+        'session restored: index=$safeIndex position=${safePositionMs}ms',
+        level: EventLogLevel.info,
+      );
       // do not auto-play on restoration per plan
     } catch (e, st) {
-      _log.log('error restoring session', level: EventLogLevel.error, error: e, stackTrace: st);
+      _log.log(
+        'error restoring session',
+        level: EventLogLevel.error,
+        error: e,
+        stackTrace: st,
+      );
       _currentQueue = [];
       try {
         await _player.stop();
@@ -388,7 +439,10 @@ class PlayerService with WidgetsBindingObserver {
     }
   }
 
-  Future<ConcatenatingAudioSource> _buildAudioSource(List<Map<String, dynamic>> queue, ApiService apiService) async {
+  Future<ConcatenatingAudioSource> _buildAudioSource(
+    List<Map<String, dynamic>> queue,
+    ApiService apiService,
+  ) async {
     final offlineService = OfflineService();
     final localPaths = await Future.wait(
       queue.map((t) => offlineService.getLocalPath(t['id']?.toString() ?? '')),
@@ -396,7 +450,9 @@ class PlayerService with WidgetsBindingObserver {
     // Bug 4 fix: use ?.toString() instead of `as String?` to avoid _TypeError
     // when a Subsonic server returns coverArt as an integer id.
     final localCoverPaths = await Future.wait(
-      queue.map((t) => offlineService.getLocalCoverArtPath(t['coverArt']?.toString())),
+      queue.map(
+        (t) => offlineService.getLocalCoverArtPath(t['coverArt']?.toString()),
+      ),
     );
 
     final playlistList = <AudioSource>[];
@@ -408,7 +464,10 @@ class PlayerService with WidgetsBindingObserver {
       final localCoverPath = localCoverPaths[i];
 
       if (trackId.isEmpty) {
-        _log.log('skipping track at index $i: missing id', level: EventLogLevel.warning);
+        _log.log(
+          'skipping track at index $i: missing id',
+          level: EventLogLevel.warning,
+        );
         continue;
       }
 
@@ -429,7 +488,10 @@ class PlayerService with WidgetsBindingObserver {
       playlistList.add(
         localPath != null
             ? AudioSource.file(localPath, tag: tag)
-            : AudioSource.uri(Uri.parse(apiService.getStreamUrl(trackId)), tag: tag),
+            : AudioSource.uri(
+                Uri.parse(apiService.getStreamUrl(trackId)),
+                tag: tag,
+              ),
       );
     }
 
@@ -440,7 +502,10 @@ class PlayerService with WidgetsBindingObserver {
       _currentQueue = validQueue;
     }
 
-    _log.log('audio source built: ${playlistList.length}/${queue.length} tracks', level: EventLogLevel.debug);
+    _log.log(
+      'audio source built: ${playlistList.length}/${queue.length} tracks',
+      level: EventLogLevel.debug,
+    );
 
     return ConcatenatingAudioSource(
       useLazyPreparation: true,
@@ -462,6 +527,7 @@ class PlayerService with WidgetsBindingObserver {
     _markProgrammaticAction(false);
     return _player.stop();
   }
+
   Future<void> seek(Duration position) => _player.seek(position);
   Future<void> seekToIndex(int index) async {
     // If the player is already at this index, don't seek to Duration.zero
@@ -470,6 +536,7 @@ class PlayerService with WidgetsBindingObserver {
     if (_player.currentIndex == index) return;
     return _player.seek(Duration.zero, index: index);
   }
+
   Future<void> skipToNext() => _player.seekToNext();
   Future<void> skipToPrevious() => _player.seekToPrevious();
 
@@ -479,7 +546,10 @@ class PlayerService with WidgetsBindingObserver {
 
   /// Fire-and-forget: auto-save offline the current track if the feature is enabled
   /// and the storage cap has not been exceeded.
-  void _maybeAutoSaveOffline(Map<String, dynamic> track, ApiService apiService) {
+  void _maybeAutoSaveOffline(
+    Map<String, dynamic> track,
+    ApiService apiService,
+  ) {
     () async {
       try {
         final enabled = await _sessionService.autoSaveOfflinePlayed;
@@ -515,8 +585,15 @@ class PlayerService with WidgetsBindingObserver {
           return;
         }
 
-        _log.log('auto-save offline: queuing $trackId', level: EventLogLevel.debug);
-        await offlineService.saveTrackOffline(track, apiService, isExplicit: false);
+        _log.log(
+          'auto-save offline: queuing $trackId',
+          level: EventLogLevel.debug,
+        );
+        await offlineService.saveTrackOffline(
+          track,
+          apiService,
+          isExplicit: false,
+        );
       } catch (e, st) {
         _log.log(
           'auto-save offline failed',
@@ -543,7 +620,10 @@ class PlayerService with WidgetsBindingObserver {
     }
 
     _sessionService.setLastQueue(_currentQueue);
-    _log.log('removed track at index $index from queue', level: EventLogLevel.debug);
+    _log.log(
+      'removed track at index $index from queue',
+      level: EventLogLevel.debug,
+    );
   }
 
   Future<void> reorderQueue(int oldIndex, int newIndex) async {
@@ -559,7 +639,10 @@ class PlayerService with WidgetsBindingObserver {
     await _playlist!.move(oldIndex, newIndex);
 
     _sessionService.setLastQueue(_currentQueue);
-    _log.log('reordered queue: $oldIndex to $newIndex', level: EventLogLevel.debug);
+    _log.log(
+      'reordered queue: $oldIndex to $newIndex',
+      level: EventLogLevel.debug,
+    );
   }
 
   Future<void> clearQueue() async {
@@ -585,7 +668,10 @@ class PlayerService with WidgetsBindingObserver {
   Future<void> toggleShuffleMode() async {
     final enabled = !_player.shuffleModeEnabled;
     await _player.setShuffleModeEnabled(enabled);
-    _log.log('shuffle mode ${enabled ? 'enabled' : 'disabled'}', level: EventLogLevel.debug);
+    _log.log(
+      'shuffle mode ${enabled ? 'enabled' : 'disabled'}',
+      level: EventLogLevel.debug,
+    );
   }
 
   Future<void> toggleLoopMode() async {
@@ -604,22 +690,32 @@ class PlayerService with WidgetsBindingObserver {
   }
 
   void updateTrackRating(String id, int rating) {
-    final index = _currentQueue.indexWhere((t) => (t['id']?.toString() ?? '') == id);
+    final index = _currentQueue.indexWhere(
+      (t) => (t['id']?.toString() ?? '') == id,
+    );
     if (index != -1) {
       _currentQueue[index]['userRating'] = rating;
-      _log.log('updated track rating for $id to $rating in queue', level: EventLogLevel.debug);
+      _log.log(
+        'updated track rating for $id to $rating in queue',
+        level: EventLogLevel.debug,
+      );
     }
   }
 
   void updateTrackStarred(String id, bool starred) {
-    final index = _currentQueue.indexWhere((t) => (t['id']?.toString() ?? '') == id);
+    final index = _currentQueue.indexWhere(
+      (t) => (t['id']?.toString() ?? '') == id,
+    );
     if (index != -1) {
       if (starred) {
         _currentQueue[index]['starred'] = DateTime.now().toIso8601String();
       } else {
         _currentQueue[index].remove('starred');
       }
-      _log.log('updated track starred status for $id to $starred in queue', level: EventLogLevel.debug);
+      _log.log(
+        'updated track starred status for $id to $starred in queue',
+        level: EventLogLevel.debug,
+      );
     }
   }
 

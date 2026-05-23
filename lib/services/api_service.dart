@@ -72,7 +72,9 @@ class ApiService {
       final lyrics = response['lyrics'];
       if (lyrics == null) return null;
       if (lyrics is Map) return Map<String, dynamic>.from(lyrics);
-      if (lyrics is List && lyrics.isNotEmpty) return Map<String, dynamic>.from(lyrics.first);
+      if (lyrics is List && lyrics.isNotEmpty) {
+        return Map<String, dynamic>.from(lyrics.first);
+      }
       return null;
     } catch (e) {
       debugPrint('getLyrics failed: $e');
@@ -426,8 +428,8 @@ class ApiService {
     final response = await _get('getSongList', {
       'size': count.toString(),
       'offset': offset.toString(),
-      if (orderBy != null) 'orderBy': orderBy,
-      if (orderDirection != null) 'orderDirection': orderDirection,
+      'orderBy': ?orderBy,
+      'orderDirection': ?orderDirection,
     });
 
     final songList = response['songList'];
@@ -436,7 +438,9 @@ class ApiService {
     final songs = songList['song'];
     if (songs == null) return [];
 
-    return songs is Map ? [Map<String, dynamic>.from(songs)] : List<Map<String, dynamic>>.from(songs);
+    return songs is Map
+        ? [Map<String, dynamic>.from(songs)]
+        : List<Map<String, dynamic>>.from(songs);
   }
 
   Future<List<Map<String, dynamic>>> getNowPlaying() async {

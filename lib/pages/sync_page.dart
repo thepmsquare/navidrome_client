@@ -70,7 +70,7 @@ class _SyncPageState extends State<SyncPage> {
     if (!silent) {
       setState(() => _isLoading = true);
     }
-    
+
     try {
       final nowPlaying = await _apiService!.getNowPlaying();
       if (mounted) {
@@ -109,7 +109,7 @@ class _SyncPageState extends State<SyncPage> {
       final queueData = await _apiService!.getPlayQueue();
       final entries = queueData['entry'];
       final serverCurrentId = queueData['current']?.toString();
-      
+
       List<Map<String, dynamic>> queue = [session];
       int index = 0;
 
@@ -122,7 +122,7 @@ class _SyncPageState extends State<SyncPage> {
         }
         index = queue.indexWhere((t) => t['id']?.toString() == sessionTrackId);
         if (index == -1) index = 0;
-        
+
         // prefer server-reported position if we don't have one yet
         targetPositionMs ??= queueData['position'] as int?;
       }
@@ -134,14 +134,14 @@ class _SyncPageState extends State<SyncPage> {
       }
 
       await PlayerService().play(queue, index, _apiService!);
-      if (targetPositionMs != null && targetPositionMs > 0) {
+      if (targetPositionMs > 0) {
         await PlayerService().seek(Duration(milliseconds: targetPositionMs));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('failed to sync: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('failed to sync: $e')));
       }
     }
   }
@@ -177,8 +177,8 @@ class _SyncPageState extends State<SyncPage> {
                       child: _isLoading && _otherSessions.isEmpty
                           ? const Center(child: CircularProgressIndicator())
                           : _otherSessions.isEmpty
-                              ? _buildEmptyState(theme)
-                              : _buildSessionsList(theme),
+                          ? _buildEmptyState(theme)
+                          : _buildSessionsList(theme),
                     ),
             ),
           ],
@@ -301,7 +301,8 @@ class _SyncPageState extends State<SyncPage> {
                       width: 56,
                       height: 56,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => _buildFallbackIcon(theme),
+                      errorBuilder: (context, error, stackTrace) =>
+                          _buildFallbackIcon(theme),
                     )
                   : _buildFallbackIcon(theme),
             ),
@@ -322,7 +323,11 @@ class _SyncPageState extends State<SyncPage> {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Icon(Icons.smartphone_rounded, size: 14, color: theme.colorScheme.primary),
+                    Icon(
+                      Icons.smartphone_rounded,
+                      size: 14,
+                      color: theme.colorScheme.primary,
+                    ),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(

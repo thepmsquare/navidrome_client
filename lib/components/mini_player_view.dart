@@ -30,7 +30,6 @@ class _MiniPlayerViewState extends State<MiniPlayerView> {
   @override
   void initState() {
     super.initState();
-    print('MiniPlayerView.initState PlayerService instance: ${identityHashCode(_playerService)}, currentIndex: ${widget.currentIndex}');
     _pageController = PageController(initialPage: widget.currentIndex);
   }
 
@@ -38,7 +37,6 @@ class _MiniPlayerViewState extends State<MiniPlayerView> {
   void didUpdateWidget(MiniPlayerView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.currentIndex != oldWidget.currentIndex) {
-      print('MiniPlayerView.didUpdateWidget: currentIndex changed from ${oldWidget.currentIndex} to ${widget.currentIndex}');
       if (_pageController.hasClients) {
         if (_pageController.page?.round() != widget.currentIndex) {
           _isAnimatingProgrammatically = true;
@@ -76,10 +74,7 @@ class _MiniPlayerViewState extends State<MiniPlayerView> {
         borderRadius: BorderRadius.circular(20),
         child: Container(
           height: 72,
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 8,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             children: [
               Expanded(
@@ -130,8 +125,7 @@ class _MiniPlayerViewState extends State<MiniPlayerView> {
                                     .toString(),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style:
-                                    theme.textTheme.titleMedium?.copyWith(
+                                style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   color: colorScheme.onSecondaryContainer,
                                 ),
@@ -178,11 +172,9 @@ class _MiniPlayerViewState extends State<MiniPlayerView> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        onPressed: () => _playerService
-                            .skipToPrevious()
-                            .catchError((_) {}),
-                        icon: const Icon(Icons.skip_previous_rounded,
-                            size: 28),
+                        onPressed: () =>
+                            _playerService.skipToPrevious().catchError((_) {}),
+                        icon: const Icon(Icons.skip_previous_rounded, size: 28),
                       ),
                       IconButton.filledTonal(
                         onPressed: () {

@@ -222,13 +222,14 @@ class _HomePageState extends State<HomePage> {
     });
     try {
       final offlineService = OfflineService();
-      
+
       final offlineAlbumIds = offlineService.offlineAlbumIds;
       final offlinePlaylistIds = offlineService.offlinePlaylistIds;
       final offlineTrackIds = offlineService.offlineTrackIds;
 
       final allCachedAlbums = await offlineService.getCachedAlbumList() ?? [];
-      final allCachedPlaylists = await offlineService.getCachedPlaylistList() ?? [];
+      final allCachedPlaylists =
+          await offlineService.getCachedPlaylistList() ?? [];
       final allCachedTracks = await offlineService.getCachedTrackList() ?? [];
       final offlineTracksMeta = await offlineService.getOfflineTracksMetadata();
 
@@ -240,12 +241,14 @@ class _HomePageState extends State<HomePage> {
           orElse: () => {},
         );
         if (album.isEmpty) {
-          final albumTracks = await offlineService.getCachedAlbumMetadata(albumId) ?? [];
+          final albumTracks =
+              await offlineService.getCachedAlbumMetadata(albumId) ?? [];
           if (albumTracks.isNotEmpty) {
             album = {
               'id': albumId,
               'name': albumTracks.first['album']?.toString() ?? 'unknown album',
-              'artist': albumTracks.first['artist']?.toString() ?? 'unknown artist',
+              'artist':
+                  albumTracks.first['artist']?.toString() ?? 'unknown artist',
               'coverArt': albumTracks.first['coverArt']?.toString(),
             };
           }
@@ -263,7 +266,8 @@ class _HomePageState extends State<HomePage> {
           orElse: () => {},
         );
         if (playlist.isEmpty) {
-          final playlistTracks = await offlineService.getCachedPlaylistMetadata(playlistId) ?? [];
+          final playlistTracks =
+              await offlineService.getCachedPlaylistMetadata(playlistId) ?? [];
           if (playlistTracks.isNotEmpty) {
             playlist = {
               'id': playlistId,
@@ -298,14 +302,16 @@ class _HomePageState extends State<HomePage> {
       }
       for (final album in offlineAlbums) {
         final albumId = album['id']?.toString() ?? '';
-        final albumTracks = await offlineService.getCachedAlbumMetadata(albumId) ?? [];
+        final albumTracks =
+            await offlineService.getCachedAlbumMetadata(albumId) ?? [];
         for (final track in albumTracks) {
           tryAddTrack(track);
         }
       }
       for (final playlist in offlinePlaylists) {
         final playlistId = playlist['id']?.toString() ?? '';
-        final playlistTracks = await offlineService.getCachedPlaylistMetadata(playlistId) ?? [];
+        final playlistTracks =
+            await offlineService.getCachedPlaylistMetadata(playlistId) ?? [];
         for (final track in playlistTracks) {
           tryAddTrack(track);
         }
@@ -371,7 +377,6 @@ class _HomePageState extends State<HomePage> {
       }
     }
   }
-
 
   void _onUniversalSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
@@ -509,7 +514,8 @@ class _HomePageState extends State<HomePage> {
                   if (track == null) return const SizedBox.shrink();
 
                   final maxH = MediaQuery.of(context).size.height;
-                  final index = snapshot.data ?? PlayerService().player.currentIndex ?? 0;
+                  final index =
+                      snapshot.data ?? PlayerService().player.currentIndex ?? 0;
 
                   return Miniplayer(
                     controller: _miniPlayerController,
@@ -566,17 +572,14 @@ class _HomePageState extends State<HomePage> {
                                   apiService: _apiService!,
                                   track: track,
                                   currentIndex: index,
-                                  onTap: () =>
-                                      _miniPlayerController.animateToHeight(
-                                        state: PanelState.MAX,
-                                      ),
+                                  onTap: () => _miniPlayerController
+                                      .animateToHeight(state: PanelState.MAX),
                                 ),
                               ),
                             ),
                           ),
                         ],
                       );
-
                     },
                   );
                 },
@@ -593,7 +596,9 @@ class _HomePageState extends State<HomePage> {
               selectedIndex: _selectedIndex,
               onDestinationSelected: (index) {
                 if (index == _selectedIndex) {
-                  _navigatorKeys[index].currentState?.popUntil((r) => r.isFirst);
+                  _navigatorKeys[index].currentState?.popUntil(
+                    (r) => r.isFirst,
+                  );
                 } else {
                   setState(() => _selectedIndex = index);
                   _sessionService.setLastTabIndex(index);
@@ -665,7 +670,11 @@ class _HomePageState extends State<HomePage> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.signal_wifi_off_rounded, size: 48, color: Colors.grey),
+                                Icon(
+                                  Icons.signal_wifi_off_rounded,
+                                  size: 48,
+                                  color: Colors.grey,
+                                ),
                                 SizedBox(height: 16),
                                 Text(
                                   'no offline music found',
@@ -674,7 +683,10 @@ class _HomePageState extends State<HomePage> {
                                 SizedBox(height: 8),
                                 Text(
                                   'download tracks, albums, or playlists to listen offline',
-                                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 13,
+                                  ),
                                   textAlign: TextAlign.center,
                                 ),
                               ],
@@ -691,7 +703,10 @@ class _HomePageState extends State<HomePage> {
 
           return Column(
             children: [
-              AppBar(title: const Text('home (offline)'), primary: !_isOfflineMode),
+              AppBar(
+                title: const Text('home (offline)'),
+                primary: !_isOfflineMode,
+              ),
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: _loadOfflineContent,
@@ -725,9 +740,9 @@ class _HomePageState extends State<HomePage> {
                 child: ListView(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   children: [
-                    ..._homeSections
-                        .where((s) => s['visible'] == true)
-                        .map((section) {
+                    ..._homeSections.where((s) => s['visible'] == true).map((
+                      section,
+                    ) {
                       final id = section['id'];
                       if (id == 'most_played') {
                         return _buildMostPlayedSection();
@@ -847,7 +862,8 @@ class _HomePageState extends State<HomePage> {
           itemBuilder: (context, index) {
             final track = _offlineTracks[index];
             final String? coverArtId = track['coverArt']?.toString();
-            final String? coverArtUrl = _apiService != null && coverArtId != null
+            final String? coverArtUrl =
+                _apiService != null && coverArtId != null
                 ? _apiService!.getCoverArtUrl(coverArtId)
                 : null;
 
@@ -856,11 +872,7 @@ class _HomePageState extends State<HomePage> {
               coverArtUrl: coverArtUrl,
               apiService: _apiService,
               onTap: () {
-                PlayerService().play(
-                  _offlineTracks,
-                  index,
-                  _apiService!,
-                );
+                PlayerService().play(_offlineTracks, index, _apiService!);
               },
             );
           },
@@ -1023,7 +1035,7 @@ class _HomePageState extends State<HomePage> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          if (trailing != null) trailing,
+          ?trailing,
         ],
       ),
     );
@@ -1171,7 +1183,8 @@ class _HomePageState extends State<HomePage> {
           itemBuilder: (context, index) {
             final track = _randomTracks[index];
             final String? coverArtId = track['coverArt']?.toString();
-            final String? coverArtUrl = _apiService != null && coverArtId != null
+            final String? coverArtUrl =
+                _apiService != null && coverArtId != null
                 ? _apiService!.getCoverArtUrl(coverArtId)
                 : null;
 
@@ -1180,11 +1193,7 @@ class _HomePageState extends State<HomePage> {
               coverArtUrl: coverArtUrl,
               apiService: _apiService,
               onTap: () {
-                PlayerService().play(
-                  _randomTracks,
-                  index,
-                  _apiService!,
-                );
+                PlayerService().play(_randomTracks, index, _apiService!);
               },
             );
           },
