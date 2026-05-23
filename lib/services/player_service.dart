@@ -335,11 +335,22 @@ class PlayerService with WidgetsBindingObserver {
       return;
     }
 
+    _apiService = apiService;
+
+    // if player already has an active audio source or sequence, sync UI/memory state only
+    if (_player.audioSource != null || _player.sequence != null) {
+      _log.log('player is already active, syncing in-memory state without resetting playback', level: EventLogLevel.info);
+      _currentQueue = queue;
+      if (_player.audioSource is ConcatenatingAudioSource) {
+        _playlist = _player.audioSource as ConcatenatingAudioSource;
+      }
+      return;
+    }
+
     final index = await _sessionService.lastIndex;
     final positionMs = await _sessionService.lastPositionMs;
 
     _currentQueue = queue;
-    _apiService = apiService;
     // reset scrobble guards so the first restored track is submitted correctly
     _lastScrobbledId = null;
     _lastSubmittedId = null;
@@ -452,7 +463,13 @@ class PlayerService with WidgetsBindingObserver {
     return _player.stop();
   }
   Future<void> seek(Duration position) => _player.seek(position);
-  Future<void> seekToIndex(int index) => _player.seek(Duration.zero, index: index);
+  Future<void> seekToIndex(int index) async {
+    // If the player is already at this index, don't seek to Duration.zero
+    // which would reset the playback position (e.g. after catching up from
+    // background track-skips).
+    if (_player.currentIndex == index) return;
+    return _player.seek(Duration.zero, index: index);
+  }
   Future<void> skipToNext() => _player.seekToNext();
   Future<void> skipToPrevious() => _player.seekToPrevious();
 

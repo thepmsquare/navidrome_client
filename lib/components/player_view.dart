@@ -39,7 +39,13 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
   // Guards against seekToIndex firing when the page change is programmatic
   // (e.g. the stream listener syncing the PageView to the player's current
   // index after a background song transition).
-  bool _isAnimatingProgrammatically = false;
+  // Uses a counter instead of a boolean to handle overlapping animations
+  // caused by rapid stream emissions (e.g. multiple track skips while
+  // backgrounded).  A cancelled animation's whenComplete would otherwise
+  // clear a simple boolean flag while a subsequent animation is still
+  // in-flight, allowing onPageChanged to fire seekToIndex and reset the
+  // playback position to 00:00.
+  int _programmaticAnimationCount = 0;
 
   String? _lastCheckedTrackId;
   bool? _lyricsAvailable;
@@ -56,13 +62,13 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
     _currentIndexSubscription = _playerService.currentIndexStream.listen((index) {
       if (index != null && _pageController.hasClients) {
         if (_pageController.page?.round() != index) {
-          _isAnimatingProgrammatically = true;
+          _programmaticAnimationCount++;
           _pageController.animateToPage(
             index,
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
           ).whenComplete(() {
-            _isAnimatingProgrammatically = false;
+            _programmaticAnimationCount--;
           });
         }
       }
@@ -215,7 +221,7 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                             controller: _pageController,
                             padEnds: false,
                             onPageChanged: (index) {
-                              if (!_isAnimatingProgrammatically) {
+                              if (_programmaticAnimationCount == 0) {
                                 _playerService.seekToIndex(index).catchError((_) {});
                               }
                             },
