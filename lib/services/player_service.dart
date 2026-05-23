@@ -11,6 +11,7 @@ import 'package:navidrome_client/utils/constants.dart';
 
 class PlayerService with WidgetsBindingObserver {
   static final PlayerService _instance = PlayerService._internal();
+  static PlayerService get instance => _instance;
   factory PlayerService() => _instance;
 
   final AudioPlayer _player = AudioPlayer();
@@ -52,6 +53,7 @@ class PlayerService with WidgetsBindingObserver {
   }
 
   PlayerService._internal() {
+    print('PlayerService instance constructor: ${identityHashCode(this)}');
     _init();
   }
 
@@ -92,6 +94,7 @@ class PlayerService with WidgetsBindingObserver {
     // Bug 1 fix: use ?.toString() ?? '' instead of `as String` to avoid _TypeError
     // on null or non-String id values (some Subsonic implementations return int ids).
     _player.currentIndexStream.listen((index) {
+      print('PlayerService _player.currentIndexStream emitted: $index');
       if (index != null && index >= 0 && index < _currentQueue.length) {
         _sessionService.setLastIndex(index);
         final track = _currentQueue[index];
@@ -240,7 +243,8 @@ class PlayerService with WidgetsBindingObserver {
   AudioPlayer get player => _player;
   List<Map<String, dynamic>> get currentQueue => _currentQueue;
 
-  Stream<int?> get currentIndexStream => _player.currentIndexStream;
+  Stream<int?> get currentIndexStream =>
+      _player.sequenceStateStream.map((state) => state?.currentIndex);
 
   Map<String, dynamic>? get currentTrack {
     final index = _player.currentIndex;
@@ -253,7 +257,15 @@ class PlayerService with WidgetsBindingObserver {
     return null;
   }
 
+  String get queueSignature {
+    if (_currentQueue.isEmpty) return 'empty';
+    final firstId = _currentQueue.first['id']?.toString() ?? 'none';
+    final lastId = _currentQueue.last['id']?.toString() ?? 'none';
+    return '${firstId}_${lastId}_${_currentQueue.length}';
+  }
+
   Future<void> play(List<Map<String, dynamic>> queue, int initialIndex, ApiService apiService) async {
+    print('PlayerService.play instance: ${identityHashCode(this)}');
     // Check if the new queue is the same as the current one.
     bool isSameQueue = _currentQueue.length == queue.length && _currentQueue.isNotEmpty;
     if (isSameQueue) {

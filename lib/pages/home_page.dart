@@ -378,6 +378,7 @@ class _HomePageState extends State<HomePage> {
                   if (track == null) return const SizedBox.shrink();
 
                   final maxH = MediaQuery.of(context).size.height;
+                  final index = snapshot.data ?? PlayerService().player.currentIndex ?? 0;
 
                   return Miniplayer(
                     controller: _miniPlayerController,
@@ -430,7 +431,10 @@ class _HomePageState extends State<HomePage> {
                                   bottom: 12,
                                 ),
                                 child: MiniPlayerView(
+                                  key: ValueKey(PlayerService().queueSignature),
                                   apiService: _apiService!,
+                                  track: track,
+                                  currentIndex: index,
                                   onTap: () =>
                                       _miniPlayerController.animateToHeight(
                                         state: PanelState.MAX,

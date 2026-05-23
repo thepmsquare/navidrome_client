@@ -3,6 +3,7 @@
 ## 1.0.0+19 (in progress)
 
 - improvements to multi-tap detection for media buttons (earphone double/triple taps).
+- bug fixes: mini player now in sync with current playing song.
 
 ## 1.0.0+18
 
