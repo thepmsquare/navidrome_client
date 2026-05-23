@@ -7,6 +7,7 @@
 - redesign homepage for offline mode.
 - bug fix: offline / no internet banner UI fixes.
 - bug fix: no internet now does not auto toggle offline mode.
+- redesign sync page for offline mode.
 
 ## 1.0.0+18
 

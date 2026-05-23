@@ -150,33 +150,83 @@ class _SyncPageState extends State<SyncPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Column(
-      children: [
-        ValueListenableBuilder<OfflineState>(
-          valueListenable: OfflineService().offlineModeNotifier,
-          builder: (context, state, child) {
-            final isOffline = state != OfflineState.online;
-            return AppBar(
+    return ValueListenableBuilder<OfflineState>(
+      valueListenable: OfflineService().offlineModeNotifier,
+      builder: (context, state, child) {
+        final isOffline = state != OfflineState.online;
+
+        return Column(
+          children: [
+            AppBar(
               title: const Text('sync'),
               automaticallyImplyLeading: false,
               primary: !isOffline,
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.refresh_rounded),
-                  onPressed: _refreshSessions,
-                ),
+                if (!isOffline)
+                  IconButton(
+                    icon: const Icon(Icons.refresh_rounded),
+                    onPressed: _refreshSessions,
+                  ),
               ],
-            );
-          },
-        ),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: _refreshSessions,
-            child: _isLoading && _otherSessions.isEmpty
-                ? const Center(child: CircularProgressIndicator())
-                : _otherSessions.isEmpty
-                    ? _buildEmptyState(theme)
-                    : _buildSessionsList(theme),
+            ),
+            Expanded(
+              child: isOffline
+                  ? _buildOfflineState(theme)
+                  : RefreshIndicator(
+                      onRefresh: _refreshSessions,
+                      child: _isLoading && _otherSessions.isEmpty
+                          ? const Center(child: CircularProgressIndicator())
+                          : _otherSessions.isEmpty
+                              ? _buildEmptyState(theme)
+                              : _buildSessionsList(theme),
+                    ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildOfflineState(ThemeData theme) {
+    return ListView(
+      children: [
+        SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+        Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.tertiaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.cloud_off_rounded,
+                  size: 48,
+                  color: theme.colorScheme.onTertiaryContainer,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'not available offline',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 48),
+                child: Text(
+                  'syncing active playback across other devices requires an active connection.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
