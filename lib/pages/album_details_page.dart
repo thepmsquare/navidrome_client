@@ -5,7 +5,6 @@ import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/player_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
 import 'package:navidrome_client/components/offline_image.dart';
-import 'package:navidrome_client/components/offline_indicator.dart';
 
 class AlbumDetailsPage extends StatefulWidget {
   final Map<String, dynamic> album;
@@ -149,178 +148,168 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
 
 
     return Scaffold(
-      body: Column(
+      body: Stack(
         children: [
-          const SafeArea(
-            bottom: false,
-            child: OfflineIndicator(),
-          ),
-          Expanded(
-            child: Stack(
-              children: [
-                CustomScrollView(
-                  slivers: [
-                    SliverAppBar(
-                      pinned: true,
-                      expandedHeight: 300,
-                      backgroundColor: colorScheme.surface,
-                      flexibleSpace: FlexibleSpaceBar(
-                        title: Row(
-                          children: [
-                            IconButton.filled(
-                              icon: const Icon(Icons.play_arrow_rounded, size: 24),
-                              onPressed: _isLoading || _tracksToDisplay.isEmpty
-                                  ? null
-                                  : () => PlayerService().play(_tracksToDisplay, 0, widget.apiService),
-                              style: IconButton.styleFrom(
-                                backgroundColor: colorScheme.primary,
-                                foregroundColor: colorScheme.onPrimary,
-                                padding: const EdgeInsets.all(8),
-                                elevation: 4,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    child: Text(
-                                      albumName,
-                                      style: theme.textTheme.titleMedium?.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        shadows: const [
-                                          Shadow(blurRadius: 12, color: Colors.black54, offset: Offset(0, 2)),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                   Text(
-                                     (widget.album['artist'] ?? '').toString(),
-                                     style: theme.textTheme.labelMedium?.copyWith(
-                                       color: Colors.white70,
-                                     ),
-                                     maxLines: 1,
-                                     overflow: TextOverflow.ellipsis,
-                                   ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            StreamBuilder<OfflineProgress>(
-                              stream: OfflineService().getSaveOfflineProgress(widget.album['id'].toString()),
-                              builder: (context, snapshot) {
-                                final p = snapshot.data;
-                                final double progress = p?.fraction ?? 0.0;
-                                final bool savingOffline = p != null && !p.isDone && progress > 0;
-
-                                return IconButton.filledTonal(
-                                  icon: savingOffline
-                                      ? SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            value: progress,
-                                            strokeWidth: 2,
-                                            color: colorScheme.onSecondaryContainer,
-                                          ),
-                                        )
-                                      : _isAlbumOffline
-                                          ? const Icon(Icons.download_done_rounded, size: 20)
-                                          : const Icon(Icons.download_for_offline_rounded, size: 20),
-                                  onPressed: savingOffline || (_isAlbumOffline && !_isOfflineMode) || (_tracks.isEmpty && !_isOfflineMode)
-                                      ? null
-                                      : () {
-                                          if (_isAlbumOffline) {
-                                            _showDeleteAlbumConfirmation(context);
-                                          } else {
-                                            _saveOfflineErrorShown = false;
-                                            OfflineService().saveAlbumOffline(
-                                              widget.album['id'].toString(),
-                                              _tracks,
-                                              widget.apiService,
-                                            );
-                                          }
-                                        },
-                                  style: IconButton.styleFrom(
-                                    backgroundColor: Colors.white.withValues(alpha: 0.2),
-                                    foregroundColor: Colors.white,
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
+          CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                pinned: true,
+                expandedHeight: 300,
+                backgroundColor: colorScheme.surface,
+                flexibleSpace: FlexibleSpaceBar(
+                  title: Row(
+                    children: [
+                      IconButton.filled(
+                        icon: const Icon(Icons.play_arrow_rounded, size: 24),
+                        onPressed: _isLoading || _tracksToDisplay.isEmpty
+                            ? null
+                            : () => PlayerService().play(_tracksToDisplay, 0, widget.apiService),
+                        style: IconButton.styleFrom(
+                          backgroundColor: colorScheme.primary,
+                          foregroundColor: colorScheme.onPrimary,
+                          padding: const EdgeInsets.all(8),
+                          elevation: 4,
                         ),
-                        titlePadding: const EdgeInsets.only(left: 16, bottom: 16, right: 16),
-                        background: Stack(
-                          fit: StackFit.expand,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Hero(
-                              tag: widget.heroTag ?? 'album_cover_${widget.album['id']}',
-                              child: OfflineImage(
-                                coverArtId: coverArtId,
-                                remoteUrl: coverArtUrl,
-                                fit: BoxFit.cover,
-                                placeholder: Container(color: colorScheme.surfaceContainerHighest),
-                              ),
-                            ),
-                            DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Colors.transparent,
-                                    Colors.black.withValues(alpha: 0.6),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Text(
+                                albumName,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  shadows: const [
+                                    Shadow(blurRadius: 12, color: Colors.black54, offset: Offset(0, 2)),
                                   ],
                                 ),
                               ),
                             ),
+                            Text(
+                              (widget.album['artist'] ?? '').toString(),
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: Colors.white70,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ],
                         ),
                       ),
-                    ),
-                    if (_isLoading)
-                      const SliverFillRemaining(
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    else if (_tracksToDisplay.isEmpty)
-                      const SliverFillRemaining(
-                        child: Center(child: Text('no tracks in this album')),
-                      )
-                    else
-                      SliverPadding(
-                        padding: const EdgeInsets.only(top: 8, bottom: 100),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              final tracks = _tracksToDisplay;
-                              if (index >= tracks.length) return null;
-                              final track = tracks[index];
-                              final trackCoverArtId = track['coverArt'] ?? widget.album['coverArt'];
-                              final trackCoverArtUrl = trackCoverArtId != null
-                                  ? widget.apiService.getCoverArtUrl(trackCoverArtId)
-                                  : null;
-                              return TrackListItem(
-                                track: track,
-                                coverArtUrl: trackCoverArtUrl,
-                                apiService: widget.apiService,
-                                onTap: () {
-                                  PlayerService().play(tracks, index, widget.apiService);
-                                },
-                              );
-                            },
-                            childCount: _tracksToDisplay.length,
+                      const SizedBox(width: 8),
+                      StreamBuilder<OfflineProgress>(
+                        stream: OfflineService().getSaveOfflineProgress(widget.album['id'].toString()),
+                        builder: (context, snapshot) {
+                          final p = snapshot.data;
+                          final double progress = p?.fraction ?? 0.0;
+                          final bool savingOffline = p != null && !p.isDone && progress > 0;
+
+                          return IconButton.filledTonal(
+                            icon: savingOffline
+                                ? SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      value: progress,
+                                      strokeWidth: 2,
+                                      color: colorScheme.onSecondaryContainer,
+                                    ),
+                                  )
+                                : _isAlbumOffline
+                                    ? const Icon(Icons.download_done_rounded, size: 20)
+                                    : const Icon(Icons.download_for_offline_rounded, size: 20),
+                            onPressed: savingOffline || (_isAlbumOffline && !_isOfflineMode) || (_tracks.isEmpty && !_isOfflineMode)
+                                ? null
+                                : () {
+                                    if (_isAlbumOffline) {
+                                      _showDeleteAlbumConfirmation(context);
+                                    } else {
+                                      _saveOfflineErrorShown = false;
+                                      OfflineService().saveAlbumOffline(
+                                        widget.album['id'].toString(),
+                                        _tracks,
+                                        widget.apiService,
+                                      );
+                                    }
+                                  },
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.white.withValues(alpha: 0.2),
+                              foregroundColor: Colors.white,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  titlePadding: const EdgeInsets.only(left: 16, bottom: 16, right: 16),
+                  background: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Hero(
+                        tag: widget.heroTag ?? 'album_cover_${widget.album['id']}',
+                        child: OfflineImage(
+                          coverArtId: coverArtId,
+                          remoteUrl: coverArtUrl,
+                          fit: BoxFit.cover,
+                          placeholder: Container(color: colorScheme.surfaceContainerHighest),
+                        ),
+                      ),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withValues(alpha: 0.6),
+                            ],
                           ),
                         ),
                       ),
-                  ],
+                    ],
+                  ),
                 ),
-              ],
-            ),
+              ),
+              if (_isLoading)
+                const SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_tracksToDisplay.isEmpty)
+                const SliverFillRemaining(
+                  child: Center(child: Text('no tracks in this album')),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 100),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final tracks = _tracksToDisplay;
+                        if (index >= tracks.length) return null;
+                        final track = tracks[index];
+                        final trackCoverArtId = track['coverArt'] ?? widget.album['coverArt'];
+                        final trackCoverArtUrl = trackCoverArtId != null
+                            ? widget.apiService.getCoverArtUrl(trackCoverArtId)
+                            : null;
+                        return TrackListItem(
+                          track: track,
+                          coverArtUrl: trackCoverArtUrl,
+                          apiService: widget.apiService,
+                          onTap: () {
+                            PlayerService().play(tracks, index, widget.apiService);
+                          },
+                        );
+                      },
+                      childCount: _tracksToDisplay.length,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),

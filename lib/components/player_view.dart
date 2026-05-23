@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:navidrome_client/services/player_service.dart';
 import 'package:navidrome_client/services/api_service.dart';
-import 'package:navidrome_client/components/offline_indicator.dart';
 import 'package:navidrome_client/components/offline_image.dart';
 import 'package:navidrome_client/pages/queue_page.dart';
 import 'package:navidrome_client/services/lyrics_service.dart';
@@ -138,9 +137,51 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
           ),
           backgroundColor: Colors.transparent,
           elevation: 0,
+          primary: true,
+          centerTitle: true,
+          title: ValueListenableBuilder<OfflineState>(
+            valueListenable: OfflineService().offlineModeNotifier,
+            builder: (context, state, child) {
+              if (state == OfflineState.online) return const SizedBox.shrink();
+
+              final bool isNoInternet = state == OfflineState.offlineNoInternet;
+              final IconData icon = isNoInternet ? Icons.wifi_off_rounded : Icons.cloud_off_rounded;
+              final String label = isNoInternet ? 'no internet' : 'offline mode';
+
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: (isNoInternet ? colorScheme.errorContainer : colorScheme.tertiaryContainer).withValues(alpha: 0.8),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: (isNoInternet ? colorScheme.onErrorContainer : colorScheme.onTertiaryContainer).withValues(alpha: 0.15),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      icon,
+                      size: 14,
+                      color: isNoInternet ? colorScheme.onErrorContainer : colorScheme.onTertiaryContainer,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      label.toLowerCase(),
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: isNoInternet ? colorScheme.onErrorContainer : colorScheme.onTertiaryContainer,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
-        const OfflineIndicator(),
-        Expanded(
+            Expanded(
           child: StreamBuilder<int?>(
             stream: _playerService.currentIndexStream,
             builder: (context, snapshot) {

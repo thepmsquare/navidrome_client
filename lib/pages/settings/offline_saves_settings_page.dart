@@ -183,10 +183,15 @@ class _OfflineSavesSettingsPageState extends State<OfflineSavesSettingsPage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('offline saves'),
-      ),
+    return ValueListenableBuilder<OfflineState>(
+      valueListenable: OfflineService().offlineModeNotifier,
+      builder: (context, state, child) {
+        final isOffline = state != OfflineState.online;
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('offline saves'),
+            primary: !isOffline,
+          ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -257,6 +262,8 @@ class _OfflineSavesSettingsPageState extends State<OfflineSavesSettingsPage> {
           ),
         ],
       ),
+    );
+      },
     );
   }
 }

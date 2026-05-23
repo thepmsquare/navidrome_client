@@ -5,6 +5,7 @@
 - improvements to multi-tap detection for media buttons (earphone double/triple taps).
 - bug fixes: mini player now in sync with current playing song.
 - redesign homepage for offline mode (in progress).
+- bug fixes: offline / no internet banner UI fixes.
 
 ## 1.0.0+18
 

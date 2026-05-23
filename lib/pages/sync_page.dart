@@ -3,6 +3,7 @@ import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/auth_service.dart';
 import 'dart:async';
 import 'package:navidrome_client/services/player_service.dart';
+import 'package:navidrome_client/services/offline_service.dart';
 
 class SyncPage extends StatefulWidget {
   const SyncPage({super.key});
@@ -151,15 +152,22 @@ class _SyncPageState extends State<SyncPage> {
 
     return Column(
       children: [
-        AppBar(
-          title: const Text('sync'),
-          automaticallyImplyLeading: false,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.refresh_rounded),
-              onPressed: _refreshSessions,
-            ),
-          ],
+        ValueListenableBuilder<OfflineState>(
+          valueListenable: OfflineService().offlineModeNotifier,
+          builder: (context, state, child) {
+            final isOffline = state != OfflineState.online;
+            return AppBar(
+              title: const Text('sync'),
+              automaticallyImplyLeading: false,
+              primary: !isOffline,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.refresh_rounded),
+                  onPressed: _refreshSessions,
+                ),
+              ],
+            );
+          },
         ),
         Expanded(
           child: RefreshIndicator(

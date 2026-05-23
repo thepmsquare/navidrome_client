@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:navidrome_client/pages/event_log_page.dart';
+import 'package:navidrome_client/services/offline_service.dart';
 import 'package:navidrome_client/services/event_log_service.dart';
 import 'package:navidrome_client/services/export_service.dart';
 import 'package:navidrome_client/services/player_service.dart';
@@ -66,10 +67,15 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('advanced'),
-      ),
+    return ValueListenableBuilder<OfflineState>(
+      valueListenable: OfflineService().offlineModeNotifier,
+      builder: (context, state, child) {
+        final isOffline = state != OfflineState.online;
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('advanced'),
+            primary: !isOffline,
+          ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -192,6 +198,8 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
           ),
         ],
       ),
+    );
+      },
     );
   }
 }

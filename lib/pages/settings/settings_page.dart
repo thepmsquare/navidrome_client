@@ -117,9 +117,16 @@ class _SettingsPageState extends State<SettingsPage> {
 
     return Column(
       children: [
-        AppBar(
-          title: const Text('settings'),
-          automaticallyImplyLeading: false,
+        ValueListenableBuilder<OfflineState>(
+          valueListenable: OfflineService().offlineModeNotifier,
+          builder: (context, state, child) {
+            final isOffline = state != OfflineState.online;
+            return AppBar(
+              title: const Text('settings'),
+              automaticallyImplyLeading: false,
+              primary: !isOffline,
+            );
+          },
         ),
         Expanded(
           child: ListView(

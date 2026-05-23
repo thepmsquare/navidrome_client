@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:navidrome_client/services/session_service.dart';
+import 'package:navidrome_client/services/offline_service.dart';
 
 class HomePageSettingsPage extends StatefulWidget {
   const HomePageSettingsPage({super.key});
@@ -64,10 +65,15 @@ class _HomePageSettingsPageState extends State<HomePageSettingsPage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('home page'),
-      ),
+    return ValueListenableBuilder<OfflineState>(
+      valueListenable: OfflineService().offlineModeNotifier,
+      builder: (context, state, child) {
+        final isOffline = state != OfflineState.online;
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('home page'),
+            primary: !isOffline,
+          ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ReorderableListView.builder(
@@ -138,6 +144,8 @@ class _HomePageSettingsPageState extends State<HomePageSettingsPage> {
           ),
         ),
       ),
+    );
+      },
     );
   }
 }
