@@ -140,7 +140,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       secondary: const Icon(Icons.offline_pin_rounded),
                       title: const Text('offline mode'),
                       subtitle: const Text('only show content saved offline'),
-                      value: state != OfflineState.online,
+                      value: state == OfflineState.offlineManual,
                       onChanged: (value) => OfflineService().setOfflineMode(value),
                     );
                   },

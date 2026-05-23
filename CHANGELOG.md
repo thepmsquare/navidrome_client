@@ -2,10 +2,11 @@
 
 ## 1.0.0+19 (in progress)
 
-- improvements to multi-tap detection for media buttons (earphone double/triple taps).
-- bug fixes: mini player now in sync with current playing song.
-- redesign homepage for offline mode (in progress).
-- bug fixes: offline / no internet banner UI fixes.
+- bug fix: fix issue when tapping play twice on an track, player would skip the song.
+- bug fix: mini player now in sync with current playing song.
+- redesign homepage for offline mode.
+- bug fix: offline / no internet banner UI fixes.
+- bug fix: no internet now does not auto toggle offline mode.
 
 ## 1.0.0+18
 
