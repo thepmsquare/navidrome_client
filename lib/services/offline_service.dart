@@ -144,6 +144,9 @@ class OfflineService extends ChangeNotifier {
   // ---------------------------------------------------------------------------
 
   bool get isOfflineMode => _isOfflineMode;
+  Set<String> get offlineTrackIds => _offlineTrackIds;
+  Set<String> get offlineAlbumIds => _offlineAlbumIds;
+  Set<String> get offlinePlaylistIds => _offlinePlaylistIds;
   bool isTrackOfflineSync(String trackId) => _offlineTrackIds.contains(trackId);
   bool isAlbumOfflineSync(String albumId) => _offlineAlbumIds.contains(albumId);
   bool isPlaylistOfflineSync(String playlistId) => _offlinePlaylistIds.contains(playlistId);
@@ -397,6 +400,7 @@ class OfflineService extends ChangeNotifier {
 
         // save offline and save lyrics
         await saveLyricsOffline(track, apiService);
+        await _addOfflineTrackMetadata(track);
 
         _offlineTrackIds.add(trackId);
         if (isExplicit) {
@@ -564,6 +568,7 @@ class OfflineService extends ChangeNotifier {
     _offlineTrackIds.remove(trackId);
     _explicitOfflineTrackIds.remove(trackId);
     _autoSaveOfflineOrder.remove(trackId);
+    await _removeOfflineTrackMetadata(trackId);
     _requestPersistence();
     notifyListeners();
   }
@@ -644,6 +649,37 @@ class OfflineService extends ChangeNotifier {
     _offlinePlaylistIds.remove(playlistId);
     _requestPersistence();
     notifyListeners();
+  }
+
+  Future<List<Map<String, dynamic>>> getOfflineTracksMetadata() async {
+    try {
+      final base = await _getStoragePath();
+      final file = File('$base/meta/offline_tracks_meta.json');
+      if (!await file.exists()) return [];
+      final decoded = jsonDecode(await file.readAsString()) as List<dynamic>;
+      return List<Map<String, dynamic>>.from(
+        decoded.map((e) => Map<String, dynamic>.from(e as Map)),
+      );
+    } catch (e) {
+      debugPrint('failed to read offline tracks metadata: $e');
+      return [];
+    }
+  }
+
+  Future<void> _addOfflineTrackMetadata(Map<String, dynamic> track) async {
+    final list = await getOfflineTracksMetadata();
+    final trackId = track['id']?.toString();
+    list.removeWhere((t) => t['id']?.toString() == trackId);
+    list.add(track);
+    final base = await _getStoragePath();
+    await File('$base/meta/offline_tracks_meta.json').writeAsString(jsonEncode(list));
+  }
+
+  Future<void> _removeOfflineTrackMetadata(String trackId) async {
+    final list = await getOfflineTracksMetadata();
+    list.removeWhere((t) => t['id']?.toString() == trackId);
+    final base = await _getStoragePath();
+    await File('$base/meta/offline_tracks_meta.json').writeAsString(jsonEncode(list));
   }
 
   Future<bool> _isTrackUsedElsewhere(String trackId, {String? excludeAlbumId, String? excludePlaylistId}) async {

@@ -1,11 +1,12 @@
 import 'dart:async';
-import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:navidrome_client/components/album_list_item.dart';
 import 'package:navidrome_client/components/album_tile.dart';
 import 'package:navidrome_client/components/track_list_item.dart';
+import 'package:navidrome_client/components/playlist_list_item.dart';
 import 'package:navidrome_client/pages/album_details_page.dart';
+import 'package:navidrome_client/pages/playlist_details_page.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/player_service.dart';
 import 'package:navidrome_client/services/auth_service.dart';
@@ -60,6 +61,10 @@ class _HomePageState extends State<HomePage> {
   List<Map<String, dynamic>> _recentlyPlayedAlbums = [];
   List<Map<String, dynamic>> _homeSections = [];
   bool _isLoadingHome = false;
+  List<Map<String, dynamic>> _offlineAlbums = [];
+  List<Map<String, dynamic>> _offlinePlaylists = [];
+  List<Map<String, dynamic>> _offlineTracks = [];
+  bool _isLoadingOffline = false;
   // bool _isFetchingMore = false;
   ApiService? _apiService;
 
@@ -113,6 +118,7 @@ class _HomePageState extends State<HomePage> {
     // Only rebuild the whole page if we are in offline mode (to filter the list).
     // Individual items (TrackListItem, etc.) already handle their own icons via listeners.
     if (OfflineService().isOfflineMode) {
+      _loadOfflineContent();
       setState(() {
         // intentional: triggers rebuild to re-evaluate _isOfflineMode getter
       });
@@ -121,6 +127,9 @@ class _HomePageState extends State<HomePage> {
 
   void _onOfflineModeChanged() {
     if (!mounted) return;
+    if (_selectedIndex == 0) {
+      _loadHomeContent();
+    }
     // only rebuild if the selected tab cares about offline state (home or library)
     if (_selectedIndex <= 1) {
       setState(() {
@@ -173,7 +182,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadHomeContent() async {
-    if (_apiService == null || _isOfflineMode) return;
+    if (_isOfflineMode) {
+      await _loadOfflineContent();
+      return;
+    }
+    if (_apiService == null) return;
 
     setState(() {
       _isLoadingHome = true;
@@ -198,6 +211,130 @@ class _HomePageState extends State<HomePage> {
       if (mounted) {
         setState(() {
           _isLoadingHome = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadOfflineContent() async {
+    setState(() {
+      _isLoadingOffline = true;
+    });
+    try {
+      final offlineService = OfflineService();
+      
+      final offlineAlbumIds = offlineService.offlineAlbumIds;
+      final offlinePlaylistIds = offlineService.offlinePlaylistIds;
+      final offlineTrackIds = offlineService.offlineTrackIds;
+
+      final allCachedAlbums = await offlineService.getCachedAlbumList() ?? [];
+      final allCachedPlaylists = await offlineService.getCachedPlaylistList() ?? [];
+      final allCachedTracks = await offlineService.getCachedTrackList() ?? [];
+      final offlineTracksMeta = await offlineService.getOfflineTracksMetadata();
+
+      // 1. load and reconstruct offline albums
+      final List<Map<String, dynamic>> offlineAlbums = [];
+      for (final albumId in offlineAlbumIds) {
+        var album = allCachedAlbums.firstWhere(
+          (a) => a['id']?.toString() == albumId,
+          orElse: () => {},
+        );
+        if (album.isEmpty) {
+          final albumTracks = await offlineService.getCachedAlbumMetadata(albumId) ?? [];
+          if (albumTracks.isNotEmpty) {
+            album = {
+              'id': albumId,
+              'name': albumTracks.first['album']?.toString() ?? 'unknown album',
+              'artist': albumTracks.first['artist']?.toString() ?? 'unknown artist',
+              'coverArt': albumTracks.first['coverArt']?.toString(),
+            };
+          }
+        }
+        if (album.isNotEmpty) {
+          offlineAlbums.add(album);
+        }
+      }
+
+      // 2. load and reconstruct offline playlists
+      final List<Map<String, dynamic>> offlinePlaylists = [];
+      for (final playlistId in offlinePlaylistIds) {
+        var playlist = allCachedPlaylists.firstWhere(
+          (p) => p['id']?.toString() == playlistId,
+          orElse: () => {},
+        );
+        if (playlist.isEmpty) {
+          final playlistTracks = await offlineService.getCachedPlaylistMetadata(playlistId) ?? [];
+          if (playlistTracks.isNotEmpty) {
+            playlist = {
+              'id': playlistId,
+              'name': 'playlist',
+              'songCount': playlistTracks.length,
+              'coverArt': playlistTracks.first['coverArt']?.toString(),
+            };
+          }
+        }
+        if (playlist.isNotEmpty) {
+          offlinePlaylists.add(playlist);
+        }
+      }
+
+      // 3. load and consolidate offline tracks from all possible local sources
+      final List<Map<String, dynamic>> offlineTracks = [];
+      final Set<String> foundTrackIds = {};
+
+      void tryAddTrack(Map<String, dynamic> track) {
+        final id = track['id']?.toString() ?? '';
+        if (offlineTrackIds.contains(id) && !foundTrackIds.contains(id)) {
+          foundTrackIds.add(id);
+          offlineTracks.add(track);
+        }
+      }
+
+      for (final track in offlineTracksMeta) {
+        tryAddTrack(track);
+      }
+      for (final track in allCachedTracks) {
+        tryAddTrack(track);
+      }
+      for (final album in offlineAlbums) {
+        final albumId = album['id']?.toString() ?? '';
+        final albumTracks = await offlineService.getCachedAlbumMetadata(albumId) ?? [];
+        for (final track in albumTracks) {
+          tryAddTrack(track);
+        }
+      }
+      for (final playlist in offlinePlaylists) {
+        final playlistId = playlist['id']?.toString() ?? '';
+        final playlistTracks = await offlineService.getCachedPlaylistMetadata(playlistId) ?? [];
+        for (final track in playlistTracks) {
+          tryAddTrack(track);
+        }
+      }
+
+      // fallback placeholder for tracks with missing metadata to guarantee display
+      for (final trackId in offlineTrackIds) {
+        if (!foundTrackIds.contains(trackId)) {
+          tryAddTrack({
+            'id': trackId,
+            'title': 'track $trackId',
+            'artist': 'unknown artist',
+          });
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _offlineAlbums = offlineAlbums;
+          _offlinePlaylists = offlinePlaylists;
+          _offlineTracks = offlineTracks;
+          _isLoadingOffline = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('failed to load offline content: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingOffline = false;
         });
       }
     }
@@ -289,12 +426,6 @@ class _HomePageState extends State<HomePage> {
         });
       }
     }
-  }
-
-  Future<void> _toggleOfflineMode(bool value) async {
-    await OfflineService().setOfflineMode(value);
-    // trigger rebuild — _isOfflineMode reflecting new value immediately
-    setState(() {});
   }
 
   @override
@@ -508,16 +639,81 @@ class _HomePageState extends State<HomePage> {
   Widget _buildHomeView() {
     return Builder(
       builder: (context) {
+        if (_isOfflineMode) {
+          if (_isLoadingOffline &&
+              _offlineAlbums.isEmpty &&
+              _offlinePlaylists.isEmpty &&
+              _offlineTracks.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (_offlineAlbums.isEmpty &&
+              _offlinePlaylists.isEmpty &&
+              _offlineTracks.isEmpty) {
+            return Column(
+              children: [
+                AppBar(title: const Text('home'), primary: !_isOfflineMode),
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: _loadOfflineContent,
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.6,
+                          child: const Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.signal_wifi_off_rounded, size: 48, color: Colors.grey),
+                                SizedBox(height: 16),
+                                Text(
+                                  'no offline music found',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  'download tracks, albums, or playlists to listen offline',
+                                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
+
+          return Column(
+            children: [
+              AppBar(title: const Text('home (offline)'), primary: !_isOfflineMode),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _loadOfflineContent,
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    children: [
+                      _buildOfflineAlbumsSection(),
+                      _buildOfflinePlaylistsSection(),
+                      _buildOfflineTracksSection(),
+                      const SizedBox(height: 100), // padding for mini player
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+
         if (_isLoadingHome &&
             _mostPlayedAlbums.isEmpty &&
             _randomTracks.isEmpty) {
           return const Center(child: CircularProgressIndicator());
-        }
-
-        if (_isOfflineMode) {
-          return const Center(
-            child: Text('home content not available offline'),
-          );
         }
 
         return Column(
@@ -550,6 +746,126 @@ class _HomePageState extends State<HomePage> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildOfflineAlbumsSection() {
+    if (_offlineAlbums.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('offline albums'),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 220,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            scrollDirection: Axis.horizontal,
+            itemCount: _offlineAlbums.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 16),
+            itemBuilder: (context, index) {
+              final album = _offlineAlbums[index];
+              final heroTag = 'offline_album_${album['id']}';
+              return AlbumTile(
+                album: album,
+                apiService: _apiService!,
+                heroTag: heroTag,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AlbumDetailsPage(
+                        album: album,
+                        apiService: _apiService!,
+                        heroTag: heroTag,
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  Widget _buildOfflinePlaylistsSection() {
+    if (_offlinePlaylists.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('offline playlists'),
+        const SizedBox(height: 8),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          itemCount: _offlinePlaylists.length,
+          itemBuilder: (context, index) {
+            final playlist = _offlinePlaylists[index];
+            final coverArtId = playlist['coverArt']?.toString();
+            final coverArtUrl = _apiService != null && coverArtId != null
+                ? _apiService!.getCoverArtUrl(coverArtId)
+                : null;
+
+            return PlaylistListItem(
+              playlist: playlist,
+              coverArtUrl: coverArtUrl,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PlaylistDetailsPage(
+                      playlist: playlist,
+                      apiService: _apiService!,
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  Widget _buildOfflineTracksSection() {
+    if (_offlineTracks.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('offline tracks'),
+        const SizedBox(height: 8),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          itemCount: _offlineTracks.length,
+          itemBuilder: (context, index) {
+            final track = _offlineTracks[index];
+            final String? coverArtId = track['coverArt']?.toString();
+            final String? coverArtUrl = _apiService != null && coverArtId != null
+                ? _apiService!.getCoverArtUrl(coverArtId)
+                : null;
+
+            return TrackListItem(
+              track: track,
+              coverArtUrl: coverArtUrl,
+              apiService: _apiService,
+              onTap: () {
+                PlayerService().play(
+                  _offlineTracks,
+                  index,
+                  _apiService!,
+                );
+              },
+            );
+          },
+        ),
+      ],
     );
   }
 
