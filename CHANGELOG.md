@@ -9,6 +9,7 @@
 - bug fix: no internet now does not auto toggle offline mode.
 - redesign sync page for offline mode.
 - bug fix: playback sync issue when app goes in background and brought back to foreground no longer interrupts playback.
+- bug fix: prevent play and download buttons from overlapping back button on scroll in album, playlist, and artist details pages.
 
 ## 1.0.0+18
 

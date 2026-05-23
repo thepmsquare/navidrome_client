@@ -156,123 +156,150 @@ class _AlbumDetailsPageState extends State<AlbumDetailsPage> {
                 pinned: true,
                 expandedHeight: 300,
                 backgroundColor: colorScheme.surface,
-                flexibleSpace: FlexibleSpaceBar(
-                  title: Row(
-                    children: [
-                      IconButton.filled(
-                        icon: const Icon(Icons.play_arrow_rounded, size: 24),
-                        onPressed: _isLoading || _tracksToDisplay.isEmpty
-                            ? null
-                            : () => PlayerService().play(_tracksToDisplay, 0, widget.apiService),
-                        style: IconButton.styleFrom(
-                          backgroundColor: colorScheme.primary,
-                          foregroundColor: colorScheme.onPrimary,
-                          padding: const EdgeInsets.all(8),
-                          elevation: 4,
-                        ),
+                flexibleSpace: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final double appBarHeight = constraints.biggest.height;
+                    final double topPadding = MediaQuery.of(context).padding.top;
+                    final double collapsedHeight = kToolbarHeight + topPadding;
+                    final double expandedHeight = 300.0;
+                    final double delta = expandedHeight - collapsedHeight;
+                    final double percent = ((appBarHeight - collapsedHeight) / delta).clamp(0.0, 1.0);
+
+                    final bool showControls = percent > 0.2;
+
+                    return FlexibleSpaceBar(
+                      titlePadding: EdgeInsets.only(
+                        left: 16.0 + (1.0 - percent) * 40.0,
+                        bottom: 16,
+                        right: 16,
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Text(
-                                albumName,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  shadows: const [
-                                    Shadow(blurRadius: 12, color: Colors.black54, offset: Offset(0, 2)),
-                                  ],
+                      title: Row(
+                        children: [
+                          if (showControls) ...[
+                            Opacity(
+                              opacity: percent,
+                              child: IconButton.filled(
+                                icon: const Icon(Icons.play_arrow_rounded, size: 24),
+                                onPressed: _isLoading || _tracksToDisplay.isEmpty
+                                    ? null
+                                    : () => PlayerService().play(_tracksToDisplay, 0, widget.apiService),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: colorScheme.primary,
+                                  foregroundColor: colorScheme.onPrimary,
+                                  padding: const EdgeInsets.all(8),
+                                  elevation: 4,
                                 ),
                               ),
                             ),
-                            Text(
-                              (widget.album['artist'] ?? '').toString(),
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                color: Colors.white70,
+                            const SizedBox(width: 8),
+                          ],
+                          Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: Text(
+                                    albumName,
+                                    style: theme.textTheme.titleMedium?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      shadows: const [
+                                        Shadow(blurRadius: 12, color: Colors.black54, offset: Offset(0, 2)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  (widget.album['artist'] ?? '').toString(),
+                                  style: theme.textTheme.labelMedium?.copyWith(
+                                    color: Colors.white70,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (showControls) ...[
+                            const SizedBox(width: 8),
+                            Opacity(
+                              opacity: percent,
+                              child: StreamBuilder<OfflineProgress>(
+                                stream: OfflineService().getSaveOfflineProgress(widget.album['id'].toString()),
+                                builder: (context, snapshot) {
+                                  final p = snapshot.data;
+                                  final double progress = p?.fraction ?? 0.0;
+                                  final bool savingOffline = p != null && !p.isDone && progress > 0;
+
+                                  return IconButton.filledTonal(
+                                    icon: savingOffline
+                                        ? SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              value: progress,
+                                              strokeWidth: 2,
+                                              color: colorScheme.onSecondaryContainer,
+                                            ),
+                                          )
+                                        : _isAlbumOffline
+                                            ? const Icon(Icons.download_done_rounded, size: 20)
+                                            : const Icon(Icons.download_for_offline_rounded, size: 20),
+                                    onPressed: savingOffline || (_isAlbumOffline && !_isOfflineMode) || (_tracks.isEmpty && !_isOfflineMode)
+                                        ? null
+                                        : () {
+                                            if (_isAlbumOffline) {
+                                              _showDeleteAlbumConfirmation(context);
+                                            } else {
+                                              _saveOfflineErrorShown = false;
+                                              OfflineService().saveAlbumOffline(
+                                                widget.album['id'].toString(),
+                                                _tracks,
+                                                widget.apiService,
+                                              );
+                                            }
+                                          },
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: Colors.white.withValues(alpha: 0.2),
+                                      foregroundColor: Colors.white,
+                                    ),
+                                  );
+                                },
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
-                        ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      StreamBuilder<OfflineProgress>(
-                        stream: OfflineService().getSaveOfflineProgress(widget.album['id'].toString()),
-                        builder: (context, snapshot) {
-                          final p = snapshot.data;
-                          final double progress = p?.fraction ?? 0.0;
-                          final bool savingOffline = p != null && !p.isDone && progress > 0;
-
-                          return IconButton.filledTonal(
-                            icon: savingOffline
-                                ? SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      value: progress,
-                                      strokeWidth: 2,
-                                      color: colorScheme.onSecondaryContainer,
-                                    ),
-                                  )
-                                : _isAlbumOffline
-                                    ? const Icon(Icons.download_done_rounded, size: 20)
-                                    : const Icon(Icons.download_for_offline_rounded, size: 20),
-                            onPressed: savingOffline || (_isAlbumOffline && !_isOfflineMode) || (_tracks.isEmpty && !_isOfflineMode)
-                                ? null
-                                : () {
-                                    if (_isAlbumOffline) {
-                                      _showDeleteAlbumConfirmation(context);
-                                    } else {
-                                      _saveOfflineErrorShown = false;
-                                      OfflineService().saveAlbumOffline(
-                                        widget.album['id'].toString(),
-                                        _tracks,
-                                        widget.apiService,
-                                      );
-                                    }
-                                  },
-                            style: IconButton.styleFrom(
-                              backgroundColor: Colors.white.withValues(alpha: 0.2),
-                              foregroundColor: Colors.white,
+                      background: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Hero(
+                            tag: widget.heroTag ?? 'album_cover_${widget.album['id']}',
+                            child: OfflineImage(
+                              coverArtId: coverArtId,
+                              remoteUrl: coverArtUrl,
+                              fit: BoxFit.cover,
+                              placeholder: Container(color: colorScheme.surfaceContainerHighest),
                             ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                  titlePadding: const EdgeInsets.only(left: 16, bottom: 16, right: 16),
-                  background: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Hero(
-                        tag: widget.heroTag ?? 'album_cover_${widget.album['id']}',
-                        child: OfflineImage(
-                          coverArtId: coverArtId,
-                          remoteUrl: coverArtUrl,
-                          fit: BoxFit.cover,
-                          placeholder: Container(color: colorScheme.surfaceContainerHighest),
-                        ),
-                      ),
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withValues(alpha: 0.6),
-                            ],
                           ),
-                        ),
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.black.withValues(alpha: 0.6),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ),
               if (_isLoading)
