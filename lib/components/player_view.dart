@@ -7,7 +7,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:navidrome_client/services/player_service.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/components/offline_image.dart';
-import 'package:navidrome_client/pages/queue_page.dart';
+import 'package:navidrome_client/components/queue_list_item.dart';
 import 'package:navidrome_client/services/lyrics_service.dart';
 import 'package:navidrome_client/pages/artist_details_page.dart';
 import 'package:navidrome_client/pages/album_details_page.dart';
@@ -18,11 +18,13 @@ import 'package:http/http.dart' as http;
 class PlayerView extends StatefulWidget {
   final ApiService apiService;
   final VoidCallback onMinimize;
+  final bool isExpanded;
 
   const PlayerView({
     super.key,
     required this.apiService,
     required this.onMinimize,
+    this.isExpanded = false,
   });
 
   @override
@@ -33,6 +35,7 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
   final PlayerService _playerService = PlayerService();
   late final LyricsService _lyricsService;
   late final PageController _pageController;
+  late final PageController _verticalPageController;
   late final StreamSubscription<int?> _currentIndexSubscription;
   bool _showLyrics = false;
   double? _dragValue;
@@ -58,6 +61,7 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
 
     final initialPage = _playerService.player.currentIndex ?? 0;
     _pageController = PageController(initialPage: initialPage);
+    _verticalPageController = PageController(initialPage: 0);
 
     _currentIndexSubscription = _playerService.currentIndexStream.listen((index) {
       if (index != null && _pageController.hasClients) {
@@ -116,6 +120,7 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
   void dispose() {
     _currentIndexSubscription.cancel();
     _pageController.dispose();
+    _verticalPageController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -134,6 +139,58 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
+    return PopScope(
+      canPop: !widget.isExpanded,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+
+        if (_verticalPageController.hasClients &&
+            _verticalPageController.page?.round() == 1) {
+          _verticalPageController.animateToPage(
+            0,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+          return;
+        }
+
+        widget.onMinimize();
+      },
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (_verticalPageController.hasClients &&
+              _verticalPageController.page?.round() == 0) {
+            if (notification is ScrollUpdateNotification) {
+              if (notification.metrics.pixels <= 0 &&
+                  notification.scrollDelta != null &&
+                  notification.scrollDelta! < -8) {
+                widget.onMinimize();
+              }
+            } else if (notification is OverscrollNotification) {
+              if (notification.overscroll < -8) {
+                widget.onMinimize();
+              }
+            }
+          }
+          return false;
+        },
+        child: PageView(
+          controller: _verticalPageController,
+          scrollDirection: Axis.vertical,
+          children: [
+            _buildNowPlayingView(context, colorScheme, theme),
+            _buildQueueView(context, colorScheme, theme),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNowPlayingView(
+    BuildContext context,
+    ColorScheme colorScheme,
+    ThemeData theme,
+  ) {
     return Column(
       children: [
         AppBar(
@@ -187,7 +244,7 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
             },
           ),
         ),
-            Expanded(
+        Expanded(
           child: StreamBuilder<int?>(
             stream: _playerService.currentIndexStream,
             builder: (context, snapshot) {
@@ -535,6 +592,34 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                           ],
                         ),
                         const Spacer(flex: 3),
+                        GestureDetector(
+                          onTap: () {
+                            _verticalPageController.animateToPage(
+                              1,
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          },
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.keyboard_arrow_up_rounded,
+                                size: 18,
+                                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'swipe up for queue',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
                       ],
                     ),
                   ),
@@ -545,6 +630,149 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
         ),
       ],
     );
+  }
+
+  Widget _buildQueueView(
+    BuildContext context,
+    ColorScheme colorScheme,
+    ThemeData theme,
+  ) {
+    return Column(
+      children: [
+        AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.keyboard_arrow_down_rounded),
+            onPressed: () {
+              _verticalPageController.animateToPage(
+                0,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+              );
+            },
+          ),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          primary: true,
+          centerTitle: true,
+          title: const Text('queue'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.delete_sweep_rounded),
+              onPressed: () => _showClearConfirmation(context),
+              tooltip: 'clear queue'.toLowerCase(),
+            ),
+          ],
+        ),
+        GestureDetector(
+          onTap: () {
+            _verticalPageController.animateToPage(
+              0,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          },
+          child: Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+        Expanded(
+          child: StreamBuilder<int?>(
+            stream: _playerService.currentIndexStream,
+            builder: (context, snapshot) {
+              final currentQueue = _playerService.currentQueue;
+              final currentIndex = _playerService.player.currentIndex;
+
+              if (currentQueue.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.music_off_rounded,
+                        size: 64,
+                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'queue is empty',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return ReorderableListView.builder(
+                itemCount: currentQueue.length,
+                onReorder: (oldIndex, newIndex) {
+                  if (newIndex > oldIndex) {
+                    newIndex -= 1;
+                  }
+                  if (oldIndex != newIndex) {
+                    setState(() {
+                      _playerService.reorderQueue(oldIndex, newIndex);
+                    });
+                  }
+                },
+                itemBuilder: (context, index) {
+                  final track = currentQueue[index];
+                  final isPlaying = index == currentIndex;
+
+                  return QueueListItem(
+                    key: ValueKey('${track['id']}_$index'),
+                    track: track,
+                    index: index,
+                    apiService: widget.apiService,
+                    isPlaying: isPlaying,
+                    onTap: () {
+                      _playerService.seekToIndex(index).catchError((_) {});
+                    },
+                    onRemove: () {
+                      setState(() {
+                        _playerService.removeFromQueue(index);
+                      });
+                    },
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showClearConfirmation(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('clear queue?'),
+        content: const Text('this will stop playback and empty the queue.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('clear'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _playerService.clearQueue();
+      if (mounted) setState(() {});
+    }
   }
 
   Widget _buildRatingWidget(Map<String, dynamic> track, ColorScheme colorScheme) {
@@ -618,9 +846,10 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
               if (value == 'lyrics') {
                 setState(() => _showLyrics = !_showLyrics);
               } else if (value == 'queue') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => QueuePage(apiService: widget.apiService)),
+                _verticalPageController.animateToPage(
+                  1,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
                 );
               } else if (value == 'download') {
                 _downloadTrackToDevice(track);

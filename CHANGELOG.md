@@ -1,5 +1,9 @@
 # changelog
 
+## 1.1.0+1 (in progress)
+
+- swipe up on music player page to see current song queue.
+
 ## 1.0.0+19
 
 - bug fix: fix issue when tapping play twice on an track, player would skip the song.
