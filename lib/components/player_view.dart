@@ -620,17 +620,15 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                                             child: Text(
                                               _formatDuration(
                                                 Duration(
-                                                  seconds:
-                                                      _dragValue!.toInt(),
+                                                  seconds: _dragValue!.toInt(),
                                                 ),
                                               ),
-                                              style: theme
-                                                  .textTheme.labelMedium
+                                              style: theme.textTheme.labelMedium
                                                   ?.copyWith(
-                                                color: colorScheme
-                                                    .onPrimaryContainer,
-                                                fontWeight: FontWeight.bold,
-                                              ),
+                                                    color: colorScheme
+                                                        .onPrimaryContainer,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
                                             ),
                                           )
                                         : const SizedBox.shrink(),
@@ -1327,16 +1325,18 @@ class _LyricsViewState extends State<_LyricsView> {
   Future<void> _loadLyrics() async {
     try {
       final lyrics = await widget.lyricsService.getLyrics(widget.track);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _lyricsData = lyrics;
           _loading = false;
         });
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _loading = false;
         });
+      }
     }
   }
 
