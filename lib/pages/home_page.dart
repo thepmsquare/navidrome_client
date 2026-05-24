@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:m3e_collection/m3e_collection.dart';
 import 'package:navidrome_client/components/album_list_item.dart';
 import 'package:navidrome_client/components/album_tile.dart';
 import 'package:navidrome_client/components/track_list_item.dart';
@@ -596,7 +597,7 @@ class _HomePageState extends State<HomePage> {
             // Hide the navigation bar as soon as the player starts expanding
             if (value > 0.05) return const SizedBox.shrink();
 
-            return NavigationBar(
+            return NavigationBarM3E(
               selectedIndex: _selectedIndex,
               onDestinationSelected: (index) {
                 if (index == _selectedIndex) {
@@ -617,23 +618,23 @@ class _HomePageState extends State<HomePage> {
                 }
               },
               destinations: const [
-                NavigationDestination(
+                NavigationDestinationM3E(
                   icon: Icon(Icons.home_rounded),
                   label: 'home',
                 ),
-                NavigationDestination(
+                NavigationDestinationM3E(
                   icon: Icon(Icons.library_music_rounded),
                   label: 'library',
                 ),
-                NavigationDestination(
+                NavigationDestinationM3E(
                   icon: Icon(Icons.search_rounded),
                   label: 'search',
                 ),
-                NavigationDestination(
+                NavigationDestinationM3E(
                   icon: Icon(Icons.sync_rounded),
                   label: 'sync',
                 ),
-                NavigationDestination(
+                NavigationDestinationM3E(
                   icon: Icon(Icons.settings_rounded),
                   label: 'settings',
                 ),
@@ -653,7 +654,7 @@ class _HomePageState extends State<HomePage> {
               _offlineAlbums.isEmpty &&
               _offlinePlaylists.isEmpty &&
               _offlineTracks.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: LoadingIndicatorM3E());
           }
 
           if (_offlineAlbums.isEmpty &&
@@ -663,7 +664,7 @@ class _HomePageState extends State<HomePage> {
               children: [
                 AppBar(title: const Text('home'), primary: !_isOfflineMode),
                 Expanded(
-                  child: RefreshIndicator(
+                  child: ExpressiveRefreshIndicator(
                     onRefresh: _loadOfflineContent,
                     child: ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
@@ -712,7 +713,7 @@ class _HomePageState extends State<HomePage> {
                 primary: !_isOfflineMode,
               ),
               Expanded(
-                child: RefreshIndicator(
+                child: ExpressiveRefreshIndicator(
                   onRefresh: _loadOfflineContent,
                   child: ListView(
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -732,14 +733,14 @@ class _HomePageState extends State<HomePage> {
         if (_isLoadingHome &&
             _mostPlayedAlbums.isEmpty &&
             _randomTracks.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: LoadingIndicatorM3E());
         }
 
         return Column(
           children: [
             AppBar(title: const Text('home'), primary: !_isOfflineMode),
             Expanded(
-              child: RefreshIndicator(
+              child: ExpressiveRefreshIndicator(
                 onRefresh: _loadHomeContent,
                 child: ListView(
                   padding: const EdgeInsets.symmetric(vertical: 16),

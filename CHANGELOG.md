@@ -5,6 +5,7 @@
 - swipe up on music player page to see current song queue.
 - redesign library page.
 - bug fix: album art on music player page now correctly matches the current song.
+- integrate material 3 expressive navigation bar, buttons, sliders, pull-to-refresh, and loading indicators.
 
 ## 1.0.0+19
 

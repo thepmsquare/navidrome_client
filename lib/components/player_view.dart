@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:m3e_collection/m3e_collection.dart';
 import 'package:navidrome_client/services/player_service.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/components/offline_image.dart';
@@ -63,7 +64,9 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
     _pageController = PageController(initialPage: initialPage);
     _verticalPageController = PageController(initialPage: 0);
 
-    _currentIndexSubscription = _playerService.currentIndexStream.listen((index) {
+    _currentIndexSubscription = _playerService.currentIndexStream.listen((
+      index,
+    ) {
       if (index != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
@@ -71,13 +74,15 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
             if (_pageController.page?.round() != index) {
               if (widget.isExpanded) {
                 _programmaticAnimationCount++;
-                _pageController.animateToPage(
-                  index,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                ).whenComplete(() {
-                  _programmaticAnimationCount--;
-                });
+                _pageController
+                    .animateToPage(
+                      index,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    )
+                    .whenComplete(() {
+                      _programmaticAnimationCount--;
+                    });
               } else {
                 _pageController.jumpToPage(index);
               }
@@ -126,7 +131,8 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
 
     try {
       final lyrics = await _lyricsService.getLyrics(track);
-      final hasLyrics = lyrics != null && (lyrics.plain != null || lyrics.hasSynced);
+      final hasLyrics =
+          lyrics != null && (lyrics.plain != null || lyrics.hasSynced);
       if (mounted && trackId == _lastCheckedTrackId) {
         setState(() {
           _lyricsAvailable = hasLyrics;
@@ -235,16 +241,31 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
               if (state == OfflineState.online) return const SizedBox.shrink();
 
               final bool isNoInternet = state == OfflineState.offlineNoInternet;
-              final IconData icon = isNoInternet ? Icons.wifi_off_rounded : Icons.cloud_off_rounded;
-              final String label = isNoInternet ? 'no internet' : 'offline mode';
+              final IconData icon = isNoInternet
+                  ? Icons.wifi_off_rounded
+                  : Icons.cloud_off_rounded;
+              final String label = isNoInternet
+                  ? 'no internet'
+                  : 'offline mode';
 
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
-                  color: (isNoInternet ? colorScheme.errorContainer : colorScheme.tertiaryContainer).withValues(alpha: 0.8),
+                  color:
+                      (isNoInternet
+                              ? colorScheme.errorContainer
+                              : colorScheme.tertiaryContainer)
+                          .withValues(alpha: 0.8),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: (isNoInternet ? colorScheme.onErrorContainer : colorScheme.onTertiaryContainer).withValues(alpha: 0.15),
+                    color:
+                        (isNoInternet
+                                ? colorScheme.onErrorContainer
+                                : colorScheme.onTertiaryContainer)
+                            .withValues(alpha: 0.15),
                     width: 1,
                   ),
                 ),
@@ -254,13 +275,17 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                     Icon(
                       icon,
                       size: 14,
-                      color: isNoInternet ? colorScheme.onErrorContainer : colorScheme.onTertiaryContainer,
+                      color: isNoInternet
+                          ? colorScheme.onErrorContainer
+                          : colorScheme.onTertiaryContainer,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       label.toLowerCase(),
                       style: theme.textTheme.labelMedium?.copyWith(
-                        color: isNoInternet ? colorScheme.onErrorContainer : colorScheme.onTertiaryContainer,
+                        color: isNoInternet
+                            ? colorScheme.onErrorContainer
+                            : colorScheme.onTertiaryContainer,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.5,
                       ),
@@ -306,13 +331,17 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                             padEnds: false,
                             onPageChanged: (index) {
                               if (_programmaticAnimationCount == 0) {
-                                _playerService.seekToIndex(index).catchError((_) {});
+                                _playerService
+                                    .seekToIndex(index)
+                                    .catchError((_) {});
                               }
                             },
                             itemCount: _playerService.currentQueue.length,
                             itemBuilder: (context, index) {
-                              final itemTrack = _playerService.currentQueue[index];
-                              final isCurrentTrack = track['id'] == itemTrack['id'];
+                              final itemTrack =
+                                  _playerService.currentQueue[index];
+                              final isCurrentTrack =
+                                  track['id'] == itemTrack['id'];
                               final itemCoverArtId = itemTrack['coverArt'];
                               final itemCoverArtUrl = itemCoverArtId != null
                                   ? widget.apiService.getCoverArtUrl(
@@ -322,7 +351,9 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                                   : null;
 
                               return Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4.0,
+                                ),
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
@@ -331,10 +362,13 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                                         aspectRatio: 1,
                                         child: Container(
                                           decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(40),
+                                            borderRadius: BorderRadius.circular(
+                                              40,
+                                            ),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: colorScheme.shadow.withValues(alpha: 0.25),
+                                                color: colorScheme.shadow
+                                                    .withValues(alpha: 0.25),
                                                 blurRadius: 50,
                                                 offset: const Offset(0, 15),
                                                 spreadRadius: -5,
@@ -342,66 +376,123 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                                             ],
                                           ),
                                           child: ClipRRect(
-                                            borderRadius: BorderRadius.circular(10),
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
                                             child: Stack(
                                               fit: StackFit.expand,
                                               children: [
                                                 OfflineImage(
-                                                  coverArtId: itemCoverArtId?.toString(),
+                                                  coverArtId: itemCoverArtId
+                                                      ?.toString(),
                                                   remoteUrl: itemCoverArtUrl,
                                                   fit: BoxFit.cover,
                                                   placeholder: Container(
-                                                    color: colorScheme.surfaceContainerHighest,
+                                                    color: colorScheme
+                                                        .surfaceContainerHighest,
                                                     child: Icon(
                                                       Icons.music_note_rounded,
                                                       size: 100,
-                                                      color: colorScheme.primary.withValues(alpha: 0.5),
+                                                      color: colorScheme.primary
+                                                          .withValues(
+                                                            alpha: 0.5,
+                                                          ),
                                                     ),
                                                   ),
                                                 ),
-                                                if (_showLyrics && isCurrentTrack) ...[
+                                                if (_showLyrics &&
+                                                    isCurrentTrack) ...[
                                                   Container(
-                                                    color: Colors.black.withValues(alpha: 0.65),
+                                                    color: Colors.black
+                                                        .withValues(
+                                                          alpha: 0.65,
+                                                        ),
                                                   ),
                                                   Positioned.fill(
                                                     child: BackdropFilter(
-                                                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                                                      child: Container(color: Colors.transparent),
+                                                      filter: ImageFilter.blur(
+                                                        sigmaX: 10,
+                                                        sigmaY: 10,
+                                                      ),
+                                                      child: Container(
+                                                        color:
+                                                            Colors.transparent,
+                                                      ),
                                                     ),
                                                   ),
                                                   _LyricsView(
-                                                    key: ValueKey('lyrics_${itemTrack['id']}'),
+                                                    key: ValueKey(
+                                                      'lyrics_${itemTrack['id']}',
+                                                    ),
                                                     track: itemTrack,
-                                                    lyricsService: _lyricsService,
-                                                    playerService: _playerService,
+                                                    lyricsService:
+                                                        _lyricsService,
+                                                    playerService:
+                                                        _playerService,
                                                   ),
                                                   Positioned(
                                                     top: 12,
                                                     right: 12,
                                                     child: IconButton(
-                                                      icon: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
-                                                      style: IconButton.styleFrom(
-                                                        backgroundColor: Colors.black.withValues(alpha: 0.5),
-                                                        padding: const EdgeInsets.all(8),
+                                                      icon: const Icon(
+                                                        Icons.close_rounded,
+                                                        color: Colors.white,
+                                                        size: 20,
                                                       ),
-                                                      tooltip: 'close lyrics'.toLowerCase(),
-                                                      onPressed: () => setState(() => _showLyrics = false),
+                                                      style: IconButton.styleFrom(
+                                                        backgroundColor: Colors
+                                                            .black
+                                                            .withValues(
+                                                              alpha: 0.5,
+                                                            ),
+                                                        padding:
+                                                            const EdgeInsets.all(
+                                                              8,
+                                                            ),
+                                                      ),
+                                                      tooltip: 'close lyrics'
+                                                          .toLowerCase(),
+                                                      onPressed: () => setState(
+                                                        () =>
+                                                            _showLyrics = false,
+                                                      ),
                                                     ),
                                                   ),
-                                                ] else if (isCurrentTrack && _lyricsAvailable == true) ...[
+                                                ] else if (isCurrentTrack &&
+                                                    _lyricsAvailable ==
+                                                        true) ...[
                                                   Positioned(
                                                     bottom: 12,
                                                     right: 12,
                                                     child: FilledButton.icon(
-                                                      onPressed: () => setState(() => _showLyrics = true),
-                                                      icon: const Icon(Icons.lyrics_rounded, size: 16),
-                                                      label: Text('lyrics'.toLowerCase()),
+                                                      onPressed: () => setState(
+                                                        () =>
+                                                            _showLyrics = true,
+                                                      ),
+                                                      icon: const Icon(
+                                                        Icons.lyrics_rounded,
+                                                        size: 16,
+                                                      ),
+                                                      label: Text(
+                                                        'lyrics'.toLowerCase(),
+                                                      ),
                                                       style: FilledButton.styleFrom(
-                                                        backgroundColor: Colors.black.withValues(alpha: 0.6),
-                                                        foregroundColor: Colors.white,
-                                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                        backgroundColor: Colors
+                                                            .black
+                                                            .withValues(
+                                                              alpha: 0.6,
+                                                            ),
+                                                        foregroundColor:
+                                                            Colors.white,
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 12,
+                                                              vertical: 8,
+                                                            ),
                                                         minimumSize: Size.zero,
-                                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                        tapTargetSize:
+                                                            MaterialTapTargetSize
+                                                                .shrinkWrap,
                                                       ),
                                                     ),
                                                   ),
@@ -440,18 +531,23 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                                   scrollDirection: Axis.horizontal,
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
-                                    children: _buildArtistWidgets(
-                                            track,
-                                            context,
-                                            theme,
-                                            colorScheme)
-                                        .map((w) => Padding(
-                                              padding: const EdgeInsets
-                                                  .symmetric(
-                                                  horizontal: 2),
-                                              child: w,
-                                            ))
-                                        .toList(),
+                                    children:
+                                        _buildArtistWidgets(
+                                              track,
+                                              context,
+                                              theme,
+                                              colorScheme,
+                                            )
+                                            .map(
+                                              (w) => Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 2,
+                                                    ),
+                                                child: w,
+                                              ),
+                                            )
+                                            .toList(),
                                   ),
                                 ),
                               ),
@@ -466,7 +562,10 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                                         builder: (context) => AlbumDetailsPage(
                                           album: {
                                             'id': albumId,
-                                            'name': (track['album'] ?? 'unknown album').toString(),
+                                            'name':
+                                                (track['album'] ??
+                                                        'unknown album')
+                                                    .toString(),
                                             'coverArt': track['coverArt'],
                                           },
                                           apiService: widget.apiService,
@@ -476,7 +575,8 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                                   }
                                 },
                                 child: Text(
-                                  (track['album'] ?? 'unknown album').toString(),
+                                  (track['album'] ?? 'unknown album')
+                                      .toString(),
                                   textAlign: TextAlign.center,
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
@@ -495,58 +595,108 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                         StreamBuilder<Duration>(
                           stream: _playerService.player.positionStream,
                           builder: (context, snapshot) {
-                            final position = snapshot.data ?? _playerService.player.position;
-                            final total = _playerService.player.duration ?? Duration.zero;
+                            final position =
+                                snapshot.data ?? _playerService.player.position;
+                            final total =
+                                _playerService.player.duration ?? Duration.zero;
 
                             return Column(
                               children: [
-                                SliderTheme(
-                                  data: SliderTheme.of(context).copyWith(
-                                    trackHeight: 8,
-                                    thumbShape: const RoundSliderThumbShape(
-                                      enabledThumbRadius: 6,
-                                    ),
-                                    overlayShape: const RoundSliderOverlayShape(
-                                      overlayRadius: 16,
-                                    ),
-                                    activeTrackColor: colorScheme.primary,
-                                    inactiveTrackColor: colorScheme.surfaceContainerHighest,
-                                    thumbColor: colorScheme.primary,
+                                SizedBox(
+                                  height: 32,
+                                  child: Center(
+                                    child: _dragValue != null
+                                        ? Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 6,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  colorScheme.primaryContainer,
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                            ),
+                                            child: Text(
+                                              _formatDuration(
+                                                Duration(
+                                                  seconds:
+                                                      _dragValue!.toInt(),
+                                                ),
+                                              ),
+                                              style: theme
+                                                  .textTheme.labelMedium
+                                                  ?.copyWith(
+                                                color: colorScheme
+                                                    .onPrimaryContainer,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          )
+                                        : const SizedBox.shrink(),
                                   ),
-                                  child: Slider(
-                                    value: (_dragValue ?? position.inSeconds.toDouble()).clamp(
-                                      0.0,
-                                      total.inSeconds.toDouble().clamp(0.01, double.infinity),
-                                    ),
-                                    min: 0,
-                                    max: total.inSeconds.toDouble().clamp(0.01, double.infinity),
-                                    onChangeStart: (_) => setState(() => _dragValue = position.inSeconds.toDouble()),
-                                    onChanged: (value) => setState(() => _dragValue = value),
-                                    onChangeEnd: (value) {
-                                      _playerService.seek(Duration(seconds: value.toInt()));
-                                      setState(() => _dragValue = null);
-                                    },
+                                ),
+                                SliderM3E(
+                                  value:
+                                      (_dragValue ??
+                                              position.inSeconds.toDouble())
+                                          .clamp(
+                                            0.0,
+                                            total.inSeconds.toDouble().clamp(
+                                              0.01,
+                                              double.infinity,
+                                            ),
+                                          ),
+                                  min: 0,
+                                  max: total.inSeconds.toDouble().clamp(
+                                    0.01,
+                                    double.infinity,
                                   ),
+                                  onChangeStart: (_) => setState(
+                                    () => _dragValue = position.inSeconds
+                                        .toDouble(),
+                                  ),
+                                  onChanged: (value) =>
+                                      setState(() => _dragValue = value),
+                                  onChangeEnd: (value) {
+                                    _playerService.seek(
+                                      Duration(seconds: value.toInt()),
+                                    );
+                                    setState(() => _dragValue = null);
+                                  },
+                                  size: SliderM3ESize.medium,
+                                  shapeFamily: SliderM3EShapeFamily.square,
                                 ),
                                 const SizedBox(height: 4),
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4.0,
+                                  ),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
                                         _formatDuration(position),
-                                        style: theme.textTheme.labelMedium?.copyWith(
-                                          color: colorScheme.onSurfaceVariant,
-                                          fontFeatures: const [FontFeature.tabularFigures()],
-                                        ),
+                                        style: theme.textTheme.labelMedium
+                                            ?.copyWith(
+                                              color:
+                                                  colorScheme.onSurfaceVariant,
+                                              fontFeatures: const [
+                                                FontFeature.tabularFigures(),
+                                              ],
+                                            ),
                                       ),
                                       Text(
                                         _formatDuration(total),
-                                        style: theme.textTheme.labelMedium?.copyWith(
-                                          color: colorScheme.onSurfaceVariant,
-                                          fontFeatures: const [FontFeature.tabularFigures()],
-                                        ),
+                                        style: theme.textTheme.labelMedium
+                                            ?.copyWith(
+                                              color:
+                                                  colorScheme.onSurfaceVariant,
+                                              fontFeatures: const [
+                                                FontFeature.tabularFigures(),
+                                              ],
+                                            ),
                                       ),
                                     ],
                                   ),
@@ -560,13 +710,18 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
                             StreamBuilder<bool>(
-                              stream: _playerService.player.shuffleModeEnabledStream,
+                              stream: _playerService
+                                  .player
+                                  .shuffleModeEnabledStream,
                               builder: (context, snapshot) {
                                 final enabled = snapshot.data ?? false;
                                 return IconButton(
                                   icon: const Icon(Icons.shuffle_rounded),
-                                  onPressed: () => _playerService.toggleShuffleMode(),
-                                  color: enabled ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                                  onPressed: () =>
+                                      _playerService.toggleShuffleMode(),
+                                  color: enabled
+                                      ? colorScheme.primary
+                                      : colorScheme.onSurfaceVariant,
                                   iconSize: 24,
                                   tooltip: 'shuffle',
                                 );
@@ -575,7 +730,9 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                             IconButton.filledTonal(
                               iconSize: 32,
                               icon: const Icon(Icons.skip_previous_rounded),
-                              onPressed: () => _playerService.skipToPrevious().catchError((_) {}),
+                              onPressed: () => _playerService
+                                  .skipToPrevious()
+                                  .catchError((_) {}),
                             ),
                             StreamBuilder<PlayerState>(
                               stream: _playerService.player.playerStateStream,
@@ -584,7 +741,11 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                                 return IconButton.filled(
                                   iconSize: 56,
                                   padding: const EdgeInsets.all(16),
-                                  icon: Icon(playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
+                                  icon: Icon(
+                                    playing
+                                        ? Icons.pause_rounded
+                                        : Icons.play_arrow_rounded,
+                                  ),
                                   onPressed: () {
                                     if (playing) {
                                       _playerService.pause();
@@ -598,7 +759,9 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                             IconButton.filledTonal(
                               iconSize: 32,
                               icon: const Icon(Icons.skip_next_rounded),
-                              onPressed: () => _playerService.skipToNext().catchError((_) {}),
+                              onPressed: () => _playerService
+                                  .skipToNext()
+                                  .catchError((_) {}),
                             ),
                             StreamBuilder<LoopMode>(
                               stream: _playerService.player.loopModeStream,
@@ -608,9 +771,16 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                                 final isOne = mode == LoopMode.one;
 
                                 return IconButton(
-                                  icon: Icon(isOne ? Icons.repeat_one_rounded : Icons.repeat_rounded),
-                                  onPressed: () => _playerService.toggleLoopMode(),
-                                  color: isOff ? colorScheme.onSurfaceVariant : colorScheme.primary,
+                                  icon: Icon(
+                                    isOne
+                                        ? Icons.repeat_one_rounded
+                                        : Icons.repeat_rounded,
+                                  ),
+                                  onPressed: () =>
+                                      _playerService.toggleLoopMode(),
+                                  color: isOff
+                                      ? colorScheme.onSurfaceVariant
+                                      : colorScheme.primary,
                                   iconSize: 24,
                                   tooltip: 'repeat',
                                 );
@@ -633,13 +803,16 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                               Icon(
                                 Icons.keyboard_arrow_up_rounded,
                                 size: 18,
-                                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                                color: colorScheme.onSurfaceVariant.withValues(
+                                  alpha: 0.5,
+                                ),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 'swipe up for queue',
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                                  color: colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.6),
                                   letterSpacing: 1,
                                 ),
                               ),
@@ -723,7 +896,9 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                       Icon(
                         Icons.music_off_rounded,
                         size: 64,
-                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.5,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       Text(
@@ -802,7 +977,10 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
     }
   }
 
-  Widget _buildRatingWidget(Map<String, dynamic> track, ColorScheme colorScheme) {
+  Widget _buildRatingWidget(
+    Map<String, dynamic> track,
+    ColorScheme colorScheme,
+  ) {
     final int userRating = (track['userRating'] as num?)?.toInt() ?? 0;
     final String trackId = track['id']?.toString() ?? '';
     final bool isStarred = track['starred'] != null;
@@ -821,7 +999,9 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
               padding: const EdgeInsets.symmetric(horizontal: 2),
               icon: Icon(
                 isSelected ? Icons.star_rounded : Icons.star_outline_rounded,
-                color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                color: isSelected
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                 size: 28,
               ),
               onPressed: () {
@@ -838,8 +1018,12 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
           left: 0,
           child: IconButton(
             icon: Icon(
-              isStarred ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-              color: isStarred ? Colors.redAccent : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+              isStarred
+                  ? Icons.favorite_rounded
+                  : Icons.favorite_border_rounded,
+              color: isStarred
+                  ? Colors.redAccent
+                  : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               size: 28,
             ),
             onPressed: () {
@@ -887,7 +1071,12 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                 value: 'lyrics',
                 child: Row(
                   children: [
-                    Icon(_showLyrics ? Icons.music_note_rounded : Icons.lyrics_rounded, size: 20),
+                    Icon(
+                      _showLyrics
+                          ? Icons.music_note_rounded
+                          : Icons.lyrics_rounded,
+                      size: 20,
+                    ),
                     const SizedBox(width: 12),
                     Text(_showLyrics ? 'show player' : 'show lyrics'),
                   ],
@@ -926,7 +1115,9 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
 
     if (!isOffline && OfflineService().isOfflineMode) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('cannot download track while offline'.toLowerCase())),
+        SnackBar(
+          content: Text('cannot download track while offline'.toLowerCase()),
+        ),
       );
       return;
     }
@@ -967,7 +1158,9 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
         if (response.statusCode == 200) {
           fileBytes = response.bodyBytes;
         } else {
-          throw Exception('failed to download track: status ${response.statusCode}');
+          throw Exception(
+            'failed to download track: status ${response.statusCode}',
+          );
         }
       }
 
@@ -978,7 +1171,10 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
 
       final suffix = track['suffix'] ?? 'mp3';
       final title = track['title'] ?? 'unknown';
-      final cleanTitle = title.toString().replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+      final cleanTitle = title.toString().replaceAll(
+        RegExp(r'[<>:"/\\|?*]'),
+        '_',
+      );
       final fileName = '$cleanTitle.$suffix';
 
       final String? outputFile = await FilePicker.platform.saveFile(
@@ -1024,7 +1220,12 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
     return "$minutes:$seconds";
   }
 
-  List<Widget> _buildArtistWidgets(Map<String, dynamic> track, BuildContext context, ThemeData theme, ColorScheme colorScheme) {
+  List<Widget> _buildArtistWidgets(
+    Map<String, dynamic> track,
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     final List<dynamic>? artists = track['artists'];
     final String? singleArtistName = track['artist']?.toString();
     final String? singleArtistId = track['artistId']?.toString();
@@ -1041,7 +1242,11 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                 context,
                 MaterialPageRoute(
                   builder: (context) => ArtistDetailsPage(
-                    artist: {'id': id, 'name': name, 'coverArt': track['artistCoverArt'] ?? track['coverArt']},
+                    artist: {
+                      'id': id,
+                      'name': name,
+                      'coverArt': track['artistCoverArt'] ?? track['coverArt'],
+                    },
                     apiService: widget.apiService,
                   ),
                 ),
@@ -1069,7 +1274,11 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
               context,
               MaterialPageRoute(
                 builder: (context) => ArtistDetailsPage(
-                  artist: {'id': singleArtistId, 'name': singleArtistName, 'coverArt': track['artistCoverArt'] ?? track['coverArt']},
+                  artist: {
+                    'id': singleArtistId,
+                    'name': singleArtistName,
+                    'coverArt': track['artistCoverArt'] ?? track['coverArt'],
+                  },
                   apiService: widget.apiService,
                 ),
               ),
@@ -1084,7 +1293,7 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
         ),
         side: BorderSide(color: colorScheme.primary.withValues(alpha: 0.2)),
         backgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.3),
-      )
+      ),
     ];
   }
 }
@@ -1118,16 +1327,24 @@ class _LyricsViewState extends State<_LyricsView> {
   Future<void> _loadLyrics() async {
     try {
       final lyrics = await widget.lyricsService.getLyrics(widget.track);
-      if (mounted) setState(() { _lyricsData = lyrics; _loading = false; });
+      if (mounted)
+        setState(() {
+          _lyricsData = lyrics;
+          _loading = false;
+        });
     } catch (e) {
-      if (mounted) setState(() { _loading = false; });
+      if (mounted)
+        setState(() {
+          _loading = false;
+        });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_lyricsData == null || (_lyricsData!.plain == null && !_lyricsData!.hasSynced)) {
+    if (_lyricsData == null ||
+        (_lyricsData!.plain == null && !_lyricsData!.hasSynced)) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -1194,9 +1411,11 @@ class _SyncedLyricsViewState extends State<_SyncedLyricsView> {
     super.initState();
     _keys = List.generate(widget.syncedLyrics.length, (index) => GlobalKey());
     _scrollController = ScrollController();
-    
+
     // Listen to position changes
-    _positionSubscription = widget.playerService.player.positionStream.listen((position) {
+    _positionSubscription = widget.playerService.player.positionStream.listen((
+      position,
+    ) {
       if (!mounted) return;
       int activeIndex = -1;
       for (int i = 0; i < widget.syncedLyrics.length; i++) {
@@ -1206,12 +1425,12 @@ class _SyncedLyricsViewState extends State<_SyncedLyricsView> {
           break;
         }
       }
-      
+
       if (activeIndex != _currentActiveIndex) {
         setState(() {
           _currentActiveIndex = activeIndex;
         });
-        
+
         if (activeIndex != _lastActiveIndex) {
           _lastActiveIndex = activeIndex;
           _scrollToActiveIndex();
@@ -1230,7 +1449,7 @@ class _SyncedLyricsViewState extends State<_SyncedLyricsView> {
 
   void _scrollToActiveIndex() {
     if (_isUserInteracting || _currentActiveIndex == -1) return;
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final context = _keys[_currentActiveIndex].currentContext;
@@ -1285,7 +1504,10 @@ class _SyncedLyricsViewState extends State<_SyncedLyricsView> {
               child: ListView.builder(
                 controller: _scrollController,
                 physics: const BouncingScrollPhysics(),
-                padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: 24),
+                padding: EdgeInsets.symmetric(
+                  vertical: verticalPadding,
+                  horizontal: 24,
+                ),
                 itemCount: widget.syncedLyrics.length,
                 itemBuilder: (context, index) {
                   final line = widget.syncedLyrics[index];
@@ -1320,7 +1542,10 @@ class _SyncedLyricsViewState extends State<_SyncedLyricsView> {
                         },
                         borderRadius: BorderRadius.circular(12),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 6,
+                            horizontal: 12,
+                          ),
                           child: Text(
                             line.text, // KEEP original casing as requested by user!
                             textAlign: TextAlign.center,
@@ -1373,5 +1598,3 @@ class _SyncedLyricsViewState extends State<_SyncedLyricsView> {
     );
   }
 }
-
-

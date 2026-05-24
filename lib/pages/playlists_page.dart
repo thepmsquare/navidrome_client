@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:m3e_collection/m3e_collection.dart';
 import 'package:navidrome_client/components/playlist_list_item.dart';
 import 'package:navidrome_client/pages/playlist_details_page.dart';
 import 'package:navidrome_client/services/api_service.dart';
@@ -111,7 +112,7 @@ class _PlaylistsPageState extends State<PlaylistsPage> {
     final playlists = _playlistsToDisplay;
 
     return Scaffold(
-      body: RefreshIndicator(
+      body: ExpressiveRefreshIndicator(
         onRefresh: () => _loadPlaylists(refresh: true),
         child: CustomScrollView(
           slivers: [
@@ -167,7 +168,7 @@ class _PlaylistsPageState extends State<PlaylistsPage> {
             ),
             if (_isLoading && _playlists.isEmpty)
               const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator()),
+                child: Center(child: LoadingIndicatorM3E()),
               )
             else if (playlists.isEmpty)
               SliverFillRemaining(

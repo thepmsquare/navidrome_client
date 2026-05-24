@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:m3e_collection/m3e_collection.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/auth_service.dart';
 import 'package:navidrome_client/utils/constants.dart';
@@ -305,9 +306,12 @@ class _ConnectPageState extends State<ConnectPage> {
                               },
                             ),
                             SizedBox(height: isMobile ? 32 : 40),
-                            FilledButton(
+                            ButtonM3E(
                               onPressed: _isLoading ? null : _handleConnect,
-                              child: _isLoading
+                              style: ButtonM3EStyle.filled,
+                              size: ButtonM3ESize.lg,
+                              shape: ButtonM3EShape.round,
+                              label: _isLoading
                                   ? const SizedBox(
                                       height: 20,
                                       width: 20,

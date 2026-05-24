@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:m3e_collection/m3e_collection.dart';
 import 'package:navidrome_client/components/track_list_item.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
@@ -218,7 +219,7 @@ class _TracksPageState extends State<TracksPage> {
     final tracks = _tracksToDisplay;
 
     return Scaffold(
-      body: RefreshIndicator(
+      body: ExpressiveRefreshIndicator(
         onRefresh: () => _loadTracks(refresh: true),
         child: CustomScrollView(
           controller: _scrollController,
@@ -293,7 +294,7 @@ class _TracksPageState extends State<TracksPage> {
             ),
             if (_isLoading && _tracks.isEmpty)
               const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator()),
+                child: Center(child: LoadingIndicatorM3E()),
               )
             else if (tracks.isEmpty)
               SliverFillRemaining(
@@ -313,7 +314,7 @@ class _TracksPageState extends State<TracksPage> {
                         return (_hasMore && !_isOfflineMode)
                             ? const Padding(
                                 padding: EdgeInsets.all(32.0),
-                                child: Center(child: CircularProgressIndicator()),
+                                child: Center(child: LoadingIndicatorM3E()),
                               )
                             : const SizedBox.shrink();
                       }

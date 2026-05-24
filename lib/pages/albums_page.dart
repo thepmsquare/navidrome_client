@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:m3e_collection/m3e_collection.dart';
 import 'package:navidrome_client/components/album_list_item.dart';
 import 'package:navidrome_client/pages/album_details_page.dart';
 import 'package:navidrome_client/services/api_service.dart';
@@ -180,7 +181,7 @@ class _AlbumsPageState extends State<AlbumsPage> {
     final albums = _albumsToDisplay;
 
     return Scaffold(
-      body: RefreshIndicator(
+      body: ExpressiveRefreshIndicator(
         onRefresh: () => _loadAlbums(refresh: true),
         child: CustomScrollView(
           controller: _scrollController,
@@ -238,7 +239,7 @@ class _AlbumsPageState extends State<AlbumsPage> {
             ),
             if (_isLoading && _albums.isEmpty)
               const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator()),
+                child: Center(child: LoadingIndicatorM3E()),
               )
             else if (albums.isEmpty)
               SliverFillRemaining(
@@ -258,7 +259,7 @@ class _AlbumsPageState extends State<AlbumsPage> {
                         return (_hasMore && !_isOfflineMode)
                             ? const Padding(
                                 padding: EdgeInsets.all(32.0),
-                                child: Center(child: CircularProgressIndicator()),
+                                child: Center(child: LoadingIndicatorM3E()),
                               )
                             : const SizedBox.shrink();
                       }

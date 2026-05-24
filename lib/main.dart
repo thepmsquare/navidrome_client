@@ -3,12 +3,14 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:just_audio_background/just_audio_background.dart';
+import 'package:m3e_collection/m3e_collection.dart';
 import 'package:navidrome_client/pages/connect_page.dart';
 import 'package:navidrome_client/pages/home_page.dart';
 import 'package:navidrome_client/services/auth_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
 import 'package:navidrome_client/services/session_service.dart';
 import 'package:navidrome_client/utils/constants.dart';
+
 
 void main() async {
   await SentryFlutter.init(
@@ -74,9 +76,7 @@ class MyApp extends StatelessWidget {
           );
         }
 
-        final baseTheme = ThemeData(
-          useMaterial3: true,
-          colorScheme: lightColorScheme,
+        final baseTheme = lightColorScheme.toM3EThemeData().copyWith(
           typography: Typography.material2021(),
           appBarTheme: const AppBarTheme(
             centerTitle: true,
@@ -125,9 +125,7 @@ class MyApp extends StatelessWidget {
           ),
         );
 
-        final baseDarkTheme = ThemeData(
-          useMaterial3: true,
-          colorScheme: darkColorScheme,
+        final baseDarkTheme = darkColorScheme.toM3EThemeData().copyWith(
           typography: Typography.material2021(),
           appBarTheme: const AppBarTheme(
             centerTitle: true,

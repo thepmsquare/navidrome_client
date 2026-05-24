@@ -28,6 +28,7 @@ dependencies:
   miniplayer: ^1.0.1
   flutter_markdown: ^0.7.3
   fuzzy: ^0.5.1
+  m3e_collection: ^0.3.7
 
 dev_dependencies:
   sentry_dart_plugin: ^3.3.0
