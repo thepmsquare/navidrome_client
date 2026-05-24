@@ -1053,72 +1053,230 @@ class _HomePageState extends State<HomePage> {
           children: [
             AppBar(title: const Text('library'), primary: !_isOfflineMode),
             Expanded(
-              child: ListView(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.playlist_play_rounded),
-                    title: const Text('playlists'),
-                    onTap: () {
-                      if (_apiService == null) return;
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              PlaylistsPage(apiService: _apiService!),
-                        ),
-                      );
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.audiotrack_rounded),
-                    title: const Text('tracks'),
-                    onTap: () {
-                      if (_apiService == null) return;
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              TracksPage(apiService: _apiService!),
-                        ),
-                      );
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.album_rounded),
-                    title: const Text('albums'),
-                    onTap: () {
-                      if (_apiService == null) return;
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              AlbumsPage(apiService: _apiService!),
-                        ),
-                      );
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.person_rounded),
-                    title: const Text('artists'),
-                    onTap: () {
-                      if (_apiService == null) return;
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              ArtistsPage(apiService: _apiService!),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 100),
-                ],
+              child: FutureBuilder<Map<String, String>>(
+                future: _getLibraryCounts(),
+                builder: (context, snapshot) {
+                  return ListView(
+                    padding: const EdgeInsets.all(16.0),
+                    children: [
+                      GridView.count(
+                        crossAxisCount: 2,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 1.25,
+                        children: [
+                          _buildLibraryCard(
+                            context: context,
+                            icon: Icons.audiotrack_rounded,
+                            title: 'tracks',
+
+                            onTap: () {
+                              if (_apiService == null) return;
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      TracksPage(apiService: _apiService!),
+                                ),
+                              );
+                            },
+                          ),
+                          _buildLibraryCard(
+                            context: context,
+                            icon: Icons.album_rounded,
+                            title: 'albums',
+
+                            onTap: () {
+                              if (_apiService == null) return;
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      AlbumsPage(apiService: _apiService!),
+                                ),
+                              );
+                            },
+                          ),
+                          _buildLibraryCard(
+                            context: context,
+                            icon: Icons.person_rounded,
+                            title: 'artists',
+
+                            onTap: () {
+                              if (_apiService == null) return;
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      ArtistsPage(apiService: _apiService!),
+                                ),
+                              );
+                            },
+                          ),
+                          _buildLibraryCard(
+                            context: context,
+                            icon: Icons.playlist_play_rounded,
+                            title: 'playlists',
+
+                            onTap: () {
+                              if (_apiService == null) return;
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      PlaylistsPage(apiService: _apiService!),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 100),
+                    ],
+                  );
+                },
               ),
             ),
           ],
         );
       },
     );
+  }
+
+  Widget _buildLibraryCard({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      color: colorScheme.secondaryContainer.withValues(alpha: 0.15),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Align(
+                alignment: Alignment.topLeft,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.secondaryContainer.withValues(
+                      alpha: 0.8,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: colorScheme.onSecondaryContainer,
+                    size: 30,
+                  ),
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<Map<String, String>> _getLibraryCounts() async {
+    final offlineService = OfflineService();
+
+    if (_isOfflineMode) {
+      final playlists = offlineService.offlinePlaylistIds.length;
+      final tracks = offlineService.offlineTrackIds.length;
+      final albums = offlineService.offlineAlbumIds.length;
+
+      int artists = 0;
+      try {
+        final offlineTracksMeta = await offlineService
+            .getOfflineTracksMetadata();
+        final Set<String> artistNames = {};
+        for (final track in offlineTracksMeta) {
+          final id = track['id']?.toString() ?? '';
+          if (offlineService.offlineTrackIds.contains(id)) {
+            final artist = track['artist']?.toString();
+            if (artist != null && artist.isNotEmpty) {
+              artistNames.add(artist);
+            }
+          }
+        }
+        artists = artistNames.length;
+      } catch (_) {}
+
+      return {
+        'playlists': '$playlists ${playlists == 1 ? 'playlist' : 'playlists'}',
+        'tracks': '$tracks ${tracks == 1 ? 'track' : 'tracks'}',
+        'albums': '$albums ${albums == 1 ? 'album' : 'albums'}',
+        'artists': '$artists ${artists == 1 ? 'artist' : 'artists'}',
+      };
+    } else {
+      int playlists = 0;
+      int tracks = 0;
+      int albums = 0;
+      int artists = 0;
+
+      try {
+        final cachedPlaylists = await offlineService.getCachedPlaylistList();
+        if (cachedPlaylists != null) playlists = cachedPlaylists.length;
+
+        final cachedTracks = await offlineService.getCachedTrackList();
+        if (cachedTracks != null) tracks = cachedTracks.length;
+
+        final cachedAlbums = await offlineService.getCachedAlbumList();
+        if (cachedAlbums != null) albums = cachedAlbums.length;
+
+        final cachedArtists = await offlineService.getCachedArtistList();
+        if (cachedArtists != null) artists = cachedArtists.length;
+      } catch (_) {}
+
+      return {
+        'playlists': playlists > 0
+            ? '$playlists ${playlists == 1 ? 'playlist' : 'playlists'}'
+            : 'your playlists',
+        'tracks': tracks > 0
+            ? '$tracks ${tracks == 1 ? 'track' : 'tracks'}'
+            : 'all your songs',
+        'albums': albums > 0
+            ? '$albums ${albums == 1 ? 'album' : 'albums'}'
+            : 'music collections',
+        'artists': artists > 0
+            ? '$artists ${artists == 1 ? 'artist' : 'artists'}'
+            : 'favorite creators',
+      };
+    }
   }
 
   Widget _buildMostPlayedSection() {
