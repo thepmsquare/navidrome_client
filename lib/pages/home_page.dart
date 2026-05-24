@@ -545,11 +545,14 @@ class _HomePageState extends State<HomePage> {
                                 minHeight: maxH,
                                 maxHeight: maxH,
                                 alignment: Alignment.topCenter,
-                                child: PlayerView(
-                                  apiService: _apiService!,
-                                  isExpanded: percentage > 0.5,
-                                  onMinimize: () => _miniPlayerController
-                                      .animateToHeight(state: PanelState.MIN),
+                                child: GestureDetector(
+                                  onTap: () {}, // Prevent taps from collapsing the miniplayer
+                                  child: PlayerView(
+                                    apiService: _apiService!,
+                                    isExpanded: percentage > 0.5,
+                                    onMinimize: () => _miniPlayerController
+                                        .animateToHeight(state: PanelState.MIN),
+                                  ),
                                 ),
                               ),
                             ),
