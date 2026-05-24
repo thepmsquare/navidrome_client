@@ -518,74 +518,92 @@ class _HomePageState extends State<HomePage> {
                   final index =
                       snapshot.data ?? PlayerService().player.currentIndex ?? 0;
 
-                  return Miniplayer(
-                    controller: _miniPlayerController,
-                    minHeight: _miniPlayerHeight,
-                    maxHeight: maxH,
-                    builder: (height, percentage) {
-                      // Update expansion progress for hiding bottom nav
-                      Future.microtask(() {
-                        if (mounted) _playerExpandProgress.value = percentage;
-                      });
+                  return Theme(
+                    data: Theme.of(
+                      context,
+                    ).copyWith(canvasColor: Colors.transparent),
+                    child: Miniplayer(
+                      controller: _miniPlayerController,
+                      minHeight: _miniPlayerHeight,
+                      maxHeight: maxH,
+                      backgroundColor: Colors.transparent,
+                      builder: (height, percentage) {
+                        final theme = Theme.of(context);
 
-                      // Full player slides up to follow the mini player's bottom edge.
-                      final slideY = _miniPlayerHeight * (1.0 - percentage);
+                        // Update expansion progress for hiding bottom nav
+                        Future.microtask(() {
+                          if (mounted) _playerExpandProgress.value = percentage;
+                        });
 
-                      // Mini player slides up and out as the panel expands.
-                      final miniSlideY = -percentage * _miniPlayerHeight;
+                        // Full player slides up to follow the mini player's bottom edge.
+                        final slideY = _miniPlayerHeight * (1.0 - percentage);
 
-                      return Stack(
-                        clipBehavior: Clip.hardEdge,
-                        children: [
-                          // Full player — always in tree, slides in from below.
-                          IgnorePointer(
-                            ignoring: percentage < 0.5,
-                            child: Transform.translate(
-                              offset: Offset(0, slideY),
-                              child: OverflowBox(
-                                minHeight: maxH,
-                                maxHeight: maxH,
-                                alignment: Alignment.topCenter,
-                                child: GestureDetector(
-                                  onTap: () {}, // Prevent taps from collapsing the miniplayer
-                                  child: PlayerView(
+                        // Mini player slides up and out as the panel expands.
+                        final miniSlideY = -percentage * _miniPlayerHeight;
+
+                        return Stack(
+                          clipBehavior: Clip.hardEdge,
+                          children: [
+                            // Full player — always in tree, slides in from below.
+                            if (percentage > 0.0)
+                              IgnorePointer(
+                                ignoring: percentage < 0.5,
+                                child: Transform.translate(
+                                  offset: Offset(0, slideY),
+                                  child: OverflowBox(
+                                    minHeight: maxH,
+                                    maxHeight: maxH,
+                                    alignment: Alignment.topCenter,
+                                    child: GestureDetector(
+                                      onTap:
+                                          () {}, // Prevent taps from collapsing the miniplayer
+                                      child: Material(
+                                        color: theme.colorScheme.surface,
+                                        child: PlayerView(
+                                          apiService: _apiService!,
+                                          isExpanded: percentage > 0.5,
+                                          onMinimize: () =>
+                                              _miniPlayerController
+                                                  .animateToHeight(
+                                                    state: PanelState.MIN,
+                                                  ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            // Mini player — slides up the top as expansion happens.
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              height: _miniPlayerHeight,
+                              child: Transform.translate(
+                                offset: Offset(0, miniSlideY),
+                                child: Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: 12,
+                                    right: 12,
+                                    bottom: 12,
+                                  ),
+                                  child: MiniPlayerView(
+                                    key: ValueKey(
+                                      PlayerService().queueSignature,
+                                    ),
                                     apiService: _apiService!,
-                                    isExpanded: percentage > 0.5,
-                                    onMinimize: () => _miniPlayerController
-                                        .animateToHeight(state: PanelState.MIN),
+                                    track: track,
+                                    currentIndex: index,
+                                    onTap: () => _miniPlayerController
+                                        .animateToHeight(state: PanelState.MAX),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                          // Mini player — slides up the top as expansion happens.
-                          Positioned(
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            height: _miniPlayerHeight,
-                            child: Transform.translate(
-                              offset: Offset(0, miniSlideY),
-                              child: Padding(
-                                padding: const EdgeInsets.only(
-                                  left: 12,
-                                  right: 12,
-                                  bottom: 12,
-                                ),
-                                child: MiniPlayerView(
-                                  key: ValueKey(PlayerService().queueSignature),
-                                  apiService: _apiService!,
-                                  track: track,
-                                  currentIndex: index,
-                                  onTap: () => _miniPlayerController
-                                      .animateToHeight(state: PanelState.MAX),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
+                          ],
+                        );
+                      },
+                    ),
                   );
                 },
               ),
