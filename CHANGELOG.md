@@ -1,6 +1,6 @@
 # changelog
 
-## 1.1.0+1 (in progress)
+## 1.1.0+1
 
 - swipe up on music player page to see current song queue.
 - redesign library page.
