@@ -1,5 +1,9 @@
 # changelog
 
+## 1.2.0+21 (in progress)
+
+- add support for random albums section to homepage.
+
 ## 1.1.0+20
 
 - swipe up on music player page to see current song queue.

@@ -176,6 +176,7 @@ class SessionService {
         {'id': 'most_played', 'visible': true},
         {'id': 'random_tracks', 'visible': true},
         {'id': 'recently_played', 'visible': true},
+        {'id': 'random_albums', 'visible': false},
       ];
     }
     try {
@@ -187,12 +188,18 @@ class SessionService {
         sections.add({'id': 'recently_played', 'visible': true});
       }
       
+      // Ensure random_albums is present (for existing users)
+      if (!sections.any((s) => s['id'] == 'random_albums')) {
+        sections.add({'id': 'random_albums', 'visible': false});
+      }
+      
       return sections;
     } catch (_) {
       return [
         {'id': 'most_played', 'visible': true},
         {'id': 'random_tracks', 'visible': true},
         {'id': 'recently_played', 'visible': true},
+        {'id': 'random_albums', 'visible': false},
       ];
     }
   }

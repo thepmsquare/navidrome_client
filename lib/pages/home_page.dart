@@ -60,6 +60,7 @@ class _HomePageState extends State<HomePage> {
   List<Map<String, dynamic>> _mostPlayedAlbums = [];
   List<Map<String, dynamic>> _randomTracks = [];
   List<Map<String, dynamic>> _recentlyPlayedAlbums = [];
+  List<Map<String, dynamic>> _randomAlbums = [];
   List<Map<String, dynamic>> _homeSections = [];
   bool _isLoadingHome = false;
   List<Map<String, dynamic>> _offlineAlbums = [];
@@ -198,6 +199,7 @@ class _HomePageState extends State<HomePage> {
         _apiService!.getAlbums(type: 'frequent', count: 20),
         _apiService!.getRandomSongs(count: 10),
         _apiService!.getAlbums(type: 'recent', count: 20),
+        _apiService!.getAlbums(type: 'random', count: 20),
       ]);
 
       if (mounted) {
@@ -205,6 +207,7 @@ class _HomePageState extends State<HomePage> {
           _mostPlayedAlbums = results[0];
           _randomTracks = results[1];
           _recentlyPlayedAlbums = results[2];
+          _randomAlbums = results[3];
           _isLoadingHome = false;
         });
       }
@@ -358,6 +361,20 @@ class _HomePageState extends State<HomePage> {
       }
     } catch (e) {
       debugPrint('failed to refresh random tracks: $e');
+    }
+  }
+
+  Future<void> _refreshRandomAlbums() async {
+    if (_apiService == null || _isOfflineMode) return;
+    try {
+      final albums = await _apiService!.getAlbums(type: 'random', count: 20);
+      if (mounted) {
+        setState(() {
+          _randomAlbums = albums;
+        });
+      }
+    } catch (e) {
+      debugPrint('failed to refresh random albums: $e');
     }
   }
 
@@ -773,6 +790,8 @@ class _HomePageState extends State<HomePage> {
                         return _buildRandomTracksSection();
                       } else if (id == 'recently_played') {
                         return _buildRecentlyPlayedSection();
+                      } else if (id == 'random_albums') {
+                        return _buildRandomAlbumsSection();
                       }
                       return const SizedBox.shrink();
                     }),
@@ -1400,6 +1419,54 @@ class _HomePageState extends State<HomePage> {
             itemBuilder: (context, index) {
               final album = _recentlyPlayedAlbums[index];
               final heroTag = 'recently_played_${album['id']}';
+              return AlbumTile(
+                album: album,
+                apiService: _apiService!,
+                heroTag: heroTag,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AlbumDetailsPage(
+                        album: album,
+                        apiService: _apiService!,
+                        heroTag: heroTag,
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  Widget _buildRandomAlbumsSection() {
+    if (_randomAlbums.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader(
+          'random albums',
+          trailing: IconButton(
+            icon: const Icon(Icons.refresh_rounded, size: 20),
+            onPressed: _refreshRandomAlbums,
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 220,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            scrollDirection: Axis.horizontal,
+            itemCount: _randomAlbums.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 16),
+            itemBuilder: (context, index) {
+              final album = _randomAlbums[index];
+              final heroTag = 'random_albums_${album['id']}';
               return AlbumTile(
                 album: album,
                 apiService: _apiService!,
