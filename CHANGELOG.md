@@ -3,6 +3,7 @@
 ## 1.1.0+1 (in progress)
 
 - swipe up on music player page to see current song queue.
+- bug fix: album art on music player page now correctly matches the current song.
 
 ## 1.0.0+19
 

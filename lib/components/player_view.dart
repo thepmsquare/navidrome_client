@@ -34,7 +34,7 @@ class PlayerView extends StatefulWidget {
 class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
   final PlayerService _playerService = PlayerService();
   late final LyricsService _lyricsService;
-  late final PageController _pageController;
+  late PageController _pageController;
   late final PageController _verticalPageController;
   late final StreamSubscription<int?> _currentIndexSubscription;
   bool _showLyrics = false;
@@ -64,19 +64,44 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
     _verticalPageController = PageController(initialPage: 0);
 
     _currentIndexSubscription = _playerService.currentIndexStream.listen((index) {
-      if (index != null && _pageController.hasClients) {
-        if (_pageController.page?.round() != index) {
-          _programmaticAnimationCount++;
-          _pageController.animateToPage(
-            index,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-          ).whenComplete(() {
-            _programmaticAnimationCount--;
-          });
-        }
+      if (index != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (_pageController.hasClients) {
+            if (_pageController.page?.round() != index) {
+              if (widget.isExpanded) {
+                _programmaticAnimationCount++;
+                _pageController.animateToPage(
+                  index,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                ).whenComplete(() {
+                  _programmaticAnimationCount--;
+                });
+              } else {
+                _pageController.jumpToPage(index);
+              }
+            }
+          } else {
+            _pageController.dispose();
+            _pageController = PageController(initialPage: index);
+          }
+        });
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(PlayerView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isExpanded && !oldWidget.isExpanded) {
+      final currentIndex = _playerService.player.currentIndex;
+      if (currentIndex != null && _pageController.hasClients) {
+        if (_pageController.page?.round() != currentIndex) {
+          _pageController.jumpToPage(currentIndex);
+        }
+      }
+    }
   }
 
   void _checkLyricsAvailability(Map<String, dynamic>? track) async {
@@ -161,13 +186,15 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
           if (_verticalPageController.hasClients &&
               _verticalPageController.page?.round() == 0) {
             if (notification is ScrollUpdateNotification) {
-              if (notification.metrics.pixels <= 0 &&
+              if (notification.dragDetails != null &&
+                  notification.metrics.pixels <= 0 &&
                   notification.scrollDelta != null &&
                   notification.scrollDelta! < -8) {
                 widget.onMinimize();
               }
             } else if (notification is OverscrollNotification) {
-              if (notification.overscroll < -8) {
+              if (notification.dragDetails != null &&
+                  notification.overscroll < -8) {
                 widget.onMinimize();
               }
             }
