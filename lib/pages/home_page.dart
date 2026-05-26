@@ -61,6 +61,7 @@ class _HomePageState extends State<HomePage> {
   List<Map<String, dynamic>> _randomTracks = [];
   List<Map<String, dynamic>> _recentlyPlayedAlbums = [];
   List<Map<String, dynamic>> _randomAlbums = [];
+  List<Map<String, dynamic>> _newlyAddedReleases = [];
   List<Map<String, dynamic>> _homeSections = [];
   bool _isLoadingHome = false;
   List<Map<String, dynamic>> _offlineAlbums = [];
@@ -200,6 +201,7 @@ class _HomePageState extends State<HomePage> {
         _apiService!.getRandomSongs(count: 10),
         _apiService!.getAlbums(type: 'recent', count: 20),
         _apiService!.getAlbums(type: 'random', count: 20),
+        _apiService!.getAlbums(type: 'newest', count: 20),
       ]);
 
       if (mounted) {
@@ -208,6 +210,7 @@ class _HomePageState extends State<HomePage> {
           _randomTracks = results[1];
           _recentlyPlayedAlbums = results[2];
           _randomAlbums = results[3];
+          _newlyAddedReleases = results[4];
           _isLoadingHome = false;
         });
       }
@@ -792,6 +795,8 @@ class _HomePageState extends State<HomePage> {
                         return _buildRecentlyPlayedSection();
                       } else if (id == 'random_albums') {
                         return _buildRandomAlbumsSection();
+                      } else if (id == 'newly_added_releases') {
+                        return _buildNewlyAddedReleasesSection();
                       }
                       return const SizedBox.shrink();
                     }),
@@ -1467,6 +1472,48 @@ class _HomePageState extends State<HomePage> {
             itemBuilder: (context, index) {
               final album = _randomAlbums[index];
               final heroTag = 'random_albums_${album['id']}';
+              return AlbumTile(
+                album: album,
+                apiService: _apiService!,
+                heroTag: heroTag,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AlbumDetailsPage(
+                        album: album,
+                        apiService: _apiService!,
+                        heroTag: heroTag,
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  Widget _buildNewlyAddedReleasesSection() {
+    if (_newlyAddedReleases.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('newly added releases'),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 220,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            scrollDirection: Axis.horizontal,
+            itemCount: _newlyAddedReleases.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 16),
+            itemBuilder: (context, index) {
+              final album = _newlyAddedReleases[index];
+              final heroTag = 'newly_added_releases_${album['id']}';
               return AlbumTile(
                 album: album,
                 apiService: _apiService!,

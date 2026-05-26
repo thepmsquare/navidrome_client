@@ -2,7 +2,7 @@
 
 ## 1.2.0+21 (in progress)
 
-- add support for random albums section to homepage.
+- add support for random albums, newly added releases sections to homepage.
 
 ## 1.1.0+20
 
