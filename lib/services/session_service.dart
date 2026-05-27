@@ -14,6 +14,7 @@ class SessionService {
   static const String _keyAutoSaveOfflineLruEvict = 'auto_save_offline_lru_evict';
   static const String _keyHomeSections = 'home_sections';
   static const String _keyLastVersion = 'last_version';
+  static const String _keyFontFamily = 'font_family';
 
   static final SessionService _instance = SessionService._internal();
   factory SessionService() => _instance;
@@ -162,6 +163,16 @@ class SessionService {
   Future<void> setAutoSaveOfflineLruEvict(bool value) async {
     final prefs = await _getPrefs;
     await prefs.setBool(_keyAutoSaveOfflineLruEvict, value);
+  }
+
+  Future<String> get fontFamily async {
+    final prefs = await _getPrefs;
+    return prefs.getString(_keyFontFamily) ?? 'system';
+  }
+
+  Future<void> setFontFamily(String font) async {
+    final prefs = await _getPrefs;
+    await prefs.setString(_keyFontFamily, font);
   }
 
   // ---------------------------------------------------------------------------

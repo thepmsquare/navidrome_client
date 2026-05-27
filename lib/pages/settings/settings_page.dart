@@ -8,6 +8,8 @@ import 'package:navidrome_client/services/offline_service.dart';
 import 'package:navidrome_client/services/player_service.dart';
 import 'package:navidrome_client/services/version_service.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:navidrome_client/main.dart';
+import 'package:navidrome_client/services/session_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -21,13 +23,90 @@ class _SettingsPageState extends State<SettingsPage> {
   final _eventLog = EventLogService();
   String _appVersion = '';
   int _logErrorCount = 0;
+  String _fontFamily = 'system';
 
   @override
   void initState() {
     super.initState();
     _loadAppVersion();
+    _loadSettings();
     _logErrorCount = _eventLog.errorCount;
     _eventLog.changeNotifier.addListener(_onLogChanged);
+  }
+
+  Future<void> _loadSettings() async {
+    final font = await SessionService().fontFamily;
+    if (mounted) {
+      setState(() {
+        _fontFamily = font;
+      });
+    }
+  }
+
+  Future<void> _showFontPicker() async {
+    final sessionService = SessionService();
+    final currentFont = await sessionService.fontFamily;
+
+    if (!mounted) return;
+
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('select font'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _fontOption(context, 'system', 'system font', currentFont),
+                _fontOption(context, 'outfit', 'outfit', currentFont),
+                _fontOption(context, 'inter', 'inter', currentFont),
+                _fontOption(context, 'lexend', 'lexend', currentFont),
+                _fontOption(context, 'playfair display', 'playfair display', currentFont),
+                _fontOption(context, 'poppins', 'poppins', currentFont),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('cancel'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (selected != null) {
+      await sessionService.setFontFamily(selected);
+      if (mounted) {
+        setState(() {
+          _fontFamily = selected;
+        });
+      }
+      if (!mounted) return;
+      // ignore: use_build_context_synchronously
+      final myAppState = context.findAncestorStateOfType<MyAppState>();
+      myAppState?.updateFont(selected);
+    }
+  }
+
+  Widget _fontOption(
+    BuildContext context,
+    String value,
+    String label,
+    String current,
+  ) {
+    return RadioListTile<String>(
+      title: Text(label),
+      value: value,
+      groupValue: current,
+      onChanged: (val) {
+        if (val != null) {
+          Navigator.pop(context, val);
+        }
+      },
+    );
   }
 
   @override
@@ -177,6 +256,13 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                         );
                       },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.font_download_rounded),
+                      title: const Text('font family'),
+                      subtitle: Text(_fontFamily == 'system' ? 'system font' : _fontFamily),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: _showFontPicker,
                     ),
                     ListTile(
                       leading: Badge(

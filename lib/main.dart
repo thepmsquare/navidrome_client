@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:m3e_collection/m3e_collection.dart';
@@ -50,9 +51,39 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   final bool isLoggedIn;
   const MyApp({super.key, required this.isLoggedIn});
+
+  @override
+  State<MyApp> createState() => MyAppState();
+}
+
+class MyAppState extends State<MyApp> {
+  String _fontFamily = 'system';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final font = await SessionService().fontFamily;
+    if (mounted) {
+      setState(() {
+        _fontFamily = font;
+      });
+    }
+  }
+
+  void updateFont(String font) {
+    if (mounted) {
+      setState(() {
+        _fontFamily = font;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,8 +107,27 @@ class MyApp extends StatelessWidget {
           );
         }
 
-        final baseTheme = lightColorScheme.toM3EThemeData().copyWith(
+        TextTheme applyFont(TextTheme baseTextTheme) {
+          switch (_fontFamily) {
+            case 'outfit':
+              return GoogleFonts.outfitTextTheme(baseTextTheme);
+            case 'inter':
+              return GoogleFonts.interTextTheme(baseTextTheme);
+            case 'lexend':
+              return GoogleFonts.lexendTextTheme(baseTextTheme);
+            case 'playfair display':
+              return GoogleFonts.playfairDisplayTextTheme(baseTextTheme);
+            case 'poppins':
+              return GoogleFonts.poppinsTextTheme(baseTextTheme);
+            default:
+              return baseTextTheme;
+          }
+        }
+
+        var baseTheme = lightColorScheme.toM3EThemeData();
+        baseTheme = baseTheme.copyWith(
           typography: Typography.material2021(),
+          textTheme: applyFont(baseTheme.textTheme),
           appBarTheme: const AppBarTheme(
             centerTitle: true,
             scrolledUnderElevation: 0,
@@ -125,8 +175,10 @@ class MyApp extends StatelessWidget {
           ),
         );
 
-        final baseDarkTheme = darkColorScheme.toM3EThemeData().copyWith(
+        var baseDarkTheme = darkColorScheme.toM3EThemeData();
+        baseDarkTheme = baseDarkTheme.copyWith(
           typography: Typography.material2021(),
+          textTheme: applyFont(baseDarkTheme.textTheme),
           appBarTheme: const AppBarTheme(
             centerTitle: true,
             scrolledUnderElevation: 0,
@@ -182,7 +234,7 @@ class MyApp extends StatelessWidget {
           navigatorObservers: [
             SentryNavigatorObserver(),
           ],
-          initialRoute: isLoggedIn ? '/home' : '/connect',
+          initialRoute: widget.isLoggedIn ? '/home' : '/connect',
           routes: {
             '/connect': (context) => const ConnectPage(),
             '/home': (context) => const HomePage(),
