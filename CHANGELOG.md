@@ -4,6 +4,7 @@
 
 - add support for random albums, newly added releases sections to homepage.
 - add font selector.
+- improve app crash and bug reporting.
 
 ## 1.1.0+20
 

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:navidrome_client/utils/subsonic_utils.dart';
 import 'package:navidrome_client/services/offline_service.dart';
 import 'dart:io';
@@ -11,6 +12,7 @@ class ApiService {
   final String _password;
   final String _apiVersion = '1.16.1';
   final String _clientName = 'navidrome_flutter';
+  final http.Client _client = SentryHttpClient();
 
   ApiService({
     required String baseUrl,
@@ -113,11 +115,17 @@ class ApiService {
     final url = _buildUrl(method, params);
 
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await _client.get(Uri.parse(url));
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
         final subsonicResponse = decoded['subsonic-response'];
+        final serverVersion = subsonicResponse['version'];
+        if (serverVersion != null) {
+          Sentry.configureScope((scope) {
+            scope.setTag('subsonic_server_version', serverVersion.toString());
+          });
+        }
         if (subsonicResponse['status'] == 'ok') {
           return subsonicResponse;
         } else {

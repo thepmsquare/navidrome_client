@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
 
@@ -43,6 +44,7 @@ class LyricsData {
 class LyricsService {
   final ApiService _apiService;
   final String _lrclibBaseUrl = 'https://lrclib.net/api';
+  final http.Client _client = SentryHttpClient();
 
   LyricsService(this._apiService);
 
@@ -107,7 +109,7 @@ class LyricsService {
     final uri = Uri.parse('$_lrclibBaseUrl/get').replace(queryParameters: queryParams);
 
     try {
-      final response = await http.get(
+      final response = await _client.get(
         uri,
         headers: {
           'User-Agent': 'NavidromeFlutter/1.0.0 (https://github.com/thepmsquare/navidrome_client)',

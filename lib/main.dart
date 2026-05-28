@@ -11,44 +11,69 @@ import 'package:navidrome_client/services/auth_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
 import 'package:navidrome_client/services/session_service.dart';
 import 'package:navidrome_client/utils/constants.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 
 void main() async {
-  await SentryFlutter.init(
-    (options) {
-      options.dsn = 'https://2b0b77baab7bf5de9dd39d82ac52b6ac@o4511263909740544.ingest.de.sentry.io/4511263935103056';
-      options.tracesSampleRate = 1.0;
-    },
-    appRunner: () async {
-      WidgetsFlutterBinding.ensureInitialized();
+  const sentryDsn = String.fromEnvironment('SENTRY_DSN');
 
-      // run independent init steps in parallel for faster cold start
-      final results = await Future.wait([
-        SessionService().stopPlaybackOnTaskRemoved,
-        OfflineService().initialize().then((_) => null),
-      ]);
+  Future<void> runAppWithSettings() async {
+    WidgetsFlutterBinding.ensureInitialized();
 
-      // #11: load stop playback setting for android initialization
-      final stopPlaybackOnTaskRemoved = results[0] as bool;
+    // run independent init steps in parallel for faster cold start
+    final results = await Future.wait([
+      SessionService().stopPlaybackOnTaskRemoved,
+      OfflineService().initialize().then((_) => null),
+    ]);
 
-      if (Platform.isAndroid || Platform.isIOS) {
-        await JustAudioBackground.init(
-          androidNotificationChannelId: 'com.ryanheise.audioservice.audio',
-          androidNotificationChannelName: 'audio playback',
-          // On Android, if stopPlaybackOnTaskRemoved is true, we make the notification
-          // non-ongoing so it can be automatically dismissed or swiped away properly.
-          androidNotificationOngoing:
-              Platform.isAndroid ? !stopPlaybackOnTaskRemoved : true,
-          androidNotificationIcon: 'drawable/ic_notification',
-        );
+    // #11: load stop playback setting for android initialization
+    final stopPlaybackOnTaskRemoved = results[0] as bool;
+
+    if (Platform.isAndroid || Platform.isIOS) {
+      await JustAudioBackground.init(
+        androidNotificationChannelId: 'com.ryanheise.audioservice.audio',
+        androidNotificationChannelName: 'audio playback',
+        // On Android, if stopPlaybackOnTaskRemoved is true, we make the notification
+        // non-ongoing so it can be automatically dismissed or swiped away properly.
+        androidNotificationOngoing:
+            Platform.isAndroid ? !stopPlaybackOnTaskRemoved : true,
+        androidNotificationIcon: 'drawable/ic_notification',
+      );
+    }
+
+    final authService = AuthService();
+    final isLoggedIn = await authService.isLoggedIn;
+
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      Sentry.configureScope((scope) {
+        scope.setTag('client_version', '${packageInfo.version}+${packageInfo.buildNumber}');
+        scope.setTag('subsonic_api_version', '1.16.1');
+      });
+      if (isLoggedIn) {
+        final url = await authService.serverUrl;
+        final user = await authService.username;
+        Sentry.configureScope((scope) {
+          scope.setTag('server_url', url ?? 'unknown');
+          scope.setUser(SentryUser(username: user));
+        });
       }
+    } catch (_) {}
 
-      final authService = AuthService();
-      final isLoggedIn = await authService.isLoggedIn;
+    runApp(MyApp(isLoggedIn: isLoggedIn));
+  }
 
-      runApp(MyApp(isLoggedIn: isLoggedIn));
-    },
-  );
+  if (sentryDsn.isNotEmpty) {
+    await SentryFlutter.init(
+      (options) {
+        options.dsn = sentryDsn;
+        options.tracesSampleRate = 1.0;
+      },
+      appRunner: runAppWithSettings,
+    );
+  } else {
+    await runAppWithSettings();
+  }
 }
 
 class MyApp extends StatefulWidget {
