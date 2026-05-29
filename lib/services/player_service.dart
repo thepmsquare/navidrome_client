@@ -9,6 +9,20 @@ import 'package:navidrome_client/services/offline_service.dart';
 import 'package:navidrome_client/services/session_service.dart';
 import 'package:navidrome_client/utils/constants.dart';
 
+class SleepTimerState {
+  final Duration? remainingTime;
+  final bool pauseAtEndOfTrack;
+  final bool isPendingEndOfTrackPause;
+
+  const SleepTimerState({
+    this.remainingTime,
+    this.pauseAtEndOfTrack = false,
+    this.isPendingEndOfTrackPause = false,
+  });
+
+  bool get isActive => remainingTime != null || isPendingEndOfTrackPause;
+}
+
 class PlayerService with WidgetsBindingObserver {
   static final PlayerService _instance = PlayerService._internal();
   static PlayerService get instance => _instance;
@@ -23,6 +37,10 @@ class PlayerService with WidgetsBindingObserver {
   final _sessionService = SessionService();
   final _log = EventLogService();
   Timer? _positionSaveTimer;
+  Timer? _sleepTimer;
+  Timer? _sleepCountdownTimer;
+  DateTime? _sleepTimerEndTime;
+  final ValueNotifier<SleepTimerState> sleepTimerNotifier = ValueNotifier(const SleepTimerState());
   bool _stopPlaybackOnTaskRemoved = false;
   // True while a real audio interruption is active (begin fired, end not yet).
   bool _audioInterruptionActive = false;
@@ -94,6 +112,11 @@ class PlayerService with WidgetsBindingObserver {
     // Bug 1 fix: use ?.toString() ?? '' instead of `as String` to avoid _TypeError
     // on null or non-String id values (some Subsonic implementations return int ids).
     _player.currentIndexStream.listen((index) {
+      if (sleepTimerNotifier.value.isPendingEndOfTrackPause) {
+        pause();
+        cancelSleepTimer();
+        return;
+      }
       if (index != null && index >= 0 && index < _currentQueue.length) {
         _sessionService.setLastIndex(index);
         final track = _currentQueue[index];
@@ -155,6 +178,12 @@ class PlayerService with WidgetsBindingObserver {
     // we watch for rapid playing-state toggles and coalesce them into skip
     // actions.  a single tap is left as a normal play/pause.
     _player.playerStateStream.listen((state) {
+      if (state.processingState == ProcessingState.completed) {
+        if (sleepTimerNotifier.value.isPendingEndOfTrackPause) {
+          pause();
+        }
+        cancelSleepTimer();
+      }
       // don't interfere during audio interruptions
       if (_audioInterruptionActive) return;
       // only detect when we have a queue loaded
@@ -651,6 +680,7 @@ class PlayerService with WidgetsBindingObserver {
     _playlist = null;
     _apiService = null;
     _sessionService.setLastQueue([]);
+    cancelSleepTimer();
     _log.log('queue cleared', level: EventLogLevel.info);
   }
 
@@ -662,6 +692,7 @@ class PlayerService with WidgetsBindingObserver {
     _mediaButtonTapCount = 0;
     _mediaButtonStateBeforeTaps = null;
     _lastKnownPlaying = false;
+    cancelSleepTimer();
     _log.log('player service reset', level: EventLogLevel.debug);
   }
 
@@ -719,6 +750,77 @@ class PlayerService with WidgetsBindingObserver {
     }
   }
 
+  void setSleepTimer(Duration duration, {required bool pauseAtEndOfTrack}) {
+    cancelSleepTimer();
+    _sleepTimerEndTime = DateTime.now().add(duration);
+    _log.log(
+      'sleep timer set for $duration (pause at end of track: $pauseAtEndOfTrack)',
+      level: EventLogLevel.info,
+    );
+
+    sleepTimerNotifier.value = SleepTimerState(
+      remainingTime: duration,
+      pauseAtEndOfTrack: pauseAtEndOfTrack,
+      isPendingEndOfTrackPause: false,
+    );
+
+    _sleepTimer = Timer(duration, () {
+      _triggerSleepTimeout();
+    });
+
+    _sleepCountdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_sleepTimerEndTime == null) {
+        timer.cancel();
+        return;
+      }
+      final remaining = _sleepTimerEndTime!.difference(DateTime.now());
+      if (remaining.isNegative) {
+        timer.cancel();
+      } else {
+        sleepTimerNotifier.value = SleepTimerState(
+          remainingTime: remaining,
+          pauseAtEndOfTrack: pauseAtEndOfTrack,
+          isPendingEndOfTrackPause: false,
+        );
+      }
+    });
+  }
+
+  void cancelSleepTimer() {
+    _sleepTimer?.cancel();
+    _sleepTimer = null;
+    _sleepCountdownTimer?.cancel();
+    _sleepCountdownTimer = null;
+    _sleepTimerEndTime = null;
+    sleepTimerNotifier.value = const SleepTimerState();
+    _log.log('sleep timer cancelled', level: EventLogLevel.debug);
+  }
+
+  void _triggerSleepTimeout() {
+    _sleepTimer?.cancel();
+    _sleepTimer = null;
+    _sleepCountdownTimer?.cancel();
+    _sleepCountdownTimer = null;
+    _sleepTimerEndTime = null;
+
+    final state = sleepTimerNotifier.value;
+    if (state.pauseAtEndOfTrack) {
+      _log.log(
+        'sleep timer duration expired, waiting for song to end before pausing',
+        level: EventLogLevel.info,
+      );
+      sleepTimerNotifier.value = const SleepTimerState(
+        remainingTime: null,
+        pauseAtEndOfTrack: true,
+        isPendingEndOfTrackPause: true,
+      );
+    } else {
+      _log.log('sleep timer triggered, pausing playback', level: EventLogLevel.info);
+      pause();
+      cancelSleepTimer();
+    }
+  }
+
   // PlayerService is a singleton that lives for the entire app lifetime.
   // dispose() should only be called from the root widget's dispose() if the
   // app ever tears down the player intentionally (e.g., on logout).
@@ -727,6 +829,7 @@ class PlayerService with WidgetsBindingObserver {
     _positionSaveTimer?.cancel();
     _mediaButtonTapTimer?.cancel();
     _pendingActionTimeout?.cancel();
+    cancelSleepTimer();
     _player.dispose();
   }
 }

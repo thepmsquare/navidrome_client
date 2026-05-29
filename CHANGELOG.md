@@ -5,6 +5,7 @@
 - add support for random albums, newly added releases sections to homepage.
 - add font selector.
 - improve app crash and bug reporting.
+- add sleep timer feature in music player page.
 
 ## 1.1.0+20
 

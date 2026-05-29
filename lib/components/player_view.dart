@@ -591,6 +591,60 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                             ],
                           ),
                         ),
+                        ValueListenableBuilder<SleepTimerState>(
+                          valueListenable: _playerService.sleepTimerNotifier,
+                          builder: (context, state, child) {
+                            if (!state.isActive) return const SizedBox.shrink();
+
+                            String displayText = '';
+                            if (state.isPendingEndOfTrackPause) {
+                              displayText = 'waiting for song to end';
+                            } else if (state.remainingTime != null) {
+                              final mins = state.remainingTime!.inMinutes;
+                              final secs = state.remainingTime!.inSeconds
+                                  .remainder(60)
+                                  .toString()
+                                  .padLeft(2, '0');
+                              displayText = 'sleep timer: $mins:$secs remaining';
+                            }
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12.0),
+                              child: InkWell(
+                                onTap: () => _showSleepTimerDialog(context),
+                                borderRadius: BorderRadius.circular(16),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.secondaryContainer,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.bedtime_rounded,
+                                        size: 16,
+                                        color: colorScheme.onSecondaryContainer,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        displayText.toLowerCase(),
+                                        style: theme.textTheme.labelMedium?.copyWith(
+                                          color: colorScheme.onSecondaryContainer,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                         const SizedBox(height: 16),
                         StreamBuilder<Duration>(
                           stream: _playerService.player.positionStream,
@@ -1063,6 +1117,8 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                 );
               } else if (value == 'download') {
                 _downloadTrackToDevice(track);
+              } else if (value == 'sleeptimer') {
+                _showSleepTimerDialog(context);
               }
             },
             itemBuilder: (context) => [
@@ -1098,6 +1154,16 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
                     const Icon(Icons.download_rounded, size: 20),
                     const SizedBox(width: 12),
                     Text('download track'.toLowerCase()),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'sleeptimer',
+                child: Row(
+                  children: [
+                    const Icon(Icons.bedtime_rounded, size: 20),
+                    const SizedBox(width: 12),
+                    Text('sleep timer'.toLowerCase()),
                   ],
                 ),
               ),
@@ -1294,6 +1360,181 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
         backgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.3),
       ),
     ];
+  }
+
+  Future<void> _showSleepTimerDialog(BuildContext context) async {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    // Check if there is an active timer to pre-populate or show cancel option
+    final activeState = _playerService.sleepTimerNotifier.value;
+
+    int initialMins = 30;
+    if (activeState.isActive && activeState.remainingTime != null) {
+      initialMins = activeState.remainingTime!.inMinutes.clamp(1, 999);
+    }
+
+    final controller = TextEditingController(text: initialMins.toString());
+    bool pauseAtEndOfTrack = activeState.pauseAtEndOfTrack;
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final currentState = _playerService.sleepTimerNotifier.value;
+
+            // Helper to update minutes value safely
+            void updateMinutes(int newVal) {
+              final clamped = newVal.clamp(1, 999);
+              setDialogState(() {
+                controller.text = clamped.toString();
+              });
+            }
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(28),
+              ),
+              title: Row(
+                children: [
+                  Icon(Icons.bedtime_rounded, color: colorScheme.primary),
+                  const SizedBox(width: 12),
+                  Text('sleep timer'.toLowerCase()),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (currentState.isActive) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              currentState.isPendingEndOfTrackPause
+                                  ? 'waiting for song to end'.toLowerCase()
+                                  : 'active: ${currentState.remainingTime!.inMinutes}m ${currentState.remainingTime!.inSeconds.remainder(60)}s remaining'.toLowerCase(),
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: colorScheme.onPrimaryContainer,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            FilledButton.tonal(
+                              onPressed: () {
+                                _playerService.cancelSleepTimer();
+                                Navigator.pop(context);
+                              },
+                              child: Text('cancel timer'.toLowerCase()),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton.filledTonal(
+                          icon: const Icon(Icons.remove_rounded),
+                          onPressed: () {
+                            final current = int.tryParse(controller.text) ?? 30;
+                            updateMinutes(current - 5);
+                          },
+                        ),
+                        const SizedBox(width: 16),
+                        SizedBox(
+                          width: 80,
+                          child: TextField(
+                            controller: controller,
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(
+                                vertical: 8,
+                                horizontal: 4,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.all(Radius.circular(12)),
+                              ),
+                            ),
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        IconButton.filledTonal(
+                          icon: const Icon(Icons.add_rounded),
+                          onPressed: () {
+                            final current = int.tryParse(controller.text) ?? 30;
+                            updateMinutes(current + 5);
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'minutes'.toLowerCase(),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    CheckboxListTile(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        'pause at end of track'.toLowerCase(),
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                      value: pauseAtEndOfTrack,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() {
+                            pauseAtEndOfTrack = val;
+                          });
+                        }
+                      },
+                      controlAffinity: ListTileControlAffinity.leading,
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('close'.toLowerCase()),
+                ),
+                TextButton(
+                  onPressed: () {
+                    final mins = int.tryParse(controller.text) ?? 30;
+                    _playerService.setSleepTimer(
+                      Duration(minutes: mins),
+                      pauseAtEndOfTrack: pauseAtEndOfTrack,
+                    );
+                    Navigator.pop(context);
+                  },
+                  child: Text('start timer'.toLowerCase()),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    controller.dispose();
   }
 }
 

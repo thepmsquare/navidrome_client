@@ -55,16 +55,24 @@ class _SettingsPageState extends State<SettingsPage> {
         return AlertDialog(
           title: const Text('select font'),
           content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _fontOption(context, 'system', 'system font', currentFont),
-                _fontOption(context, 'outfit', 'outfit', currentFont),
-                _fontOption(context, 'inter', 'inter', currentFont),
-                _fontOption(context, 'lexend', 'lexend', currentFont),
-                _fontOption(context, 'playfair display', 'playfair display', currentFont),
-                _fontOption(context, 'poppins', 'poppins', currentFont),
-              ],
+            child: RadioGroup<String>(
+              groupValue: currentFont,
+              onChanged: (val) {
+                if (val != null) {
+                  Navigator.pop(context, val);
+                }
+              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _fontOption(context, 'system', 'system font'),
+                  _fontOption(context, 'outfit', 'outfit'),
+                  _fontOption(context, 'inter', 'inter'),
+                  _fontOption(context, 'lexend', 'lexend'),
+                  _fontOption(context, 'playfair display', 'playfair display'),
+                  _fontOption(context, 'poppins', 'poppins'),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -95,17 +103,10 @@ class _SettingsPageState extends State<SettingsPage> {
     BuildContext context,
     String value,
     String label,
-    String current,
   ) {
     return RadioListTile<String>(
       title: Text(label),
       value: value,
-      groupValue: current,
-      onChanged: (val) {
-        if (val != null) {
-          Navigator.pop(context, val);
-        }
-      },
     );
   }
 
