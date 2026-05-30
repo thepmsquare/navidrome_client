@@ -11,8 +11,6 @@
 .svn/
 .swiftpm/
 migrate_working_dir/
-.agents/
-.metadata
 
 # IntelliJ related
 *.iml
@@ -45,5 +43,3 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
-
-sentry.properties

@@ -1,60 +1,30 @@
 name: navidrome_client
 description: "a client for navidrome server for android platform."
 publish_to: "none"
-version: 1.2.0+21
+version: 2.0.0+22
 
 environment:
-  sdk: ^3.11.4
-
+  sdk: ^3.11.5
 dependencies:
   flutter:
     sdk: flutter
-  dynamic_color: ^1.8.1
-  http: ^1.6.0
-  crypto: ^3.0.7
-  shared_preferences: ^2.5.5
-  uuid: ^4.5.3
-  just_audio: ^0.9.46
-  audio_session: ^0.1.25
-  just_audio_background: ^0.0.1-beta.17
-  path_provider: ^2.1.2
-  dio: ^5.4.1
-  connectivity_plus: ^6.1.1
-  background_downloader: ^9.5.4
-  file_picker: ^8.1.4
-  package_info_plus: ^8.1.0
-  sentry_flutter: ^9.18.0
-  sentry_dio: ^9.18.0
-  cached_network_image: ^3.4.1
-  miniplayer: ^1.0.1
-  flutter_markdown: ^0.7.3
-  fuzzy: ^0.5.1
   m3e_collection: ^0.3.7
-  google_fonts: ^6.2.0
+  dynamic_color: ^1.8.1
+  flutter_secure_storage: ^10.3.1
 
 dev_dependencies:
-  sentry_dart_plugin: ^3.3.0
   flutter_test:
     sdk: flutter
-  flutter_launcher_icons: ^0.14.4
   flutter_lints: ^6.0.0
-  shared_preferences_platform_interface: ^2.4.1
 
 flutter:
   uses-material-design: true
   assets:
     - assets/branding/
     - CHANGELOG.md
-
 flutter_launcher_icons:
   android: true
   image_path: "assets/branding/icon.png"
   adaptive_icon_background: "#000000"
   adaptive_icon_foreground: "assets/branding/foreground_layer_colored.png"
   adaptive_icon_monochrome: "assets/branding/transparent_icon.png"
-
-sentry:
-  upload_debug_symbols: true
-  upload_source_maps: true
-  project: navidrome-client-by-thepmsquare
-  org: parth-mangtani

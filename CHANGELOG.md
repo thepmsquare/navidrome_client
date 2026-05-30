@@ -1,6 +1,10 @@
 # changelog
 
-## 1.2.0+21 (in progress)
+## 2.0.0+22
+
+- complete app reset.
+
+## 1.2.0+21
 
 - add support for random albums, newly added releases sections to homepage.
 - add font selector.
