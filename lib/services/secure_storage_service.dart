@@ -8,7 +8,9 @@ class SecureStorageService {
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-  // Save connection credentials
+  bool _isLoggedIn = false;
+  bool get isLoggedInSync => _isLoggedIn;
+
   Future<void> saveConnectionCredentials({
     required String connectionUrl,
     required String username,
@@ -18,14 +20,13 @@ class SecureStorageService {
     await _storage.write(key: 'username', value: username);
     await _storage.write(key: 'password', value: password);
     await _storage.write(key: 'is_logged_in', value: 'true');
+    _isLoggedIn = true; // keep cache in sync
   }
 
-  // Get saved connection credentials
   Future<Map<String, String?>> getConnectionCredentials() async {
     final connectionUrl = await _storage.read(key: 'connection_url');
     final username = await _storage.read(key: 'username');
     final password = await _storage.read(key: 'password');
-
     return {
       'connectionUrl': connectionUrl,
       'username': username,
@@ -33,17 +34,17 @@ class SecureStorageService {
     };
   }
 
-  // Check if user has already signed in
   Future<bool> isLoggedIn() async {
-    final isLoggedIn = await _storage.read(key: 'is_logged_in');
-    return isLoggedIn == 'true';
+    final value = await _storage.read(key: 'is_logged_in');
+    _isLoggedIn = value == 'true';
+    return _isLoggedIn;
   }
 
-  // Clear credentials on logout
   Future<void> clearCredentials() async {
     await _storage.delete(key: 'connection_url');
     await _storage.delete(key: 'username');
     await _storage.delete(key: 'password');
     await _storage.delete(key: 'is_logged_in');
+    _isLoggedIn = false;
   }
 }

@@ -23,8 +23,8 @@ class MyApp extends StatelessWidget {
           darkTheme: _buildDarkTheme(darkDynamic),
 
           themeMode: ThemeMode.system,
-          initialRoute: '/connect',
-          routes: AppRoutes.routes,
+          initialRoute: AppRoutes.splash,
+          onGenerateRoute: AppRoutes.generateRoute,
           onUnknownRoute: _handleUnknownRoute,
         );
       },
