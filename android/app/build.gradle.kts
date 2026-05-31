@@ -14,6 +14,23 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+val constantsFile = file("../../lib/constants.dart")
+var appName = "navidrome client by thepmsquare" // fallback
+
+if (constantsFile.exists()) {
+    val content = constantsFile.readText()
+    val regex = Regex("""static const String appTitle = '(.+?)'""")
+    val matchResult = regex.find(content)
+    if (matchResult != null) {
+        appName = matchResult.groupValues[1]
+        println("App name extracted from constants.dart: '$appName'")
+    } else {
+        println("WARNING: Could not find appTitle in constants.dart, using fallback name.")
+    }
+} else {
+    println("WARNING: constants.dart not found at ${constantsFile.absolutePath}, using fallback name.")
+}
+
 android {
     namespace = "com.thepmsquare.navidrome_client"
     compileSdk = flutter.compileSdkVersion
@@ -38,20 +55,16 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.thepmsquare.navidrome_client"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        resValue("string", "app_name", appName)
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("release")
         }
     }

@@ -1,4 +1,4 @@
-# navidrome_client
+# navidrome client by thepmsquare
 
 a client for navidrome server for android platform.
 
