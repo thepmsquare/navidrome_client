@@ -14,7 +14,7 @@ class AppRoutes {
 
   static final _builders = <String, WidgetBuilder>{
     splash: (_) => const SplashPage(),
-    connect: (_) => const MyConnectPage(title: 'Connect Page'),
+    connect: (_) => const MyConnectPage(),
     home: (_) => const MyHomePage(title: 'Home Page'),
   };
 
@@ -24,7 +24,7 @@ class AppRoutes {
 
     if (isProtected && !isLoggedIn) {
       return MaterialPageRoute(
-        builder: (_) => const MyConnectPage(title: 'Connect Page'),
+        builder: (_) => const MyConnectPage(),
         settings: const RouteSettings(name: connect),
       );
     }
