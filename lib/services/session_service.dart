@@ -189,6 +189,7 @@ class SessionService {
         {'id': 'recently_played', 'visible': true},
         {'id': 'random_albums', 'visible': false},
         {'id': 'newly_added_releases', 'visible': false},
+        {'id': 'recently_released', 'visible': false},
       ];
     }
     try {
@@ -209,6 +210,11 @@ class SessionService {
       if (!sections.any((s) => s['id'] == 'newly_added_releases')) {
         sections.add({'id': 'newly_added_releases', 'visible': false});
       }
+
+      // Ensure recently_released is present (for existing users)
+      if (!sections.any((s) => s['id'] == 'recently_released')) {
+        sections.add({'id': 'recently_released', 'visible': false});
+      }
       
       return sections;
     } catch (_) {
@@ -218,6 +224,7 @@ class SessionService {
         {'id': 'recently_played', 'visible': true},
         {'id': 'random_albums', 'visible': false},
         {'id': 'newly_added_releases', 'visible': false},
+        {'id': 'recently_released', 'visible': false},
       ];
     }
   }

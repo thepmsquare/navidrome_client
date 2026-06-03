@@ -46,6 +46,8 @@ class _HomePageSettingsPageState extends State<HomePageSettingsPage> {
         return 'random albums';
       case 'newly_added_releases':
         return 'newly added releases';
+      case 'recently_released':
+        return 'recently released';
       default:
         return id;
     }
@@ -63,6 +65,8 @@ class _HomePageSettingsPageState extends State<HomePageSettingsPage> {
         return Icons.album_rounded;
       case 'newly_added_releases':
         return Icons.new_releases_rounded;
+      case 'recently_released':
+        return Icons.calendar_today_rounded;
       default:
         return Icons.drag_handle_rounded;
     }

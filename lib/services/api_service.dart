@@ -166,12 +166,18 @@ class ApiService {
     String type = 'newest',
     int count = 50,
     int offset = 0,
+    int? fromYear,
+    int? toYear,
   }) async {
-    final response = await _get('getAlbumList2', {
+    final Map<String, String> params = {
       'type': type,
       'size': count.toString(),
       'offset': offset.toString(),
-    });
+    };
+    if (fromYear != null) params['fromYear'] = fromYear.toString();
+    if (toYear != null) params['toYear'] = toYear.toString();
+
+    final response = await _get('getAlbumList2', params);
 
     final albumList = response['albumList2'];
     if (albumList == null) return [];
