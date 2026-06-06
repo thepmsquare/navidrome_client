@@ -39,10 +39,12 @@ class NavidromeService {
   Uri _buildUri(String endpoint, [Map<String, String>? extra]) {
     final params = {
       ...credentials.authParams(),
-      if (extra != null) ...extra,
+      ...?extra,
     };
 
-    final base = credentials.serverUrl.trimRight('/');
+    final base = credentials.serverUrl.endsWith('/')
+        ? credentials.serverUrl.substring(0, credentials.serverUrl.length - 1)
+        : credentials.serverUrl;
     return Uri.parse('$base/rest/$endpoint').replace(queryParameters: params);
   }
 
@@ -111,7 +113,7 @@ class NavidromeService {
   Future<List<Artist>> getArtists({String? musicFolderId}) async {
     final data = await _get(
       'getArtists.view',
-      params: {if (musicFolderId != null) 'musicFolderId': musicFolderId},
+      params: {'musicFolderId': ?musicFolderId},
       responseKey: 'artists',
     );
 
@@ -208,10 +210,10 @@ class NavidromeService {
         'type': type,
         'size': size.toString(),
         'offset': offset.toString(),
-        if (fromYear != null) 'fromYear': fromYear.toString(),
-        if (toYear != null) 'toYear': toYear.toString(),
-        if (genre != null) 'genre': genre,
-        if (musicFolderId != null) 'musicFolderId': musicFolderId,
+        'fromYear': ?fromYear?.toString(),
+        'toYear': ?toYear?.toString(),
+        'genre': ?genre,
+        'musicFolderId': ?musicFolderId,
       },
       responseKey: 'albumList2',
     );
@@ -234,10 +236,10 @@ class NavidromeService {
       'getRandomSongs.view',
       params: {
         'size': size.toString(),
-        if (genre != null) 'genre': genre,
-        if (fromYear != null) 'fromYear': fromYear.toString(),
-        if (toYear != null) 'toYear': toYear.toString(),
-        if (musicFolderId != null) 'musicFolderId': musicFolderId,
+        'genre': ?genre,
+        'fromYear': ?fromYear?.toString(),
+        'toYear': ?toYear?.toString(),
+        'musicFolderId': ?musicFolderId,
       },
       responseKey: 'randomSongs',
     );
@@ -286,7 +288,7 @@ class NavidromeService {
         'artistCount': artistCount.toString(),
         'albumCount': albumCount.toString(),
         'songCount': songCount.toString(),
-        if (musicFolderId != null) 'musicFolderId': musicFolderId,
+        'musicFolderId': ?musicFolderId,
       },
       responseKey: 'searchResult3',
     );
@@ -355,7 +357,9 @@ class NavidromeService {
     if (songIds.isEmpty) return;
 
     // Multiple values for the same key require a custom URI build.
-    final base = credentials.serverUrl.trimRight('/');
+    final base = credentials.serverUrl.endsWith('/')
+        ? credentials.serverUrl.substring(0, credentials.serverUrl.length - 1)
+        : credentials.serverUrl;
     final params = credentials.authParams().entries
         .map((e) => '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value)}')
         .join('&');
@@ -399,8 +403,8 @@ class NavidromeService {
   Uri streamUrl(String songId, {int? maxBitRate, String? format}) {
     return _buildUri('stream.view', {
       'id': songId,
-      if (maxBitRate != null) 'maxBitRate': maxBitRate.toString(),
-      if (format != null) 'format': format,
+      'maxBitRate': ?maxBitRate?.toString(),
+      'format': ?format,
     });
   }
 
@@ -424,18 +428,18 @@ class NavidromeService {
   /// Stars a song, album, or artist.
   Future<void> star({String? id, String? albumId, String? artistId}) async {
     await _get('star.view', params: {
-      if (id != null) 'id': id,
-      if (albumId != null) 'albumId': albumId,
-      if (artistId != null) 'artistId': artistId,
+      'id': ?id,
+      'albumId': ?albumId,
+      'artistId': ?artistId,
     });
   }
 
   /// Removes a star from a song, album, or artist.
   Future<void> unstar({String? id, String? albumId, String? artistId}) async {
     await _get('unstar.view', params: {
-      if (id != null) 'id': id,
-      if (albumId != null) 'albumId': albumId,
-      if (artistId != null) 'artistId': artistId,
+      'id': ?id,
+      'albumId': ?albumId,
+      'artistId': ?artistId,
     });
   }
 

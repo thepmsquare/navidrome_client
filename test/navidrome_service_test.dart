@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:mocktail/mocktail.dart';
 
-import 'package:navidrome_service/navidrome_service.dart';
+import 'package:navidrome_client/services/navidrome_service.dart';
+import 'package:navidrome_client/models/navidrome_credentials.dart';
+import 'package:navidrome_client/models/models.dart';
 
 class MockHttpClient extends Mock implements http.Client {}
 
