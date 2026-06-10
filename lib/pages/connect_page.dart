@@ -75,6 +75,18 @@ class _ConnectPageState extends State<MyConnectPage> {
                                   ),
                                 ),
                               ),
+                              FilledButton(
+                                child: Text("connect"),
+                                onPressed: () => {},
+                              ),
+                              OutlinedButton(
+                                onPressed: () => {},
+                                child: Text("import profile"),
+                              ),
+                              TextButton(
+                                onPressed: () => {},
+                                child: Text("try demo mode"),
+                              ),
                             ],
                           ),
                         ),
