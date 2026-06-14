@@ -6,6 +6,7 @@
 - add font selector.
 - improve app crash and bug reporting.
 - add sleep timer feature in music player page.
+- add help page.
 
 ## 1.1.0+20
 
