@@ -194,19 +194,22 @@ void main() {
       expect(ids.contains('recently_played'), isTrue);
     });
 
-    test('default sections include most_played, random_tracks, random_albums, and newly_added_releases', () async {
+    test('default sections include most_played, random_tracks, random_albums, newly_added_releases, and recently_released', () async {
       final sections = await SessionService().homeSections;
       final ids = sections.map((s) => s['id']).toList();
       expect(ids.contains('most_played'), isTrue);
       expect(ids.contains('random_tracks'), isTrue);
       expect(ids.contains('random_albums'), isTrue);
       expect(ids.contains('newly_added_releases'), isTrue);
+      expect(ids.contains('recently_released'), isTrue);
     });
 
-    test('all default sections (except random_albums and newly_added_releases) are visible by default', () async {
+    test('all default sections (except random_albums, newly_added_releases, and recently_released) are visible by default', () async {
       final sections = await SessionService().homeSections;
       for (final section in sections) {
-        if (section['id'] == 'random_albums' || section['id'] == 'newly_added_releases') {
+        if (section['id'] == 'random_albums' ||
+            section['id'] == 'newly_added_releases' ||
+            section['id'] == 'recently_released') {
           expect(section['visible'], isFalse,
               reason: '${section['id']} should be off by default');
         } else {
@@ -269,6 +272,25 @@ void main() {
       },
     );
 
+    test(
+      'migration: recently_released is added if missing from saved prefs',
+      () async {
+        // simulate an old user who has most_played, random_tracks, recently_played, random_albums, and newly_added_releases
+        SharedPreferences.setMockInitialValues({
+          'home_sections':
+              '[{"id":"most_played","visible":true},{"id":"random_tracks","visible":true},{"id":"recently_played","visible":true},{"id":"random_albums","visible":false},{"id":"newly_added_releases","visible":false}]',
+        });
+        final sections = await SessionService().homeSections;
+        final ids = sections.map((s) => s['id']).toList();
+        expect(ids.contains('recently_released'), isTrue,
+            reason: 'recently_released should be injected for existing users');
+        
+        final recentlyReleasedSection = sections.firstWhere((s) => s['id'] == 'recently_released');
+        expect(recentlyReleasedSection['visible'], isFalse,
+            reason: 'injected recently_released should be off by default');
+      },
+    );
+
     test('setHomeSections persists and retrieves correctly', () async {
       final custom = [
         {'id': 'most_played', 'visible': false},
@@ -276,10 +298,11 @@ void main() {
         {'id': 'recently_played', 'visible': true},
         {'id': 'random_albums', 'visible': true},
         {'id': 'newly_added_releases', 'visible': true},
+        {'id': 'recently_released', 'visible': true},
       ];
       await SessionService().setHomeSections(custom);
       final retrieved = await SessionService().homeSections;
-      expect(retrieved.length, equals(5));
+      expect(retrieved.length, equals(6));
       expect(retrieved[0]['visible'], isFalse);
     });
 
@@ -292,6 +315,7 @@ void main() {
       expect(ids.contains('recently_played'), isTrue);
       expect(ids.contains('random_albums'), isTrue);
       expect(ids.contains('newly_added_releases'), isTrue);
+      expect(ids.contains('recently_released'), isTrue);
     });
   });
 }
