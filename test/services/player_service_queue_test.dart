@@ -18,6 +18,7 @@
 //   v1.0.0+11 — stop music on logout (reset() clears queue & scrobble state).
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:just_audio/just_audio.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers — extracted from player_service.dart (pure Dart, no platform deps)
@@ -106,6 +107,14 @@ bool reorderQueueGuard(int oldIndex, int newIndex, int queueLength) {
 /// Replicates seekToIndex no-op guard.
 bool seekToIndexIsNoOp(int? currentIndex, int targetIndex) {
   return currentIndex == targetIndex;
+}
+
+/// Replicates the skip behavior logic under loop mode one.
+LoopMode determineLoopModeForSkip(LoopMode currentMode) {
+  if (currentMode == LoopMode.one) {
+    return LoopMode.all;
+  }
+  return currentMode;
 }
 
 // ---------------------------------------------------------------------------
@@ -323,6 +332,20 @@ void main() {
 
     test('returns false when currentIndex is null', () {
       expect(seekToIndexIsNoOp(null, 0), isFalse);
+    });
+  });
+
+  group('player service — skip under LoopMode.one logic', () {
+    test('if loopMode is LoopMode.one, it should temporarily switch to LoopMode.all', () {
+      expect(determineLoopModeForSkip(LoopMode.one), equals(LoopMode.all));
+    });
+
+    test('if loopMode is LoopMode.all, it remains LoopMode.all', () {
+      expect(determineLoopModeForSkip(LoopMode.all), equals(LoopMode.all));
+    });
+
+    test('if loopMode is LoopMode.off, it remains LoopMode.off', () {
+      expect(determineLoopModeForSkip(LoopMode.off), equals(LoopMode.off));
     });
   });
 }

@@ -7,6 +7,7 @@
 - improve app crash and bug reporting.
 - add sleep timer feature in music player page.
 - add help page.
+- update behavior of next and previous buttons on repeat 1 track mode.
 
 ## 1.1.0+20
 

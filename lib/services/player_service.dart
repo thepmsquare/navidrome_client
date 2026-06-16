@@ -162,7 +162,7 @@ class PlayerService with WidgetsBindingObserver {
         );
         // attempt to skip past a broken/unreachable track so the queue continues
         if (_currentQueue.length > 1) {
-          _player.seekToNext().catchError((_) {});
+          skipToNext().catchError((_) {});
         }
       },
     );
@@ -236,7 +236,7 @@ class PlayerService with WidgetsBindingObserver {
           if (wasPlaying && !_player.playing) {
             _player.play();
           }
-          _player.seekToNext();
+          skipToNext();
         } else if (taps >= 3) {
           _log.log(
             'media button triple-tap detected — skip to previous',
@@ -246,7 +246,7 @@ class PlayerService with WidgetsBindingObserver {
           if (wasPlaying && !_player.playing) {
             _player.play();
           }
-          _player.seekToPrevious();
+          skipToPrevious();
         }
         // taps == 1 → normal play/pause, already handled by just_audio
       });
@@ -566,8 +566,31 @@ class PlayerService with WidgetsBindingObserver {
     return _player.seek(Duration.zero, index: index);
   }
 
-  Future<void> skipToNext() => _player.seekToNext();
-  Future<void> skipToPrevious() => _player.seekToPrevious();
+  Future<void> skipToNext() async {
+    if (_player.loopMode == LoopMode.one) {
+      try {
+        await _player.setLoopMode(LoopMode.all);
+        await _player.seekToNext();
+      } finally {
+        await _player.setLoopMode(LoopMode.one);
+      }
+    } else {
+      await _player.seekToNext();
+    }
+  }
+
+  Future<void> skipToPrevious() async {
+    if (_player.loopMode == LoopMode.one) {
+      try {
+        await _player.setLoopMode(LoopMode.all);
+        await _player.seekToPrevious();
+      } finally {
+        await _player.setLoopMode(LoopMode.one);
+      }
+    } else {
+      await _player.seekToPrevious();
+    }
+  }
 
   void setStopPlaybackOnTaskRemoved(bool value) {
     _stopPlaybackOnTaskRemoved = value;
