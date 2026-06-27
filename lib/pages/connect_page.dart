@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:async';
 import 'package:m3e_collection/m3e_collection.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:navidrome_client/services/api_service.dart';
@@ -33,8 +34,12 @@ class _ConnectPageState extends State<ConnectPage> {
   void initState() {
     super.initState();
     _urlController.addListener(_onUrlChanged);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
+        if (await _authService.isLoggedIn) {
+          Navigator.pushReplacementNamed(context, '/home');
+          return;
+        }
         VersionService().checkAndShowGreeting(context);
       }
     });
@@ -58,8 +63,9 @@ class _ConnectPageState extends State<ConnectPage> {
     final data = await Clipboard.getData('text/plain');
     if (data?.text != null) {
       setState(() {
-        _urlController.text = data!.text!;
+        _urlController.text = data!.text!.trim();
       });
+      _formKey.currentState?.validate();
     }
   }
 
@@ -83,9 +89,15 @@ class _ConnectPageState extends State<ConnectPage> {
           password: password,
         );
 
-        final success = await apiService.ping();
+        final success = await apiService.ping().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => throw TimeoutException('connection timeout'),
+        );
         if (success) {
           await _authService.saveCredentials(url, username, password);
+          _passwordController.clear();
+          _usernameController.clear();
+          _urlController.text = 'https://';
           if (mounted) {
             Navigator.pushReplacementNamed(context, '/home');
           }
@@ -167,6 +179,7 @@ class _ConnectPageState extends State<ConnectPage> {
     return Scaffold(
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
+        toolbarHeight: isMobile ? 40 : null,
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -184,7 +197,7 @@ class _ConnectPageState extends State<ConnectPage> {
           child: SingleChildScrollView(
             padding: EdgeInsets.symmetric(
               horizontal: isMobile ? 16.0 : 24.0,
-              vertical: 32.0,
+              vertical: isMobile ? 12.0 : 32.0,
             ),
             child: ConstrainedBox(
               constraints: BoxConstraints(
@@ -196,11 +209,11 @@ class _ConnectPageState extends State<ConnectPage> {
                 children: [
                   Image.asset(
                     'assets/branding/transparent_icon.png',
-                    height: isMobile ? 80 : 120,
+                    height: isMobile ? 56 : 120,
                     color: colorScheme.primary,
                     colorBlendMode: BlendMode.srcIn,
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: isMobile ? 8 : 16),
                   Text(
                     appDisplayName,
                     textAlign: TextAlign.center,
@@ -212,7 +225,7 @@ class _ConnectPageState extends State<ConnectPage> {
                       color: colorScheme.primary,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: isMobile ? 4 : 8),
                   Text(
                     'connect to your server',
                     textAlign: TextAlign.center,
@@ -220,150 +233,260 @@ class _ConnectPageState extends State<ConnectPage> {
                       color: colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  SizedBox(height: isMobile ? 32 : 48),
+                  SizedBox(height: isMobile ? 16 : 40),
                   Card(
                     child: Padding(
-                      padding: EdgeInsets.all(isMobile ? 20.0 : 32.0),
+                      padding: EdgeInsets.fromLTRB(
+                        isMobile ? 16.0 : 24.0,
+                        isMobile ? 20.0 : 28.0,
+                        isMobile ? 16.0 : 24.0,
+                        isMobile ? 20.0 : 28.0,
+                      ),
                       child: Form(
                         key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            TextFormField(
-                              controller: _urlController,
-                              enabled: !_isLoading,
-                              autofocus: _urlController.text == 'https://',
-                              decoration: InputDecoration(
-                                labelText: 'server url',
-                                hintText: 'https://demo.navidrome.org',
-                                prefixIcon: const Icon(Icons.dns_rounded),
-                                suffixIcon: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (_urlController.text.isNotEmpty &&
-                                        _urlController.text != 'https://')
+                        child: AutofillGroup(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              TextFormField(
+                                controller: _urlController,
+                                enabled: !_isLoading,
+                                autofocus: _urlController.text == 'https://',
+                                decoration: InputDecoration(
+                                  labelText: 'server url',
+                                  hintText: 'https://demo.navidrome.org',
+                                  prefixIcon: const Icon(Icons.dns_rounded),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    vertical: isMobile ? 12.0 : 16.0,
+                                    horizontal: isMobile ? 16.0 : 24.0,
+                                  ),
+                                  suffixIcon: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (_urlController.text.isNotEmpty &&
+                                          _urlController.text != 'https://')
+                                        IconButton(
+                                          icon: const Icon(Icons.clear_rounded),
+                                          onPressed: () => _urlController.text = 'https://',
+                                          tooltip: 'clear',
+                                        ),
                                       IconButton(
-                                        icon: const Icon(Icons.clear_rounded),
-                                        onPressed: () => _urlController.clear(),
-                                        tooltip: 'clear',
+                                        icon: const Icon(Icons.content_paste_rounded),
+                                        onPressed: _pasteUrl,
+                                        tooltip: 'paste',
                                       ),
-                                    IconButton(
-                                      icon: const Icon(Icons.content_paste_rounded),
-                                      onPressed: _pasteUrl,
-                                      tooltip: 'paste',
+                                    ],
+                                  ),
+                                ),
+                                keyboardType: TextInputType.url,
+                                textInputAction: TextInputAction.next,
+                                onFieldSubmitted: (_) =>
+                                    FocusScope.of(context).requestFocus(_usernameFocusNode),
+                                validator: (value) {
+                                  if (value == null ||
+                                      value.isEmpty ||
+                                      value.trim() == 'https://' ||
+                                      value.trim() == 'http://') {
+                                    return 'please enter server url';
+                                  }
+                                  final urlToValidate = value.trim();
+                                  final uriString = (urlToValidate.startsWith('http://') || urlToValidate.startsWith('https://'))
+                                      ? urlToValidate
+                                      : 'https://$urlToValidate';
+                                  try {
+                                    final uri = Uri.parse(uriString);
+                                    if (uri.host.isEmpty || (!uri.host.contains('.') && uri.host != 'localhost') || urlToValidate.contains(' ')) {
+                                      return 'invalid url format';
+                                    }
+                                  } catch (_) {
+                                    return 'invalid url format';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              SizedBox(height: isMobile ? 12 : 20),
+                              TextFormField(
+                                controller: _usernameController,
+                                focusNode: _usernameFocusNode,
+                                enabled: !_isLoading,
+                                autofillHints: const [AutofillHints.username],
+                                decoration: InputDecoration(
+                                  labelText: 'username',
+                                  prefixIcon: const Icon(Icons.person_rounded),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    vertical: isMobile ? 12.0 : 16.0,
+                                    horizontal: isMobile ? 16.0 : 24.0,
+                                  ),
+                                ),
+                                textInputAction: TextInputAction.next,
+                                onFieldSubmitted: (_) =>
+                                    FocusScope.of(context).requestFocus(_passwordFocusNode),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'please enter username';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              SizedBox(height: isMobile ? 12 : 20),
+                              TextFormField(
+                                controller: _passwordController,
+                                focusNode: _passwordFocusNode,
+                                enabled: !_isLoading,
+                                obscureText: !_isPasswordVisible,
+                                autofillHints: const [AutofillHints.password],
+                                decoration: InputDecoration(
+                                  labelText: 'password',
+                                  prefixIcon: const Icon(Icons.lock_rounded),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    vertical: isMobile ? 12.0 : 16.0,
+                                    horizontal: isMobile ? 16.0 : 24.0,
+                                  ),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _isPasswordVisible
+                                          ? Icons.visibility_off_rounded
+                                          : Icons.visibility_rounded,
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _isPasswordVisible = !_isPasswordVisible;
+                                      });
+                                    },
+                                  ),
+                                ),
+                                textInputAction: TextInputAction.done,
+                                onFieldSubmitted: (_) => _handleConnect(),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'please enter password';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              SizedBox(height: isMobile ? 20 : 40),
+                              Semantics(
+                                button: true,
+                                enabled: !_isLoading,
+                                label: 'connect to server',
+                                child: ButtonM3E(
+                                  onPressed: _isLoading ? null : _handleConnect,
+                                  style: ButtonM3EStyle.filled,
+                                  size: ButtonM3ESize.lg,
+                                  shape: ButtonM3EShape.round,
+                                  label: _isLoading
+                                      ? Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const SizedBox(
+                                              height: 20,
+                                              width: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            const Text(
+                                              'connecting...',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        )
+                                      : const Text(
+                                          'connect',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                              SizedBox(height: isMobile ? 8 : 16),
+                              if (isMobile) ...[
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    Expanded(
+                                      child: Semantics(
+                                        button: true,
+                                        enabled: !_isLoading,
+                                        label: 'import profile',
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                          child: TextButton.icon(
+                                            onPressed: _isLoading ? null : _handleImport,
+                                            icon: const Icon(Icons.file_open_rounded, size: 18),
+                                            label: const Text(
+                                              'import profile',
+                                              style: TextStyle(fontSize: 13),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Semantics(
+                                        button: true,
+                                        enabled: !_isLoading,
+                                        label: 'try demo mode',
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                          child: TextButton.icon(
+                                            onPressed: _isLoading ? null : _handleDemoMode,
+                                            icon: const Icon(Icons.play_circle_outline_rounded, size: 18),
+                                            label: const Text(
+                                              'try demo',
+                                              style: TextStyle(fontSize: 13),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
-                              ),
-                              keyboardType: TextInputType.url,
-                              textInputAction: TextInputAction.next,
-                              onFieldSubmitted: (_) =>
-                                  FocusScope.of(context).requestFocus(_usernameFocusNode),
-                              validator: (value) {
-                                if (value == null ||
-                                    value.isEmpty ||
-                                    value.trim() == 'https://' ||
-                                    value.trim() == 'http://') {
-                                  return 'please enter server url';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 20),
-                            TextFormField(
-                              controller: _usernameController,
-                              focusNode: _usernameFocusNode,
-                              enabled: !_isLoading,
-                              decoration: const InputDecoration(
-                                labelText: 'username',
-                                prefixIcon: Icon(Icons.person_rounded),
-                              ),
-                              textInputAction: TextInputAction.next,
-                              onFieldSubmitted: (_) =>
-                                  FocusScope.of(context).requestFocus(_passwordFocusNode),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'please enter username';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 20),
-                            TextFormField(
-                              controller: _passwordController,
-                              focusNode: _passwordFocusNode,
-                              enabled: !_isLoading,
-                              obscureText: !_isPasswordVisible,
-                              decoration: InputDecoration(
-                                labelText: 'password',
-                                prefixIcon: const Icon(Icons.lock_rounded),
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _isPasswordVisible
-                                        ? Icons.visibility_off_rounded
-                                        : Icons.visibility_rounded,
+                              ] else ...[
+                                Semantics(
+                                  button: true,
+                                  enabled: !_isLoading,
+                                  label: 'import profile',
+                                  child: TextButton.icon(
+                                    onPressed: _isLoading ? null : _handleImport,
+                                    icon: const Icon(Icons.file_open_rounded),
+                                    label: const Text('import profile'),
                                   ),
-                                  onPressed: () {
-                                    setState(() {
-                                      _isPasswordVisible = !_isPasswordVisible;
-                                    });
-                                  },
                                 ),
-                              ),
-                              textInputAction: TextInputAction.done,
-                              onFieldSubmitted: (_) => _handleConnect(),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'please enter password';
-                                }
-                                return null;
-                              },
-                            ),
-                            SizedBox(height: isMobile ? 32 : 40),
-                            ButtonM3E(
-                              onPressed: _isLoading ? null : _handleConnect,
-                              style: ButtonM3EStyle.filled,
-                              size: ButtonM3ESize.lg,
-                              shape: ButtonM3EShape.round,
-                              label: _isLoading
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Text(
-                                      'connect',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextButton.icon(
-                              onPressed: _isLoading ? null : _handleImport,
-                              icon: const Icon(Icons.file_open_rounded),
-                              label: const Text('import profile'),
-                            ),
-                            const SizedBox(height: 4),
-                            TextButton.icon(
-                              onPressed: _isLoading ? null : _handleDemoMode,
-                              icon: const Icon(Icons.play_circle_outline_rounded),
-                              label: const Text('try demo mode'),
-                            ),
-                          ],
+                                const SizedBox(height: 8),
+                                Semantics(
+                                  button: true,
+                                  enabled: !_isLoading,
+                                  label: 'try demo mode',
+                                  child: TextButton.icon(
+                                    onPressed: _isLoading ? null : _handleDemoMode,
+                                    icon: const Icon(Icons.play_circle_outline_rounded),
+                                    label: const Text('try demo mode'),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  SizedBox(height: isMobile ? 12 : 24),
                   Wrap(
                     alignment: WrapAlignment.center,
                     crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 4,
+                    spacing: isMobile ? 4 : 8,
+                    runSpacing: isMobile ? 4 : 8,
                     children: [
                       Text(
                         'new to navidrome?',
