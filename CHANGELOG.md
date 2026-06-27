@@ -1,6 +1,6 @@
 # changelog
 
-## 1.2.0+21 (in progress)
+## 1.2.0+21
 
 - add support for random albums, newly added releases, recently released sections to homepage.
 - add font selector.
