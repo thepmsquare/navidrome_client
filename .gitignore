@@ -13,6 +13,8 @@
 migrate_working_dir/
 .agents/
 .metadata
+.env
+
 
 # IntelliJ related
 *.iml

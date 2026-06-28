@@ -21,10 +21,28 @@ this project is a starting point for a flutter application that connects to a na
    ```bash
    flutter pub get
    ```
-3. run the application:
+3. configure environment (optional):
+   copy `.env.example` to `.env` and fill in the `SENTRY_DSN` if you want to enable Sentry:
    ```bash
-   flutter run
+   cp .env.example .env
    ```
+4. run the application:
+   ```bash
+   flutter run --dart-define-from-file=.env
+   ```
+
+### building the application
+
+you can build the APK or App Bundle using the environment file:
+
+- **apk**:
+  ```bash
+  flutter build apk --dart-define-from-file=.env
+  ```
+- **appbundle**:
+  ```bash
+  flutter build appbundle --dart-define-from-file=.env
+  ```
 
 ## license
 
