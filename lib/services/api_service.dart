@@ -5,9 +5,12 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:navidrome_client/utils/subsonic_utils.dart';
 import 'package:navidrome_client/services/offline_service.dart';
 import 'dart:io';
+import 'dart:async';
 
 class ApiService {
   final String _baseUrl;
+  final String? _alternateUrl;
+  String _activeUrl;
   final String _username;
   final String _password;
   final String _apiVersion = '1.16.1';
@@ -16,13 +19,22 @@ class ApiService {
 
   ApiService({
     required String baseUrl,
+    String? alternateUrl,
     required String username,
     required String password,
   }) : _baseUrl = baseUrl.endsWith('/')
            ? baseUrl.substring(0, baseUrl.length - 1)
            : baseUrl,
+       _alternateUrl = (alternateUrl != null && alternateUrl.isNotEmpty)
+           ? (alternateUrl.endsWith('/')
+               ? alternateUrl.substring(0, alternateUrl.length - 1)
+               : alternateUrl)
+           : null,
        _username = username,
-       _password = password;
+       _password = password,
+       _activeUrl = baseUrl.endsWith('/')
+           ? baseUrl.substring(0, baseUrl.length - 1)
+           : baseUrl;
 
   String _buildUrl(
     String method,
@@ -43,7 +55,7 @@ class ApiService {
     };
 
     final queryString = Uri(queryParameters: queryParams).query;
-    return '$_baseUrl/rest/$method.view?$queryString';
+    return '$_activeUrl/rest/$method.view?$queryString';
   }
 
   String getStreamUrl(String id) {
@@ -108,45 +120,86 @@ class ApiService {
     }
   }
 
+  bool _isNetworkError(dynamic e) {
+    if (e is SocketException ||
+        e is HttpException ||
+        e is RedirectException ||
+        e is TlsException ||
+        e is HandshakeException ||
+        e is TimeoutException) {
+      return true;
+    }
+    final errorStr = e.toString();
+    return errorStr.contains('Failed host lookup') ||
+        errorStr.contains('Connection failed') ||
+        errorStr.contains('Network is unreachable') ||
+        errorStr.contains('connection timeout') ||
+        errorStr.contains('TimeoutException') ||
+        errorStr.contains('Connection timed out') ||
+        errorStr.contains('ClientException');
+  }
+
+  Future<Map<String, dynamic>> _makeRequest(
+    String method,
+    Map<String, String> params,
+  ) async {
+    final url = _buildUrl(method, params);
+    final response = await _client.get(Uri.parse(url));
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      final subsonicResponse = decoded['subsonic-response'];
+      final serverVersion = subsonicResponse['version'];
+      if (serverVersion != null) {
+        Sentry.configureScope((scope) {
+          scope.setTag('subsonic_server_version', serverVersion.toString());
+        });
+      }
+      if (subsonicResponse['status'] == 'ok') {
+        return subsonicResponse;
+      } else {
+        final error = subsonicResponse['error'];
+        throw Exception(
+          error != null
+              ? '${error['message']} (code ${error['code']})'
+              : 'unknown api error',
+        );
+      }
+    } else {
+      throw Exception('http error: ${response.statusCode}');
+    }
+  }
+
   Future<Map<String, dynamic>> _get(
     String method, [
     Map<String, String> params = const {},
   ]) async {
-    final url = _buildUrl(method, params);
-
     try {
-      final response = await _client.get(Uri.parse(url));
-
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
-        final subsonicResponse = decoded['subsonic-response'];
-        final serverVersion = subsonicResponse['version'];
-        if (serverVersion != null) {
-          Sentry.configureScope((scope) {
-            scope.setTag('subsonic_server_version', serverVersion.toString());
-          });
-        }
-        if (subsonicResponse['status'] == 'ok') {
-          return subsonicResponse;
-        } else {
-          final error = subsonicResponse['error'];
-          throw Exception(
-            error != null
-                ? '${error['message']} (code ${error['code']})'
-                : 'unknown api error',
-          );
-        }
-      } else {
-        throw Exception('http error: ${response.statusCode}');
-      }
-    } on SocketException {
-      OfflineService().triggerOfflineAutoToggle();
-      rethrow;
+      return await _makeRequest(method, params);
     } catch (e) {
-      final errorStr = e.toString();
-      if (errorStr.contains('Failed host lookup') ||
-          errorStr.contains('Connection failed') ||
-          errorStr.contains('Network is unreachable')) {
+      if (_alternateUrl != null && _isNetworkError(e)) {
+        final candidateUrl = _activeUrl == _baseUrl ? _alternateUrl! : _baseUrl;
+        debugPrint(
+          'Connection to active URL $_activeUrl failed ($e). Retrying with alternate URL: $candidateUrl',
+        );
+        final originalActiveUrl = _activeUrl;
+        _activeUrl = candidateUrl;
+        try {
+          return await _makeRequest(method, params);
+        } catch (altError) {
+          // If the alternate URL also failed, revert to original active URL so we don't sticky-switch to a broken URL
+          _activeUrl = originalActiveUrl;
+
+          // Trigger offline auto toggle since all URLs failed
+          if (_isNetworkError(altError)) {
+            OfflineService().triggerOfflineAutoToggle();
+          }
+          rethrow;
+        }
+      }
+
+      // No alternate URL, or error is not a network error
+      if (_isNetworkError(e)) {
         OfflineService().triggerOfflineAutoToggle();
       }
       rethrow;

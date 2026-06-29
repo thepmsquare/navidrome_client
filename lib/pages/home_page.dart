@@ -386,6 +386,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _initApiService() async {
     final url = await _authService.serverUrl;
+    final alternateUrl = await _authService.alternateServerUrl;
     final username = await _authService.username;
     final password = await _authService.password;
 
@@ -394,6 +395,7 @@ class _HomePageState extends State<HomePage> {
         setState(() {
           _apiService = ApiService(
             baseUrl: url,
+            alternateUrl: alternateUrl,
             username: username,
             password: password,
           );

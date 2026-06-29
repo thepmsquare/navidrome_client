@@ -1,5 +1,9 @@
 # changelog
 
+## 1.3.0+22
+
+- add option for alternative server urls for fall back
+
 ## 1.2.0+21
 
 - add support for random albums, newly added releases, recently released sections to homepage.
