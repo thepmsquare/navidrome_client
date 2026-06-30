@@ -17,7 +17,7 @@ class ExportService {
       final settings = {
         'app_identifier': 'navidrome_client_backup',
         'server_url': await _authService.serverUrl,
-        'alternate_server_url': await _authService.alternateServerUrl,
+        'alternate_server_urls': await _authService.alternateServerUrls,
         'username': await _authService.username,
         'password': await _authService.password,
         'stop_playback_on_task_removed': await _sessionService.stopPlaybackOnTaskRemoved,

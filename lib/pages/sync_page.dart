@@ -29,7 +29,7 @@ class _SyncPageState extends State<SyncPage> {
     final auth = AuthService();
     _currentUsername = await auth.username;
     final url = await auth.serverUrl;
-    final alternateUrl = await auth.alternateServerUrl;
+    final alternateUrls = await auth.alternateServerUrls;
     final username = await auth.username;
     final password = await auth.password;
 
@@ -38,7 +38,7 @@ class _SyncPageState extends State<SyncPage> {
         setState(() {
           _apiService = ApiService(
             baseUrl: url,
-            alternateUrl: alternateUrl,
+            alternateUrls: alternateUrls,
             username: username,
             password: password,
           );

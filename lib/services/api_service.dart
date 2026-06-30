@@ -9,7 +9,7 @@ import 'dart:async';
 
 class ApiService {
   final String _baseUrl;
-  final String? _alternateUrl;
+  final List<String> _alternateUrls;
   String _activeUrl;
   final String _username;
   final String _password;
@@ -19,17 +19,19 @@ class ApiService {
 
   ApiService({
     required String baseUrl,
-    String? alternateUrl,
+    List<String>? alternateUrls,
     required String username,
     required String password,
   }) : _baseUrl = baseUrl.endsWith('/')
            ? baseUrl.substring(0, baseUrl.length - 1)
            : baseUrl,
-       _alternateUrl = (alternateUrl != null && alternateUrl.isNotEmpty)
-           ? (alternateUrl.endsWith('/')
-               ? alternateUrl.substring(0, alternateUrl.length - 1)
-               : alternateUrl)
-           : null,
+       _alternateUrls = alternateUrls != null
+           ? alternateUrls
+               .map((url) => url.endsWith('/')
+                   ? url.substring(0, url.length - 1)
+                   : url)
+               .toList()
+           : [],
        _username = username,
        _password = password,
        _activeUrl = baseUrl.endsWith('/')
@@ -177,28 +179,32 @@ class ApiService {
     try {
       return await _makeRequest(method, params);
     } catch (e) {
-      if (_alternateUrl != null && _isNetworkError(e)) {
-        final candidateUrl = _activeUrl == _baseUrl ? _alternateUrl! : _baseUrl;
-        debugPrint(
-          'Connection to active URL $_activeUrl failed ($e). Retrying with alternate URL: $candidateUrl',
-        );
-        final originalActiveUrl = _activeUrl;
-        _activeUrl = candidateUrl;
-        try {
-          return await _makeRequest(method, params);
-        } catch (altError) {
-          // If the alternate URL also failed, revert to original active URL so we don't sticky-switch to a broken URL
-          _activeUrl = originalActiveUrl;
+      if (_alternateUrls.isNotEmpty && _isNetworkError(e)) {
+        final urlsToTry = [
+          ..._alternateUrls,
+          _baseUrl,
+        ];
+        urlsToTry.remove(_activeUrl);
 
-          // Trigger offline auto toggle since all URLs failed
-          if (_isNetworkError(altError)) {
-            OfflineService().triggerOfflineAutoToggle();
+        for (final candidateUrl in urlsToTry) {
+          debugPrint(
+            'Connection to active URL $_activeUrl failed ($e). Retrying with alternate URL: $candidateUrl',
+          );
+          final originalActiveUrl = _activeUrl;
+          _activeUrl = candidateUrl;
+          try {
+            return await _makeRequest(method, params);
+          } catch (altError) {
+            _activeUrl = originalActiveUrl;
+            if (_isNetworkError(altError)) {
+              continue;
+            }
+            rethrow;
           }
-          rethrow;
         }
       }
 
-      // No alternate URL, or error is not a network error
+      // No alternate URLs, or all retries failed, or error is not a network error
       if (_isNetworkError(e)) {
         OfflineService().triggerOfflineAutoToggle();
       }

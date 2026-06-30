@@ -20,12 +20,10 @@ class ConnectPage extends StatefulWidget {
 class _ConnectPageState extends State<ConnectPage> {
   final _formKey = GlobalKey<FormState>();
   final _urlController = TextEditingController(text: 'https://');
-  final _alternateUrlController = TextEditingController(text: 'https://');
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
 
-  final _alternateUrlFocusNode = FocusNode();
   final _usernameFocusNode = FocusNode();
   final _passwordFocusNode = FocusNode();
 
@@ -55,10 +53,8 @@ class _ConnectPageState extends State<ConnectPage> {
   @override
   void dispose() {
     _urlController.dispose();
-    _alternateUrlController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
-    _alternateUrlFocusNode.dispose();
     _usernameFocusNode.dispose();
     _passwordFocusNode.dispose();
     super.dispose();
@@ -74,16 +70,6 @@ class _ConnectPageState extends State<ConnectPage> {
     }
   }
 
-  Future<void> _pasteAlternateUrl() async {
-    final data = await Clipboard.getData('text/plain');
-    if (data?.text != null) {
-      setState(() {
-        _alternateUrlController.text = data!.text!.trim();
-      });
-      _formKey.currentState?.validate();
-    }
-  }
-
   Future<void> _handleConnect() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
@@ -94,24 +80,12 @@ class _ConnectPageState extends State<ConnectPage> {
       if (!url.startsWith('http://') && !url.startsWith('https://')) {
         url = 'https://$url';
       }
-      String? alternateUrl = _alternateUrlController.text.trim();
-      if (alternateUrl.isNotEmpty &&
-          alternateUrl != 'https://' &&
-          alternateUrl != 'http://') {
-        if (!alternateUrl.startsWith('http://') &&
-            !alternateUrl.startsWith('https://')) {
-          alternateUrl = 'https://$alternateUrl';
-        }
-      } else {
-        alternateUrl = null;
-      }
       final username = _usernameController.text.trim();
       final password = _passwordController.text.trim();
 
       try {
         final apiService = ApiService(
           baseUrl: url,
-          alternateUrl: alternateUrl,
           username: username,
           password: password,
         );
@@ -121,16 +95,10 @@ class _ConnectPageState extends State<ConnectPage> {
           onTimeout: () => throw TimeoutException('connection timeout'),
         );
         if (success) {
-          await _authService.saveCredentials(
-            url,
-            username,
-            password,
-            alternateUrl: alternateUrl,
-          );
+          await _authService.saveCredentials(url, username, password);
           _passwordController.clear();
           _usernameController.clear();
           _urlController.text = 'https://';
-          _alternateUrlController.text = 'https://';
           if (mounted) {
             Navigator.pushReplacementNamed(context, '/home');
           }
@@ -171,11 +139,6 @@ class _ConnectPageState extends State<ConnectPage> {
         if (data['server_url'] != null) {
           _urlController.text = data['server_url'];
         }
-        if (data['alternate_server_url'] != null) {
-          _alternateUrlController.text = data['alternate_server_url'];
-        } else {
-          _alternateUrlController.text = 'https://';
-        }
         if (data['username'] != null) {
           _usernameController.text = data['username'];
         }
@@ -209,7 +172,6 @@ class _ConnectPageState extends State<ConnectPage> {
   Future<void> _handleDemoMode() async {
     setState(() {
       _urlController.text = 'https://demo.navidrome.org';
-      _alternateUrlController.text = 'https://';
       _usernameController.text = 'demo';
       _passwordController.text = 'demo';
     });
@@ -342,79 +304,13 @@ class _ConnectPageState extends State<ConnectPage> {
                                 textInputAction: TextInputAction.next,
                                 onFieldSubmitted: (_) => FocusScope.of(
                                   context,
-                                ).requestFocus(_alternateUrlFocusNode),
-                                validator: (value) {
-                                  if (value == null ||
-                                      value.isEmpty ||
-                                      value.trim() == 'https://' ||
-                                      value.trim() == 'http://') {
-                                    return 'please enter server url';
-                                  }
-                                  final urlToValidate = value.trim();
-                                  final uriString =
-                                      (urlToValidate.startsWith('http://') ||
-                                          urlToValidate.startsWith('https://'))
-                                      ? urlToValidate
-                                      : 'https://$urlToValidate';
-                                  try {
-                                    final uri = Uri.parse(uriString);
-                                    if (uri.host.isEmpty ||
-                                        (!uri.host.contains('.') &&
-                                            uri.host != 'localhost') ||
-                                        urlToValidate.contains(' ')) {
-                                      return 'invalid url format';
-                                    }
-                                  } catch (_) {
-                                    return 'invalid url format';
-                                  }
-                                  return null;
-                                },
-                              ),
-                              SizedBox(height: isMobile ? 16 : 20),
-                              TextFormField(
-                                controller: _alternateUrlController,
-                                focusNode: _alternateUrlFocusNode,
-                                enabled: !_isLoading,
-                                decoration: InputDecoration(
-                                  labelText: 'alternate server url (optional)',
-                                  hintText: 'https://192.168.1.100:4533',
-                                  prefixIcon: const Icon(Icons.dns_rounded),
-                                  contentPadding: EdgeInsets.symmetric(
-                                    vertical: isMobile ? 14.0 : 18.0,
-                                    horizontal: isMobile ? 16.0 : 24.0,
-                                  ),
-                                  suffixIcon: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (_alternateUrlController.text.isNotEmpty &&
-                                          _alternateUrlController.text != 'https://')
-                                        IconButton(
-                                          icon: const Icon(Icons.clear_rounded),
-                                          onPressed: () =>
-                                              _alternateUrlController.text = 'https://',
-                                          tooltip: 'clear alternate url',
-                                        ),
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.content_paste_rounded,
-                                        ),
-                                        onPressed: _pasteAlternateUrl,
-                                        tooltip: 'paste alternate url',
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                keyboardType: TextInputType.url,
-                                textInputAction: TextInputAction.next,
-                                onFieldSubmitted: (_) => FocusScope.of(
-                                  context,
                                 ).requestFocus(_usernameFocusNode),
                                 validator: (value) {
                                   if (value == null ||
                                       value.isEmpty ||
                                       value.trim() == 'https://' ||
                                       value.trim() == 'http://') {
-                                    return null;
+                                    return 'please enter server url';
                                   }
                                   final urlToValidate = value.trim();
                                   final uriString =

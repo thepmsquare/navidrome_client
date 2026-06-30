@@ -2,7 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   static const String _keyUrl = 'server_url';
-  static const String _keyAlternateUrl = 'alternate_server_url';
+  static const String _keyAlternateUrls = 'alternate_server_urls';
   static const String _keyUsername = 'username';
   static const String _keyPassword = 'password'; // we will store it to re-generate tokens for each request if needed
   static const String _keyIsLoggedIn = 'is_logged_in';
@@ -17,14 +17,10 @@ class AuthService {
     return _prefs ??= await SharedPreferences.getInstance();
   }
 
-  Future<void> saveCredentials(String url, String username, String password, {String? alternateUrl}) async {
+  Future<void> saveCredentials(String url, String username, String password) async {
     final prefs = await _getPrefs;
     await prefs.setString(_keyUrl, url);
-    if (alternateUrl != null && alternateUrl.isNotEmpty) {
-      await prefs.setString(_keyAlternateUrl, alternateUrl);
-    } else {
-      await prefs.remove(_keyAlternateUrl);
-    }
+    await prefs.remove(_keyAlternateUrls);
     await prefs.setString(_keyUsername, username);
     await prefs.setString(_keyPassword, password);
     await prefs.setBool(_keyIsLoggedIn, true);
@@ -45,9 +41,14 @@ class AuthService {
     return prefs.getString(_keyUrl);
   }
 
-  Future<String?> get alternateServerUrl async {
+  Future<List<String>> get alternateServerUrls async {
     final prefs = await _getPrefs;
-    return prefs.getString(_keyAlternateUrl);
+    return prefs.getStringList(_keyAlternateUrls) ?? [];
+  }
+
+  Future<void> setAlternateServerUrls(List<String> urls) async {
+    final prefs = await _getPrefs;
+    await prefs.setStringList(_keyAlternateUrls, urls);
   }
 
   Future<String?> get username async {

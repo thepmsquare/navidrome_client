@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:navidrome_client/pages/settings/advanced_settings_page.dart';
 import 'package:navidrome_client/pages/settings/offline_saves_settings_page.dart';
 import 'package:navidrome_client/pages/settings/home_page_settings_page.dart';
+import 'package:navidrome_client/pages/settings/alternate_urls_page.dart';
 import 'package:navidrome_client/services/auth_service.dart';
 import 'package:navidrome_client/services/event_log_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
@@ -264,6 +265,20 @@ class _SettingsPageState extends State<SettingsPage> {
                       subtitle: Text(_fontFamily == 'system' ? 'system font' : _fontFamily),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: _showFontPicker,
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.dns_rounded),
+                      title: const Text('alternate server urls'),
+                      subtitle: const Text('configure backup/fallback connections'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AlternateUrlsPage(),
+                          ),
+                        );
+                      },
                     ),
                     ListTile(
                       leading: Badge(
