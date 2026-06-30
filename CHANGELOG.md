@@ -2,7 +2,8 @@
 
 ## 1.3.1+23
 
-- add option for alternative server urls for fall back.
+- remove alternative server urls from connect page and add them to settings.
+- add test option to server urls in settings page.
 
 ## 1.3.0+22
 
