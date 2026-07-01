@@ -50,15 +50,9 @@ void main() async {
       Sentry.configureScope((scope) {
         scope.setTag('client_version', '${packageInfo.version}+${packageInfo.buildNumber}');
         scope.setTag('subsonic_api_version', '1.16.1');
+        // Do not attach username, password, or server URL — this is an open-source
+        // project and Sentry is used only for anonymous crash/error telemetry.
       });
-      if (isLoggedIn) {
-        final url = await authService.serverUrl;
-        final user = await authService.username;
-        Sentry.configureScope((scope) {
-          scope.setTag('server_url', url ?? 'unknown');
-          scope.setUser(SentryUser(username: user));
-        });
-      }
     } catch (_) {}
 
     runApp(MyApp(isLoggedIn: isLoggedIn));
@@ -69,6 +63,9 @@ void main() async {
       (options) {
         options.dsn = sentryDsn;
         options.tracesSampleRate = 1.0;
+        // Never send personally identifiable information (PII) such as
+        // IP addresses, usernames, or cookies to Sentry.
+        options.sendDefaultPii = false;
       },
       appRunner: runAppWithSettings,
     );

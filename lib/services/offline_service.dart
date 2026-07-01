@@ -7,7 +7,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
-import 'package:sentry_dio/sentry_dio.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/lyrics_service.dart';
 import 'package:background_downloader/background_downloader.dart';
@@ -24,7 +23,9 @@ class OfflineService extends ChangeNotifier {
   static const String _trackListCacheFile = 'track_list_cache.json';
   static const String _artistListCacheFile = 'artist_list_cache.json';
 
-  final Dio _dio = Dio()..addSentry();
+  // Use a plain Dio instance (without addSentry()) so that download URLs,
+  // which may contain auth tokens, are never captured as Sentry breadcrumbs.
+  final Dio _dio = Dio();
 
   // #5: cached storage path — resolved once, reused everywhere
   String? _cachedStoragePath;
@@ -46,6 +47,16 @@ class OfflineService extends ChangeNotifier {
   final ValueNotifier<OfflineState> offlineModeNotifier = ValueNotifier(OfflineState.online);
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
 
+  // Reference to ApiService — set after login so connectivity checks can
+  // probe all configured URLs before declaring no-internet.
+  ApiService? _apiService;
+
+  /// Registers the active [ApiService] so that startup and connectivity checks
+  /// can call [ApiService.pingAny] before triggering [OfflineState.offlineNoInternet].
+  void setApiService(ApiService apiService) {
+    _apiService = apiService;
+  }
+
   // #12: track active saves offline for cancellation and controller cleanup
   final Set<String> _cancelledSavesOffline = {};
   final Map<String, StreamController<OfflineProgress>> _progressControllers = {};
@@ -65,6 +76,7 @@ class OfflineService extends ChangeNotifier {
     _isInitialized = false;
     _connectivitySub?.cancel();
     _connectivitySub = null;
+    _apiService = null;
   }
 
   // ---------------------------------------------------------------------------
@@ -98,19 +110,41 @@ class OfflineService extends ChangeNotifier {
     // settle after a cold start (connectivity_plus can briefly report 'none'
     // before the OS has finished reconnecting).
     Future.delayed(const Duration(seconds: 2), () async {
-      final connectivity = await Connectivity().checkConnectivity();
-      if (connectivity.contains(ConnectivityResult.none) && !_isOfflineMode) {
-        await setOfflineMode(true, isAuto: true, persist: false);
+      if (_isOfflineMode) return;
+      final api = _apiService;
+      if (api != null) {
+        // Probe every configured URL; only go offline if none respond.
+        final anyReachable = await api.pingAny();
+        if (!anyReachable) {
+          await setOfflineMode(true, isAuto: true, persist: false);
+        }
+      } else {
+        // ApiService not yet available — fall back to OS-level signal.
+        final connectivity = await Connectivity().checkConnectivity();
+        if (connectivity.contains(ConnectivityResult.none)) {
+          await setOfflineMode(true, isAuto: true, persist: false);
+        }
       }
     });
 
     // start listening for changes
-    _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((results) async {
       final hasNoConnection = results.contains(ConnectivityResult.none);
-      
+
       if (hasNoConnection && !_isOfflineMode) {
-        // auto-toggle into offline mode, but don't persist
-        setOfflineMode(true, isAuto: true, persist: false);
+        final api = _apiService;
+        if (api != null) {
+          // OS says no connection — still probe all URLs; an alternate URL
+          // may be reachable (e.g. VPN, local network fallback).
+          final anyReachable = await api.pingAny();
+          if (!anyReachable) {
+            setOfflineMode(true, isAuto: true, persist: false);
+          }
+          // if anyReachable == true, at least one URL works — stay online
+        } else {
+          // No ApiService yet — trust the OS signal.
+          setOfflineMode(true, isAuto: true, persist: false);
+        }
       } else if (!hasNoConnection && _isOfflineMode && _isAutoOffline) {
         // auto-toggle back to online if we were only offline due to an auto-toggle
         setOfflineMode(false, persist: false);
@@ -896,6 +930,17 @@ class OfflineService extends ChangeNotifier {
   /// Re-checks connectivity and exits offline mode if a connection is
   /// available. Returns true if the retry succeeded (back online).
   Future<bool> retryConnection() async {
+    final api = _apiService;
+    if (api != null) {
+      // Probe every configured URL — only exit offline if at least one responds.
+      final anyReachable = await api.pingAny();
+      if (anyReachable && _isOfflineMode && _isAutoOffline) {
+        await setOfflineMode(false, persist: false);
+        return true;
+      }
+      return false;
+    }
+    // Fallback: no ApiService registered — use OS-level connectivity.
     final results = await Connectivity().checkConnectivity();
     final hasConnection = !results.contains(ConnectivityResult.none);
     if (hasConnection && _isOfflineMode && _isAutoOffline) {

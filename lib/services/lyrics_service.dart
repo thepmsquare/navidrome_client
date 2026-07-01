@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
 
@@ -44,7 +43,9 @@ class LyricsData {
 class LyricsService {
   final ApiService _apiService;
   final String _lrclibBaseUrl = 'https://lrclib.net/api';
-  final http.Client _client = SentryHttpClient();
+  // Use a plain HTTP client so that lyrics lookup requests (which include
+  // song title and artist name) are not captured in Sentry telemetry.
+  final http.Client _client = http.Client();
 
   LyricsService(this._apiService);
 

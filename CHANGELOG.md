@@ -1,5 +1,10 @@
 # changelog
 
+## 1.3.2+24
+
+- remove extra sentry logs.
+- improve checks for no internet.
+
 ## 1.3.1+23
 
 - remove alternative server urls from connect page and add them to settings.

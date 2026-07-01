@@ -14,7 +14,7 @@ import 'package:navidrome_client/pages/artist_details_page.dart';
 import 'package:navidrome_client/pages/album_details_page.dart';
 import 'package:navidrome_client/services/offline_service.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:http/http.dart' as http;
 
 class PlayerView extends StatefulWidget {
   final ApiService apiService;
@@ -1219,7 +1219,9 @@ class _PlayerViewState extends State<PlayerView> with WidgetsBindingObserver {
         }
       } else {
         final streamUrl = widget.apiService.getStreamUrl(trackId);
-        final response = await SentryHttpClient().get(Uri.parse(streamUrl));
+        // Use a plain HTTP client so that the stream URL (which contains
+        // auth credentials as query params) is not captured by Sentry.
+        final response = await http.Client().get(Uri.parse(streamUrl));
         if (response.statusCode == 200) {
           fileBytes = response.bodyBytes;
         } else {

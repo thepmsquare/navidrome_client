@@ -15,7 +15,10 @@ class ApiService {
   final String _password;
   final String _apiVersion = '1.16.1';
   final String _clientName = 'navidrome_flutter';
-  final http.Client _client = SentryHttpClient();
+  // Use a plain HTTP client so that Subsonic API URLs (which contain
+  // u=username, t=token, s=salt query parameters) are never captured
+  // as breadcrumbs or request data in Sentry telemetry.
+  final http.Client _client = http.Client();
 
   ApiService({
     required String baseUrl,
@@ -139,6 +142,44 @@ class ApiService {
         errorStr.contains('TimeoutException') ||
         errorStr.contains('Connection timed out') ||
         errorStr.contains('ClientException');
+  }
+
+  /// Builds a ping URL for [baseUrl] using the current credentials.
+  String _buildPingUrl(String base) {
+    final salt = SubsonicUtils.generateSalt();
+    final token = SubsonicUtils.generateToken(_password, salt);
+    final params = {
+      'u': _username,
+      't': token,
+      's': salt,
+      'v': _apiVersion,
+      'c': _clientName,
+      'f': 'json',
+    };
+    final queryString = Uri(queryParameters: params).query;
+    return '$base/rest/ping.view?$queryString';
+  }
+
+  /// Tries the primary URL then every alternate URL, returning [true] as soon
+  /// as any one of them replies (any HTTP status < 500 counts as reachable).
+  /// Also updates [_activeUrl] to the first reachable URL as a side-effect.
+  Future<bool> pingAny() async {
+    final allUrls = [_baseUrl, ..._alternateUrls];
+    for (final url in allUrls) {
+      try {
+        final response = await _client
+            .get(Uri.parse(_buildPingUrl(url)))
+            .timeout(const Duration(seconds: 5));
+        if (response.statusCode < 500) {
+          _activeUrl = url;
+          return true;
+        }
+      } catch (_) {
+        // unreachable — try the next URL
+        continue;
+      }
+    }
+    return false;
   }
 
   Future<Map<String, dynamic>> _makeRequest(

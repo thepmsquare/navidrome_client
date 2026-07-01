@@ -400,6 +400,9 @@ class _HomePageState extends State<HomePage> {
             password: password,
           );
         });
+        // Register with OfflineService so connectivity checks can probe all
+        // configured URLs via pingAny() before declaring no-internet.
+        OfflineService().setApiService(_apiService!);
       }
     }
   }
