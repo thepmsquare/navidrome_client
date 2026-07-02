@@ -7,7 +7,7 @@ import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/event_log_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
 import 'package:navidrome_client/services/session_service.dart';
-import 'package:navidrome_client/utils/constants.dart';
+import 'package:navidrome_client/constants.dart';
 
 class SleepTimerState {
   final Duration? remainingTime;

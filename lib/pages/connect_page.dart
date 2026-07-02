@@ -5,7 +5,8 @@ import 'package:m3e_collection/m3e_collection.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:navidrome_client/services/api_service.dart';
 import 'package:navidrome_client/services/auth_service.dart';
-import 'package:navidrome_client/utils/constants.dart';
+import 'package:navidrome_client/constants.dart';
+import 'package:navidrome_client/routes.dart';
 import 'package:navidrome_client/services/export_service.dart';
 import 'package:navidrome_client/services/session_service.dart';
 import 'package:navidrome_client/services/version_service.dart';
@@ -39,7 +40,7 @@ class _ConnectPageState extends State<ConnectPage> {
       final isLoggedIn = await _authService.isLoggedIn;
       if (!mounted) return;
       if (isLoggedIn) {
-        Navigator.pushReplacementNamed(context, '/home');
+        Navigator.pushReplacementNamed(context, AppRoutes.home);
         return;
       }
       VersionService().checkAndShowGreeting(context);
@@ -100,7 +101,7 @@ class _ConnectPageState extends State<ConnectPage> {
           _usernameController.clear();
           _urlController.text = 'https://';
           if (mounted) {
-            Navigator.pushReplacementNamed(context, '/home');
+            Navigator.pushReplacementNamed(context, AppRoutes.home);
           }
         }
       } catch (e) {
@@ -197,7 +198,7 @@ class _ConnectPageState extends State<ConnectPage> {
           IconButton(
             icon: const Icon(Icons.help_outline_rounded),
             tooltip: 'help',
-            onPressed: () => Navigator.pushNamed(context, '/help'),
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.help),
           ),
         ],
       ),
@@ -507,7 +508,7 @@ class _ConnectPageState extends State<ConnectPage> {
                                 label: 'learn more',
                                 child: TextButton(
                                   onPressed: () =>
-                                      Navigator.pushNamed(context, '/help'),
+                                      Navigator.pushNamed(context, AppRoutes.help),
                                   child: const Text('learn more'),
                                 ),
                               ),

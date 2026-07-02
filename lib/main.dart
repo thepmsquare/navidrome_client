@@ -5,13 +5,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:m3e_collection/m3e_collection.dart';
-import 'package:navidrome_client/pages/connect_page.dart';
-import 'package:navidrome_client/pages/home_page.dart';
-import 'package:navidrome_client/pages/help_page.dart';
+import 'package:navidrome_client/routes.dart';
 import 'package:navidrome_client/services/auth_service.dart';
 import 'package:navidrome_client/services/offline_service.dart';
 import 'package:navidrome_client/services/session_service.dart';
-import 'package:navidrome_client/utils/constants.dart';
+import 'package:navidrome_client/constants.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 
@@ -249,6 +247,17 @@ class MyAppState extends State<MyApp> {
           ),
         );
 
+        Route<dynamic>? handleUnknownRoute(RouteSettings settings) {
+          return MaterialPageRoute(
+            builder: (context) => Scaffold(
+              appBar: AppBar(title: const Text('error')),
+              body: Center(
+                child: Text('route ${settings.name} not found'),
+              ),
+            ),
+          );
+        }
+
         return MaterialApp(
           title: appDisplayName,
           debugShowCheckedModeBanner: false,
@@ -257,12 +266,12 @@ class MyAppState extends State<MyApp> {
           navigatorObservers: [
             SentryNavigatorObserver(),
           ],
-          initialRoute: widget.isLoggedIn ? '/home' : '/connect',
-          routes: {
-            '/connect': (context) => const ConnectPage(),
-            '/home': (context) => const HomePage(),
-            '/help': (context) => const HelpPage(),
-          },
+          initialRoute: AppRoutes.splash,
+          onGenerateRoute: (settings) => AppRoutes.generateRoute(
+            settings,
+            isLoggedIn: widget.isLoggedIn,
+          ),
+          onUnknownRoute: handleUnknownRoute,
         );
       },
     );

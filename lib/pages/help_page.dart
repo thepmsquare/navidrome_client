@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:navidrome_client/utils/constants.dart';
+import 'package:navidrome_client/constants.dart';
 
 class HelpPage extends StatelessWidget {
   const HelpPage({super.key});
