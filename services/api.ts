@@ -43,6 +43,8 @@ async function buildAuthParams(
 }
 
 export async function ping(serverUrl: string): Promise<PingResponse> {
+  // supposed to be used during connect screen.
+  // ignoring the status from response as that api needs username version and more.
   const restBase = getRestBaseUrl(serverUrl);
   const defaultQuery = buildDefaultParams();
   const url = `${restBase}/ping?${defaultQuery}`;
@@ -73,6 +75,7 @@ export async function login(credentials: ServerCredentials) {
   }
 
   const data = await response.json();
+  console.log(data);
   const parsed = subsonicPingResponseWrapperSchema.parse(data);
   const res = parsed["subsonic-response"];
 
