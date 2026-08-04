@@ -3,6 +3,8 @@ import * as SecureStore from "expo-secure-store";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 
+import { layoutStyles } from "@/stylesheets";
+
 export default function RootLayout() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -12,8 +14,10 @@ export default function RootLayout() {
 
   useEffect(() => {
     async function checkToken() {
-      const token = await SecureStore.getItemAsync("user_token");
-      setIsLoggedIn(!!token);
+      const serverUrl = await SecureStore.getItemAsync("serverUrl");
+      const subsonicVersion = await SecureStore.getItemAsync("subsonicVersion");
+
+      setIsLoggedIn(!!serverUrl && !!subsonicVersion);
       setIsLoading(false);
     }
 
@@ -34,7 +38,7 @@ export default function RootLayout() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      <View style={layoutStyles.container}>
         <ActivityIndicator size="large" />
       </View>
     );

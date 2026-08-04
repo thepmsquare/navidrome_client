@@ -1,23 +1,26 @@
-import { useState } from "react";
-import { Alert, Button, StyleSheet, Text, TextInput, View } from "react-native";
-
-// import { useRouter } from "expo-router";
 import { ping } from "@/services/api";
+import { connectStyles } from "@/stylesheets";
+import { useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
+import { useState } from "react";
+import { Alert, Button, Text, TextInput, View } from "react-native";
 
 export default function ConnectScreen() {
-  // const router = useRouter();
+  const router = useRouter();
   const [serverUrl, setServerUrl] = useState("");
   const [loading, setLoading] = useState(false);
   async function handlePing() {
     if (!serverUrl) {
-      Alert.alert("Error", "Please fill in all fields");
+      Alert.alert("error", "please fill in all fields");
       return;
     }
     setLoading(true);
-    // router.replace("/");
+
     try {
       let pingResponse = await ping(serverUrl);
-      console.log(pingResponse);
+      await SecureStore.setItemAsync("subsonicVersion", pingResponse.version);
+      await SecureStore.setItemAsync("serverUrl", serverUrl);
+      router.replace("/");
     } catch (error: any) {
       Alert.alert("ping failed", error.message || "could not ping");
     } finally {
@@ -26,11 +29,11 @@ export default function ConnectScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Connect / Login Screen</Text>
+    <View style={connectStyles.container}>
+      <Text style={connectStyles.title}>connect / login screen</Text>
       <TextInput
-        style={styles.input}
-        placeholder="Server URL "
+        style={connectStyles.input}
+        placeholder="server url "
         value={serverUrl}
         onChangeText={setServerUrl}
         autoCapitalize="none"
@@ -43,23 +46,3 @@ export default function ConnectScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 20,
-  },
-});
