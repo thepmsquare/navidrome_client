@@ -1,9 +1,12 @@
+import { layoutStyles } from "@/stylesheets";
 import { Slot, useRouter, useSegments } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
-
-import { layoutStyles } from "@/stylesheets";
+import {
+  MD3LightTheme as DefaultTheme,
+  PaperProvider,
+} from "react-native-paper";
 
 export default function RootLayout() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -43,6 +46,17 @@ export default function RootLayout() {
       </View>
     );
   }
-
-  return <Slot />;
+  const theme = {
+    ...DefaultTheme,
+    colors: {
+      ...DefaultTheme.colors,
+      primary: "tomato",
+      secondary: "yellow",
+    },
+  };
+  return (
+    <PaperProvider theme={theme}>
+      <Slot />
+    </PaperProvider>
+  );
 }

@@ -4,8 +4,8 @@ import { ConnectStage } from "@/types";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useState } from "react";
-import { Alert, Button, Text, TextInput, View } from "react-native";
-
+import { Alert, Text, TextInput, View } from "react-native";
+import { Button } from "react-native-paper";
 export default function ConnectScreen() {
   const router = useRouter();
   const [serverUrl, setServerUrl] = useState("");
@@ -64,11 +64,10 @@ export default function ConnectScreen() {
             onChangeText={setServerUrl}
             autoCapitalize="none"
           />
-          <Button
-            title={loading ? "loading..." : "ping"}
-            onPress={handlePing}
-            disabled={loading}
-          />
+
+          <Button mode="contained" onPress={handlePing} disabled={loading}>
+            {loading ? "loading..." : "ping"}
+          </Button>
         </>
       ) : (
         <>
@@ -87,11 +86,10 @@ export default function ConnectScreen() {
             autoCapitalize="none"
             secureTextEntry
           />
-          <Button
-            title={loading ? "loading..." : "login"}
-            onPress={handleLogin}
-            disabled={loading}
-          />
+
+          <Button mode="contained" onPress={handleLogin} disabled={loading}>
+            {loading ? "loading..." : "login"}
+          </Button>
         </>
       )}
     </View>
