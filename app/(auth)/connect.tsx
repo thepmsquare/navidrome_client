@@ -1,11 +1,20 @@
-import { login, ping } from "@/services/api";
-import { connectStyles } from "@/stylesheets";
-import { ConnectStage } from "@/types";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useState } from "react";
-import { Alert } from "react-native";
-import { Button, Surface, Text, TextInput } from "react-native-paper";
+import { Alert, View } from "react-native";
+import {
+  Button,
+  MD3Colors,
+  ProgressBar,
+  Surface,
+  Text,
+  TextInput,
+} from "react-native-paper";
+
+import { login, ping } from "@/services/api";
+import { connectStyles } from "@/stylesheets";
+import { ConnectStage } from "@/types";
+
 export default function ConnectScreen() {
   const router = useRouter();
   const [serverUrl, setServerUrl] = useState("");
@@ -58,6 +67,9 @@ export default function ConnectScreen() {
 
       {connectStage === "ping" ? (
         <Surface style={connectStyles.container} elevation={2}>
+          <View style={{ width: "100%", marginVertical: 16 }}>
+            <ProgressBar progress={0.5} color={MD3Colors.error50} />
+          </View>
           <TextInput
             style={connectStyles.input}
             label="server url"
@@ -77,6 +89,9 @@ export default function ConnectScreen() {
         </Surface>
       ) : (
         <Surface style={connectStyles.container} elevation={2}>
+          <View style={{ width: "100%", marginVertical: 16 }}>
+            <ProgressBar progress={0.99} color={MD3Colors.error50} />
+          </View>
           <TextInput
             style={connectStyles.input}
             label="username"
