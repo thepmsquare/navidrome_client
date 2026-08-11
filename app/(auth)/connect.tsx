@@ -4,8 +4,8 @@ import { ConnectStage } from "@/types";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useState } from "react";
-import { Alert, Text, TextInput, View } from "react-native";
-import { Button } from "react-native-paper";
+import { Alert } from "react-native";
+import { Button, Surface, Text, TextInput } from "react-native-paper";
 export default function ConnectScreen() {
   const router = useRouter();
   const [serverUrl, setServerUrl] = useState("");
@@ -53,45 +53,56 @@ export default function ConnectScreen() {
     }
   }
   return (
-    <View style={connectStyles.container}>
-      <Text style={connectStyles.title}>connect / login screen</Text>
+    <Surface style={connectStyles.page}>
+      <Text variant="displaySmall">connect / login screen</Text>
+
       {connectStage === "ping" ? (
-        <>
+        <Surface style={connectStyles.container} elevation={2}>
           <TextInput
             style={connectStyles.input}
-            placeholder="server url "
+            label="server url"
             value={serverUrl}
             onChangeText={setServerUrl}
             autoCapitalize="none"
           />
 
-          <Button mode="contained" onPress={handlePing} disabled={loading}>
+          <Button
+            mode="contained"
+            onPress={handlePing}
+            disabled={loading}
+            style={connectStyles.button}
+          >
             {loading ? "loading..." : "ping"}
           </Button>
-        </>
+        </Surface>
       ) : (
-        <>
+        <Surface style={connectStyles.container} elevation={2}>
           <TextInput
             style={connectStyles.input}
-            placeholder="username"
+            label="username"
             value={username}
             onChangeText={setUsername}
             autoCapitalize="none"
           />
           <TextInput
             style={connectStyles.input}
-            placeholder="password"
+            label="password"
             value={password}
             onChangeText={setPassword}
             autoCapitalize="none"
             secureTextEntry
           />
 
-          <Button mode="contained" onPress={handleLogin} disabled={loading}>
+          <Button
+            mode="contained"
+            onPress={handleLogin}
+            disabled={loading}
+            style={connectStyles.button}
+          >
             {loading ? "loading..." : "login"}
           </Button>
-        </>
+        </Surface>
       )}
-    </View>
+    </Surface>
   );
 }
