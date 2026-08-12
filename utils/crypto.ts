@@ -4,7 +4,7 @@ export function generateSalt(length: number = 6): string {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
   let salt = "";
   const bytes = new Uint8Array(length);
-  crypto.getRandomValues(bytes);
+  Crypto.getRandomValues(bytes);
 
   for (let i = 0; i < length; i++) {
     salt += chars[bytes[i] % chars.length];

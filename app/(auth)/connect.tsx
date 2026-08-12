@@ -54,7 +54,9 @@ export default function ConnectScreen() {
         username,
         password,
       });
-      console.log("logged in successfully", loginResponse);
+      await SecureStore.setItemAsync("username", username);
+      await SecureStore.setItemAsync("password", password);
+      router.replace("/");
     } catch (error: any) {
       Alert.alert("login failed", error.message || "could not login");
     } finally {

@@ -16,8 +16,12 @@ export default function RootLayout() {
     async function checkToken() {
       const serverUrl = await SecureStore.getItemAsync("serverUrl");
       const subsonicVersion = await SecureStore.getItemAsync("subsonicVersion");
+      const username = await SecureStore.getItemAsync("username");
+      const password = await SecureStore.getItemAsync("password");
 
-      setIsLoggedIn(!!serverUrl && !!subsonicVersion);
+      setIsLoggedIn(
+        !!serverUrl && !!subsonicVersion && !!username && !!password,
+      );
       setIsLoading(false);
     }
 

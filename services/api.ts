@@ -26,7 +26,7 @@ async function buildAuthParams(
   const { username, password } = credentials;
   const salt = generateSalt(6);
   const token = await createAuthToken(password, salt);
-  const subsonicVersion = await SecureStore.getItemAsync("subsonic_version");
+  const subsonicVersion = await SecureStore.getItemAsync("subsonicVersion");
   if (!subsonicVersion) {
     throw new Error("unable to find subsonic version.");
   }
