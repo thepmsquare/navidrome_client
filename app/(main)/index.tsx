@@ -10,7 +10,8 @@ import {
   Text,
 } from "react-native-paper";
 
-import { getArtistAlbumSongCounts } from "@/services/api";
+import { client_app_sync } from "@/services/api";
+import { getLocalCounts } from "@/services/db";
 import { Search3Counts } from "@/types";
 
 export default function HomeScreen() {
@@ -20,6 +21,37 @@ export default function HomeScreen() {
   const [username, setUsername] = useState<string | null>(null);
   const [counts, setCounts] = useState<Search3Counts | null>(null);
   const [loadingCounts, setLoadingCounts] = useState<boolean>(true);
+  const [syncStatusText, setSyncStatusText] = useState<string | null>(null);
+
+  async function performSync(force: boolean = false) {
+    try {
+      setLoadingCounts(true);
+      const initialCounts = getLocalCounts();
+      setCounts(initialCounts);
+
+      const syncResult = await client_app_sync(force);
+      if (syncResult.synced) {
+        setSyncStatusText("synced: true (fresh sync from server)");
+        setCounts({
+          artistCount: syncResult.artistCount ?? 0,
+          albumCount: syncResult.albumCount ?? 0,
+          songCount: syncResult.songCount ?? 0,
+        });
+      } else {
+        setSyncStatusText("synced: false (loaded from cache)");
+        setCounts({
+          artistCount: syncResult.artistCount ?? initialCounts.artistCount,
+          albumCount: syncResult.albumCount ?? initialCounts.albumCount,
+          songCount: syncResult.songCount ?? initialCounts.songCount,
+        });
+      }
+    } catch (error) {
+      console.error("failed to sync library:", error);
+      setSyncStatusText("sync failed");
+    } finally {
+      setLoadingCounts(false);
+    }
+  }
 
   useEffect(() => {
     async function loadData() {
@@ -30,15 +62,7 @@ export default function HomeScreen() {
       setServerUrl(url);
       setUsername(user);
 
-      try {
-        setLoadingCounts(true);
-        const countsData = await getArtistAlbumSongCounts();
-        setCounts(countsData);
-      } catch (error) {
-        console.error("failed to fetch counts:", error);
-      } finally {
-        setLoadingCounts(false);
-      }
+      await performSync(false);
     }
 
     loadData();
@@ -65,10 +89,12 @@ export default function HomeScreen() {
       <Text variant="bodyMedium">{serverUrl}</Text>
 
       <Text variant="titleLarge">library stats</Text>
+      {syncStatusText && <Text variant="bodyMedium">{syncStatusText}</Text>}
+
       {loadingCounts ? (
         <View>
           <ActivityIndicator size="small" />
-          <Text variant="bodySmall">loading stats...</Text>
+          <Text variant="bodySmall">syncing library...</Text>
         </View>
       ) : (
         <View>
@@ -93,6 +119,20 @@ export default function HomeScreen() {
         </View>
       )}
 
+      <Button
+        mode="outlined"
+        onPress={() => performSync(false)}
+        disabled={loadingCounts}
+      >
+        sync
+      </Button>
+      <Button
+        mode="outlined"
+        onPress={() => performSync(true)}
+        disabled={loadingCounts}
+      >
+        force sync
+      </Button>
       <Button mode="contained" onPress={handleLogout}>
         log out
       </Button>

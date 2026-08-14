@@ -1,11 +1,21 @@
 import {
+  getLocalCounts,
+  getSyncMeta,
+  setSyncMeta,
+  upsertAlbumsBatch,
+  upsertArtistsBatch,
+  upsertSongsBatch,
+} from "@/services/db";
+import {
   PingResponse,
-  Search3Counts,
+  ScanStatus,
   Search3Params,
   SearchResult3,
   ServerCredentials,
+  subsonicGetScanStatusResponseWrapperSchema,
   subsonicPingResponseWrapperSchema,
   subsonicSearch3ResponseWrapperSchema,
+  SyncResult,
 } from "@/types";
 import { APP_FULL_NAME } from "@/utils/constants";
 import { createAuthToken, generateSalt } from "@/utils/crypto";
@@ -102,11 +112,8 @@ export async function login(credentials: ServerCredentials) {
   return res;
 }
 
-export async function search3(
-  params: Search3Params,
-  credentials?: ServerCredentials,
-): Promise<SearchResult3> {
-  const creds = credentials || (await getStoredCredentials());
+export async function search3(params: Search3Params): Promise<SearchResult3> {
+  const creds = await getStoredCredentials();
   const restBase = getRestBaseUrl(creds.serverUrl);
   const authQuery = await buildAuthParams(creds);
 
@@ -153,15 +160,65 @@ export async function search3(
   return res.searchResult3 || {};
 }
 
-export async function getArtistAlbumSongCounts(): Promise<Search3Counts> {
+export async function getScanStatus(): Promise<ScanStatus> {
+  const creds = await getStoredCredentials();
+  const restBase = getRestBaseUrl(creds.serverUrl);
+  const authQuery = await buildAuthParams(creds);
+  const url = `${restBase}/getScanStatus.view?${authQuery}`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`http error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const parsed = subsonicGetScanStatusResponseWrapperSchema.parse(data);
+  const res = parsed["subsonic-response"];
+
+  if (res.status !== "ok") {
+    throw new Error(res.error?.message || "failed to get scan status");
+  }
+
+  if (!res.scanStatus) {
+    throw new Error("missing scan status in response");
+  }
+
+  return res.scanStatus;
+}
+
+export async function client_app_sync(
+  force: boolean = false,
+): Promise<SyncResult> {
+  const scanStatus = await getScanStatus();
+
+  const storedLastScan = getSyncMeta("lastScan");
+  const currentLastScan = scanStatus.lastScan ?? "";
+
+  if (
+    !force &&
+    storedLastScan &&
+    currentLastScan &&
+    storedLastScan === currentLastScan
+  ) {
+    const localCounts = getLocalCounts();
+    return {
+      synced: false,
+      artistCount: localCounts.artistCount,
+      albumCount: localCounts.albumCount,
+      songCount: localCounts.songCount,
+      lastScan: storedLastScan,
+      lastSyncedAt: getSyncMeta("lastSyncedAt") ?? undefined,
+    };
+  }
+
   const batchSize = 500;
   let artistOffset = 0;
   let albumOffset = 0;
   let songOffset = 0;
 
-  let totalArtistCount = 0;
-  let totalAlbumCount = 0;
-  let totalSongCount = 0;
+  let totalArtists = 0;
+  let totalAlbums = 0;
+  let totalSongs = 0;
 
   let fetchArtists = true;
   let fetchAlbums = true;
@@ -178,38 +235,56 @@ export async function getArtistAlbumSongCounts(): Promise<Search3Counts> {
       songOffset,
     });
 
-    const artistsLength = res.artist?.length ?? 0;
-    const albumsLength = res.album?.length ?? 0;
-    const songsLength = res.song?.length ?? 0;
+    const artists = res.artist || [];
+    const albums = res.album || [];
+    const songs = res.song || [];
 
-    if (artistsLength > 0) {
-      totalArtistCount += artistsLength;
-      artistOffset += artistsLength;
-    }
-    if (artistsLength < batchSize) {
-      fetchArtists = false;
-    }
-
-    if (albumsLength > 0) {
-      totalAlbumCount += albumsLength;
-      albumOffset += albumsLength;
-    }
-    if (albumsLength < batchSize) {
-      fetchAlbums = false;
+    if (fetchArtists) {
+      if (artists.length > 0) {
+        upsertArtistsBatch(artists);
+        totalArtists += artists.length;
+        artistOffset += artists.length;
+      }
+      if (artists.length < batchSize) {
+        fetchArtists = false;
+      }
     }
 
-    if (songsLength > 0) {
-      totalSongCount += songsLength;
-      songOffset += songsLength;
+    if (fetchAlbums) {
+      if (albums.length > 0) {
+        upsertAlbumsBatch(albums);
+        totalAlbums += albums.length;
+        albumOffset += albums.length;
+      }
+      if (albums.length < batchSize) {
+        fetchAlbums = false;
+      }
     }
-    if (songsLength < batchSize) {
-      fetchSongs = false;
+
+    if (fetchSongs) {
+      if (songs.length > 0) {
+        upsertSongsBatch(songs);
+        totalSongs += songs.length;
+        songOffset += songs.length;
+      }
+      if (songs.length < batchSize) {
+        fetchSongs = false;
+      }
     }
   }
 
+  const now = new Date().toISOString();
+  if (currentLastScan) {
+    setSyncMeta("lastScan", currentLastScan);
+  }
+  setSyncMeta("lastSyncedAt", now);
+
   return {
-    artistCount: totalArtistCount,
-    albumCount: totalAlbumCount,
-    songCount: totalSongCount,
+    synced: true,
+    artistCount: totalArtists,
+    albumCount: totalAlbums,
+    songCount: totalSongs,
+    lastScan: currentLastScan,
+    lastSyncedAt: now,
   };
 }

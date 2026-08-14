@@ -23,6 +23,15 @@ export interface Search3Counts {
   songCount: number;
 }
 
+export interface SyncResult {
+  synced: boolean;
+  artistCount?: number;
+  albumCount?: number;
+  songCount?: number;
+  lastScan?: string;
+  lastSyncedAt?: string;
+}
+
 export const subsonicErrorSchema = z.object({
   code: z.number(),
   message: z.string(),
@@ -39,6 +48,29 @@ export const pingResponseSchema = z.object({
 
 export const subsonicPingResponseWrapperSchema = z.object({
   "subsonic-response": pingResponseSchema,
+});
+
+export const scanStatusSchema = z.object({
+  scanning: z.boolean(),
+  count: z.number().optional().nullable(),
+  folderCount: z.number().optional().nullable(),
+  lastScan: z.string().optional().nullable(),
+  scanType: z.string().optional().nullable(),
+  elapsedTime: z.number().optional().nullable(),
+});
+
+export const getScanStatusResponseSchema = z.object({
+  status: z.string(),
+  version: z.string(),
+  type: z.string().optional(),
+  serverVersion: z.string().optional(),
+  openSubsonic: z.boolean().optional(),
+  error: subsonicErrorSchema.optional(),
+  scanStatus: scanStatusSchema.optional(),
+});
+
+export const subsonicGetScanStatusResponseWrapperSchema = z.object({
+  "subsonic-response": getScanStatusResponseSchema,
 });
 
 export const artistID3Schema = z.object({
@@ -72,7 +104,6 @@ export const artistRefSchema = z.object({
 export const albumID3Schema = z.object({
   id: z.string(),
   name: z.string(),
-  title: z.string().optional().nullable(),
   artist: z.string().optional().nullable(),
   artistId: z.string().optional().nullable(),
   coverArt: z.string().optional().nullable(),
@@ -182,6 +213,11 @@ export type SubsonicError = z.infer<typeof subsonicErrorSchema>;
 export type PingResponse = z.infer<typeof pingResponseSchema>;
 export type SubsonicPingResponseWrapper = z.infer<
   typeof subsonicPingResponseWrapperSchema
+>;
+export type ScanStatus = z.infer<typeof scanStatusSchema>;
+export type GetScanStatusResponse = z.infer<typeof getScanStatusResponseSchema>;
+export type SubsonicGetScanStatusResponseWrapper = z.infer<
+  typeof subsonicGetScanStatusResponseWrapperSchema
 >;
 export type ArtistID3 = z.infer<typeof artistID3Schema>;
 export type AlbumID3 = z.infer<typeof albumID3Schema>;
