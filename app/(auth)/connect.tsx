@@ -12,7 +12,6 @@ import {
 } from "react-native-paper";
 
 import { login, ping } from "@/services/api";
-import { connectStyles } from "@/stylesheets";
 import { ConnectStage } from "@/types";
 
 export default function ConnectScreen() {
@@ -41,6 +40,7 @@ export default function ConnectScreen() {
       setLoading(false);
     }
   }
+
   async function handleLogin() {
     if (!username || !password) {
       Alert.alert("error", "please fill in all fields");
@@ -63,46 +63,39 @@ export default function ConnectScreen() {
       setLoading(false);
     }
   }
+
   return (
-    <Surface style={connectStyles.page}>
+    <Surface elevation={0}>
       <Text variant="displaySmall">connect / login screen</Text>
 
       {connectStage === "ping" ? (
-        <Surface style={connectStyles.container} elevation={2}>
-          <View style={{ width: "100%", marginVertical: 16 }}>
+        <Surface elevation={2}>
+          <View>
             <ProgressBar progress={0.5} color={MD3Colors.error50} />
           </View>
           <TextInput
-            style={connectStyles.input}
             label="server url"
             value={serverUrl}
             onChangeText={setServerUrl}
             autoCapitalize="none"
           />
 
-          <Button
-            mode="contained"
-            onPress={handlePing}
-            disabled={loading}
-            style={connectStyles.button}
-          >
+          <Button mode="contained" onPress={handlePing} disabled={loading}>
             {loading ? "loading..." : "ping"}
           </Button>
         </Surface>
       ) : (
-        <Surface style={connectStyles.container} elevation={2}>
-          <View style={{ width: "100%", marginVertical: 16 }}>
+        <Surface elevation={2}>
+          <View>
             <ProgressBar progress={0.99} color={MD3Colors.error50} />
           </View>
           <TextInput
-            style={connectStyles.input}
             label="username"
             value={username}
             onChangeText={setUsername}
             autoCapitalize="none"
           />
           <TextInput
-            style={connectStyles.input}
             label="password"
             value={password}
             onChangeText={setPassword}
@@ -110,12 +103,7 @@ export default function ConnectScreen() {
             secureTextEntry
           />
 
-          <Button
-            mode="contained"
-            onPress={handleLogin}
-            disabled={loading}
-            style={connectStyles.button}
-          >
+          <Button mode="contained" onPress={handleLogin} disabled={loading}>
             {loading ? "loading..." : "login"}
           </Button>
         </Surface>

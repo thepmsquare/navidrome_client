@@ -1,10 +1,16 @@
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Button, Text, View } from "react-native";
+import { View } from "react-native";
+import {
+  ActivityIndicator,
+  Button,
+  Card,
+  Surface,
+  Text,
+} from "react-native-paper";
 
 import { getArtistAlbumSongCounts } from "@/services/api";
-import { homeStyles } from "@/stylesheets";
 import { Search3Counts } from "@/types";
 
 export default function HomeScreen() {
@@ -47,43 +53,49 @@ export default function HomeScreen() {
   }
 
   return (
-    <View style={homeStyles.container}>
-      <Text style={homeStyles.title}>welcome home! 🎉</Text>
-      <Text style={homeStyles.subtitle}>you are currently logged in.</Text>
+    <Surface elevation={0}>
+      <Text variant="headlineMedium">welcome home! 🎉</Text>
+      <Text variant="bodyLarge">you are currently logged in.</Text>
 
-      <Text style={homeStyles.label}>username</Text>
-      <Text style={homeStyles.value}>{username}</Text>
-      <Text style={homeStyles.label}>subsonic version</Text>
-      <Text style={homeStyles.value}>{subsonicVersion}</Text>
-      <Text style={homeStyles.label}>server url</Text>
-      <Text style={homeStyles.value}>{serverUrl}</Text>
+      <Text variant="titleMedium">username</Text>
+      <Text variant="bodyMedium">{username}</Text>
+      <Text variant="titleMedium">subsonic version</Text>
+      <Text variant="bodyMedium">{subsonicVersion}</Text>
+      <Text variant="titleMedium">server url</Text>
+      <Text variant="bodyMedium">{serverUrl}</Text>
 
-      <Text style={homeStyles.sectionTitle}>library stats</Text>
+      <Text variant="titleLarge">library stats</Text>
       {loadingCounts ? (
-        <View style={{ marginVertical: 16, alignItems: "center" }}>
+        <View>
           <ActivityIndicator size="small" />
-          <Text style={homeStyles.statLabel}>loading stats...</Text>
+          <Text variant="bodySmall">loading stats...</Text>
         </View>
       ) : (
-        <View style={homeStyles.statsContainer}>
-          <View style={homeStyles.statCard}>
-            <Text style={homeStyles.statNumber}>
-              {counts?.artistCount ?? 0}
-            </Text>
-            <Text style={homeStyles.statLabel}>artists</Text>
-          </View>
-          <View style={homeStyles.statCard}>
-            <Text style={homeStyles.statNumber}>{counts?.albumCount ?? 0}</Text>
-            <Text style={homeStyles.statLabel}>albums</Text>
-          </View>
-          <View style={homeStyles.statCard}>
-            <Text style={homeStyles.statNumber}>{counts?.songCount ?? 0}</Text>
-            <Text style={homeStyles.statLabel}>songs</Text>
-          </View>
+        <View>
+          <Card>
+            <Card.Content>
+              <Text variant="headlineSmall">{counts?.artistCount ?? 0}</Text>
+              <Text variant="bodyMedium">artists</Text>
+            </Card.Content>
+          </Card>
+          <Card>
+            <Card.Content>
+              <Text variant="headlineSmall">{counts?.albumCount ?? 0}</Text>
+              <Text variant="bodyMedium">albums</Text>
+            </Card.Content>
+          </Card>
+          <Card>
+            <Card.Content>
+              <Text variant="headlineSmall">{counts?.songCount ?? 0}</Text>
+              <Text variant="bodyMedium">songs</Text>
+            </Card.Content>
+          </Card>
         </View>
       )}
 
-      <Button title="log out" color="#d9534f" onPress={handleLogout} />
-    </View>
+      <Button mode="contained" onPress={handleLogout}>
+        log out
+      </Button>
+    </Surface>
   );
 }

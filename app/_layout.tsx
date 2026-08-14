@@ -1,9 +1,9 @@
-import { layoutStyles } from "@/stylesheets";
 import { Slot, useRouter, useSegments } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator } from "react-native";
 import { PaperProvider } from "react-native-paper";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 export default function RootLayout() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -42,15 +42,23 @@ export default function RootLayout() {
 
   if (isLoading) {
     return (
-      <View style={layoutStyles.container}>
-        <ActivityIndicator size="large" />
-      </View>
+      <SafeAreaProvider>
+        <PaperProvider>
+          <SafeAreaView style={{ flex: 1 }}>
+            <ActivityIndicator size="large" />
+          </SafeAreaView>
+        </PaperProvider>
+      </SafeAreaProvider>
     );
   }
 
   return (
-    <PaperProvider>
-      <Slot />
-    </PaperProvider>
+    <SafeAreaProvider>
+      <PaperProvider>
+        <SafeAreaView style={{ flex: 1 }}>
+          <Slot />
+        </SafeAreaView>
+      </PaperProvider>
+    </SafeAreaProvider>
   );
 }
