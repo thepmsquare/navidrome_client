@@ -8,14 +8,17 @@ import {
   Card,
   Surface,
   Text,
+  useTheme,
 } from "react-native-paper";
 
 import { client_app_sync } from "@/services/api";
 import { getLocalCounts } from "@/services/db";
+import { homeStyles } from "@/stylesheets";
 import { Search3Counts } from "@/types";
 
 export default function HomeScreen() {
   const router = useRouter();
+  const theme = useTheme();
   const [subsonicVersion, setSubsonicVersion] = useState<string | null>(null);
   const [serverUrl, setServerUrl] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
@@ -77,8 +80,8 @@ export default function HomeScreen() {
   }
 
   return (
-    <Surface elevation={0}>
-      <Text variant="headlineMedium">welcome home! 🎉</Text>
+    <Surface style={homeStyles.page}>
+      <Text variant="displaySmall">welcome home! 🎉</Text>
       <Text variant="bodyLarge">you are currently logged in.</Text>
 
       <Text variant="titleMedium">username</Text>
@@ -97,7 +100,7 @@ export default function HomeScreen() {
           <Text variant="bodySmall">syncing library...</Text>
         </View>
       ) : (
-        <View>
+        <View style={homeStyles.countsContainer}>
           <Card>
             <Card.Content>
               <Text variant="headlineSmall">{counts?.artistCount ?? 0}</Text>
@@ -133,7 +136,12 @@ export default function HomeScreen() {
       >
         force sync
       </Button>
-      <Button mode="contained" onPress={handleLogout}>
+      <Button
+        mode="contained"
+        onPress={handleLogout}
+        buttonColor={theme.colors.error}
+        textColor={theme.colors.onError}
+      >
         log out
       </Button>
     </Surface>
