@@ -297,3 +297,16 @@ export async function client_app_sync(
     lastSyncedAt: now,
   };
 }
+
+export async function getCoverArtBaseUrl(): Promise<
+  (id?: string | null) => string | null
+> {
+  const creds = await getStoredCredentials();
+  const restBase = getRestBaseUrl(creds.serverUrl);
+  const authQuery = await buildAuthParams(creds);
+  return (id?: string | null) => {
+    if (!id) return null;
+    return `${restBase}/getCoverArt.view?${authQuery}&id=${encodeURIComponent(id)}&size=300`;
+  };
+}
+

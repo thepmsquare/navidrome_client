@@ -435,3 +435,25 @@ export function clearDatabase(): void {
   `);
 }
 
+export function getAllArtists(): ArtistID3[] {
+  const db = getDb();
+  return db.getAllSync<ArtistID3>(
+    "SELECT * FROM artists ORDER BY name COLLATE NOCASE ASC",
+  );
+}
+
+export function getAllAlbums(): AlbumID3[] {
+  const db = getDb();
+  return db.getAllSync<AlbumID3>(
+    "SELECT * FROM albums ORDER BY name COLLATE NOCASE ASC",
+  );
+}
+
+export function getAllSongs(): Child[] {
+  const db = getDb();
+  return db.getAllSync<Child>(
+    "SELECT * FROM songs ORDER BY title COLLATE NOCASE ASC",
+  );
+}
+
+
