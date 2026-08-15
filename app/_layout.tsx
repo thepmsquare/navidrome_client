@@ -1,9 +1,10 @@
 import { Slot, useRouter, useSegments } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator } from "react-native";
-import { PaperProvider } from "react-native-paper";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, PaperProvider } from "react-native-paper";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+
+import { layoutStyles } from "@/stylesheets";
 
 export default function RootLayout() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -44,7 +45,7 @@ export default function RootLayout() {
     return (
       <SafeAreaProvider>
         <PaperProvider>
-          <SafeAreaView style={{ flex: 1 }}>
+          <SafeAreaView style={layoutStyles.container}>
             <ActivityIndicator size="large" />
           </SafeAreaView>
         </PaperProvider>
@@ -55,7 +56,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <PaperProvider>
-        <SafeAreaView style={{ flex: 1 }}>
+        <SafeAreaView style={layoutStyles.safeArea}>
           <Slot />
         </SafeAreaView>
       </PaperProvider>

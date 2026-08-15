@@ -12,6 +12,7 @@ import {
 } from "react-native-paper";
 
 import { login, ping } from "@/services/api";
+import { connectStyles } from "@/stylesheets";
 import { ConnectStage } from "@/types";
 
 export default function ConnectScreen() {
@@ -65,11 +66,10 @@ export default function ConnectScreen() {
   }
 
   return (
-    <Surface elevation={0}>
+    <Surface style={connectStyles.page}>
       <Text variant="displaySmall">connect / login screen</Text>
-
       {connectStage === "ping" ? (
-        <Surface elevation={2}>
+        <Surface elevation={2} style={connectStyles.form}>
           <View>
             <ProgressBar progress={0.5} color={MD3Colors.error50} />
           </View>
@@ -79,13 +79,12 @@ export default function ConnectScreen() {
             onChangeText={setServerUrl}
             autoCapitalize="none"
           />
-
           <Button mode="contained" onPress={handlePing} disabled={loading}>
             {loading ? "loading..." : "ping"}
           </Button>
         </Surface>
       ) : (
-        <Surface elevation={2}>
+        <Surface elevation={2} style={connectStyles.form}>
           <View>
             <ProgressBar progress={0.99} color={MD3Colors.error50} />
           </View>
