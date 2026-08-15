@@ -1,4 +1,5 @@
 import {
+  clearDatabase,
   getLocalCounts,
   getSyncMeta,
   setSyncMeta,
@@ -110,6 +111,14 @@ export async function login(credentials: ServerCredentials) {
   }
 
   return res;
+}
+
+export async function logout(): Promise<void> {
+  await SecureStore.deleteItemAsync("subsonicVersion");
+  await SecureStore.deleteItemAsync("serverUrl");
+  await SecureStore.deleteItemAsync("username");
+  await SecureStore.deleteItemAsync("password");
+  clearDatabase();
 }
 
 export async function search3(params: Search3Params): Promise<SearchResult3> {

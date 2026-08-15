@@ -424,3 +424,14 @@ export function getLocalCounts(): Search3Counts {
     songCount: songRow?.count ?? 0,
   };
 }
+
+export function clearDatabase(): void {
+  const db = getDb();
+  db.execSync(`
+    DELETE FROM artists;
+    DELETE FROM albums;
+    DELETE FROM songs;
+    DELETE FROM sync_meta;
+  `);
+}
+

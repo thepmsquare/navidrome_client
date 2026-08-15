@@ -11,7 +11,7 @@ import {
   useTheme,
 } from "react-native-paper";
 
-import { client_app_sync } from "@/services/api";
+import { client_app_sync, logout } from "@/services/api";
 import { getLocalCounts } from "@/services/db";
 import { homeStyles } from "@/stylesheets";
 import { Search3Counts } from "@/types";
@@ -72,10 +72,7 @@ export default function HomeScreen() {
   }, []);
 
   async function handleLogout() {
-    await SecureStore.deleteItemAsync("subsonicVersion");
-    await SecureStore.deleteItemAsync("serverUrl");
-    await SecureStore.deleteItemAsync("username");
-    await SecureStore.deleteItemAsync("password");
+    await logout();
     router.replace("/connect");
   }
 
