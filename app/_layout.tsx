@@ -1,10 +1,17 @@
 import { Slot, useRouter, useSegments } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, PaperProvider } from "react-native-paper";
+import { useEffect, useMemo, useState } from "react";
+import { useColorScheme } from "react-native";
+import {
+  ActivityIndicator,
+  MD3DarkTheme,
+  MD3LightTheme,
+  Provider as PaperProvider,
+} from "react-native-paper";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { layoutStyles } from "@/stylesheets";
+import { useMaterial3Theme } from "@pchmn/expo-material3-theme";
 
 export default function RootLayout() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -12,6 +19,8 @@ export default function RootLayout() {
 
   const router = useRouter();
   const segments = useSegments();
+  const colorScheme = useColorScheme();
+  const { theme } = useMaterial3Theme();
 
   useEffect(() => {
     async function checkToken() {
@@ -41,10 +50,18 @@ export default function RootLayout() {
     }
   }, [isLoggedIn, isLoading, segments, router]);
 
+  const paperTheme = useMemo(
+    () =>
+      colorScheme === "dark"
+        ? { ...MD3DarkTheme, colors: theme.dark }
+        : { ...MD3LightTheme, colors: theme.light },
+    [colorScheme, theme],
+  );
+
   if (isLoading) {
     return (
       <SafeAreaProvider>
-        <PaperProvider>
+        <PaperProvider theme={paperTheme}>
           <SafeAreaView style={layoutStyles.container}>
             <ActivityIndicator size="large" />
           </SafeAreaView>
@@ -55,7 +72,7 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <PaperProvider>
+      <PaperProvider theme={paperTheme}>
         <SafeAreaView style={layoutStyles.safeArea}>
           <Slot />
         </SafeAreaView>
