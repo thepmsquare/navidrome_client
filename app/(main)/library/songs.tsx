@@ -5,6 +5,7 @@ import { Avatar, IconButton, List, Surface, Text } from "react-native-paper";
 
 import { getCoverArtBaseUrl } from "@/services/api";
 import { getAllSongs } from "@/services/db";
+import { playSong } from "@/services/player";
 import { songsStyles } from "@/stylesheets";
 import { Child } from "@/types";
 
@@ -49,6 +50,7 @@ export default function SongsScreen() {
             <List.Item
               title={item.title}
               description={item.artist ?? undefined}
+              onPress={() => playSong(item)}
               left={(props) =>
                 artUrl ? (
                   <Avatar.Image {...props} size={48} source={{ uri: artUrl }} />

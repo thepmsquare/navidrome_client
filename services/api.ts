@@ -310,3 +310,11 @@ export async function getCoverArtBaseUrl(): Promise<
   };
 }
 
+export async function getSongStreamUrl(songId: string): Promise<string> {
+  const creds = await getStoredCredentials();
+  const restBase = getRestBaseUrl(creds.serverUrl);
+  const authQuery = await buildAuthParams(creds);
+  return `${restBase}/stream.view?${authQuery}&id=${encodeURIComponent(songId)}`;
+}
+
+
