@@ -1,7 +1,14 @@
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FlatList, View } from "react-native";
-import { Avatar, IconButton, List, Surface, Text } from "react-native-paper";
+import {
+  Avatar,
+  IconButton,
+  List,
+  Searchbar,
+  Surface,
+  Text,
+} from "react-native-paper";
 
 import { getCoverArtBaseUrl } from "@/services/api";
 import { getAllSongs } from "@/services/db";
@@ -12,6 +19,7 @@ import { Child } from "@/types";
 export default function SongsScreen() {
   const router = useRouter();
   const [songs, setSongs] = useState<Child[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [getArtUrl, setGetArtUrl] = useState<
     ((id?: string | null) => string | null) | null
   >(null);
@@ -27,6 +35,19 @@ export default function SongsScreen() {
       );
   }, []);
 
+  const filteredSongs = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return songs;
+    }
+    const query = searchQuery.toLowerCase().trim();
+    return songs.filter(
+      (song) =>
+        song.title.toLowerCase().includes(query) ||
+        (song.artist && song.artist.toLowerCase().includes(query)) ||
+        (song.album && song.album.toLowerCase().includes(query)),
+    );
+  }, [songs, searchQuery]);
+
   return (
     <Surface style={songsStyles.page}>
       <View style={songsStyles.header}>
@@ -34,8 +55,15 @@ export default function SongsScreen() {
         <Text variant="titleLarge">songs</Text>
       </View>
 
+      <Searchbar
+        placeholder="search songs"
+        onChangeText={setSearchQuery}
+        value={searchQuery}
+        style={songsStyles.searchbar}
+      />
+
       <FlatList
-        data={songs}
+        data={filteredSongs}
         keyExtractor={(item) => item.id}
         contentContainerStyle={songsStyles.listContent}
         ListEmptyComponent={

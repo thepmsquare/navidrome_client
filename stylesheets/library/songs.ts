@@ -11,6 +11,10 @@ export const songsStyles = StyleSheet.create({
     paddingVertical: 12,
     gap: 8,
   },
+  searchbar: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
   listContent: {
     paddingHorizontal: 8,
     paddingBottom: 24,
