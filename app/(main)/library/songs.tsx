@@ -19,16 +19,13 @@ import { Child } from "@/types";
 
 export default function SongsScreen() {
   const router = useRouter();
-  const [songs, setSongs] = useState<Child[]>([]);
+  const [songs] = useState<Child[]>(() => getAllSongs());
   const [searchQuery, setSearchQuery] = useState("");
   const [getArtUrl, setGetArtUrl] = useState<
     ((id?: string | null) => string | null) | null
   >(null);
 
   useEffect(() => {
-    const list = getAllSongs();
-    setSongs(list);
-
     getCoverArtBaseUrl()
       .then((fn) => setGetArtUrl(() => fn))
       .catch((err) =>
@@ -83,7 +80,7 @@ export default function SongsScreen() {
               left={(props) =>
                 artUrl ? (
                   <Image
-                    source={{ uri: artUrl }}
+                    source={{ uri: artUrl, cacheKey: `${item.coverArt}-300` }}
                     style={songsStyles.artwork}
                     contentFit="cover"
                     transition={200}

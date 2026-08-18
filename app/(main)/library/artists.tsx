@@ -11,15 +11,12 @@ import { ArtistID3 } from "@/types";
 
 export default function ArtistsScreen() {
   const router = useRouter();
-  const [artists, setArtists] = useState<ArtistID3[]>([]);
+  const [artists] = useState<ArtistID3[]>(() => getAllArtists());
   const [getArtUrl, setGetArtUrl] = useState<
     ((id?: string | null) => string | null) | null
   >(null);
 
   useEffect(() => {
-    const list = getAllArtists();
-    setArtists(list);
-
     getCoverArtBaseUrl()
       .then((fn) => setGetArtUrl(() => fn))
       .catch((err) =>
@@ -62,7 +59,7 @@ export default function ArtistsScreen() {
               left={(props) =>
                 artUrl ? (
                   <Image
-                    source={{ uri: artUrl }}
+                    source={{ uri: artUrl, cacheKey: `${item.coverArt}-300` }}
                     style={artistsStyles.artwork}
                     contentFit="cover"
                     transition={200}

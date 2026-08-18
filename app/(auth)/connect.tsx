@@ -50,7 +50,7 @@ export default function ConnectScreen() {
     setLoading(true);
 
     try {
-      let loginResponse = await login({
+      await login({
         serverUrl,
         username,
         password,
