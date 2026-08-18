@@ -1,3 +1,4 @@
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { FlatList, View } from "react-native";
@@ -81,7 +82,13 @@ export default function SongsScreen() {
               onPress={() => playSong(item)}
               left={(props) =>
                 artUrl ? (
-                  <Avatar.Image {...props} size={48} source={{ uri: artUrl }} />
+                  <Image
+                    source={{ uri: artUrl }}
+                    style={songsStyles.artwork}
+                    contentFit="cover"
+                    transition={200}
+                    cachePolicy="memory-disk"
+                  />
                 ) : (
                   <Avatar.Icon {...props} size={48} icon="music" />
                 )

@@ -19,6 +19,11 @@ export const songsStyles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingBottom: 24,
   },
+  artwork: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+  },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
