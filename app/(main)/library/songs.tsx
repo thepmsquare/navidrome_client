@@ -177,7 +177,7 @@ export default function SongsScreen() {
               left={(props) =>
                 artUrl ? (
                   <Image
-                    source={{ uri: artUrl }}
+                    source={{ uri: artUrl, cacheKey: `${item.coverArt}-300` }}
                     style={songsStyles.artwork}
                     contentFit="cover"
                     transition={200}
