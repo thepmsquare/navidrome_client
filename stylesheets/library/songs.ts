@@ -15,6 +15,13 @@ export const songsStyles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 8,
   },
+  sortRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
   listContent: {
     paddingHorizontal: 8,
     paddingBottom: 24,
