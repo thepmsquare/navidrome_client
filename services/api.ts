@@ -11,6 +11,7 @@ import {
   PingResponse,
   ScanStatus,
   Search3Params,
+  ScrobbleParams,
   SearchResult3,
   ServerCredentials,
   subsonicGetScanStatusResponseWrapperSchema,
@@ -316,5 +317,49 @@ export async function getSongStreamUrl(songId: string): Promise<string> {
   const authQuery = await buildAuthParams(creds);
   return `${restBase}/stream.view?${authQuery}&id=${encodeURIComponent(songId)}`;
 }
+
+export async function scrobble(params: ScrobbleParams): Promise<boolean> {
+  const creds = await getStoredCredentials();
+  const restBase = getRestBaseUrl(creds.serverUrl);
+  const authQuery = await buildAuthParams(creds);
+
+  const queryParams = new URLSearchParams();
+  queryParams.append("id", params.id);
+  if (params.time !== undefined) {
+    queryParams.append("time", params.time.toString());
+  }
+  if (params.submission !== undefined) {
+    queryParams.append("submission", params.submission.toString());
+  }
+
+  const url = `${restBase}/scrobble.view?${authQuery}&${queryParams.toString()}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`scrobble request failed with status ${response.status}`);
+  }
+
+  const data = await response.json();
+  const parsed = subsonicPingResponseWrapperSchema.safeParse(data);
+  if (parsed.success && parsed.data["subsonic-response"].status === "ok") {
+    return true;
+  }
+  if (parsed.success && parsed.data["subsonic-response"].error) {
+    throw new Error(
+      parsed.data["subsonic-response"].error.message || "scrobble failed",
+    );
+  }
+  return true;
+}
+
+export async function scrobbleSong(songId: string): Promise<void> {
+  try {
+    await scrobble({ id: songId, submission: false });
+    await scrobble({ id: songId, submission: true, time: Date.now() });
+  } catch (error) {
+    console.error("failed to scrobble song:", error);
+  }
+}
+
+
 
 

@@ -1,6 +1,10 @@
 import { AudioPlayer, createAudioPlayer, setAudioModeAsync } from "expo-audio";
 
-import { getCoverArtBaseUrl, getSongStreamUrl } from "@/services/api";
+import {
+  getCoverArtBaseUrl,
+  getSongStreamUrl,
+  scrobbleSong,
+} from "@/services/api";
 import { Child } from "@/types";
 
 let playerInstance: AudioPlayer | null = null;
@@ -24,7 +28,6 @@ export async function playSong(song: Child): Promise<void> {
       playerInstance = createAudioPlayer({ uri: streamUrl });
     }
 
-    // Register this player as the active source for lock screen / notification controls
     playerInstance.setActiveForLockScreen(
       true,
       {
@@ -39,8 +42,9 @@ export async function playSong(song: Child): Promise<void> {
     );
 
     playerInstance.play();
+
+    scrobbleSong(song.id);
   } catch (error) {
     console.error("failed to play song with expo-audio:", error);
   }
 }
-

@@ -32,6 +32,13 @@ export interface SyncResult {
   lastSyncedAt?: string;
 }
 
+export interface ScrobbleParams {
+  id: string;
+  time?: number;
+  submission?: boolean;
+}
+
+
 export const subsonicErrorSchema = z.object({
   code: z.number(),
   message: z.string(),

@@ -1,5 +1,9 @@
 # changelog
 
+## 2.1.0+26
+
+- add scroble util and integrate it to song play.
+
 ## 2.0.0+25
 
 - complete app reset.
