@@ -1,6 +1,6 @@
 # changelog
 
-## 2.0.0+25 (in progress)
+## 2.0.0+25
 
 - complete app reset.
 
