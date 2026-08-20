@@ -1,0 +1,40 @@
+default_platform(:android)
+
+platform :android do
+  desc "Get highest version code on internal track"
+  lane :get_internal_version_code do
+    json_key = ENV["SUPPLY_JSON_KEY"]
+    begin
+      codes = google_play_track_version_codes(
+        track: "internal",
+        package_name: "com.thepmsquare.navidrome_client",
+        json_key: json_key
+      )
+      max_code = (codes || []).map(&:to_i).max || 0
+    rescue => e
+      UI.important("Could not fetch existing track version codes: #{e.message}. Assuming 0.")
+      max_code = 0
+    end
+    UI.message("HIGHEST_INTERNAL_VERSION_CODE:#{max_code}")
+    max_code
+  end
+
+  desc "Upload AAB to Google Play Store internal track"
+  lane :upload_internal do |options|
+    aab_path = options[:aab_path] || "android/app/build/outputs/bundle/release/app-release.aab"
+    json_key = ENV["SUPPLY_JSON_KEY"]
+
+    supply(
+      track: "internal",
+      aab: aab_path,
+      json_key: json_key,
+      package_name: "com.thepmsquare.navidrome_client",
+      skip_upload_apk: true,
+      skip_upload_metadata: false,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      validate_only: false,
+      check_superseded_tracks: false
+    )
+  end
+end

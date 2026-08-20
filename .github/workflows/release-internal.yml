@@ -1,0 +1,221 @@
+name: Release to Internal Track
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: release-internal-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check_release:
+    name: Check Release Eligibility
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.evaluation.outputs.should_release }}
+      version_code: ${{ steps.evaluation.outputs.version_code }}
+      app_version: ${{ steps.evaluation.outputs.app_version }}
+      release_notes: ${{ steps.evaluation.outputs.release_notes }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Evaluate Release Conditions
+        id: evaluation
+        env:
+          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          node << 'EOF'
+          const fs = require('fs');
+          const { execSync } = require('child_process');
+
+          // 1. Read constants
+          const constants = JSON.parse(fs.readFileSync('utils/constants.json', 'utf8'));
+          const appVersion = constants.APP_VERSION;
+          const versionCode = parseInt(constants.ANDROID_VERSION_CODE, 10);
+
+          console.log(`Configured version: ${appVersion} (code: ${versionCode})`);
+
+          // 2. Read changelog
+          const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
+          const sections = changelog.split(/^## /m);
+
+          if (sections.length < 2) {
+            console.log('No valid release sections found in CHANGELOG.md. Skipping.');
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'should_release=false\n');
+            process.exit(0);
+          }
+
+          const topSection = sections[1];
+          const lines = topSection.split('\n');
+          const heading = lines[0].trim();
+
+          console.log(`Top changelog heading: ${heading}`);
+
+          if (heading.toLowerCase().includes('(in progress)')) {
+            console.log("Top section contains '(in progress)'. Skipping build and release.");
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'should_release=false\n');
+            process.exit(0);
+          }
+
+          // Extract bullet points (strip heading, preserve bullet lines)
+          const notes = lines.slice(1).join('\n').trim();
+          console.log('Extracted release notes:\n' + notes);
+
+          // 3. Query Google Play Store internal track version codes via fastlane
+          const saJson = process.env.PLAY_STORE_SERVICE_ACCOUNT_JSON;
+          if (!saJson) {
+            console.error('PLAY_STORE_SERVICE_ACCOUNT_JSON secret is not set.');
+            process.exit(1);
+          }
+
+          const tempKeyPath = '/tmp/service-account.json';
+          fs.writeFileSync(tempKeyPath, saJson);
+
+          let maxLiveCode = 0;
+          try {
+            const output = execSync('bundle exec fastlane android get_internal_version_code', {
+              env: { ...process.env, SUPPLY_JSON_KEY: tempKeyPath },
+              encoding: 'utf8'
+            });
+            const match = output.match(/HIGHEST_INTERNAL_VERSION_CODE:(\d+)/);
+            if (match) {
+              maxLiveCode = parseInt(match[1], 10);
+            }
+          } catch (err) {
+            console.warn('Could not query Play Store internal track (assuming 0):', err.message);
+          }
+
+          console.log(`Highest live internal track versionCode: ${maxLiveCode}`);
+
+          if (versionCode <= maxLiveCode) {
+            console.log(`Version code ${versionCode} is not greater than live internal version code ${maxLiveCode}. Skipping release.`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'should_release=false\n');
+            process.exit(0);
+          }
+
+          console.log(`New version code ${versionCode} > ${maxLiveCode}. Proceeding with release.`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'should_release=true\n');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version_code=${versionCode}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `app_version=${appVersion}\n`);
+
+          // Set multiline output for release notes
+          const delimiter = 'EOF_NOTES_' + Date.now();
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `release_notes<<${delimiter}\n${notes}\n${delimiter}\n`);
+          EOF
+
+  build_and_publish:
+    name: Build & Publish to Internal Track
+    needs: check_release
+    if: needs.check_release.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Generate Android Native Project (Expo Prebuild)
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Configure Release Keystore & Patch Signing Config
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          # 1. Decode keystore into android/app/
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+
+          # 2. Patch android/app/build.gradle to wire release signing from environment
+          node << 'EOF'
+          const fs = require('fs');
+          const gradleFile = 'android/app/build.gradle';
+          let content = fs.readFileSync(gradleFile, 'utf8');
+
+          const releaseSigningBlock = [
+            '        release {',
+            '            if (System.getenv("ANDROID_KEYSTORE_PASSWORD")) {',
+            '                storeFile file("release.keystore")',
+            '                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")',
+            '                keyAlias System.getenv("ANDROID_KEY_ALIAS")',
+            '                keyPassword System.getenv("ANDROID_KEY_PASSWORD")',
+            '            }',
+            '        }'
+          ].join('\n');
+
+          // 1. Insert release signing config directly after 'signingConfigs {'
+          content = content.replace('signingConfigs {', 'signingConfigs {\n' + releaseSigningBlock);
+
+          // 2. Change release buildType to use signingConfigs.release (anchored under buildTypes { ... release {)
+          content = content.replace(
+            /(buildTypes\s*\{[\s\S]*?release\s*\{[\s\S]*?)signingConfig\s+signingConfigs\.debug/,
+            '$1signingConfig signingConfigs.release'
+          );
+
+          fs.writeFileSync(gradleFile, content);
+          console.log('Successfully patched android/app/build.gradle for release signing.');
+          EOF
+
+      - name: Write Fastlane Release Notes
+        run: |
+          mkdir -p fastlane/metadata/android/en-US/changelogs
+          cat << 'EOF' > fastlane/metadata/android/en-US/changelogs/${{ needs.check_release.outputs.version_code }}.txt
+          ${{ needs.check_release.outputs.release_notes }}
+          EOF
+          echo "Release notes written to fastlane/metadata/android/en-US/changelogs/${{ needs.check_release.outputs.version_code }}.txt"
+
+      - name: Build Android Release AAB and APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          cd android
+          ./gradlew bundleRelease assembleRelease --no-daemon
+
+      - name: Upload AAB to Google Play Store Internal Track
+        env:
+          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          echo "$PLAY_STORE_SERVICE_ACCOUNT_JSON" > /tmp/service-account.json
+          export SUPPLY_JSON_KEY=/tmp/service-account.json
+          bundle exec fastlane android upload_internal aab_path:android/app/build/outputs/bundle/release/app-release.aab
+
+      - name: Upload Release APK Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-v${{ needs.check_release.outputs.version_code }}.apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 90
