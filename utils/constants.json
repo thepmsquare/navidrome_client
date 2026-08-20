@@ -1,0 +1,10 @@
+{
+  "APP_SHORT_NAME": "navidrome client",
+  "APP_FULL_NAME": "navidrome client by thepmsquare",
+  "APP_SLUG": "navidrome_client",
+  "APP_SCHEME": "navidromeclient",
+  "PACKAGE_NAME": "com.thepmsquare.navidrome_client",
+  "APP_VERSION": "2.0.0",
+  "ANDROID_VERSION_CODE": 23,
+  "DB_NAME": "navidrome.db"
+}
