@@ -46,5 +46,6 @@
     "eslint-config-expo": "~57.0.1",
     "typescript": "~6.0.3"
   },
+  "license": "GPL-3.0-or-later",
   "private": true
 }
