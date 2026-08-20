@@ -20,6 +20,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     predictiveBackGestureEnabled: false,
     package: appConstants.PACKAGE_NAME,
     versionCode: appConstants.ANDROID_VERSION_CODE,
+    permissions: [
+      'android.permission.INTERNET',
+      'android.permission.WAKE_LOCK',
+      'android.permission.FOREGROUND_SERVICE',
+      'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
+    ],
   },
   plugins: [
     'expo-router',
