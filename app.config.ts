@@ -54,6 +54,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         enableBackgroundPlayback: true,
       },
     ],
+    [
+      'expo-build-properties',
+      {
+        android: {
+          usesCleartextTraffic: true,
+        },
+      },
+    ],
   ],
   experiments: {
     typedRoutes: true,
