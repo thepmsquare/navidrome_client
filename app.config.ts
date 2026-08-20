@@ -7,16 +7,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   slug: appConstants.APP_SLUG,
   version: appConstants.APP_VERSION,
   orientation: 'portrait',
-  icon: './assets/images/icon.png',
+  icon: './assets/branding/icon.png',
   scheme: appConstants.APP_SCHEME,
   userInterfaceStyle: 'automatic',
   platforms: ['android'],
   android: {
     adaptiveIcon: {
-      backgroundColor: '#E6F4FE',
-      foregroundImage: './assets/images/android-icon-foreground.png',
-      backgroundImage: './assets/images/android-icon-background.png',
-      monochromeImage: './assets/images/android-icon-monochrome.png',
+      backgroundColor: '#000000',
+      foregroundImage: './assets/branding/foreground_layer_colored.png',
+      monochromeImage: './assets/branding/foreground_layer_black.png',
     },
     predictiveBackGestureEnabled: false,
     package: appConstants.PACKAGE_NAME,
@@ -28,10 +27,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-splash-screen',
       {
-        image: './assets/images/splash-icon.png',
+        image: './assets/branding/icon.png',
         imageWidth: 200,
         resizeMode: 'contain',
-        backgroundColor: '#ffffff',
+        backgroundColor: '#000000',
         dark: {
           backgroundColor: '#000000',
         },
