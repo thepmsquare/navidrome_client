@@ -15,7 +15,7 @@ import {
 
 import { getCoverArtBaseUrl } from "@/services/api";
 import { getAllSongs } from "@/services/db";
-import { playSong } from "@/services/player";
+import { playPlaylist } from "@/services/player";
 import { songsStyles } from "@/stylesheets";
 import { Child } from "@/types";
 
@@ -166,14 +166,14 @@ export default function SongsScreen() {
             <Text variant="bodyLarge">no songs found</Text>
           </View>
         }
-        renderItem={({ item }) => {
+        renderItem={({ item, index }) => {
           const artUrl = getArtUrl ? getArtUrl(item.coverArt) : null;
 
           return (
             <List.Item
               title={item.title}
               description={item.artist ?? undefined}
-              onPress={() => playSong(item)}
+              onPress={() => playPlaylist(processedSongs, index)}
               left={(props) =>
                 artUrl ? (
                   <Image
