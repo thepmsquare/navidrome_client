@@ -456,4 +456,18 @@ export function getAllSongs(): Child[] {
   );
 }
 
+export function getAlbumById(id: string): AlbumID3 | null {
+  const db = getDb();
+  return db.getFirstSync<AlbumID3>("SELECT * FROM albums WHERE id = ?", [id]);
+}
+
+export function getSongsByAlbumId(albumId: string): Child[] {
+  const db = getDb();
+  return db.getAllSync<Child>(
+    "SELECT * FROM songs WHERE albumId = ? ORDER BY discNumber ASC, track ASC, title COLLATE NOCASE ASC",
+    [albumId],
+  );
+}
+
+
 

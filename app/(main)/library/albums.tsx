@@ -47,6 +47,12 @@ export default function AlbumsScreen() {
             <List.Item
               title={item.name}
               description={item.artist ?? undefined}
+              onPress={() =>
+                router.push({
+                  pathname: "/(main)/library/album/[id]",
+                  params: { id: item.id },
+                })
+              }
               left={(props) =>
                 artUrl ? (
                   <Image

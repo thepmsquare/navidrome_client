@@ -1,5 +1,9 @@
 # changelog
 
+## 2.3.0+28 (in progress)
+
+- add album details page in library.
+
 ## 2.2.0+27
 
 - start adding playback queue for songs.
