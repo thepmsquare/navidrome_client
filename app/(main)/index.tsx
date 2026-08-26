@@ -13,6 +13,7 @@ import {
 
 import { client_app_sync, logout } from "@/services/api";
 import { getLocalCounts } from "@/services/db";
+import { playTestSound } from "@/services/player";
 import { homeStyles } from "@/stylesheets";
 import { Search3Counts } from "@/types";
 
@@ -118,6 +119,14 @@ export default function HomeScreen() {
           </Card>
         </View>
       )}
+
+      <Button
+        mode="contained-tonal"
+        icon="volume-high"
+        onPress={playTestSound}
+      >
+        play test sound
+      </Button>
 
       <Button
         mode="outlined"

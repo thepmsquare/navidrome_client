@@ -3,6 +3,7 @@
 ## 2.3.0+28 (in progress)
 
 - add album details page in library.
+- add test sound button on homepage.
 
 ## 2.2.0+27
 

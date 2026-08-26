@@ -110,3 +110,40 @@ export function getCurrentQueue(): Child[] {
 export function getCurrentIndex(): number {
   return currentIndex;
 }
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const TEST_AUDIO_SOURCE = require("@/assets/sounds/test.wav");
+
+export async function playTestSound(): Promise<void> {
+  try {
+    await setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: true,
+      interruptionMode: "doNotMix",
+    });
+
+    if (playerInstance) {
+      playerInstance.pause();
+      playerInstance.replace(TEST_AUDIO_SOURCE);
+    } else {
+      playerInstance = createAudioPlayer(TEST_AUDIO_SOURCE);
+    }
+
+    playerInstance.setActiveForLockScreen(
+      true,
+      {
+        title: "test sound",
+        artist: "navidrome client",
+      },
+      {
+        showSeekBackward: true,
+        showSeekForward: true,
+      },
+    );
+
+    playerInstance.play();
+  } catch (error) {
+    console.error("failed to play test sound:", error);
+  }
+}
+
