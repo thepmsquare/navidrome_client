@@ -1,9 +1,10 @@
 # changelog
 
-## 2.3.0+28 (in progress)
+## 2.3.0+28
 
 - add album details page in library.
 - add test sound button on homepage.
+- add util and display for active default audio device on homepage.
 
 ## 2.2.0+27
 

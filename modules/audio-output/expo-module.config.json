@@ -1,0 +1,8 @@
+{
+  "name": "audio-output",
+  "platforms": ["android"],
+  "android": {
+    "package": "expo.modules.audiooutput",
+    "modules": ["expo.modules.audiooutput.AudioOutputModule"]
+  }
+}

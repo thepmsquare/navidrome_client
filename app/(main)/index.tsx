@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useState } from "react";
-import { View } from "react-native";
+import { ScrollView, View } from "react-native";
 import {
   ActivityIndicator,
   Button,
@@ -16,10 +16,12 @@ import { getLocalCounts } from "@/services/db";
 import { playTestSound } from "@/services/player";
 import { homeStyles } from "@/stylesheets";
 import { Search3Counts } from "@/types";
+import { useAudioOutputDevice } from "@/utils/audioOutput";
 
 export default function HomeScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const audioDevice = useAudioOutputDevice();
   const [subsonicVersion, setSubsonicVersion] = useState<string | null>(null);
   const [serverUrl, setServerUrl] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
@@ -79,77 +81,83 @@ export default function HomeScreen() {
 
   return (
     <Surface style={homeStyles.page}>
-      <Text variant="displaySmall">welcome home! 🎉</Text>
-      <Text variant="bodyLarge">you are currently logged in.</Text>
+      <ScrollView contentContainerStyle={homeStyles.scrollContent}>
+        <Text variant="displaySmall">welcome home! 🎉</Text>
+        <Text variant="bodyLarge">you are currently logged in.</Text>
 
-      <Text variant="titleMedium">username</Text>
-      <Text variant="bodyMedium">{username}</Text>
-      <Text variant="titleMedium">subsonic version</Text>
-      <Text variant="bodyMedium">{subsonicVersion}</Text>
-      <Text variant="titleMedium">server url</Text>
-      <Text variant="bodyMedium">{serverUrl}</Text>
+        <Text variant="titleMedium">username</Text>
+        <Text variant="bodyMedium">{username}</Text>
+        <Text variant="titleMedium">subsonic version</Text>
+        <Text variant="bodyMedium">{subsonicVersion}</Text>
+        <Text variant="titleMedium">server url</Text>
+        <Text variant="bodyMedium">{serverUrl}</Text>
+        <Text variant="titleMedium">audio output</Text>
+        <Text variant="bodyMedium">
+          {audioDevice.name} ({audioDevice.type})
+        </Text>
 
-      <Text variant="titleLarge">library stats</Text>
-      {syncStatusText && <Text variant="bodyMedium">{syncStatusText}</Text>}
+        <Text variant="titleLarge">library stats</Text>
+        {syncStatusText && <Text variant="bodyMedium">{syncStatusText}</Text>}
 
-      {loadingCounts ? (
-        <View>
-          <ActivityIndicator size="small" />
-          <Text variant="bodySmall">syncing library...</Text>
-        </View>
-      ) : (
-        <View style={homeStyles.countsContainer}>
-          <Card>
-            <Card.Content>
-              <Text variant="headlineSmall">{counts?.artistCount ?? 0}</Text>
-              <Text variant="bodyMedium">artists</Text>
-            </Card.Content>
-          </Card>
-          <Card>
-            <Card.Content>
-              <Text variant="headlineSmall">{counts?.albumCount ?? 0}</Text>
-              <Text variant="bodyMedium">albums</Text>
-            </Card.Content>
-          </Card>
-          <Card>
-            <Card.Content>
-              <Text variant="headlineSmall">{counts?.songCount ?? 0}</Text>
-              <Text variant="bodyMedium">songs</Text>
-            </Card.Content>
-          </Card>
-        </View>
-      )}
+        {loadingCounts ? (
+          <View>
+            <ActivityIndicator size="small" />
+            <Text variant="bodySmall">syncing library...</Text>
+          </View>
+        ) : (
+          <View style={homeStyles.countsContainer}>
+            <Card style={homeStyles.countCard}>
+              <Card.Content>
+                <Text variant="headlineSmall">{counts?.artistCount ?? 0}</Text>
+                <Text variant="bodyMedium">artists</Text>
+              </Card.Content>
+            </Card>
+            <Card style={homeStyles.countCard}>
+              <Card.Content>
+                <Text variant="headlineSmall">{counts?.albumCount ?? 0}</Text>
+                <Text variant="bodyMedium">albums</Text>
+              </Card.Content>
+            </Card>
+            <Card style={homeStyles.countCard}>
+              <Card.Content>
+                <Text variant="headlineSmall">{counts?.songCount ?? 0}</Text>
+                <Text variant="bodyMedium">songs</Text>
+              </Card.Content>
+            </Card>
+          </View>
+        )}
 
-      <Button
-        mode="contained-tonal"
-        icon="volume-high"
-        onPress={playTestSound}
-      >
-        play test sound
-      </Button>
+        <Button
+          mode="contained-tonal"
+          icon="volume-high"
+          onPress={playTestSound}
+        >
+          play test sound
+        </Button>
 
-      <Button
-        mode="outlined"
-        onPress={() => performSync(false)}
-        disabled={loadingCounts}
-      >
-        sync
-      </Button>
-      <Button
-        mode="outlined"
-        onPress={() => performSync(true)}
-        disabled={loadingCounts}
-      >
-        force sync
-      </Button>
-      <Button
-        mode="contained"
-        onPress={handleLogout}
-        buttonColor={theme.colors.error}
-        textColor={theme.colors.onError}
-      >
-        log out
-      </Button>
+        <Button
+          mode="outlined"
+          onPress={() => performSync(false)}
+          disabled={loadingCounts}
+        >
+          sync
+        </Button>
+        <Button
+          mode="outlined"
+          onPress={() => performSync(true)}
+          disabled={loadingCounts}
+        >
+          force sync
+        </Button>
+        <Button
+          mode="contained"
+          onPress={handleLogout}
+          buttonColor={theme.colors.error}
+          textColor={theme.colors.onError}
+        >
+          log out
+        </Button>
+      </ScrollView>
     </Surface>
   );
 }
