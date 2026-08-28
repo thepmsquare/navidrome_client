@@ -42,6 +42,7 @@ export default function HomeScreen() {
           artistCount: syncResult.artistCount ?? 0,
           albumCount: syncResult.albumCount ?? 0,
           songCount: syncResult.songCount ?? 0,
+          playlistCount: syncResult.playlistCount ?? 0,
         });
       } else {
         setSyncStatusText("synced: false (loaded from cache)");
@@ -49,6 +50,7 @@ export default function HomeScreen() {
           artistCount: syncResult.artistCount ?? initialCounts.artistCount,
           albumCount: syncResult.albumCount ?? initialCounts.albumCount,
           songCount: syncResult.songCount ?? initialCounts.songCount,
+          playlistCount: syncResult.playlistCount ?? initialCounts.playlistCount,
         });
       }
     } catch (error) {
@@ -122,6 +124,14 @@ export default function HomeScreen() {
               <Card.Content>
                 <Text variant="headlineSmall">{counts?.songCount ?? 0}</Text>
                 <Text variant="bodyMedium">songs</Text>
+              </Card.Content>
+            </Card>
+            <Card style={homeStyles.countCard}>
+              <Card.Content>
+                <Text variant="headlineSmall">
+                  {counts?.playlistCount ?? 0}
+                </Text>
+                <Text variant="bodyMedium">playlists</Text>
               </Card.Content>
             </Card>
           </View>

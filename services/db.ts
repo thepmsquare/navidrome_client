@@ -1,6 +1,6 @@
 import * as SQLite from "expo-sqlite";
 
-import { AlbumID3, ArtistID3, Child, Search3Counts } from "@/types";
+import { AlbumID3, ArtistID3, Child, Playlist, Search3Counts } from "@/types";
 import { DB_NAME } from "@/utils/constants";
 
 let dbInstance: SQLite.SQLiteDatabase | null = null;
@@ -127,6 +127,21 @@ export function initDatabase(db: SQLite.SQLiteDatabase = getDb()): void {
     CREATE INDEX IF NOT EXISTS idx_songs_album ON songs(album);
     CREATE INDEX IF NOT EXISTS idx_songs_starred ON songs(starred);
     CREATE INDEX IF NOT EXISTS idx_songs_sortName ON songs(sortName);
+
+    CREATE TABLE IF NOT EXISTS playlists (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      comment TEXT,
+      owner TEXT,
+      public INTEGER,
+      songCount INTEGER,
+      duration INTEGER,
+      created TEXT,
+      changed TEXT,
+      coverArt TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_playlists_name ON playlists(name);
   `);
 }
 
@@ -406,6 +421,37 @@ export function upsertSongsBatch(songs: Child[]): void {
   });
 }
 
+export function upsertPlaylistsBatch(playlists: Playlist[]): void {
+  if (playlists.length === 0) return;
+  const db = getDb();
+  db.withTransactionSync(() => {
+    const stmt = db.prepareSync(`
+      INSERT OR REPLACE INTO playlists (
+        id, name, comment, owner, public, songCount, duration, created, changed, coverArt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    try {
+      for (const pl of playlists) {
+        stmt.executeSync([
+          pl.id,
+          pl.name,
+          pl.comment ?? null,
+          pl.owner ?? null,
+          pl.public ? 1 : 0,
+          pl.songCount ?? 0,
+          pl.duration ?? 0,
+          pl.created ?? null,
+          pl.changed ?? null,
+          pl.coverArt ?? null,
+        ]);
+      }
+    } finally {
+      stmt.finalizeSync();
+    }
+  });
+}
+
 export function getLocalCounts(): Search3Counts {
   const db = getDb();
   const artistRow = db.getFirstSync<{ count: number }>(
@@ -417,11 +463,15 @@ export function getLocalCounts(): Search3Counts {
   const songRow = db.getFirstSync<{ count: number }>(
     "SELECT COUNT(*) AS count FROM songs",
   );
+  const playlistRow = db.getFirstSync<{ count: number }>(
+    "SELECT COUNT(*) AS count FROM playlists",
+  );
 
   return {
     artistCount: artistRow?.count ?? 0,
     albumCount: albumRow?.count ?? 0,
     songCount: songRow?.count ?? 0,
+    playlistCount: playlistRow?.count ?? 0,
   };
 }
 
@@ -431,6 +481,7 @@ export function clearDatabase(): void {
     DELETE FROM artists;
     DELETE FROM albums;
     DELETE FROM songs;
+    DELETE FROM playlists;
     DELETE FROM sync_meta;
   `);
 }
@@ -456,6 +507,18 @@ export function getAllSongs(): Child[] {
   );
 }
 
+export function getAllPlaylists(): Playlist[] {
+  const db = getDb();
+  return db.getAllSync<Playlist>(
+    "SELECT * FROM playlists ORDER BY name COLLATE NOCASE ASC",
+  );
+}
+
+export function getPlaylistById(id: string): Playlist | null {
+  const db = getDb();
+  return db.getFirstSync<Playlist>("SELECT * FROM playlists WHERE id = ?", [id]);
+}
+
 export function getAlbumById(id: string): AlbumID3 | null {
   const db = getDb();
   return db.getFirstSync<AlbumID3>("SELECT * FROM albums WHERE id = ?", [id]);
@@ -468,6 +531,7 @@ export function getSongsByAlbumId(albumId: string): Child[] {
     [albumId],
   );
 }
+
 
 
 

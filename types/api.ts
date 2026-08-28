@@ -21,6 +21,7 @@ export interface Search3Counts {
   artistCount: number;
   albumCount: number;
   songCount: number;
+  playlistCount?: number;
 }
 
 export interface SyncResult {
@@ -28,6 +29,7 @@ export interface SyncResult {
   artistCount?: number;
   albumCount?: number;
   songCount?: number;
+  playlistCount?: number;
   lastScan?: string;
   lastSyncedAt?: string;
 }
@@ -216,6 +218,56 @@ export const subsonicSearch3ResponseWrapperSchema = z.object({
   "subsonic-response": search3ResponseSchema,
 });
 
+export const playlistSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  comment: z.string().optional().nullable(),
+  owner: z.string().optional().nullable(),
+  public: z.boolean().optional().nullable(),
+  songCount: z.number().optional().nullable(),
+  duration: z.number().optional().nullable(),
+  created: z.string().optional().nullable(),
+  changed: z.string().optional().nullable(),
+  coverArt: z.string().optional().nullable(),
+  allowedUser: z.array(z.string()).optional().nullable(),
+});
+
+export const getPlaylistsResponseSchema = z.object({
+  status: z.string(),
+  version: z.string(),
+  type: z.string().optional(),
+  serverVersion: z.string().optional(),
+  openSubsonic: z.boolean().optional(),
+  error: subsonicErrorSchema.optional(),
+  playlists: z
+    .object({
+      playlist: z.array(playlistSchema).optional().nullable(),
+    })
+    .optional(),
+});
+
+export const subsonicGetPlaylistsResponseWrapperSchema = z.object({
+  "subsonic-response": getPlaylistsResponseSchema,
+});
+
+export const playlistWithEntriesSchema = playlistSchema.extend({
+  entry: z.array(childSchema).optional().nullable(),
+});
+
+export const getPlaylistResponseSchema = z.object({
+  status: z.string(),
+  version: z.string(),
+  type: z.string().optional(),
+  serverVersion: z.string().optional(),
+  openSubsonic: z.boolean().optional(),
+  error: subsonicErrorSchema.optional(),
+  playlist: playlistWithEntriesSchema.optional(),
+});
+
+export const subsonicGetPlaylistResponseWrapperSchema = z.object({
+  "subsonic-response": getPlaylistResponseSchema,
+});
+
 export type SubsonicError = z.infer<typeof subsonicErrorSchema>;
 export type PingResponse = z.infer<typeof pingResponseSchema>;
 export type SubsonicPingResponseWrapper = z.infer<
@@ -234,3 +286,15 @@ export type Search3Response = z.infer<typeof search3ResponseSchema>;
 export type SubsonicSearch3ResponseWrapper = z.infer<
   typeof subsonicSearch3ResponseWrapperSchema
 >;
+export type Playlist = z.infer<typeof playlistSchema>;
+export type GetPlaylistsResponse = z.infer<typeof getPlaylistsResponseSchema>;
+export type SubsonicGetPlaylistsResponseWrapper = z.infer<
+  typeof subsonicGetPlaylistsResponseWrapperSchema
+>;
+export type PlaylistWithEntries = z.infer<typeof playlistWithEntriesSchema>;
+export type GetPlaylistResponse = z.infer<typeof getPlaylistResponseSchema>;
+export type SubsonicGetPlaylistResponseWrapper = z.infer<
+  typeof subsonicGetPlaylistResponseWrapperSchema
+>;
+
+

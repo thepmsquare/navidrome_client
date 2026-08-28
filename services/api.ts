@@ -5,15 +5,20 @@ import {
   setSyncMeta,
   upsertAlbumsBatch,
   upsertArtistsBatch,
+  upsertPlaylistsBatch,
   upsertSongsBatch,
 } from "@/services/db";
 import {
   PingResponse,
+  Playlist,
+  PlaylistWithEntries,
   ScanStatus,
   Search3Params,
   ScrobbleParams,
   SearchResult3,
   ServerCredentials,
+  subsonicGetPlaylistResponseWrapperSchema,
+  subsonicGetPlaylistsResponseWrapperSchema,
   subsonicGetScanStatusResponseWrapperSchema,
   subsonicPingResponseWrapperSchema,
   subsonicSearch3ResponseWrapperSchema,
@@ -216,6 +221,7 @@ export async function client_app_sync(
       artistCount: localCounts.artistCount,
       albumCount: localCounts.albumCount,
       songCount: localCounts.songCount,
+      playlistCount: localCounts.playlistCount,
       lastScan: storedLastScan,
       lastSyncedAt: getSyncMeta("lastSyncedAt") ?? undefined,
     };
@@ -283,6 +289,17 @@ export async function client_app_sync(
     }
   }
 
+  let totalPlaylists = 0;
+  try {
+    const playlists = await getPlaylists();
+    if (playlists.length > 0) {
+      upsertPlaylistsBatch(playlists);
+      totalPlaylists = playlists.length;
+    }
+  } catch (error) {
+    console.error("failed to sync playlists:", error);
+  }
+
   const now = new Date().toISOString();
   if (currentLastScan) {
     setSyncMeta("lastScan", currentLastScan);
@@ -294,6 +311,7 @@ export async function client_app_sync(
     artistCount: totalArtists,
     albumCount: totalAlbums,
     songCount: totalSongs,
+    playlistCount: totalPlaylists,
     lastScan: currentLastScan,
     lastSyncedAt: now,
   };
@@ -359,6 +377,72 @@ export async function scrobbleSong(songId: string): Promise<void> {
     console.error("failed to scrobble song:", error);
   }
 }
+
+export async function getPlaylists(username?: string): Promise<Playlist[]> {
+  const creds = await getStoredCredentials();
+  const restBase = getRestBaseUrl(creds.serverUrl);
+  const authQuery = await buildAuthParams(creds);
+
+  let url = `${restBase}/getPlaylists.view?${authQuery}`;
+  if (username) {
+    url += `&username=${encodeURIComponent(username)}`;
+  }
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(
+      `getPlaylists request failed with status ${response.status}`,
+    );
+  }
+
+  const data = await response.json();
+  const parsed = subsonicGetPlaylistsResponseWrapperSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new Error("failed to parse getPlaylists response");
+  }
+
+  const res = parsed.data["subsonic-response"];
+  if (res.status !== "ok") {
+    throw new Error(res.error?.message || "getPlaylists failed");
+  }
+
+  return res.playlists?.playlist ?? [];
+}
+
+export async function getPlaylist(
+  playlistId: string,
+): Promise<PlaylistWithEntries> {
+  const creds = await getStoredCredentials();
+  const restBase = getRestBaseUrl(creds.serverUrl);
+  const authQuery = await buildAuthParams(creds);
+
+  const url = `${restBase}/getPlaylist.view?${authQuery}&id=${encodeURIComponent(playlistId)}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(
+      `getPlaylist request failed with status ${response.status}`,
+    );
+  }
+
+  const data = await response.json();
+  const parsed = subsonicGetPlaylistResponseWrapperSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new Error("failed to parse getPlaylist response");
+  }
+
+  const res = parsed.data["subsonic-response"];
+  if (res.status !== "ok") {
+    throw new Error(res.error?.message || "getPlaylist failed");
+  }
+
+  if (!res.playlist) {
+    throw new Error("playlist not found in response");
+  }
+
+  return res.playlist;
+}
+
+
 
 
 

@@ -11,10 +11,11 @@ export const homeStyles = StyleSheet.create({
   },
   countsContainer: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 12,
     justifyContent: "space-between",
   },
   countCard: {
-    flex: 1,
+    width: "48%",
   },
 });

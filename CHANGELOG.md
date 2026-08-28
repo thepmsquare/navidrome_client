@@ -1,5 +1,10 @@
 # changelog
 
+## 2.4.0+29 (in progress)
+
+- add util for getPlaylists and getPlaylistDetails.
+- add db table for playlists.
+
 ## 2.3.0+28
 
 - add album details page in library.
