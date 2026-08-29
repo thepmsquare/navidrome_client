@@ -41,7 +41,7 @@ export default function RootLayout() {
   useEffect(() => {
     if (isLoading) return;
 
-    const onConnectPage = segments[0] === "connect";
+    const onConnectPage = (segments as string[]).includes("connect");
 
     if (!isLoggedIn && !onConnectPage) {
       router.replace("/connect");
@@ -58,23 +58,22 @@ export default function RootLayout() {
     [colorScheme, theme],
   );
 
-  if (isLoading) {
-    return (
-      <SafeAreaProvider>
-        <PaperProvider theme={paperTheme}>
-          <SafeAreaView style={layoutStyles.container}>
-            <ActivityIndicator size="large" />
-          </SafeAreaView>
-        </PaperProvider>
-      </SafeAreaProvider>
-    );
-  }
+  const onConnectPage = (segments as string[]).includes("connect");
+  const routeMatchesAuth =
+    (!isLoggedIn && onConnectPage) || (isLoggedIn && !onConnectPage);
+  const showSpinner = isLoading || !routeMatchesAuth;
 
   return (
     <SafeAreaProvider>
       <PaperProvider theme={paperTheme}>
         <SafeAreaView style={layoutStyles.safeArea}>
-          <Slot />
+          {showSpinner ? (
+            <SafeAreaView style={layoutStyles.container}>
+              <ActivityIndicator size="large" />
+            </SafeAreaView>
+          ) : (
+            <Slot />
+          )}
         </SafeAreaView>
       </PaperProvider>
     </SafeAreaProvider>

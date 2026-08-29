@@ -5,6 +5,7 @@
 - add util for getPlaylists and getPlaylistDetails.
 - add db table for playlists.
 - add playlists button, list playlists page and playlist details page in library.
+- navigation bug fix for home screen.
 
 ## 2.3.0+28
 
