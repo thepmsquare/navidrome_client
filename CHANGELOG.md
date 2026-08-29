@@ -4,6 +4,7 @@
 
 - add util for getPlaylists and getPlaylistDetails.
 - add db table for playlists.
+- add playlists button, list playlists page and playlist details page in library.
 
 ## 2.3.0+28
 

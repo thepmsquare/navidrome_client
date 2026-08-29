@@ -30,6 +30,15 @@ export default function LibraryHomeScreen() {
 
       <Button
         mode="contained"
+        icon="playlist-music"
+        style={libraryStyles.button}
+        onPress={() => router.push("/library/playlists")}
+      >
+        playlists
+      </Button>
+
+      <Button
+        mode="contained"
         icon="account-music"
         style={libraryStyles.button}
         onPress={() => router.push("/library/artists")}
