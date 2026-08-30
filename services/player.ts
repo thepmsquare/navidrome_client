@@ -48,6 +48,7 @@ export async function playTrackAtIndex(index: number): Promise<void> {
       {
         title: song.title,
         artist: song.artist ?? undefined,
+        albumTitle: song.album ?? undefined,
         artworkUrl: artworkUrl ?? undefined,
       },
       {
@@ -109,6 +110,35 @@ export function getCurrentQueue(): Child[] {
 
 export function getCurrentIndex(): number {
   return currentIndex;
+}
+
+export function pausePlayback(): void {
+  if (playerInstance) {
+    playerInstance.pause();
+  }
+}
+
+export function resumePlayback(): void {
+  if (playerInstance) {
+    playerInstance.play();
+  }
+}
+
+export function togglePlayback(): void {
+  if (playerInstance) {
+    if (playerInstance.playing) {
+      playerInstance.pause();
+    } else {
+      playerInstance.play();
+    }
+  }
+}
+
+export function stopPlayback(): void {
+  if (playerInstance) {
+    playerInstance.pause();
+    playerInstance.setActiveForLockScreen(false);
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
