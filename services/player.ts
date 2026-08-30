@@ -1,10 +1,20 @@
-import {
-  AudioPlayer,
-  AudioStatus,
-  createAudioPlayer,
-  setAudioModeAsync,
-} from "expo-audio";
+import { Image } from "react-native";
 
+import {
+  addNextTrackListener,
+  addPlaybackErrorListener,
+  addPlaybackStateListener,
+  addPreviousTrackListener,
+  addTrackEndedListener,
+  getPlaybackStatus,
+  loadTrack,
+  pause,
+  play,
+  PlaybackStatus,
+  seekTo,
+  setVolume,
+  stop,
+} from "@/modules/audio-playback";
 import {
   getCoverArtBaseUrl,
   getSongStreamUrl,
@@ -12,9 +22,30 @@ import {
 } from "@/services/api";
 import { Child } from "@/types";
 
-let playerInstance: AudioPlayer | null = null;
 let currentQueue: Child[] = [];
 let currentIndex = 0;
+let isInitialized = false;
+
+function ensureListenersInitialized(): void {
+  if (isInitialized) return;
+  isInitialized = true;
+
+  addTrackEndedListener(() => {
+    playNext();
+  });
+
+  addNextTrackListener(() => {
+    playNext();
+  });
+
+  addPreviousTrackListener(() => {
+    playPrevious();
+  });
+
+  addPlaybackErrorListener((error) => {
+    console.error("playback error:", error.errorCode, error.message);
+  });
+}
 
 export async function playTrackAtIndex(index: number): Promise<void> {
   if (index < 0 || index >= currentQueue.length) return;
@@ -22,42 +53,22 @@ export async function playTrackAtIndex(index: number): Promise<void> {
   const song = currentQueue[index];
   if (!song) return;
 
+  ensureListenersInitialized();
+
   try {
     const streamUrl = await getSongStreamUrl(song.id);
     const getArtUrl = await getCoverArtBaseUrl();
     const artworkUrl = getArtUrl(song.coverArt);
 
-    if (playerInstance) {
-      playerInstance.pause();
-      playerInstance.replace({ uri: streamUrl });
-    } else {
-      playerInstance = createAudioPlayer({ uri: streamUrl });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (playerInstance as any).addListener?.(
-        "playbackStatusUpdate",
-        (status: AudioStatus) => {
-          if (status.didJustFinish) {
-            playNext();
-          }
-        },
-      );
-    }
+    await loadTrack({
+      url: streamUrl,
+      title: song.title,
+      artist: song.artist ?? undefined,
+      album: song.album ?? undefined,
+      artworkUrl: artworkUrl ?? undefined,
+      playWhenReady: true,
+    });
 
-    playerInstance.setActiveForLockScreen(
-      true,
-      {
-        title: song.title,
-        artist: song.artist ?? undefined,
-        albumTitle: song.album ?? undefined,
-        artworkUrl: artworkUrl ?? undefined,
-      },
-      {
-        showSeekBackward: true,
-        showSeekForward: true,
-      },
-    );
-
-    playerInstance.play();
     scrobbleSong(song.id);
   } catch (error) {
     console.error("failed to play track:", error);
@@ -71,12 +82,6 @@ export async function playPlaylist(
   if (!songs.length) return;
 
   try {
-    await setAudioModeAsync({
-      playsInSilentMode: true,
-      shouldPlayInBackground: true,
-      interruptionMode: "doNotMix",
-    });
-
     currentQueue = songs;
     await playTrackAtIndex(startIndex);
   } catch (error) {
@@ -100,10 +105,6 @@ export async function playPrevious(): Promise<void> {
   }
 }
 
-export function getCurrentPlayer(): AudioPlayer | null {
-  return playerInstance;
-}
-
 export function getCurrentQueue(): Child[] {
   return currentQueue;
 }
@@ -112,33 +113,37 @@ export function getCurrentIndex(): number {
   return currentIndex;
 }
 
-export function pausePlayback(): void {
-  if (playerInstance) {
-    playerInstance.pause();
+export async function pausePlayback(): Promise<void> {
+  await pause();
+}
+
+export async function resumePlayback(): Promise<void> {
+  await play();
+}
+
+export async function togglePlayback(): Promise<void> {
+  const status = await getPlaybackStatus();
+  if (status.isPlaying) {
+    await pause();
+  } else {
+    await play();
   }
 }
 
-export function resumePlayback(): void {
-  if (playerInstance) {
-    playerInstance.play();
-  }
+export async function stopPlayback(): Promise<void> {
+  await stop();
 }
 
-export function togglePlayback(): void {
-  if (playerInstance) {
-    if (playerInstance.playing) {
-      playerInstance.pause();
-    } else {
-      playerInstance.play();
-    }
-  }
+export async function seekToPosition(seconds: number): Promise<void> {
+  await seekTo(seconds);
 }
 
-export function stopPlayback(): void {
-  if (playerInstance) {
-    playerInstance.pause();
-    playerInstance.setActiveForLockScreen(false);
-  }
+export async function setPlaybackVolume(volume: number): Promise<void> {
+  await setVolume(volume);
+}
+
+export async function getStatus(): Promise<PlaybackStatus> {
+  return await getPlaybackStatus();
 }
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -146,34 +151,19 @@ const TEST_AUDIO_SOURCE = require("@/assets/sounds/test.wav");
 
 export async function playTestSound(): Promise<void> {
   try {
-    await setAudioModeAsync({
-      playsInSilentMode: true,
-      shouldPlayInBackground: true,
-      interruptionMode: "doNotMix",
+    ensureListenersInitialized();
+    const resolved = Image.resolveAssetSource(TEST_AUDIO_SOURCE);
+
+    await loadTrack({
+      url: resolved.uri,
+      title: "test sound",
+      artist: "navidrome client",
+      playWhenReady: true,
     });
-
-    if (playerInstance) {
-      playerInstance.pause();
-      playerInstance.replace(TEST_AUDIO_SOURCE);
-    } else {
-      playerInstance = createAudioPlayer(TEST_AUDIO_SOURCE);
-    }
-
-    playerInstance.setActiveForLockScreen(
-      true,
-      {
-        title: "test sound",
-        artist: "navidrome client",
-      },
-      {
-        showSeekBackward: true,
-        showSeekForward: true,
-      },
-    );
-
-    playerInstance.play();
   } catch (error) {
     console.error("failed to play test sound:", error);
   }
 }
 
+export { addPlaybackStateListener, addPlaybackErrorListener };
+export type { PlaybackStatus };

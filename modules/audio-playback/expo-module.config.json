@@ -1,0 +1,8 @@
+{
+  "name": "audio-playback",
+  "platforms": ["android"],
+  "android": {
+    "package": "expo.modules.audioplayback",
+    "modules": ["expo.modules.audioplayback.AudioPlaybackModule"]
+  }
+}
