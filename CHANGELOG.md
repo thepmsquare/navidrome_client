@@ -1,11 +1,13 @@
 # changelog
 
-## 2.4.0+29 (in progress)
+## 2.4.0+29
 
 - add util for getPlaylists and getPlaylistDetails.
 - add db table for playlists.
 - add playlists button, list playlists page and playlist details page in library.
 - navigation bug fix for home screen.
+- add native audio playback module.
+- remove expo-audio dependency.
 
 ## 2.3.0+28
 

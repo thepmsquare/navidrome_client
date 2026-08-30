@@ -49,12 +49,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-web-browser',
     'expo-sqlite',
     [
-      'expo-audio',
-      {
-        enableBackgroundPlayback: true,
-      },
-    ],
-    [
       'expo-build-properties',
       {
         android: {
