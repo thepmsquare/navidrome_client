@@ -5,6 +5,7 @@ import {
   addPlaybackErrorListener,
   addPlaybackStateListener,
   addPreviousTrackListener,
+  addRepeatModeListener,
   addTrackEndedListener,
   getPlaybackStatus,
   loadTrack,
@@ -12,6 +13,7 @@ import {
   play,
   PlaybackStatus,
   seekTo,
+  setRepeatMode,
   setVolume,
   stop,
 } from "@/modules/audio-playback";
@@ -24,6 +26,7 @@ import { Child } from "@/types";
 
 let currentQueue: Child[] = [];
 let currentIndex = 0;
+let currentRepeatMode: "off" | "one" | "all" = "off";
 let isInitialized = false;
 
 function ensureListenersInitialized(): void {
@@ -44,6 +47,11 @@ function ensureListenersInitialized(): void {
 
   addPlaybackErrorListener((error) => {
     console.error("playback error:", error.errorCode, error.message);
+  });
+
+  addRepeatModeListener((data) => {
+    currentRepeatMode = data.mode;
+    console.log(`repeat mode changed to: ${data.mode}`);
   });
 }
 
@@ -96,12 +104,16 @@ export async function playSong(song: Child): Promise<void> {
 export async function playNext(): Promise<void> {
   if (currentIndex + 1 < currentQueue.length) {
     await playTrackAtIndex(currentIndex + 1);
+  } else if (currentRepeatMode === "all" && currentQueue.length > 0) {
+    await playTrackAtIndex(0);
   }
 }
 
 export async function playPrevious(): Promise<void> {
   if (currentIndex - 1 >= 0) {
     await playTrackAtIndex(currentIndex - 1);
+  } else if (currentRepeatMode === "all" && currentQueue.length > 0) {
+    await playTrackAtIndex(currentQueue.length - 1);
   }
 }
 
@@ -111,6 +123,10 @@ export function getCurrentQueue(): Child[] {
 
 export function getCurrentIndex(): number {
   return currentIndex;
+}
+
+export function getCurrentRepeatMode(): "off" | "one" | "all" {
+  return currentRepeatMode;
 }
 
 export async function pausePlayback(): Promise<void> {
@@ -142,11 +158,27 @@ export async function setPlaybackVolume(volume: number): Promise<void> {
   await setVolume(volume);
 }
 
+export async function setPlaybackRepeatMode(
+  mode: "off" | "one" | "all",
+): Promise<void> {
+  await setRepeatMode(mode);
+  currentRepeatMode = mode;
+}
+
+export async function cycleRepeatMode(): Promise<void> {
+  const nextMode: "off" | "one" | "all" =
+    currentRepeatMode === "off"
+      ? "all"
+      : currentRepeatMode === "all"
+        ? "one"
+        : "off";
+  await setPlaybackRepeatMode(nextMode);
+}
+
 export async function getStatus(): Promise<PlaybackStatus> {
   return await getPlaybackStatus();
 }
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const TEST_AUDIO_SOURCE = require("@/assets/sounds/test.wav");
 
 export async function playTestSound(): Promise<void> {
@@ -165,5 +197,9 @@ export async function playTestSound(): Promise<void> {
   }
 }
 
-export { addPlaybackStateListener, addPlaybackErrorListener };
+export {
+  addPlaybackErrorListener,
+  addPlaybackStateListener,
+  addRepeatModeListener,
+};
 export type { PlaybackStatus };

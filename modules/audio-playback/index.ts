@@ -5,11 +5,16 @@ export interface PlaybackStatus {
   isBuffering: boolean;
   duration: number;
   position: number;
+  repeatMode: "off" | "one" | "all";
 }
 
 export interface PlaybackError {
   errorCode: string;
   message: string;
+}
+
+export interface RepeatModeChanged {
+  mode: "off" | "one" | "all";
 }
 
 export interface TrackParams {
@@ -27,6 +32,7 @@ type AudioPlaybackEvents = {
   onNextTrack: () => void;
   onPreviousTrack: () => void;
   onPlaybackError: (error: PlaybackError) => void;
+  onRepeatModeChanged: (data: RepeatModeChanged) => void;
 };
 
 declare class AudioPlaybackNativeModule extends NativeModule<AudioPlaybackEvents> {
@@ -43,6 +49,7 @@ declare class AudioPlaybackNativeModule extends NativeModule<AudioPlaybackEvents
   stop(): Promise<void>;
   seekTo(positionSeconds: number): Promise<void>;
   setVolume(volume: number): Promise<void>;
+  setRepeatMode(mode: "off" | "one" | "all"): Promise<void>;
   getPlaybackStatus(): Promise<PlaybackStatus>;
 }
 
@@ -92,9 +99,22 @@ export async function setVolume(volume: number): Promise<void> {
   await AudioPlayback.setVolume(volume);
 }
 
+export async function setRepeatMode(
+  mode: "off" | "one" | "all",
+): Promise<void> {
+  if (!AudioPlayback) return;
+  await AudioPlayback.setRepeatMode(mode);
+}
+
 export async function getPlaybackStatus(): Promise<PlaybackStatus> {
   if (!AudioPlayback) {
-    return { isPlaying: false, isBuffering: false, duration: 0, position: 0 };
+    return {
+      isPlaying: false,
+      isBuffering: false,
+      duration: 0,
+      position: 0,
+      repeatMode: "off",
+    };
   }
   return await AudioPlayback.getPlaybackStatus();
 }
@@ -126,6 +146,13 @@ export function addPlaybackErrorListener(
 ) {
   if (!AudioPlayback) return { remove: () => {} };
   return AudioPlayback.addListener("onPlaybackError", listener);
+}
+
+export function addRepeatModeListener(
+  listener: (data: RepeatModeChanged) => void,
+) {
+  if (!AudioPlayback) return { remove: () => {} };
+  return AudioPlayback.addListener("onRepeatModeChanged", listener);
 }
 
 export default AudioPlayback;

@@ -1,5 +1,9 @@
 # changelog
 
+## 2.4.1+30 (in progress)
+
+- bug fixes in audio-playback module.
+
 ## 2.4.0+29
 
 - add util for getPlaylists and getPlaylistDetails.

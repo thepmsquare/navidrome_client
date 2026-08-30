@@ -10,13 +10,16 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
-import androidx.media3.common.AudioAttributes
+import androidx.media3.common.AudioAttributes as Media3AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
@@ -33,9 +36,9 @@ import expo.modules.kotlin.modules.ModuleDefinition
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.net.URL
+import kotlin.math.min
 
 @OptIn(UnstableApi::class)
 class AudioPlaybackModule : Module() {
@@ -43,16 +46,21 @@ class AudioPlaybackModule : Module() {
   private var forwardingPlayer: ForwardingPlayer? = null
   private var mediaSession: MediaSession? = null
   private var notificationManager: NotificationManager? = null
+  private var audioManager: AudioManager? = null
   private val mainHandler = Handler(Looper.getMainLooper())
+  
   private var currentTitle: String = ""
   private var currentArtist: String = ""
   private var currentAlbum: String = ""
   private var currentArtworkUrl: String? = null
   private var currentArtworkBitmap: Bitmap? = null
   private var artworkLoadJob: Job? = null
-  private val scope = CoroutineScope(Dispatchers.IO)
+  
+  private val scope = CoroutineScope(Dispatchers.IO + Job())
   private var mediaActionReceiver: BroadcastReceiver? = null
-
+  
+  private var audioFocusRequest: AudioFocusRequest? = null
+  
   companion object {
     const val CHANNEL_ID = "audio_playback_channel"
     const val NOTIFICATION_ID = 1001
@@ -60,6 +68,9 @@ class AudioPlaybackModule : Module() {
     const val ACTION_PLAY_PAUSE = "expo.modules.audioplayback.ACTION_PLAY_PAUSE"
     const val ACTION_NEXT = "expo.modules.audioplayback.ACTION_NEXT"
     const val ACTION_STOP = "expo.modules.audioplayback.ACTION_STOP"
+    const val ACTION_REPEAT = "expo.modules.audioplayback.ACTION_REPEAT"
+    const val TAG = "AudioPlaybackModule"
+    const val MAX_ARTWORK_SIZE = 512 // Max dimension in pixels
   }
 
   override fun definition() = ModuleDefinition {
@@ -70,7 +81,8 @@ class AudioPlaybackModule : Module() {
       "onTrackEnded",
       "onNextTrack",
       "onPreviousTrack",
-      "onPlaybackError"
+      "onPlaybackError",
+      "onRepeatModeChanged"
     )
 
     OnCreate {
@@ -81,9 +93,10 @@ class AudioPlaybackModule : Module() {
     }
 
     OnDestroy {
-      scope.cancel()
+      scope.coroutineContext[Job]?.cancel()
       unregisterReceiver()
       mainHandler.post {
+        releaseAudioFocus()
         releasePlayer()
       }
     }
@@ -91,11 +104,18 @@ class AudioPlaybackModule : Module() {
     AsyncFunction("loadTrack") { url: String, title: String?, artist: String?, album: String?, artworkUrl: String?, playWhenReady: Boolean, promise: Promise ->
       mainHandler.post {
         try {
+          // Input validation
+          if (url.isBlank()) {
+            promise.reject("ERR_INVALID_URL", "URL cannot be empty", null)
+            return@post
+          }
+          
           setupPlayer()
           loadTrackInternal(url, title ?: "", artist ?: "", album ?: "", artworkUrl, playWhenReady)
           promise.resolve(null)
         } catch (e: Exception) {
-          promise.reject("ERR_LOAD_TRACK", e.message, e)
+          android.util.Log.e(TAG, "Error loading track: ${e.message}", e)
+          promise.reject("ERR_LOAD_TRACK", e.message ?: "Unknown error", e)
         }
       }
     }
@@ -103,11 +123,17 @@ class AudioPlaybackModule : Module() {
     AsyncFunction("play") { promise: Promise ->
       mainHandler.post {
         try {
+          if (player == null) {
+            promise.reject("ERR_NO_PLAYER", "Player not initialized", null)
+            return@post
+          }
+          requestAudioFocus()
           player?.play()
           updateNotification()
           promise.resolve(null)
         } catch (e: Exception) {
-          promise.reject("ERR_PLAY", e.message, e)
+          android.util.Log.e(TAG, "Error playing: ${e.message}", e)
+          promise.reject("ERR_PLAY", e.message ?: "Unknown error", e)
         }
       }
     }
@@ -115,11 +141,16 @@ class AudioPlaybackModule : Module() {
     AsyncFunction("pause") { promise: Promise ->
       mainHandler.post {
         try {
+          if (player == null) {
+            promise.reject("ERR_NO_PLAYER", "Player not initialized", null)
+            return@post
+          }
           player?.pause()
           updateNotification()
           promise.resolve(null)
         } catch (e: Exception) {
-          promise.reject("ERR_PAUSE", e.message, e)
+          android.util.Log.e(TAG, "Error pausing: ${e.message}", e)
+          promise.reject("ERR_PAUSE", e.message ?: "Unknown error", e)
         }
       }
     }
@@ -127,11 +158,17 @@ class AudioPlaybackModule : Module() {
     AsyncFunction("stop") { promise: Promise ->
       mainHandler.post {
         try {
+          if (player == null) {
+            promise.reject("ERR_NO_PLAYER", "Player not initialized", null)
+            return@post
+          }
           player?.stop()
+          releaseAudioFocus()
           hideNotification()
           promise.resolve(null)
         } catch (e: Exception) {
-          promise.reject("ERR_STOP", e.message, e)
+          android.util.Log.e(TAG, "Error stopping: ${e.message}", e)
+          promise.reject("ERR_STOP", e.message ?: "Unknown error", e)
         }
       }
     }
@@ -139,11 +176,20 @@ class AudioPlaybackModule : Module() {
     AsyncFunction("seekTo") { positionSeconds: Double, promise: Promise ->
       mainHandler.post {
         try {
+          if (player == null) {
+            promise.reject("ERR_NO_PLAYER", "Player not initialized", null)
+            return@post
+          }
+          if (positionSeconds < 0) {
+            promise.reject("ERR_INVALID_POSITION", "Position cannot be negative", null)
+            return@post
+          }
           player?.seekTo((positionSeconds * 1000).toLong())
           updateNotification()
           promise.resolve(null)
         } catch (e: Exception) {
-          promise.reject("ERR_SEEK", e.message, e)
+          android.util.Log.e(TAG, "Error seeking: ${e.message}", e)
+          promise.reject("ERR_SEEK", e.message ?: "Unknown error", e)
         }
       }
     }
@@ -151,10 +197,43 @@ class AudioPlaybackModule : Module() {
     AsyncFunction("setVolume") { volume: Float, promise: Promise ->
       mainHandler.post {
         try {
-          player?.volume = volume.coerceIn(0f, 1f)
+          if (player == null) {
+            promise.reject("ERR_NO_PLAYER", "Player not initialized", null)
+            return@post
+          }
+          val clampedVolume = volume.coerceIn(0f, 1f)
+          player?.volume = clampedVolume
           promise.resolve(null)
         } catch (e: Exception) {
-          promise.reject("ERR_SET_VOLUME", e.message, e)
+          android.util.Log.e(TAG, "Error setting volume: ${e.message}", e)
+          promise.reject("ERR_SET_VOLUME", e.message ?: "Unknown error", e)
+        }
+      }
+    }
+
+    AsyncFunction("setRepeatMode") { mode: String, promise: Promise ->
+      mainHandler.post {
+        try {
+          if (player == null) {
+            promise.reject("ERR_NO_PLAYER", "Player not initialized", null)
+            return@post
+          }
+          val repeatMode = when (mode.lowercase()) {
+            "off" -> Player.REPEAT_MODE_OFF
+            "one" -> Player.REPEAT_MODE_ONE
+            "all" -> Player.REPEAT_MODE_ALL
+            else -> {
+              promise.reject("ERR_INVALID_REPEAT_MODE", "Mode must be 'off', 'one', or 'all'", null)
+              return@post
+            }
+          }
+          player?.repeatMode = repeatMode
+          updateNotification()
+          sendEvent("onRepeatModeChanged", mapOf("mode" to mode))
+          promise.resolve(null)
+        } catch (e: Exception) {
+          android.util.Log.e(TAG, "Error setting repeat mode: ${e.message}", e)
+          promise.reject("ERR_REPEAT_MODE", e.message ?: "Unknown error", e)
         }
       }
     }
@@ -164,7 +243,8 @@ class AudioPlaybackModule : Module() {
         try {
           promise.resolve(getPlaybackStatusMap())
         } catch (e: Exception) {
-          promise.reject("ERR_STATUS", e.message, e)
+          android.util.Log.e(TAG, "Error getting status: ${e.message}", e)
+          promise.reject("ERR_STATUS", e.message ?: "Unknown error", e)
         }
       }
     }
@@ -180,7 +260,7 @@ class AudioPlaybackModule : Module() {
 
     createNotificationChannel(context)
 
-    val audioAttributes = AudioAttributes.Builder()
+    val audioAttributes = Media3AudioAttributes.Builder()
       .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
       .setUsage(C.USAGE_MEDIA)
       .build()
@@ -206,6 +286,7 @@ class AudioPlaybackModule : Module() {
       }
 
       override fun onPlayerError(error: PlaybackException) {
+        android.util.Log.e(TAG, "Playback error: ${error.errorCodeName}", error)
         sendEvent(
           "onPlaybackError",
           mapOf(
@@ -214,9 +295,21 @@ class AudioPlaybackModule : Module() {
           )
         )
       }
+
+      override fun onRepeatModeChanged(repeatMode: Int) {
+        val modeString = when (repeatMode) {
+          Player.REPEAT_MODE_ONE -> "one"
+          Player.REPEAT_MODE_ALL -> "all"
+          else -> "off"
+        }
+        sendEvent("onRepeatModeChanged", mapOf("mode" to modeString))
+        updateNotification()
+      }
     })
 
-    // Forwarding player intercepts hardware/media controller commands (Next, Previous)
+    audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+
+    // Forwarding player intercepts hardware/media controller commands
     val customPlayer = object : ForwardingPlayer(exoPlayer) {
       override fun getAvailableCommands(): Player.Commands {
         return super.getAvailableCommands().buildUpon()
@@ -257,6 +350,7 @@ class AudioPlaybackModule : Module() {
 
       override fun stop() {
         super.stop()
+        releaseAudioFocus()
         hideNotification()
       }
     }
@@ -309,6 +403,7 @@ class AudioPlaybackModule : Module() {
               if (p.isPlaying) {
                 p.pause()
               } else {
+                requestAudioFocus()
                 p.play()
               }
             }
@@ -316,7 +411,19 @@ class AudioPlaybackModule : Module() {
           ACTION_STOP -> {
             mainHandler.post {
               player?.pause()
+              releaseAudioFocus()
               hideNotification()
+            }
+          }
+          ACTION_REPEAT -> {
+            mainHandler.post {
+              val p = player ?: return@post
+              val newMode = when (p.repeatMode) {
+                Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+                Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+                else -> Player.REPEAT_MODE_OFF
+              }
+              p.repeatMode = newMode
             }
           }
         }
@@ -328,14 +435,20 @@ class AudioPlaybackModule : Module() {
       addAction(ACTION_PLAY_PAUSE)
       addAction(ACTION_NEXT)
       addAction(ACTION_STOP)
+      addAction(ACTION_REPEAT)
     }
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-      context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-    } else {
-      context.registerReceiver(receiver, filter)
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+      } else {
+        @Suppress("UnspecifiedRegisterReceiverFlag")
+        context.registerReceiver(receiver, filter)
+      }
+      mediaActionReceiver = receiver
+    } catch (e: Exception) {
+      android.util.Log.e(TAG, "Failed to register receiver: ${e.message}", e)
     }
-    mediaActionReceiver = receiver
   }
 
   private fun unregisterReceiver() {
@@ -343,8 +456,53 @@ class AudioPlaybackModule : Module() {
     val receiver = mediaActionReceiver ?: return
     try {
       context.unregisterReceiver(receiver)
-    } catch (_: Exception) {}
+    } catch (e: Exception) {
+      android.util.Log.w(TAG, "Failed to unregister receiver: ${e.message}")
+    }
     mediaActionReceiver = null
+  }
+
+  private fun requestAudioFocus() {
+    val context = getContext() ?: return
+    val am = audioManager ?: return
+
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val audioAttributes = AudioAttributes.Builder()
+          .setUsage(AudioAttributes.USAGE_MEDIA)
+          .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+          .build()
+
+        val audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+          .setAudioAttributes(audioAttributes)
+          .setAcceptsDelayedFocusGain(false)
+          .build()
+
+        this.audioFocusRequest = audioFocusRequest
+        am.requestAudioFocus(audioFocusRequest)
+      } else {
+        @Suppress("DEPRECATION")
+        am.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN)
+      }
+    } catch (e: Exception) {
+      android.util.Log.w(TAG, "Failed to request audio focus: ${e.message}")
+    }
+  }
+
+  private fun releaseAudioFocus() {
+    val am = audioManager ?: return
+
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        audioFocusRequest?.let { am.abandonAudioFocusRequest(it) }
+        audioFocusRequest = null
+      } else {
+        @Suppress("DEPRECATION")
+        am.abandonAudioFocus(null)
+      }
+    } catch (e: Exception) {
+      android.util.Log.w(TAG, "Failed to release audio focus: ${e.message}")
+    }
   }
 
   private fun loadTrackInternal(
@@ -363,9 +521,9 @@ class AudioPlaybackModule : Module() {
     currentArtworkBitmap = null
 
     val mediaMetadata = MediaMetadata.Builder()
-      .setTitle(title)
-      .setArtist(artist)
-      .setAlbumTitle(album)
+      .setTitle(title.takeIf { it.isNotBlank() })
+      .setArtist(artist.takeIf { it.isNotBlank() })
+      .setAlbumTitle(album.takeIf { it.isNotBlank() })
       .build()
 
     val mediaItem = MediaItem.Builder()
@@ -381,13 +539,9 @@ class AudioPlaybackModule : Module() {
       artworkLoadJob?.cancel()
       artworkLoadJob = scope.launch {
         try {
-          val stream = URL(artworkUrl).openConnection().getInputStream()
-          val bitmap = BitmapFactory.decodeStream(stream)
-          currentArtworkBitmap = bitmap
-          mainHandler.post {
-            updateNotification()
-          }
-        } catch (_: Exception) {
+          loadArtwork(artworkUrl)
+        } catch (e: Exception) {
+          android.util.Log.w(TAG, "Failed to load artwork: ${e.message}")
           mainHandler.post {
             updateNotification()
           }
@@ -398,14 +552,67 @@ class AudioPlaybackModule : Module() {
     }
   }
 
+  private suspend fun loadArtwork(artworkUrl: String) {
+    try {
+      val connection = URL(artworkUrl).openConnection()
+      connection.connectTimeout = 5000
+      connection.readTimeout = 5000
+
+      val bytes = connection.getInputStream().use { it.readBytes() }
+
+      val options = BitmapFactory.Options().apply {
+        inJustDecodeBounds = true
+      }
+      BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+
+      // Calculate inSampleSize for downsampling
+      val inSampleSize = calculateInSampleSize(
+        options.outWidth,
+        options.outHeight,
+        MAX_ARTWORK_SIZE,
+        MAX_ARTWORK_SIZE
+      )
+
+      options.inJustDecodeBounds = false
+      options.inSampleSize = inSampleSize
+
+      val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+      if (bitmap != null) {
+        currentArtworkBitmap = bitmap
+      }
+    } catch (e: Exception) {
+      android.util.Log.e(TAG, "Artwork loading error: ${e.message}", e)
+      throw e
+    }
+
+    mainHandler.post {
+      updateNotification()
+    }
+  }
+
+  private fun calculateInSampleSize(
+    srcWidth: Int,
+    srcHeight: Int,
+    reqWidth: Int,
+    reqHeight: Int
+  ): Int {
+    var inSampleSize = 1
+    if (srcHeight > reqHeight || srcWidth > reqWidth) {
+      val heightRatio = srcHeight / reqHeight
+      val widthRatio = srcWidth / reqWidth
+      inSampleSize = min(heightRatio, widthRatio)
+    }
+    return inSampleSize
+  }
+
   private fun createNotificationChannel(context: Context) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       val channel = NotificationChannel(
         CHANNEL_ID,
-        "Audio Playback",
+        "audio playback",
         NotificationManager.IMPORTANCE_LOW
       ).apply {
-        description = "Media playback controls"
+        description = "media playback controls"
         setShowBadge(false)
         lockscreenVisibility = Notification.VISIBILITY_PUBLIC
       }
@@ -421,6 +628,7 @@ class AudioPlaybackModule : Module() {
     val nm = notificationManager ?: return
 
     val isPlaying = p.isPlaying
+    val repeatMode = p.repeatMode
 
     val prevIntent = Intent(ACTION_PREV).setPackage(context.packageName)
     val prevPending = PendingIntent.getBroadcast(
@@ -440,9 +648,15 @@ class AudioPlaybackModule : Module() {
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 
+    val repeatIntent = Intent(ACTION_REPEAT).setPackage(context.packageName)
+    val repeatPending = PendingIntent.getBroadcast(
+      context, 104, repeatIntent,
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
     val stopIntent = Intent(ACTION_STOP).setPackage(context.packageName)
     val stopPending = PendingIntent.getBroadcast(
-      context, 104, stopIntent,
+      context, 105, stopIntent,
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 
@@ -450,6 +664,12 @@ class AudioPlaybackModule : Module() {
       android.R.drawable.ic_media_pause
     } else {
       android.R.drawable.ic_media_play
+    }
+
+    val repeatIcon = when (repeatMode) {
+      Player.REPEAT_MODE_ONE -> android.R.drawable.ic_media_play
+      Player.REPEAT_MODE_ALL -> android.R.drawable.ic_media_play
+      else -> android.R.drawable.ic_media_pause
     }
 
     val style = MediaStyleNotificationHelper.MediaStyle(session)
@@ -461,21 +681,23 @@ class AudioPlaybackModule : Module() {
 
     val builder = NotificationCompat.Builder(context, CHANNEL_ID)
       .setSmallIcon(iconResId)
-      .setContentTitle(currentTitle.ifBlank { "Playing Audio" })
+      .setContentTitle(currentTitle.ifBlank { "playing audio" })
       .setContentText(if (currentArtist.isNotBlank()) currentArtist else currentAlbum)
       .setSubText(currentAlbum.takeIf { it.isNotBlank() })
       .setStyle(style)
       .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
       .setOngoing(isPlaying)
-      .addAction(android.R.drawable.ic_media_previous, "Previous", prevPending)
-      .addAction(playPauseIcon, if (isPlaying) "Pause" else "Play", playPausePending)
-      .addAction(android.R.drawable.ic_media_next, "Next", nextPending)
-      .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPending)
+      .addAction(android.R.drawable.ic_media_previous, "previous", prevPending)
+      .addAction(playPauseIcon, if (isPlaying) "pause" else "play", playPausePending)
+      .addAction(android.R.drawable.ic_media_next, "next", nextPending)
+      .addAction(repeatIcon, getRepeatModeLabel(repeatMode), repeatPending)
+      .addAction(android.R.drawable.ic_menu_close_clear_cancel, "stop", stopPending)
 
     val artwork = currentArtworkBitmap ?: iconResId.takeIf { it != 0 }?.let {
       try {
         BitmapFactory.decodeResource(context.resources, it)
-      } catch (_: Exception) {
+      } catch (e: Exception) {
+        android.util.Log.w(TAG, "Failed to decode resource icon: ${e.message}")
         null
       }
     }
@@ -483,29 +705,57 @@ class AudioPlaybackModule : Module() {
       builder.setLargeIcon(it)
     }
 
-    nm.notify(NOTIFICATION_ID, builder.build())
+    try {
+      nm.notify(NOTIFICATION_ID, builder.build())
+    } catch (e: Exception) {
+      android.util.Log.e(TAG, "Failed to notify: ${e.message}", e)
+    }
+  }
+
+  private fun getRepeatModeLabel(repeatMode: Int): String {
+    return when (repeatMode) {
+      Player.REPEAT_MODE_ONE -> "repeat one"
+      Player.REPEAT_MODE_ALL -> "repeat all"
+      else -> "no repeat"
+    }
   }
 
   private fun hideNotification() {
-    notificationManager?.cancel(NOTIFICATION_ID)
+    try {
+      notificationManager?.cancel(NOTIFICATION_ID)
+    } catch (e: Exception) {
+      android.util.Log.w(TAG, "Failed to hide notification: ${e.message}")
+    }
   }
 
   private fun getPlaybackStatusMap(): Map<String, Any?> {
     val p = player
+    val repeatModeString = when (p?.repeatMode) {
+      Player.REPEAT_MODE_ONE -> "one"
+      Player.REPEAT_MODE_ALL -> "all"
+      else -> "off"
+    }
     return mapOf(
       "isPlaying" to (p?.isPlaying ?: false),
       "isBuffering" to (p?.playbackState == Player.STATE_BUFFERING),
       "duration" to ((p?.duration ?: 0L).takeIf { it > 0 }?.let { it / 1000.0 } ?: 0.0),
-      "position" to ((p?.currentPosition ?: 0L) / 1000.0)
+      "position" to ((p?.currentPosition ?: 0L) / 1000.0),
+      "repeatMode" to repeatModeString
     )
   }
 
   private fun releasePlayer() {
-    hideNotification()
-    mediaSession?.release()
-    mediaSession = null
-    player?.release()
-    player = null
-    forwardingPlayer = null
+    try {
+      hideNotification()
+      mediaSession?.release()
+      mediaSession = null
+      player?.release()
+      player = null
+      forwardingPlayer = null
+      currentArtworkBitmap?.recycle()
+      currentArtworkBitmap = null
+    } catch (e: Exception) {
+      android.util.Log.e(TAG, "Error releasing player: ${e.message}", e)
+    }
   }
 }
