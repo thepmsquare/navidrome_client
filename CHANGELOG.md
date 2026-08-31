@@ -1,8 +1,10 @@
 # changelog
 
-## 2.4.1+30 (in progress)
+## 2.5.0+30
 
 - bug fixes in audio-playback module.
+- add utils for repeat modes.
+- add AudioPlaybackService that enables audio to play for more than 3 mins in the background.
 
 ## 2.4.0+29
 
