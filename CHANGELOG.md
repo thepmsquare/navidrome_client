@@ -1,5 +1,9 @@
 # changelog
 
+## 2.6.0+31
+
+- add in app mini player.
+
 ## 2.5.0+30
 
 - bug fixes in audio-playback module.

@@ -1,5 +1,8 @@
 import { Tabs } from "expo-router";
+import { View } from "react-native";
 import { BottomNavigation, Icon } from "react-native-paper";
+
+import { MiniPlayer } from "@/components/MiniPlayer";
 
 export default function MainLayout() {
   return (
@@ -8,37 +11,40 @@ export default function MainLayout() {
         headerShown: false,
       }}
       tabBar={({ navigation, state, descriptors, insets }) => (
-        <BottomNavigation.Bar
-          navigationState={state}
-          safeAreaInsets={insets}
-          onTabPress={({ route, preventDefault }) => {
-            const event = navigation.emit({
-              type: "tabPress",
-              target: route.key,
-              canPreventDefault: true,
-            });
+        <View>
+          <MiniPlayer />
+          <BottomNavigation.Bar
+            navigationState={state}
+            safeAreaInsets={insets}
+            onTabPress={({ route, preventDefault }) => {
+              const event = navigation.emit({
+                type: "tabPress",
+                target: route.key,
+                canPreventDefault: true,
+              });
 
-            if (!event.defaultPrevented) {
-              navigation.navigate(route.name, route.params);
-            }
-          }}
-          renderIcon={({ route, focused, color }) => {
-            const { options } = descriptors[route.key];
-            if (options.tabBarIcon) {
-              return options.tabBarIcon({ focused, color, size: 24 });
-            }
-            return null;
-          }}
-          getLabelText={({ route }) => {
-            const { options } = descriptors[route.key];
-            return (
-              options.title ??
-              (typeof options.tabBarLabel === "string"
-                ? options.tabBarLabel
-                : route.name)
-            );
-          }}
-        />
+              if (!event.defaultPrevented) {
+                navigation.navigate(route.name, route.params);
+              }
+            }}
+            renderIcon={({ route, focused, color }) => {
+              const { options } = descriptors[route.key];
+              if (options.tabBarIcon) {
+                return options.tabBarIcon({ focused, color, size: 24 });
+              }
+              return null;
+            }}
+            getLabelText={({ route }) => {
+              const { options } = descriptors[route.key];
+              return (
+                options.title ??
+                (typeof options.tabBarLabel === "string"
+                  ? options.tabBarLabel
+                  : route.name)
+              );
+            }}
+          />
+        </View>
       )}
     >
       <Tabs.Screen
