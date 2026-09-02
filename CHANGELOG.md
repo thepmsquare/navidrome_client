@@ -1,5 +1,9 @@
 # changelog
 
+## 2.6.1+32
+
+- add loading bar before opening library sub screens.
+
 ## 2.6.0+31
 
 - add in app mini player.
