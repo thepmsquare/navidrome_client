@@ -12,6 +12,11 @@ an android client for self-hosted [navidrome](https://www.navidrome.org/) compat
 - **target sdk**: android 15 / 16 (api level 35 / 36)
 - **compile sdk**: 36
 
+## development environment
+
+- **node**: `v24.18.1`
+- **npm**: `11.16.0`
+
 ## license
 
 this project is licensed under the gnu general public license v3. see the [license](LICENSE) file for details.

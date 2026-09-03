@@ -1,0 +1,38 @@
+name: test & validate
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: test & validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v4
+
+      - name: setup node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.18.1'
+          cache: 'npm'
+
+      - name: ensure npm version
+        run: npm install -g npm@11.16.0
+
+      - name: install dependencies
+        run: npm ci
+
+      - name: type check
+        run: npx tsc --noEmit
+
+      - name: run linter
+        run: npm run lint
+
+      - name: run automated tests
+        run: npm test -- --ci

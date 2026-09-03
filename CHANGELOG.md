@@ -1,5 +1,9 @@
 # changelog
 
+## 2.6.2+33 (in progress)
+
+- add unit test cases.
+
 ## 2.6.1+32
 
 - add loading bar before opening library sub screens.
