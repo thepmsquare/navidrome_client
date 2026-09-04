@@ -1,8 +1,9 @@
 # changelog
 
-## 2.6.2+33 (in progress)
+## 2.7.0+33
 
 - add unit test cases.
+- add in app player.
 
 ## 2.6.1+32
 

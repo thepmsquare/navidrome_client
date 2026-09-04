@@ -1,4 +1,4 @@
-import { Slot, useRouter, useSegments } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useMemo, useState } from "react";
 import { useColorScheme } from "react-native";
@@ -72,10 +72,21 @@ export default function RootLayout() {
               <ActivityIndicator size="large" />
             </SafeAreaView>
           ) : (
-            <Slot />
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(main)" />
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen
+                name="player"
+                options={{
+                  presentation: "modal",
+                  animation: "slide_from_bottom",
+                }}
+              />
+            </Stack>
           )}
         </SafeAreaView>
       </PaperProvider>
     </SafeAreaProvider>
   );
 }
+

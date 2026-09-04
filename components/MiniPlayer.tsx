@@ -1,6 +1,7 @@
 import { Image } from "expo-image";
+import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import {
   ActivityIndicator,
   Avatar,
@@ -22,6 +23,7 @@ import {
 import { miniPlayerStyles } from "@/stylesheets";
 
 export function MiniPlayer() {
+  const router = useRouter();
   const theme = useTheme();
   const playerState = usePlayerState();
   const [getArtUrl, setGetArtUrl] = useState<
@@ -100,52 +102,59 @@ export function MiniPlayer() {
         ]}
       />
       <View style={miniPlayerStyles.content}>
-        {artUrl ? (
-          <Image
-            source={{
-              uri: artUrl,
-              cacheKey: `${currentTrack.coverArt}-300`,
-            }}
-            style={miniPlayerStyles.artwork}
-            contentFit="cover"
-            transition={200}
-            cachePolicy="memory-disk"
-          />
-        ) : (
-          <Avatar.Icon
-            size={44}
-            icon="music"
-            style={[
-              miniPlayerStyles.artworkPlaceholder,
-              { backgroundColor: theme.colors.secondaryContainer },
-            ]}
-            color={theme.colors.onSecondaryContainer}
-          />
-        )}
+        <Pressable
+          style={miniPlayerStyles.trackPressable}
+          onPress={() => router.push("/player")}
+          accessibilityRole="button"
+          accessibilityLabel="open player"
+        >
+          {artUrl ? (
+            <Image
+              source={{
+                uri: artUrl,
+                cacheKey: `${currentTrack.coverArt}-300`,
+              }}
+              style={miniPlayerStyles.artwork}
+              contentFit="cover"
+              transition={200}
+              cachePolicy="memory-disk"
+            />
+          ) : (
+            <Avatar.Icon
+              size={44}
+              icon="music"
+              style={[
+                miniPlayerStyles.artworkPlaceholder,
+                { backgroundColor: theme.colors.secondaryContainer },
+              ]}
+              color={theme.colors.onSecondaryContainer}
+            />
+          )}
 
-        <View style={miniPlayerStyles.infoContainer}>
-          <Text
-            variant="titleSmall"
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            style={[miniPlayerStyles.title, { color: theme.colors.onSurface }]}
-          >
-            {currentTrack.title || "unknown track"}
-          </Text>
-          <Text
-            variant="bodySmall"
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            style={[
-              miniPlayerStyles.subtitle,
-              { color: theme.colors.onSurfaceVariant },
-            ]}
-          >
-            {currentTrack.artist ||
-              currentTrack.album ||
-              "unknown artist"}
-          </Text>
-        </View>
+          <View style={miniPlayerStyles.infoContainer}>
+            <Text
+              variant="titleSmall"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={[miniPlayerStyles.title, { color: theme.colors.onSurface }]}
+            >
+              {currentTrack.title || "unknown track"}
+            </Text>
+            <Text
+              variant="bodySmall"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={[
+                miniPlayerStyles.subtitle,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
+            >
+              {currentTrack.artist ||
+                currentTrack.album ||
+                "unknown artist"}
+            </Text>
+          </View>
+        </Pressable>
 
         <View style={miniPlayerStyles.actionsContainer}>
           <IconButton

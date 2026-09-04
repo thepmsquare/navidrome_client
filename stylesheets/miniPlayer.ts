@@ -21,6 +21,11 @@ export const miniPlayerStyles = StyleSheet.create({
     paddingVertical: 6,
     minHeight: 56,
   },
+  trackPressable: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
   artwork: {
     width: 44,
     height: 44,
