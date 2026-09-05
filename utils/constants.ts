@@ -8,3 +8,5 @@ export const PACKAGE_NAME = appConstants.PACKAGE_NAME;
 export const APP_VERSION = appConstants.APP_VERSION;
 export const ANDROID_VERSION_CODE = appConstants.ANDROID_VERSION_CODE;
 export const DB_NAME = appConstants.DB_NAME;
+export const APP_IDENTIFIER = appConstants.APP_IDENTIFIER;
+export const BACKUP_VERSION = 1;

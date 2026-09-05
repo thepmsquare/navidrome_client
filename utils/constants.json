@@ -6,5 +6,6 @@
   "PACKAGE_NAME": "com.thepmsquare.navidrome_client",
   "APP_VERSION": "2.8.0",
   "ANDROID_VERSION_CODE": 34,
-  "DB_NAME": "navidrome.db"
+  "DB_NAME": "navidrome.db",
+  "APP_IDENTIFIER": "navidrome_client_backup"
 }
