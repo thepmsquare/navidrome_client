@@ -1,5 +1,9 @@
 # changelog
 
+## 2.8.0+34 (in progress)
+
+- move logout to settings page.
+
 ## 2.7.0+33
 
 - add unit test cases.

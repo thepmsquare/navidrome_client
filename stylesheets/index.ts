@@ -4,4 +4,5 @@ export * from "./layout";
 export * from "./library";
 export * from "./miniPlayer";
 export * from "./player";
+export * from "./settings";
 

@@ -1,4 +1,3 @@
-import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
@@ -8,10 +7,9 @@ import {
   Card,
   Surface,
   Text,
-  useTheme,
 } from "react-native-paper";
 
-import { client_app_sync, logout } from "@/services/api";
+import { client_app_sync } from "@/services/api";
 import { getLocalCounts } from "@/services/db";
 import { playTestSound } from "@/services/player";
 import { homeStyles } from "@/stylesheets";
@@ -19,8 +17,6 @@ import { Search3Counts } from "@/types";
 import { useAudioOutputDevice } from "@/utils/audioOutput";
 
 export default function HomeScreen() {
-  const router = useRouter();
-  const theme = useTheme();
   const audioDevice = useAudioOutputDevice();
   const [subsonicVersion, setSubsonicVersion] = useState<string | null>(null);
   const [serverUrl, setServerUrl] = useState<string | null>(null);
@@ -75,11 +71,6 @@ export default function HomeScreen() {
 
     loadData();
   }, []);
-
-  async function handleLogout() {
-    await logout();
-    router.replace("/connect");
-  }
 
   return (
     <Surface style={homeStyles.page}>
@@ -158,14 +149,6 @@ export default function HomeScreen() {
           disabled={loadingCounts}
         >
           force sync
-        </Button>
-        <Button
-          mode="contained"
-          onPress={handleLogout}
-          buttonColor={theme.colors.error}
-          textColor={theme.colors.onError}
-        >
-          log out
         </Button>
       </ScrollView>
     </Surface>
