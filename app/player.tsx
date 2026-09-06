@@ -5,6 +5,7 @@ import { GestureResponderEvent, Pressable, View } from "react-native";
 import {
   ActivityIndicator,
   Avatar,
+  Button,
   IconButton,
   ProgressBar,
   Text,
@@ -103,8 +104,11 @@ export default function PlayerScreen() {
     setCacheEntry(currentTrack?.id ? getSongCacheEntry(currentTrack.id) : null);
   }
 
+  const isManual = cacheEntry?.cacheType === SongCacheType.Manual;
+  const isAuto = cacheEntry?.cacheType === SongCacheType.Auto;
+
   const handleCacheSong = async () => {
-    if (!currentTrack?.id) return;
+    if (!currentTrack?.id || isManual) return;
     try {
       await cacheSongManually(currentTrack.id);
       setCacheEntry(getSongCacheEntry(currentTrack.id));
@@ -113,26 +117,24 @@ export default function PlayerScreen() {
     }
   };
 
-  const cacheIcon =
-    cacheEntry?.cacheType === SongCacheType.Manual
-      ? "check-circle"
-      : cacheEntry?.cacheType === SongCacheType.Auto
-        ? "cached"
-        : "download-outline";
+  const cacheIcon = isManual
+    ? "check-circle"
+    : isAuto
+      ? "cached"
+      : "download-outline";
 
-  const cacheColor =
-    cacheEntry?.cacheType === SongCacheType.Manual
-      ? theme.colors.primary
-      : cacheEntry?.cacheType === SongCacheType.Auto
-        ? theme.colors.tertiary
-        : theme.colors.outline;
+  const cacheColor = isManual
+    ? theme.colors.primary
+    : isAuto
+      ? theme.colors.tertiary
+      : theme.colors.outline;
 
-  const cacheLabel =
-    cacheEntry?.cacheType === SongCacheType.Manual
-      ? "manually cached"
-      : cacheEntry?.cacheType === SongCacheType.Auto
-        ? "auto cached"
-        : "cache song";
+  const cacheText = isManual
+    ? "available offline"
+    : isAuto
+      ? "temporarily available offline"
+      : "make available offline";
+
 
 
   if (!currentTrack) {
@@ -255,53 +257,58 @@ export default function PlayerScreen() {
         )}
       </View>
 
-      {/* Song Name, Artist, Album Name, and Cache Button */}
+      {/* Song Name, Artist, and Album Name */}
       <View style={playerStyles.infoContainer}>
-        <View style={playerStyles.titleRow}>
-          <View style={playerStyles.titleTextContainer}>
-            <Text
-              variant="headlineSmall"
-              numberOfLines={2}
-              ellipsizeMode="tail"
-              style={[playerStyles.title, { color: theme.colors.onSurface }]}
-            >
-              {currentTrack.title || "unknown track"}
-            </Text>
-            <Text
-              variant="titleMedium"
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              style={[playerStyles.artist, { color: theme.colors.onSurfaceVariant }]}
-            >
-              {currentTrack.artist || "unknown artist"}
-            </Text>
-            {currentTrack.album ? (
-              <Text
-                variant="bodyMedium"
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                style={[playerStyles.album, { color: theme.colors.outline }]}
-              >
-                {currentTrack.album}
-              </Text>
-            ) : (
-              <Text
-                variant="bodyMedium"
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                style={[playerStyles.album, { color: theme.colors.outline }]}
-              >
-                unknown album
-              </Text>
-            )}
-          </View>
-          <IconButton
+        <Text
+          variant="headlineSmall"
+          numberOfLines={2}
+          ellipsizeMode="tail"
+          style={[playerStyles.title, { color: theme.colors.onSurface }]}
+        >
+          {currentTrack.title || "unknown track"}
+        </Text>
+        <Text
+          variant="titleMedium"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          style={[playerStyles.artist, { color: theme.colors.onSurfaceVariant }]}
+        >
+          {currentTrack.artist || "unknown artist"}
+        </Text>
+        {currentTrack.album ? (
+          <Text
+            variant="bodyMedium"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={[playerStyles.album, { color: theme.colors.outline }]}
+          >
+            {currentTrack.album}
+          </Text>
+        ) : (
+          <Text
+            variant="bodyMedium"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={[playerStyles.album, { color: theme.colors.outline }]}
+          >
+            unknown album
+          </Text>
+        )}
+
+        <View style={playerStyles.cacheButtonContainer}>
+          <Button
+            mode="text"
+            compact
             icon={cacheIcon}
-            size={28}
-            iconColor={cacheColor}
-            accessibilityLabel={cacheLabel}
-            onPress={handleCacheSong}
-          />
+            textColor={cacheColor}
+            onPress={isManual ? undefined : handleCacheSong}
+            style={playerStyles.cacheButton}
+            contentStyle={playerStyles.cacheButtonContent}
+            labelStyle={[playerStyles.cacheButtonLabel, { color: cacheColor }]}
+            accessibilityLabel={cacheText}
+          >
+            {cacheText}
+          </Button>
         </View>
       </View>
 

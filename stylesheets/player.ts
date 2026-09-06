@@ -51,6 +51,21 @@ export const playerStyles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
+  cacheButtonContainer: {
+    marginTop: 8,
+    alignItems: "flex-start",
+  },
+  cacheButton: {
+    marginLeft: -8,
+  },
+  cacheButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  cacheButtonLabel: {
+    textTransform: "lowercase",
+    fontSize: 13,
+  },
   title: {
     fontWeight: "700",
     marginBottom: 4,
