@@ -590,6 +590,11 @@ export function updateSongCacheLastAccessed(songId: string): void {
   );
 }
 
+export function deleteSongCacheEntry(songId: string): void {
+  const db = getDb();
+  db.runSync("DELETE FROM song_cache WHERE songId = ?", [songId]);
+}
+
 
 
 

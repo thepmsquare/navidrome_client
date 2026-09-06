@@ -18,12 +18,11 @@ import {
   setVolume,
   stop,
 } from "@/modules/audio-playback";
+import { getCoverArtBaseUrl, getSongStreamUrl, scrobbleSong } from "@/services/api";
 import {
-  getCoverArtBaseUrl,
-  getSongStreamUrl,
-  scrobbleSong,
-} from "@/services/api";
-import { getCachedSongPlaybackUri } from "@/services/songCache";
+  getCachedSongPlaybackUri,
+  subscribeSongCache,
+} from "@/services/songCache";
 import { Child } from "@/types";
 
 export interface ActiveTrackInfo {
@@ -44,11 +43,13 @@ export interface PlayerState {
   repeatMode: "off" | "one" | "all";
   hasPrevious: boolean;
   hasNext: boolean;
+  isPlayingFromCache: boolean;
 }
 
 let currentQueue: Child[] = [];
 let currentIndex = 0;
 let currentTrack: ActiveTrackInfo | null = null;
+let currentPlaybackSource: { songId: string; isFromCache: boolean } | null = null;
 let currentRepeatMode: "off" | "one" | "all" = "off";
 let lastPlaybackStatus: PlaybackStatus = {
   isPlaying: false,
@@ -78,6 +79,11 @@ export function getPlayerState(): PlayerState {
     currentIndex + 1 < currentQueue.length ||
     (currentRepeatMode === "all" && currentQueue.length > 0);
 
+  const isPlayingFromCache =
+    !!currentTrack &&
+    currentPlaybackSource?.songId === currentTrack.id &&
+    !!currentPlaybackSource.isFromCache;
+
   return {
     currentTrack,
     isPlaying: lastPlaybackStatus.isPlaying,
@@ -87,6 +93,7 @@ export function getPlayerState(): PlayerState {
     repeatMode: currentRepeatMode,
     hasPrevious,
     hasNext,
+    isPlayingFromCache,
   };
 }
 
@@ -98,6 +105,37 @@ export function subscribePlayerState(
   return () => {
     stateListeners.delete(listener);
   };
+}
+
+async function switchToRemoteStream(songId: string): Promise<void> {
+  if (!currentTrack || currentTrack.id !== songId) return;
+  const currentSong = currentQueue[currentIndex];
+  if (!currentSong || currentSong.id !== songId) return;
+
+  try {
+    const savedPosition = lastPlaybackStatus.position;
+    const shouldPlay = lastPlaybackStatus.isPlaying;
+    const streamUrl = await getSongStreamUrl(songId);
+    const getArtUrl = await getCoverArtBaseUrl();
+    const artworkUrl = getArtUrl(currentSong.coverArt);
+
+    currentPlaybackSource = { songId, isFromCache: false };
+
+    await loadTrack({
+      url: streamUrl,
+      title: currentSong.title,
+      artist: currentSong.artist ?? undefined,
+      album: currentSong.album ?? undefined,
+      artworkUrl: artworkUrl ?? undefined,
+      playWhenReady: shouldPlay,
+    });
+
+    if (savedPosition > 0) {
+      await seekTo(savedPosition);
+    }
+  } catch (error) {
+    console.error("failed to switch to remote stream:", error);
+  }
 }
 
 function ensureListenersInitialized(): void {
@@ -121,14 +159,37 @@ function ensureListenersInitialized(): void {
     playPrevious();
   });
 
-  addPlaybackErrorListener((error) => {
+  addPlaybackErrorListener(async (error) => {
     console.error("playback error:", error.errorCode, error.message);
+    // If an error occurred while playing a track loaded from the local cache,
+    // seamlessly recover by switching to the remote stream url
+    if (
+      currentTrack &&
+      currentPlaybackSource?.songId === currentTrack.id &&
+      currentPlaybackSource.isFromCache
+    ) {
+      await switchToRemoteStream(currentTrack.id);
+    }
   });
 
   addRepeatModeListener((data) => {
     currentRepeatMode = data.mode;
     lastPlaybackStatus.repeatMode = data.mode;
     notifyStateChanged();
+  });
+
+  // If a song currently playing from local cache is removed from cache,
+  // transition to network stream at current position
+  subscribeSongCache(async ({ songId, entry }) => {
+    if (
+      entry === null &&
+      currentTrack &&
+      currentTrack.id === songId &&
+      currentPlaybackSource?.songId === songId &&
+      currentPlaybackSource.isFromCache
+    ) {
+      await switchToRemoteStream(songId);
+    }
   });
 }
 
@@ -152,9 +213,12 @@ export async function playTrackAtIndex(index: number): Promise<void> {
 
   try {
     const cachedUri = getCachedSongPlaybackUri(song.id);
+    const isFromCache = !!cachedUri;
     const playbackUrl = cachedUri ?? (await getSongStreamUrl(song.id));
     const getArtUrl = await getCoverArtBaseUrl();
     const artworkUrl = getArtUrl(song.coverArt);
+
+    currentPlaybackSource = { songId: song.id, isFromCache };
 
     await loadTrack({
       url: playbackUrl,

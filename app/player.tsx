@@ -57,6 +57,7 @@ export default function PlayerScreen() {
     repeatMode,
     hasPrevious,
     hasNext,
+    isPlayingFromCache,
   } = playerState;
 
   const progress = useMemo(() => {
@@ -267,7 +268,11 @@ export default function PlayerScreen() {
         >
           <ProgressBar
             progress={progress}
-            color={theme.colors.primary}
+            color={
+              isPlayingFromCache
+                ? theme.colors.tertiary
+                : theme.colors.primary
+            }
             style={[
               playerStyles.progressBar,
               { backgroundColor: theme.colors.surfaceVariant },
