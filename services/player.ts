@@ -23,6 +23,7 @@ import {
   getSongStreamUrl,
   scrobbleSong,
 } from "@/services/api";
+import { getCachedSongPlaybackUri } from "@/services/songCache";
 import { Child } from "@/types";
 
 export interface ActiveTrackInfo {
@@ -150,12 +151,13 @@ export async function playTrackAtIndex(index: number): Promise<void> {
   notifyStateChanged();
 
   try {
-    const streamUrl = await getSongStreamUrl(song.id);
+    const cachedUri = getCachedSongPlaybackUri(song.id);
+    const playbackUrl = cachedUri ?? (await getSongStreamUrl(song.id));
     const getArtUrl = await getCoverArtBaseUrl();
     const artworkUrl = getArtUrl(song.coverArt);
 
     await loadTrack({
-      url: streamUrl,
+      url: playbackUrl,
       title: song.title,
       artist: song.artist ?? undefined,
       album: song.album ?? undefined,

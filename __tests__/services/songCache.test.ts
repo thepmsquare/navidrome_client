@@ -4,9 +4,14 @@ import { getSongStreamUrl } from "@/services/api";
 import {
   getSongById,
   getSongCacheEntry,
+  updateSongCacheLastAccessed,
   upsertSongCacheEntry,
 } from "@/services/db";
-import { cacheSongManually, subscribeSongCache } from "@/services/songCache";
+import {
+  cacheSongManually,
+  getCachedSongPlaybackUri,
+  subscribeSongCache,
+} from "@/services/songCache";
 import { SongCacheType } from "@/types";
 
 jest.mock("@/services/api", () => ({
@@ -16,6 +21,7 @@ jest.mock("@/services/api", () => ({
 jest.mock("@/services/db", () => ({
   getSongById: jest.fn(),
   getSongCacheEntry: jest.fn(),
+  updateSongCacheLastAccessed: jest.fn(),
   upsertSongCacheEntry: jest.fn(),
 }));
 
@@ -33,9 +39,17 @@ jest.mock("expo-file-system", () => {
   class MockFile {
     uri: string;
     size = 1048576;
+    exists = true;
     static downloadFileAsync = mockDownloadFileAsync;
-    constructor(_dir: any, name: string) {
-      this.uri = `file:///data/user/0/com.thepmsquare.navidrome_client/files/manual-cache/${name}`;
+    constructor(dirOrUri: any, name?: string) {
+      if (name) {
+        this.uri = `file:///data/user/0/com.thepmsquare.navidrome_client/files/manual-cache/${name}`;
+      } else {
+        this.uri = typeof dirOrUri === "string" ? dirOrUri : "file:///test/file";
+      }
+      if (typeof dirOrUri === "string" && dirOrUri.includes("missing")) {
+        this.exists = false;
+      }
     }
   }
 
@@ -149,6 +163,37 @@ describe("songCache service", () => {
     });
 
     unsubscribe();
+  });
+
+  describe("getCachedSongPlaybackUri", () => {
+    it("should return null if cache entry does not exist", () => {
+      (getSongCacheEntry as jest.Mock).mockReturnValue(null);
+      const uri = getCachedSongPlaybackUri("uncached-song");
+      expect(uri).toBeNull();
+      expect(updateSongCacheLastAccessed).not.toHaveBeenCalled();
+    });
+
+    it("should return null if cache file does not exist on disk", () => {
+      (getSongCacheEntry as jest.Mock).mockReturnValue({
+        songId: "missing-song",
+        cacheType: SongCacheType.Manual,
+        filePath: "file:///missing/track.mp3",
+      });
+      const uri = getCachedSongPlaybackUri("missing-song");
+      expect(uri).toBeNull();
+      expect(updateSongCacheLastAccessed).not.toHaveBeenCalled();
+    });
+
+    it("should return file uri and update lastAccessedAt when cached file exists", () => {
+      (getSongCacheEntry as jest.Mock).mockReturnValue({
+        songId: "cached-song",
+        cacheType: SongCacheType.Auto,
+        filePath: "file:///cached/track.mp3",
+      });
+      const uri = getCachedSongPlaybackUri("cached-song");
+      expect(uri).toBe("file:///cached/track.mp3");
+      expect(updateSongCacheLastAccessed).toHaveBeenCalledWith("cached-song");
+    });
   });
 });
 

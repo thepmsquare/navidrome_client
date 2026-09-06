@@ -581,6 +581,15 @@ export function getSongCacheEntry(songId: string): SongCacheRow | null {
   );
 }
 
+export function updateSongCacheLastAccessed(songId: string): void {
+  const db = getDb();
+  const lastAccessedAt = new Date().toISOString();
+  db.runSync(
+    "UPDATE song_cache SET lastAccessedAt = ? WHERE songId = ?",
+    [lastAccessedAt, songId],
+  );
+}
+
 
 
 

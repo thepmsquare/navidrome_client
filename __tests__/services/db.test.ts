@@ -81,4 +81,15 @@ describe("db song_cache and song helpers", () => {
       expect(result).toBeNull();
     });
   });
+
+  describe("updateSongCacheLastAccessed", () => {
+    it("should update lastAccessedAt in song_cache", () => {
+      const { updateSongCacheLastAccessed } = jest.requireActual("@/services/db");
+      updateSongCacheLastAccessed("track-1");
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "UPDATE song_cache SET lastAccessedAt = ? WHERE songId = ?",
+        [expect.any(String), "track-1"],
+      );
+    });
+  });
 });

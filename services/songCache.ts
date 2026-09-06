@@ -4,9 +4,27 @@ import { getSongStreamUrl } from "@/services/api";
 import {
   getSongById,
   getSongCacheEntry,
+  updateSongCacheLastAccessed,
   upsertSongCacheEntry,
 } from "@/services/db";
 import { SongCacheRow, SongCacheType } from "@/types";
+
+export function getCachedSongPlaybackUri(songId: string): string | null {
+  const entry = getSongCacheEntry(songId);
+  if (!entry || !entry.filePath) return null;
+
+  try {
+    const file = new File(entry.filePath);
+    if (!file.exists) {
+      return null;
+    }
+    updateSongCacheLastAccessed(songId);
+    return entry.filePath;
+  } catch {
+    // If file existence check fails or uri is directly usable
+    return entry.filePath;
+  }
+}
 
 type SongCacheListener = (event: {
   songId: string;
