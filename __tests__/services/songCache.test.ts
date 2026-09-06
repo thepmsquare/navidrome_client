@@ -2,6 +2,7 @@ import { File } from "expo-file-system";
 
 import { getSongStreamUrl } from "@/services/api";
 import {
+  deleteSongCacheEntry,
   getSongById,
   getSongCacheEntry,
   updateSongCacheLastAccessed,
@@ -9,7 +10,10 @@ import {
 } from "@/services/db";
 import {
   cacheSongManually,
+  cancelSongCaching,
+  deleteSongFromCache,
   getCachedSongPlaybackUri,
+  isSongCaching,
   subscribeSongCache,
 } from "@/services/songCache";
 import { SongCacheType } from "@/types";
@@ -19,11 +23,14 @@ jest.mock("@/services/api", () => ({
 }));
 
 jest.mock("@/services/db", () => ({
+  deleteSongCacheEntry: jest.fn(),
   getSongById: jest.fn(),
   getSongCacheEntry: jest.fn(),
   updateSongCacheLastAccessed: jest.fn(),
   upsertSongCacheEntry: jest.fn(),
 }));
+
+const mockFileDelete = jest.fn();
 
 jest.mock("expo-file-system", () => {
   const mockCreate = jest.fn();
@@ -40,6 +47,7 @@ jest.mock("expo-file-system", () => {
     uri: string;
     size = 1048576;
     exists = true;
+    delete = mockFileDelete;
     static downloadFileAsync = mockDownloadFileAsync;
     constructor(dirOrUri: any, name?: string) {
       if (name) {
@@ -97,7 +105,7 @@ describe("songCache service", () => {
       expect.objectContaining({
         uri: "file:///data/user/0/com.thepmsquare.navidrome_client/files/manual-cache/song-123.flac",
       }),
-      { idempotent: true },
+      expect.objectContaining({ idempotent: true }),
     );
     expect(upsertSongCacheEntry).toHaveBeenCalledWith(
       "song-123",
@@ -193,6 +201,110 @@ describe("songCache service", () => {
       const uri = getCachedSongPlaybackUri("cached-song");
       expect(uri).toBe("file:///cached/track.mp3");
       expect(updateSongCacheLastAccessed).toHaveBeenCalledWith("cached-song");
+    });
+  });
+
+  describe("progress tracking", () => {
+    it("should notify progress listeners and onProgress callback", async () => {
+      const mockProgressListener = jest.fn();
+      const { subscribeSongCacheProgress } = jest.requireActual(
+        "@/services/songCache",
+      );
+      const unsubscribe = subscribeSongCacheProgress(mockProgressListener);
+      const onProgressCallback = jest.fn();
+
+      (getSongById as jest.Mock).mockReturnValue({
+        id: "song-progress",
+        title: "Progress Track",
+        suffix: "mp3",
+      });
+      (getSongStreamUrl as jest.Mock).mockResolvedValue("https://example.com/stream");
+      (File.downloadFileAsync as jest.Mock).mockImplementation(
+        async (_url, _dest, options) => {
+          options?.onProgress?.({ bytesWritten: 50, totalBytes: 100 });
+          return { uri: "file:///test/path.mp3", size: 100 };
+        },
+      );
+
+      await cacheSongManually("song-progress", onProgressCallback);
+
+      expect(onProgressCallback).toHaveBeenCalledWith(0);
+      expect(onProgressCallback).toHaveBeenCalledWith(0.5);
+      expect(mockProgressListener).toHaveBeenCalledWith({
+        songId: "song-progress",
+        progress: 0.5,
+      });
+
+      unsubscribe();
+    });
+  });
+
+  describe("cancellation", () => {
+    it("should abort download and clean up file when cancelled", async () => {
+      (getSongById as jest.Mock).mockReturnValue({
+        id: "song-cancel",
+        title: "Cancel Track",
+        suffix: "mp3",
+      });
+      (getSongStreamUrl as jest.Mock).mockResolvedValue("https://example.com/stream");
+
+      let receivedSignal: AbortSignal | undefined;
+      (File.downloadFileAsync as jest.Mock).mockImplementation(
+        async (_url, _dest, options) => {
+          receivedSignal = options?.signal;
+          return new Promise((_resolve, reject) => {
+            options?.signal?.addEventListener("abort", () => {
+              const abortErr = new Error("The user aborted a request.");
+              abortErr.name = "AbortError";
+              reject(abortErr);
+            });
+          });
+        },
+      );
+
+      const downloadPromise = cacheSongManually("song-cancel");
+
+      // Yield event loop so downloadFileAsync gets invoked and receives signal
+      await new Promise<void>((r) => {
+        setImmediate(() => r());
+      });
+
+      expect(isSongCaching("song-cancel")).toBe(true);
+
+      const cancelled = cancelSongCaching("song-cancel");
+      expect(cancelled).toBe(true);
+      expect(receivedSignal?.aborted).toBe(true);
+
+      await expect(downloadPromise).rejects.toThrow("aborted");
+      expect(isSongCaching("song-cancel")).toBe(false);
+    });
+  });
+
+  describe("deleteSongFromCache", () => {
+    it("should delete cached file from disk and remove db record", async () => {
+      const mockEntry = {
+        songId: "song-del",
+        cacheType: SongCacheType.Manual,
+        filePath: "file:///data/user/0/manual-cache/song-del.mp3",
+        fileSizeBytes: 2048,
+        addedAt: "2026-09-06T12:00:00.000Z",
+        lastAccessedAt: null,
+      };
+
+      (getSongCacheEntry as jest.Mock).mockReturnValue(mockEntry);
+      const mockListener = jest.fn();
+      const unsubscribe = subscribeSongCache(mockListener);
+
+      await deleteSongFromCache("song-del");
+
+      expect(mockFileDelete).toHaveBeenCalled();
+      expect(deleteSongCacheEntry).toHaveBeenCalledWith("song-del");
+      expect(mockListener).toHaveBeenCalledWith({
+        songId: "song-del",
+        entry: null,
+      });
+
+      unsubscribe();
     });
   });
 });

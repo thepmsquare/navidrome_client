@@ -92,4 +92,15 @@ describe("db song_cache and song helpers", () => {
       );
     });
   });
+
+  describe("deleteSongCacheEntry", () => {
+    it("should delete song from song_cache", () => {
+      const { deleteSongCacheEntry } = jest.requireActual("@/services/db");
+      deleteSongCacheEntry("track-1");
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "DELETE FROM song_cache WHERE songId = ?",
+        ["track-1"],
+      );
+    });
+  });
 });

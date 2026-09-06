@@ -1,10 +1,19 @@
 # changelog
 
-## 2.8.0+34 (in progress)
+## 2.8.0+34
 
 - move logout to settings page.
 - add export button in settings page.
-- manually cache songs. (wip)
+- manually cache songs on music player page (and remove from cache).
+- playing songs from cache and steam will have different colors in the music players.
+- technical changes
+  - add seperate reusable component for cacheButton with mini variant.
+  - add layout file for auth group to fix warnings.
+  - player service now looks for cached songs to play from file instead of steam if available.
+  - cacheButton component has a progress bar for cache progress with cancel button.
+  - cacheButton component when manually cached will allow to remove the song from cache.
+  - add a switchToRemoteStream function if any playback error occurs while playing a cached file.
+  - add test cases for player and caching.
 
 ## 2.7.0+33
 

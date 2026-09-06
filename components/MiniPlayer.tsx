@@ -47,6 +47,7 @@ export function MiniPlayer() {
     repeatMode,
     hasPrevious,
     hasNext,
+    isPlayingFromCache,
   } = playerState;
 
   const progress = useMemo(() => {
@@ -95,7 +96,11 @@ export function MiniPlayer() {
     >
       <ProgressBar
         progress={progress}
-        color={theme.colors.primary}
+        color={
+          isPlayingFromCache
+            ? theme.colors.tertiary
+            : theme.colors.primary
+        }
         style={[
           miniPlayerStyles.progressBar,
           { backgroundColor: theme.colors.surfaceVariant },
