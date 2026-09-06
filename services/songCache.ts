@@ -1,8 +1,38 @@
 import { Directory, File, Paths } from "expo-file-system";
 
 import { getSongStreamUrl } from "@/services/api";
-import { getSongById, upsertSongCacheEntry } from "@/services/db";
-import { SongCacheType } from "@/types";
+import {
+  getSongById,
+  getSongCacheEntry,
+  upsertSongCacheEntry,
+} from "@/services/db";
+import { SongCacheRow, SongCacheType } from "@/types";
+
+type SongCacheListener = (event: {
+  songId: string;
+  entry: SongCacheRow;
+}) => void;
+const cacheListeners = new Set<SongCacheListener>();
+
+export function subscribeSongCache(listener: SongCacheListener): () => void {
+  cacheListeners.add(listener);
+  return () => {
+    cacheListeners.delete(listener);
+  };
+}
+
+export function notifySongCacheUpdated(
+  songId: string,
+  entry: SongCacheRow,
+): void {
+  cacheListeners.forEach((listener) => {
+    try {
+      listener({ songId, entry });
+    } catch (e) {
+      console.error("error in song cache listener:", e);
+    }
+  });
+}
 
 export async function cacheSongManually(songId: string): Promise<void> {
   const song = getSongById(songId);
@@ -32,4 +62,9 @@ export async function cacheSongManually(songId: string): Promise<void> {
     filePath,
     fileSizeBytes,
   );
+
+  const entry = getSongCacheEntry(songId);
+  if (entry) {
+    notifySongCacheUpdated(songId, entry);
+  }
 }

@@ -1,8 +1,12 @@
 import { File } from "expo-file-system";
 
 import { getSongStreamUrl } from "@/services/api";
-import { getSongById, upsertSongCacheEntry } from "@/services/db";
-import { cacheSongManually } from "@/services/songCache";
+import {
+  getSongById,
+  getSongCacheEntry,
+  upsertSongCacheEntry,
+} from "@/services/db";
+import { cacheSongManually, subscribeSongCache } from "@/services/songCache";
 import { SongCacheType } from "@/types";
 
 jest.mock("@/services/api", () => ({
@@ -11,6 +15,7 @@ jest.mock("@/services/api", () => ({
 
 jest.mock("@/services/db", () => ({
   getSongById: jest.fn(),
+  getSongCacheEntry: jest.fn(),
   upsertSongCacheEntry: jest.fn(),
 }));
 
@@ -110,4 +115,40 @@ describe("songCache service", () => {
       5000000,
     );
   });
+
+  it("should notify subscribers when song is cached", async () => {
+    const mockListener = jest.fn();
+    const unsubscribe = subscribeSongCache(mockListener);
+
+    const mockEntry = {
+      songId: "song-sub",
+      cacheType: SongCacheType.Manual,
+      filePath: "file:///test/path.mp3",
+      fileSizeBytes: 1000,
+      addedAt: "2026-09-06T12:00:00.000Z",
+      lastAccessedAt: null,
+    };
+
+    (getSongById as jest.Mock).mockReturnValue({
+      id: "song-sub",
+      title: "Subscribed Track",
+      suffix: "mp3",
+    });
+    (getSongStreamUrl as jest.Mock).mockResolvedValue("https://example.com/stream");
+    (File.downloadFileAsync as jest.Mock).mockResolvedValue({
+      uri: "file:///test/path.mp3",
+      size: 1000,
+    });
+    (getSongCacheEntry as jest.Mock).mockReturnValue(mockEntry);
+
+    await cacheSongManually("song-sub");
+
+    expect(mockListener).toHaveBeenCalledWith({
+      songId: "song-sub",
+      entry: mockEntry,
+    });
+
+    unsubscribe();
+  });
 });
+

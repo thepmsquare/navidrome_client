@@ -5,15 +5,14 @@ import { GestureResponderEvent, Pressable, View } from "react-native";
 import {
   ActivityIndicator,
   Avatar,
-  Button,
   IconButton,
   ProgressBar,
   Text,
   useTheme,
 } from "react-native-paper";
 
+import { SongCacheButton } from "@/components/SongCacheButton";
 import { getCoverArtBaseUrl } from "@/services/api";
-import { getSongCacheEntry } from "@/services/db";
 import {
   cycleRepeatMode,
   playNext,
@@ -22,9 +21,7 @@ import {
   togglePlayback,
   usePlayerState,
 } from "@/services/player";
-import { cacheSongManually } from "@/services/songCache";
 import { playerStyles } from "@/stylesheets";
-import { SongCacheRow, SongCacheType } from "@/types";
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds) || seconds < 0) return "0:00";
@@ -95,47 +92,6 @@ export default function PlayerScreen() {
       : repeatMode === "all"
         ? "repeat all"
         : "repeat off";
-
-  const [prevTrackId, setPrevTrackId] = useState<string | undefined>(undefined);
-  const [cacheEntry, setCacheEntry] = useState<SongCacheRow | null>(null);
-
-  if (currentTrack?.id !== prevTrackId) {
-    setPrevTrackId(currentTrack?.id);
-    setCacheEntry(currentTrack?.id ? getSongCacheEntry(currentTrack.id) : null);
-  }
-
-  const isManual = cacheEntry?.cacheType === SongCacheType.Manual;
-  const isAuto = cacheEntry?.cacheType === SongCacheType.Auto;
-
-  const handleCacheSong = async () => {
-    if (!currentTrack?.id || isManual) return;
-    try {
-      await cacheSongManually(currentTrack.id);
-      setCacheEntry(getSongCacheEntry(currentTrack.id));
-    } catch (err) {
-      console.error("failed to cache song manually:", err);
-    }
-  };
-
-  const cacheIcon = isManual
-    ? "check-circle"
-    : isAuto
-      ? "cached"
-      : "download-outline";
-
-  const cacheColor = isManual
-    ? theme.colors.primary
-    : isAuto
-      ? theme.colors.tertiary
-      : theme.colors.outline;
-
-  const cacheText = isManual
-    ? "available offline"
-    : isAuto
-      ? "temporarily available offline"
-      : "make available offline";
-
-
 
   if (!currentTrack) {
     return (
@@ -296,19 +252,7 @@ export default function PlayerScreen() {
         )}
 
         <View style={playerStyles.cacheButtonContainer}>
-          <Button
-            mode="text"
-            compact
-            icon={cacheIcon}
-            textColor={cacheColor}
-            onPress={isManual ? undefined : handleCacheSong}
-            style={playerStyles.cacheButton}
-            contentStyle={playerStyles.cacheButtonContent}
-            labelStyle={[playerStyles.cacheButtonLabel, { color: cacheColor }]}
-            accessibilityLabel={cacheText}
-          >
-            {cacheText}
-          </Button>
+          <SongCacheButton songId={currentTrack.id} />
         </View>
       </View>
 
