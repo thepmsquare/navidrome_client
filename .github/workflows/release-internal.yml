@@ -81,7 +81,7 @@ jobs:
           const MAX_LEN = 500;
           const suffix = '...\n+more';
           const notes = rawNotes.length > MAX_LEN
-            ? rawNotes.slice(0, MAX_LEN - suffix.length) + suffix
+            ? rawNotes.slice(0, MAX_LEN - suffix.length - 10) + suffix
             : rawNotes;
           console.log('Extracted release notes:\n' + notes);
 
