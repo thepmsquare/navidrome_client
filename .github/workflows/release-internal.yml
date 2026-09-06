@@ -26,8 +26,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24.18.1'
-          cache: 'npm'
+          node-version: "24.18.1"
+          cache: "npm"
 
       - name: Ensure npm version
         run: npm install -g npm@11.16.0
@@ -35,7 +35,7 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.3'
+          ruby-version: "3.3"
           bundler-cache: true
 
       - name: Evaluate Release Conditions
@@ -77,7 +77,12 @@ jobs:
           }
 
           // Extract bullet points (strip heading, preserve bullet lines)
-          const notes = lines.slice(1).join('\n').trim();
+          const rawNotes = lines.slice(1).join('\n').trim();
+          const MAX_LEN = 500;
+          const suffix = '...\n+more';
+          const notes = rawNotes.length > MAX_LEN
+            ? rawNotes.slice(0, MAX_LEN - suffix.length) + suffix
+            : rawNotes;
           console.log('Extracted release notes:\n' + notes);
 
           // 3. Query Google Play Store internal track version codes via fastlane
@@ -134,8 +139,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24.18.1'
-          cache: 'npm'
+          node-version: "24.18.1"
+          cache: "npm"
 
       - name: Ensure npm version
         run: npm install -g npm@11.16.0
@@ -146,15 +151,15 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.3'
+          ruby-version: "3.3"
           bundler-cache: true
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: 'gradle'
+          distribution: "temurin"
+          java-version: "17"
+          cache: "gradle"
 
       - name: Generate Android Native Project (Expo Prebuild)
         run: npx expo prebuild --platform android --no-install
