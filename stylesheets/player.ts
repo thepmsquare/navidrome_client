@@ -42,6 +42,15 @@ export const playerStyles = StyleSheet.create({
   infoContainer: {
     marginVertical: 12,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  titleTextContainer: {
+    flex: 1,
+    marginRight: 8,
+  },
   title: {
     fontWeight: "700",
     marginBottom: 4,

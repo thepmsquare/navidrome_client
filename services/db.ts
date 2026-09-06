@@ -1,6 +1,14 @@
 import * as SQLite from "expo-sqlite";
 
-import { AlbumID3, ArtistID3, Child, Playlist, Search3Counts } from "@/types";
+import {
+  AlbumID3,
+  ArtistID3,
+  Child,
+  Playlist,
+  Search3Counts,
+  SongCacheRow,
+  SongCacheType,
+} from "@/types";
 import { DB_NAME } from "@/utils/constants";
 
 let dbInstance: SQLite.SQLiteDatabase | null = null;
@@ -142,6 +150,17 @@ export function initDatabase(db: SQLite.SQLiteDatabase = getDb()): void {
     );
 
     CREATE INDEX IF NOT EXISTS idx_playlists_name ON playlists(name);
+
+    CREATE TABLE IF NOT EXISTS song_cache (
+      songId TEXT PRIMARY KEY,
+      cacheType TEXT NOT NULL CHECK (cacheType IN ('manual','auto')),
+      filePath TEXT NOT NULL,
+      fileSizeBytes INTEGER NOT NULL,
+      addedAt TEXT NOT NULL,
+      lastAccessedAt TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_song_cache_cacheType ON song_cache(cacheType);
   `);
 }
 
@@ -483,6 +502,7 @@ export function clearDatabase(): void {
     DELETE FROM songs;
     DELETE FROM playlists;
     DELETE FROM sync_meta;
+    DELETE FROM song_cache;
   `);
 }
 
@@ -531,6 +551,36 @@ export function getSongsByAlbumId(albumId: string): Child[] {
     [albumId],
   );
 }
+
+export function getSongById(id: string): Child | null {
+  const db = getDb();
+  return db.getFirstSync<Child>("SELECT * FROM songs WHERE id = ?", [id]);
+}
+
+export function upsertSongCacheEntry(
+  songId: string,
+  cacheType: SongCacheType,
+  filePath: string,
+  fileSizeBytes: number,
+): void {
+  const db = getDb();
+  const addedAt = new Date().toISOString();
+  db.runSync(
+    `INSERT OR REPLACE INTO song_cache (
+      songId, cacheType, filePath, fileSizeBytes, addedAt, lastAccessedAt
+    ) VALUES (?, ?, ?, ?, ?, ?)`,
+    [songId, cacheType, filePath, fileSizeBytes, addedAt, null],
+  );
+}
+
+export function getSongCacheEntry(songId: string): SongCacheRow | null {
+  const db = getDb();
+  return db.getFirstSync<SongCacheRow>(
+    "SELECT * FROM song_cache WHERE songId = ?",
+    [songId],
+  );
+}
+
 
 
 

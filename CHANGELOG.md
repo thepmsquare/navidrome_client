@@ -4,6 +4,7 @@
 
 - move logout to settings page.
 - add export button in settings page.
+- manually cache songs. (wip)
 
 ## 2.7.0+33
 
