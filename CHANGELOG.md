@@ -1,5 +1,9 @@
 # changelog
 
+## 2.9.0+35 (in progress)
+
+- update ui for connect screen.
+
 ## 2.8.0+34
 
 - move logout to settings page.

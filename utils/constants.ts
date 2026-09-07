@@ -1,6 +1,7 @@
 import appConstants from './constants.json';
 
 export const APP_SHORT_NAME = appConstants.APP_SHORT_NAME;
+export const APP_SUBTITLE = appConstants.APP_SUBTITLE;
 export const APP_FULL_NAME = appConstants.APP_FULL_NAME;
 export const APP_SLUG = appConstants.APP_SLUG;
 export const APP_SCHEME = appConstants.APP_SCHEME;
