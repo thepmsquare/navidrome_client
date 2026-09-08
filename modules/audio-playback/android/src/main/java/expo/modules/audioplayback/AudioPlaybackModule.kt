@@ -86,7 +86,6 @@ class AudioPlaybackModule : Module() {
     OnCreate {
       val context = getContext()
       if (context != null) {
-        ensureServiceStarted(context)
         bindService(context)
       }
     }
@@ -115,7 +114,6 @@ class AudioPlaybackModule : Module() {
 
           val context = getContext()
           if (context != null) {
-            ensureServiceStarted(context)
             bindService(context)
           }
 
@@ -276,10 +274,6 @@ class AudioPlaybackModule : Module() {
 
   private fun getContext(): Context? {
     return appContext.reactContext
-  }
-
-  private fun ensureServiceStarted(context: Context) {
-    AudioPlaybackService.startService(context)
   }
 
   private fun bindService(context: Context) {

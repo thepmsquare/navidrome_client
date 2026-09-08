@@ -3,6 +3,8 @@
 ## 2.9.0+35 (in progress)
 
 - update ui for connect screen.
+- technical changes
+  - make changes to audio playback foreground service to fix ANR.
 
 ## 2.8.0+34
 

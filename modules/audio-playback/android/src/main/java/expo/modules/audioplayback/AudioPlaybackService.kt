@@ -103,10 +103,10 @@ class AudioPlaybackService : Service() {
 
     fun startService(context: Context) {
       val intent = Intent(context, AudioPlaybackService::class.java)
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        context.startForegroundService(intent)
-      } else {
+      try {
         context.startService(intent)
+      } catch (e: Exception) {
+        android.util.Log.w(TAG, "Failed to start service: ${e.message}")
       }
     }
   }
@@ -518,6 +518,12 @@ class AudioPlaybackService : Service() {
   private fun startAsForegroundService() {
     val notification = buildNotification() ?: return
     try {
+      try {
+        startService(Intent(this, AudioPlaybackService::class.java))
+      } catch (e: Exception) {
+        android.util.Log.w(TAG, "Failed to call startService: ${e.message}")
+      }
+
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         ServiceCompat.startForeground(
           this,
