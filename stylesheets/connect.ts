@@ -23,10 +23,6 @@ export const connectStyles = StyleSheet.create({
     borderRadius: 16,
   },
   form: { padding: "2.5%", borderRadius: 16, gap: 16, paddingVertical: 16 },
-  progressBar: {
-    height: 6,
-    borderRadius: 3,
-  },
   icon: {
     width: 96,
     height: 96,

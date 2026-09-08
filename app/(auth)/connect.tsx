@@ -6,13 +6,14 @@ import { useState } from "react";
 import { Alert, ScrollView, View } from "react-native";
 import {
   Button,
-  ProgressBar,
   Snackbar,
   Surface,
   Text,
   TextInput,
   useTheme,
 } from "react-native-paper";
+
+import { ConnectProgress } from "@/components/ConnectProgress";
 
 import { login, ping } from "@/services/api";
 import { pickProfileFile } from "@/services/backup";
@@ -198,109 +199,105 @@ export default function ConnectScreen() {
 
         <View style={connectStyles.formGroup}>
           <Text variant="titleLarge">connect to your server</Text>
-          {connectStage === "ping" ? (
-            <Surface elevation={2} style={connectStyles.form}>
-              <ProgressBar
-                progress={0.5}
-                color={theme.colors.primary}
-                style={connectStyles.progressBar}
-              />
-              <TextInput
-                mode="outlined"
-                label="server url"
-                value={serverUrl}
-                onChangeText={setServerUrl}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="url"
-                returnKeyType="go"
-                onSubmitEditing={handlePing}
-                autoFocus
-                left={<TextInput.Icon icon="web" />}
-                right={
-                  serverUrl !== "https://" ? (
-                    <TextInput.Icon
-                      icon="close-circle-outline"
-                      onPress={handleClear}
-                      accessibilityLabel="clear"
-                    />
-                  ) : (
-                    <TextInput.Icon
-                      icon="content-paste"
-                      onPress={handlePaste}
-                      accessibilityLabel="paste from clipboard"
-                    />
-                  )
-                }
-              />
-              <View style={connectStyles.inputActionsRow}>
+          <Surface elevation={2} style={connectStyles.form}>
+            <ConnectProgress
+              stage={connectStage}
+              loading={loading || importing}
+            />
+            {connectStage === "ping" ? (
+              <>
+                <TextInput
+                  mode="outlined"
+                  label="server url"
+                  value={serverUrl}
+                  onChangeText={setServerUrl}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                  returnKeyType="go"
+                  onSubmitEditing={handlePing}
+                  autoFocus
+                  left={<TextInput.Icon icon="web" />}
+                  right={
+                    serverUrl !== "https://" ? (
+                      <TextInput.Icon
+                        icon="close-circle-outline"
+                        onPress={handleClear}
+                        accessibilityLabel="clear"
+                      />
+                    ) : (
+                      <TextInput.Icon
+                        icon="content-paste"
+                        onPress={handlePaste}
+                        accessibilityLabel="paste from clipboard"
+                      />
+                    )
+                  }
+                />
+                <View style={connectStyles.inputActionsRow}>
+                  <Button
+                    mode="text"
+                    compact
+                    icon="content-paste"
+                    onPress={handlePaste}
+                    disabled={loading || importing}
+                  >
+                    paste from clipboard
+                  </Button>
+                </View>
+                <Button
+                  mode="contained"
+                  onPress={handlePing}
+                  disabled={isConnectDisabled}
+                  loading={loading}
+                >
+                  {loading ? "connecting..." : "connect"}
+                </Button>
+                <Button
+                  mode="outlined"
+                  onPress={handleImportProfile}
+                  disabled={loading || importing}
+                  loading={importing}
+                  icon="file-import"
+                >
+                  {importing ? "importing profile..." : "import profile"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <TextInput
+                  label="username"
+                  value={username}
+                  onChangeText={setUsername}
+                  autoCapitalize="none"
+                />
+                <TextInput
+                  label="password"
+                  value={password}
+                  onChangeText={setPassword}
+                  autoCapitalize="none"
+                  secureTextEntry
+                />
+
+                <Button
+                  mode="contained"
+                  onPress={handleLogin}
+                  disabled={loading || !username.trim() || !password.trim()}
+                  loading={loading}
+                >
+                  {loading ? "logging in..." : "login"}
+                </Button>
                 <Button
                   mode="text"
-                  compact
-                  icon="content-paste"
-                  onPress={handlePaste}
-                  disabled={loading || importing}
+                  onPress={() => setConnectStage("ping")}
+                  disabled={loading}
+                  icon="arrow-left"
                 >
-                  paste from clipboard
+                  change server url
                 </Button>
-              </View>
-              <Button
-                mode="contained"
-                onPress={handlePing}
-                disabled={isConnectDisabled}
-                loading={loading}
-              >
-                {loading ? "connecting..." : "connect"}
-              </Button>
-              <Button
-                mode="outlined"
-                onPress={handleImportProfile}
-                disabled={loading || importing}
-                loading={importing}
-                icon="file-import"
-              >
-                {importing ? "importing profile..." : "import profile"}
-              </Button>
-            </Surface>
-          ) : (
-            <Surface elevation={2} style={connectStyles.form}>
-              <ProgressBar
-                progress={1}
-                color={theme.colors.primary}
-                style={connectStyles.progressBar}
-              />
-              <TextInput
-                label="username"
-                value={username}
-                onChangeText={setUsername}
-                autoCapitalize="none"
-              />
-              <TextInput
-                label="password"
-                value={password}
-                onChangeText={setPassword}
-                autoCapitalize="none"
-                secureTextEntry
-              />
-
-              <Button
-                mode="contained"
-                onPress={handleLogin}
-                disabled={loading || !username.trim() || !password.trim()}
-                loading={loading}
-              >
-                {loading ? "logging in..." : "login"}
-              </Button>
-              <Button
-                mode="text"
-                onPress={() => setConnectStage("ping")}
-                disabled={loading}
-                icon="arrow-left"
-              >
-                change server url
-              </Button>
-            </Surface>
-          )}
+              </>
+            )}
+          </Surface>
         </View>
 
         <View
