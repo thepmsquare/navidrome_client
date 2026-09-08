@@ -1,3 +1,4 @@
+import * as Clipboard from "expo-clipboard";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
@@ -6,6 +7,7 @@ import { Alert, ScrollView, View } from "react-native";
 import {
   Button,
   ProgressBar,
+  Snackbar,
   Surface,
   Text,
   TextInput,
@@ -20,23 +22,58 @@ import { APP_SHORT_NAME, APP_SUBTITLE } from "@/utils/constants";
 export default function ConnectScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const [serverUrl, setServerUrl] = useState("");
+  const [serverUrl, setServerUrl] = useState("https://");
   const [loading, setLoading] = useState(false);
   const [connectStage, setConnectStage] = useState<ConnectStage>("ping");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+
+  function showSnackbar(message: string) {
+    setSnackbarMessage(message);
+    setSnackbarVisible(true);
+  }
+
+  async function handlePaste() {
+    try {
+      const text = await Clipboard.getStringAsync();
+      const trimmed = text?.trim();
+      if (!trimmed) {
+        showSnackbar("clipboard is empty");
+        return;
+      }
+      if (/^https?:\/\//i.test(trimmed)) {
+        setServerUrl(trimmed);
+      } else {
+        setServerUrl(`https://${trimmed}`);
+      }
+      showSnackbar("url pasted from clipboard");
+    } catch (error: any) {
+      showSnackbar(error?.message || "could not read clipboard");
+    }
+  }
+
+  function handleClear() {
+    setServerUrl("https://");
+  }
 
   async function handlePing() {
-    if (!serverUrl) {
+    let targetUrl = serverUrl.trim();
+    if (!targetUrl || targetUrl === "https://" || targetUrl === "http://") {
       Alert.alert("error", "please fill in all fields");
       return;
+    }
+    if (!/^https?:\/\//i.test(targetUrl)) {
+      targetUrl = `https://${targetUrl}`;
+      setServerUrl(targetUrl);
     }
     setLoading(true);
 
     try {
-      let pingResponse = await ping(serverUrl);
+      let pingResponse = await ping(targetUrl);
       await SecureStore.setItemAsync("subsonicVersion", pingResponse.version);
-      await SecureStore.setItemAsync("serverUrl", serverUrl);
+      await SecureStore.setItemAsync("serverUrl", targetUrl);
       setConnectStage("login");
     } catch (error: any) {
       Alert.alert("ping failed", error.message || "could not ping");
@@ -67,6 +104,12 @@ export default function ConnectScreen() {
       setLoading(false);
     }
   }
+
+  const isConnectDisabled =
+    loading ||
+    !serverUrl.trim() ||
+    serverUrl.trim() === "https://" ||
+    serverUrl.trim() === "http://";
 
   return (
     <Surface style={connectStyles.page}>
@@ -108,13 +151,51 @@ export default function ConnectScreen() {
                 style={connectStyles.progressBar}
               />
               <TextInput
+                mode="outlined"
                 label="server url"
                 value={serverUrl}
                 onChangeText={setServerUrl}
                 autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                returnKeyType="go"
+                onSubmitEditing={handlePing}
+                autoFocus
+                left={<TextInput.Icon icon="web" />}
+                right={
+                  serverUrl !== "https://" ? (
+                    <TextInput.Icon
+                      icon="close-circle-outline"
+                      onPress={handleClear}
+                      accessibilityLabel="clear"
+                    />
+                  ) : (
+                    <TextInput.Icon
+                      icon="content-paste"
+                      onPress={handlePaste}
+                      accessibilityLabel="paste from clipboard"
+                    />
+                  )
+                }
               />
-              <Button mode="contained" onPress={handlePing} disabled={loading}>
-                {loading ? "loading..." : "next"}
+              <View style={connectStyles.inputActionsRow}>
+                <Button
+                  mode="text"
+                  compact
+                  icon="content-paste"
+                  onPress={handlePaste}
+                  disabled={loading}
+                >
+                  paste from clipboard
+                </Button>
+              </View>
+              <Button
+                mode="contained"
+                onPress={handlePing}
+                disabled={isConnectDisabled}
+                loading={loading}
+              >
+                {loading ? "connecting..." : "connect"}
               </Button>
             </Surface>
           ) : (
@@ -138,8 +219,21 @@ export default function ConnectScreen() {
                 secureTextEntry
               />
 
-              <Button mode="contained" onPress={handleLogin} disabled={loading}>
-                {loading ? "loading..." : "login"}
+              <Button
+                mode="contained"
+                onPress={handleLogin}
+                disabled={loading || !username.trim() || !password.trim()}
+                loading={loading}
+              >
+                {loading ? "logging in..." : "login"}
+              </Button>
+              <Button
+                mode="text"
+                onPress={() => setConnectStage("ping")}
+                disabled={loading}
+                icon="arrow-left"
+              >
+                change server url
               </Button>
             </Surface>
           )}
@@ -152,6 +246,13 @@ export default function ConnectScreen() {
           ]}
         />
       </ScrollView>
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={2500}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </Surface>
   );
 }

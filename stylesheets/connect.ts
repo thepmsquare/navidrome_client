@@ -42,4 +42,10 @@ export const connectStyles = StyleSheet.create({
   appSubtitle: {
     textAlign: "center",
   },
+  inputActionsRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    marginTop: -8,
+  },
 });
