@@ -1,11 +1,12 @@
 # changelog
 
-## 2.9.0+35 (in progress)
+## 2.9.0+35
 
 - update ui for connect screen.
 - add import profile functionality on connect screen.
 - technical changes
   - make changes to audio playback foreground service to fix ANR.
+  - add test cases for import and export.
 
 ## 2.8.0+34
 
