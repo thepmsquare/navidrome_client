@@ -15,6 +15,7 @@ import {
 } from "react-native-paper";
 
 import { login, ping } from "@/services/api";
+import { pickProfileFile } from "@/services/backup";
 import { connectStyles } from "@/stylesheets";
 import { ConnectStage } from "@/types";
 import { APP_SHORT_NAME, APP_SUBTITLE } from "@/utils/constants";
@@ -24,6 +25,7 @@ export default function ConnectScreen() {
   const theme = useTheme();
   const [serverUrl, setServerUrl] = useState("https://");
   const [loading, setLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [connectStage, setConnectStage] = useState<ConnectStage>("ping");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -105,8 +107,61 @@ export default function ConnectScreen() {
     }
   }
 
+  async function handleImportProfile() {
+    try {
+      const profile = await pickProfileFile();
+      if (!profile) {
+        return;
+      }
+
+      let targetUrl = profile.server_url.trim();
+      if (!/^https?:\/\//i.test(targetUrl)) {
+        targetUrl = `https://${targetUrl}`;
+      }
+
+      setImporting(true);
+
+      const pingResponse = await ping(targetUrl);
+      await SecureStore.setItemAsync("subsonicVersion", pingResponse.version);
+      await SecureStore.setItemAsync("serverUrl", targetUrl);
+
+      await login({
+        serverUrl: targetUrl,
+        username: profile.username,
+        password: profile.password,
+      });
+
+      await SecureStore.setItemAsync("username", profile.username);
+      await SecureStore.setItemAsync("password", profile.password);
+
+      if (profile.stop_playback_on_task_removed !== undefined) {
+        await SecureStore.setItemAsync(
+          "stop_playback_on_task_removed",
+          String(profile.stop_playback_on_task_removed),
+        );
+      }
+
+      if (profile.home_sections !== undefined) {
+        await SecureStore.setItemAsync(
+          "home_sections",
+          JSON.stringify(profile.home_sections),
+        );
+      }
+
+      router.replace("/");
+    } catch (error: any) {
+      Alert.alert(
+        "import failed",
+        error?.message || "could not import profile",
+      );
+    } finally {
+      setImporting(false);
+    }
+  }
+
   const isConnectDisabled =
     loading ||
+    importing ||
     !serverUrl.trim() ||
     serverUrl.trim() === "https://" ||
     serverUrl.trim() === "http://";
@@ -184,7 +239,7 @@ export default function ConnectScreen() {
                   compact
                   icon="content-paste"
                   onPress={handlePaste}
-                  disabled={loading}
+                  disabled={loading || importing}
                 >
                   paste from clipboard
                 </Button>
@@ -196,6 +251,15 @@ export default function ConnectScreen() {
                 loading={loading}
               >
                 {loading ? "connecting..." : "connect"}
+              </Button>
+              <Button
+                mode="outlined"
+                onPress={handleImportProfile}
+                disabled={loading || importing}
+                loading={importing}
+                icon="file-import"
+              >
+                {importing ? "importing profile..." : "import profile"}
               </Button>
             </Surface>
           ) : (

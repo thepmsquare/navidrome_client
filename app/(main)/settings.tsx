@@ -45,7 +45,7 @@ export default function SettingsScreen() {
           disabled={exporting}
           icon="file-export"
         >
-          export
+          export profile
         </Button>
 
         <Button
