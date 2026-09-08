@@ -3,6 +3,7 @@
 ## 2.9.0+35 (in progress)
 
 - update ui for connect screen.
+- add import profile functionality on connect screen.
 - technical changes
   - make changes to audio playback foreground service to fix ANR.
 

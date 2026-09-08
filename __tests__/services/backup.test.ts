@@ -6,6 +6,7 @@ import {
   createBackupData,
   exportBackupToFile,
   formatExportDate,
+  parseProfileData,
 } from "@/services/backup";
 import { APP_IDENTIFIER, BACKUP_VERSION } from "@/utils/constants";
 
@@ -121,6 +122,68 @@ describe("backup service", () => {
 
       expect(result.success).toBe(false);
       expect(result.cancelled).toBe(true);
+    });
+  });
+
+  describe("parseProfileData", () => {
+    it("should successfully parse valid profile JSON matching user format", () => {
+      const sampleJson = JSON.stringify({
+        app_identifier: "navidrome_client_backup",
+        server_url: "https://songs.thepmsquare.com",
+        username: "thepmsquare",
+        password: "Imhphdnri!1",
+        stop_playback_on_task_removed: true,
+        home_sections: [
+          { id: "most_played", visible: true },
+          { id: "random_tracks", visible: true },
+          { id: "recently_played", visible: true },
+          { id: "random_albums", visible: false },
+          { id: "newly_added_releases", visible: false },
+          { id: "recently_released", visible: false },
+        ],
+        export_date: "2026-06-27T16:22:38.368390",
+        version: 1,
+      });
+
+      const parsed = parseProfileData(sampleJson);
+
+      expect(parsed.app_identifier).toBe("navidrome_client_backup");
+      expect(parsed.server_url).toBe("https://songs.thepmsquare.com");
+      expect(parsed.username).toBe("thepmsquare");
+      expect(parsed.password).toBe("Imhphdnri!1");
+      expect(parsed.stop_playback_on_task_removed).toBe(true);
+      expect(parsed.home_sections).toHaveLength(6);
+      expect(parsed.home_sections?.[0]).toEqual({
+        id: "most_played",
+        visible: true,
+      });
+      expect(parsed.version).toBe(1);
+    });
+
+    it("should throw on invalid JSON", () => {
+      expect(() => parseProfileData("invalid json")).toThrow("invalid json format");
+    });
+
+    it("should throw on invalid app identifier", () => {
+      const wrongIdentifier = JSON.stringify({
+        app_identifier: "wrong_app",
+        server_url: "https://example.com",
+        username: "u",
+        password: "p",
+      });
+      expect(() => parseProfileData(wrongIdentifier)).toThrow(
+        "invalid backup file identifier",
+      );
+    });
+
+    it("should throw on missing credentials", () => {
+      const missingCredentials = JSON.stringify({
+        app_identifier: "navidrome_client_backup",
+        server_url: "https://example.com",
+      });
+      expect(() => parseProfileData(missingCredentials)).toThrow(
+        "missing required server credentials in profile",
+      );
     });
   });
 });

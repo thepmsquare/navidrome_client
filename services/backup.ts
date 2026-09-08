@@ -1,5 +1,6 @@
-import { Directory } from "expo-file-system";
-import { StorageAccessFramework } from "expo-file-system/legacy";
+import * as DocumentPicker from "expo-document-picker";
+import { Directory, File } from "expo-file-system";
+import { readAsStringAsync, StorageAccessFramework } from "expo-file-system/legacy";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
@@ -86,3 +87,64 @@ export async function exportBackupToFile(): Promise<ExportResult> {
     };
   }
 }
+
+export function parseProfileData(jsonString: string): BackupData {
+  let data: any;
+  try {
+    data = JSON.parse(jsonString);
+  } catch {
+    throw new Error("invalid json format");
+  }
+
+  if (!data || typeof data !== "object") {
+    throw new Error("invalid profile format");
+  }
+
+  if (data.app_identifier !== APP_IDENTIFIER) {
+    throw new Error("invalid backup file identifier");
+  }
+
+  const server_url = data.server_url || data.serverUrl;
+  const username = data.username;
+  const password = data.password;
+
+  if (!server_url || !username || !password) {
+    throw new Error("missing required server credentials in profile");
+  }
+
+  return {
+    app_identifier: data.app_identifier,
+    server_url,
+    username,
+    password,
+    stop_playback_on_task_removed: data.stop_playback_on_task_removed,
+    home_sections: Array.isArray(data.home_sections)
+      ? data.home_sections
+      : undefined,
+    export_date: data.export_date || "",
+    version: typeof data.version === "number" ? data.version : BACKUP_VERSION,
+  };
+}
+
+export async function pickProfileFile(): Promise<BackupData | null> {
+  const result = await DocumentPicker.getDocumentAsync({
+    type: ["application/json", "text/json", "*/*"],
+    copyToCacheDirectory: true,
+  });
+
+  if (result.canceled || !result.assets || result.assets.length === 0) {
+    return null;
+  }
+
+  const asset = result.assets[0];
+  let content = "";
+  try {
+    content = await readAsStringAsync(asset.uri);
+  } catch {
+    const file = new File(asset.uri);
+    content = await file.text();
+  }
+
+  return parseProfileData(content);
+}
+
