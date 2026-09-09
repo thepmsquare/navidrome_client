@@ -44,4 +44,14 @@ export const connectStyles = StyleSheet.create({
     alignItems: "center",
     marginTop: -8,
   },
+  serverInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  serverInfoText: {
+    flex: 1,
+  },
 });

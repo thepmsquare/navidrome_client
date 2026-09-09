@@ -2,10 +2,11 @@ import * as Clipboard from "expo-clipboard";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Alert, ScrollView, View } from "react-native";
 import {
   Button,
+  Icon,
   Snackbar,
   Surface,
   Text,
@@ -30,6 +31,8 @@ export default function ConnectScreen() {
   const [connectStage, setConnectStage] = useState<ConnectStage>("ping");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const passwordInputRef = useRef<any>(null);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
 
@@ -213,13 +216,17 @@ export default function ConnectScreen() {
                   onChangeText={setServerUrl}
                   autoCapitalize="none"
                   autoCorrect={false}
+                  autoComplete="url"
+                  textContentType="URL"
                   keyboardType="url"
                   returnKeyType="go"
                   onSubmitEditing={handlePing}
                   autoFocus
-                  left={<TextInput.Icon icon="web" />}
+                  left={<TextInput.Icon icon="server" />}
                   right={
-                    serverUrl !== "https://" ? (
+                    serverUrl !== "https://" &&
+                    serverUrl !== "http://" &&
+                    serverUrl !== "" ? (
                       <TextInput.Icon
                         icon="close-circle-outline"
                         onPress={handleClear}
@@ -265,18 +272,71 @@ export default function ConnectScreen() {
               </>
             ) : (
               <>
+                <View style={connectStyles.serverInfoRow}>
+                  <Icon
+                    source="server"
+                    size={18}
+                    color={theme.colors.onSurfaceVariant}
+                  />
+                  <Text
+                    variant="bodySmall"
+                    numberOfLines={1}
+                    ellipsizeMode="middle"
+                    style={[
+                      connectStyles.serverInfoText,
+                      { color: theme.colors.onSurfaceVariant },
+                    ]}
+                  >
+                    {serverUrl}
+                  </Text>
+                </View>
+
                 <TextInput
+                  mode="outlined"
                   label="username"
                   value={username}
                   onChangeText={setUsername}
                   autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="username"
+                  textContentType="username"
+                  returnKeyType="next"
+                  onSubmitEditing={() => passwordInputRef.current?.focus()}
+                  autoFocus
+                  left={<TextInput.Icon icon="account" />}
+                  right={
+                    username ? (
+                      <TextInput.Icon
+                        icon="close-circle-outline"
+                        onPress={() => setUsername("")}
+                        accessibilityLabel="clear username"
+                      />
+                    ) : null
+                  }
                 />
                 <TextInput
+                  ref={passwordInputRef}
+                  mode="outlined"
                   label="password"
                   value={password}
                   onChangeText={setPassword}
                   autoCapitalize="none"
-                  secureTextEntry
+                  autoCorrect={false}
+                  autoComplete="password"
+                  textContentType="password"
+                  secureTextEntry={!showPassword}
+                  returnKeyType="go"
+                  onSubmitEditing={handleLogin}
+                  left={<TextInput.Icon icon="lock" />}
+                  right={
+                    <TextInput.Icon
+                      icon={showPassword ? "eye-off" : "eye"}
+                      onPress={() => setShowPassword((prev) => !prev)}
+                      accessibilityLabel={
+                        showPassword ? "hide password" : "show password"
+                      }
+                    />
+                  }
                 />
 
                 <Button

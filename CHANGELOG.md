@@ -1,5 +1,9 @@
 # changelog
 
+## 2.10.0+36 (in progress)
+
+- update ui for connect screen stage 2.
+
 ## 2.9.0+35
 
 - update ui for connect screen.
