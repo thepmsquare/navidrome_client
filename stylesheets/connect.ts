@@ -4,6 +4,12 @@ export const connectStyles = StyleSheet.create({
   page: {
     flex: 1,
   },
+  helpButtonContainer: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    zIndex: 10,
+  },
   scrollContent: {
     flexGrow: 1,
     justifyContent: "space-around",
@@ -17,10 +23,25 @@ export const connectStyles = StyleSheet.create({
   formGroup: {
     gap: 12,
   },
-  dummyGroup: {
-    height: 200,
-    width: "100%",
+  aboutGroup: {
+    gap: 12,
+  },
+  aboutCard: {
+    padding: "4%",
     borderRadius: 16,
+    gap: 12,
+    paddingVertical: 16,
+  },
+  aboutActions: {
+    gap: 8,
+    marginTop: 4,
+  },
+  aboutSecondaryRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  aboutSecondaryButton: {
+    flex: 1,
   },
   form: { padding: "2.5%", borderRadius: 16, gap: 16, paddingVertical: 16 },
   icon: {

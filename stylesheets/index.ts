@@ -2,6 +2,7 @@ export * from "./connect";
 export * from "./home";
 export * from "./layout";
 export * from "./library";
+export * from "./learnMore";
 export * from "./miniPlayer";
 export * from "./player";
 export * from "./settings";

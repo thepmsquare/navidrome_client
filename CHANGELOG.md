@@ -1,8 +1,11 @@
 # changelog
 
-## 2.10.0+36 (in progress)
+## 2.10.0+36
 
 - update ui for connect screen stage 2.
+- add "new to navidrome?" section on connect screen.
+- add learn more page.
+- add demo mode.
 
 ## 2.9.0+35
 
