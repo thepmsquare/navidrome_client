@@ -3,10 +3,11 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useRef, useState } from "react";
-import { Alert, ScrollView, View } from "react-native";
+import { Alert, Linking, ScrollView, View } from "react-native";
 import {
   Button,
   Icon,
+  IconButton,
   Snackbar,
   Surface,
   Text,
@@ -28,6 +29,7 @@ export default function ConnectScreen() {
   const [serverUrl, setServerUrl] = useState("https://");
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   const [connectStage, setConnectStage] = useState<ConnectStage>("ping");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -163,15 +165,67 @@ export default function ConnectScreen() {
     }
   }
 
+  async function handleTryDemo() {
+    setDemoLoading(true);
+    const demoUrl = "https://demo.navidrome.org";
+    const demoUser = "demo";
+    const demoPass = "demo";
+
+    try {
+      const pingResponse = await ping(demoUrl);
+      await SecureStore.setItemAsync("subsonicVersion", pingResponse.version);
+      await SecureStore.setItemAsync("serverUrl", demoUrl);
+
+      await login({
+        serverUrl: demoUrl,
+        username: demoUser,
+        password: demoPass,
+      });
+
+      await SecureStore.setItemAsync("username", demoUser);
+      await SecureStore.setItemAsync("password", demoPass);
+
+      router.replace("/");
+    } catch (error: any) {
+      Alert.alert(
+        "demo login failed",
+        error?.message || "could not connect to demo server",
+      );
+    } finally {
+      setDemoLoading(false);
+    }
+  }
+
+  async function handleVisitWebsite() {
+    try {
+      await Linking.openURL("https://www.navidrome.org");
+    } catch {
+      Alert.alert("error", "could not open website");
+    }
+  }
+
+  function handleLearnMore() {
+    router.push("/learn-more");
+  }
+
   const isConnectDisabled =
     loading ||
     importing ||
+    demoLoading ||
     !serverUrl.trim() ||
     serverUrl.trim() === "https://" ||
     serverUrl.trim() === "http://";
 
   return (
     <Surface style={connectStyles.page}>
+      <View style={connectStyles.helpButtonContainer}>
+        <IconButton
+          icon="help-circle-outline"
+          size={24}
+          onPress={handleLearnMore}
+          accessibilityLabel="learn more"
+        />
+      </View>
       <ScrollView
         contentContainerStyle={connectStyles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -247,7 +301,7 @@ export default function ConnectScreen() {
                     compact
                     icon="content-paste"
                     onPress={handlePaste}
-                    disabled={loading || importing}
+                    disabled={loading || importing || demoLoading}
                   >
                     paste from clipboard
                   </Button>
@@ -263,7 +317,7 @@ export default function ConnectScreen() {
                 <Button
                   mode="outlined"
                   onPress={handleImportProfile}
-                  disabled={loading || importing}
+                  disabled={loading || importing || demoLoading}
                   loading={importing}
                   icon="file-import"
                 >
@@ -342,7 +396,7 @@ export default function ConnectScreen() {
                 <Button
                   mode="contained"
                   onPress={handleLogin}
-                  disabled={loading || !username.trim() || !password.trim()}
+                  disabled={loading || demoLoading || !username.trim() || !password.trim()}
                   loading={loading}
                 >
                   {loading ? "logging in..." : "login"}
@@ -350,7 +404,7 @@ export default function ConnectScreen() {
                 <Button
                   mode="text"
                   onPress={() => setConnectStage("ping")}
-                  disabled={loading}
+                  disabled={loading || demoLoading}
                   icon="arrow-left"
                 >
                   change server url
@@ -360,12 +414,48 @@ export default function ConnectScreen() {
           </Surface>
         </View>
 
-        <View
-          style={[
-            connectStyles.dummyGroup,
-            { backgroundColor: theme.colors.primary },
-          ]}
-        />
+        <View style={connectStyles.aboutGroup}>
+          <Text variant="titleLarge">new to navidrome?</Text>
+          <Surface elevation={2} style={connectStyles.aboutCard}>
+            <Text
+              variant="bodyMedium"
+              style={{ color: theme.colors.onSurfaceVariant }}
+            >
+              get started by exploring a live demo, learning how it works, or visiting the official website.
+            </Text>
+            <View style={connectStyles.aboutActions}>
+              <Button
+                mode="contained"
+                icon="play-circle-outline"
+                onPress={handleTryDemo}
+                loading={demoLoading}
+                disabled={loading || importing || demoLoading}
+              >
+                try demo
+              </Button>
+              <View style={connectStyles.aboutSecondaryRow}>
+                <Button
+                  mode="outlined"
+                  icon="information-outline"
+                  onPress={handleLearnMore}
+                  disabled={loading || importing || demoLoading}
+                  style={connectStyles.aboutSecondaryButton}
+                >
+                  learn more
+                </Button>
+                <Button
+                  mode="outlined"
+                  icon="web"
+                  onPress={handleVisitWebsite}
+                  disabled={loading || importing || demoLoading}
+                  style={connectStyles.aboutSecondaryButton}
+                >
+                  visit website
+                </Button>
+              </View>
+            </View>
+          </Surface>
+        </View>
       </ScrollView>
       <Snackbar
         visible={snackbarVisible}

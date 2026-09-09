@@ -41,11 +41,13 @@ export default function RootLayout() {
   useEffect(() => {
     if (isLoading) return;
 
-    const onConnectPage = (segments as string[]).includes("connect");
+    const isAuthRoute =
+      (segments as string[]).includes("(auth)") ||
+      (segments as string[]).includes("connect");
 
-    if (!isLoggedIn && !onConnectPage) {
+    if (!isLoggedIn && !isAuthRoute) {
       router.replace("/connect");
-    } else if (isLoggedIn && onConnectPage) {
+    } else if (isLoggedIn && isAuthRoute) {
       router.replace("/");
     }
   }, [isLoggedIn, isLoading, segments, router]);
@@ -58,9 +60,11 @@ export default function RootLayout() {
     [colorScheme, theme],
   );
 
-  const onConnectPage = (segments as string[]).includes("connect");
+  const isAuthRoute =
+    (segments as string[]).includes("(auth)") ||
+    (segments as string[]).includes("connect");
   const routeMatchesAuth =
-    (!isLoggedIn && onConnectPage) || (isLoggedIn && !onConnectPage);
+    (!isLoggedIn && isAuthRoute) || (isLoggedIn && !isAuthRoute);
   const showSpinner = isLoading || !routeMatchesAuth;
 
   return (
