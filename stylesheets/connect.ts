@@ -1,57 +1,49 @@
 import { StyleSheet } from "react-native";
 
+import { spacing } from "@/utils/spacing";
+
 export const connectStyles = StyleSheet.create({
   page: {
     flex: 1,
   },
-  helpButtonContainer: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    zIndex: 10,
-  },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: "space-around",
-    paddingHorizontal: "2.5%",
-    paddingVertical: 24,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.lg,
+    gap: spacing.lg,
   },
   brandingGroup: {
     alignItems: "center",
-    gap: 12,
-  },
-  formGroup: {
-    gap: 12,
-  },
-  aboutGroup: {
-    gap: 12,
+    gap: spacing.sm,
   },
   aboutCard: {
-    padding: "4%",
+    padding: spacing.md,
     borderRadius: 16,
-    gap: 12,
-    paddingVertical: 16,
+    gap: spacing.sm + spacing.xs,
   },
   aboutActions: {
-    gap: 8,
-    marginTop: 4,
+    gap: spacing.sm + spacing.xs,
   },
   aboutSecondaryRow: {
     flexDirection: "row",
-    gap: 8,
+    gap: spacing.sm,
   },
   aboutSecondaryButton: {
     flex: 1,
   },
-  form: { padding: "2.5%", borderRadius: 16, gap: 16, paddingVertical: 16 },
+  form: {
+    padding: spacing.md,
+    borderRadius: 16,
+    gap: spacing.md,
+  },
   icon: {
-    width: 96,
-    height: 96,
+    width: 80,
+    height: 80,
     alignSelf: "center",
   },
   header: {
     alignItems: "center",
-    gap: 4,
+    gap: spacing.xs,
   },
   appName: {
     textAlign: "center",
@@ -59,17 +51,11 @@ export const connectStyles = StyleSheet.create({
   appSubtitle: {
     textAlign: "center",
   },
-  inputActionsRow: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    alignItems: "center",
-    marginTop: -8,
-  },
   serverInfoRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 4,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xs,
     paddingVertical: 2,
   },
   serverInfoText: {

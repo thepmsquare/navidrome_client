@@ -1,5 +1,9 @@
 # changelog
 
+## 2.11.0+37 (in progress)
+
+- ui tweaks on all pages.
+
 ## 2.10.0+36
 
 - update ui for connect screen stage 2.
