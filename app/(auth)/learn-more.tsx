@@ -1,12 +1,6 @@
 import { useRouter } from "expo-router";
 import { Alert, Linking, ScrollView, View } from "react-native";
-import {
-  Button,
-  IconButton,
-  Surface,
-  Text,
-  useTheme,
-} from "react-native-paper";
+import { Appbar, Button, Surface, Text, useTheme } from "react-native-paper";
 
 import { learnMoreStyles } from "@/stylesheets";
 
@@ -24,64 +18,56 @@ export default function LearnMoreScreen() {
 
   return (
     <Surface style={learnMoreStyles.page}>
+      <Appbar.Header>
+        <Appbar.BackAction
+          onPress={() => router.back()}
+          accessibilityLabel="go back"
+        />
+        <Appbar.Content title="learn more" />
+      </Appbar.Header>
+
       <ScrollView contentContainerStyle={learnMoreStyles.scrollContent}>
-        <View style={learnMoreStyles.headerRow}>
-          <IconButton
-            icon="arrow-left"
-            onPress={() => router.back()}
-            accessibilityLabel="go back"
-          />
-          <Text variant="headlineSmall">learn more</Text>
-        </View>
-
-        <View style={learnMoreStyles.section}>
+        <Surface elevation={1} style={learnMoreStyles.card}>
           <Text variant="titleMedium">what is navidrome?</Text>
-          <Surface elevation={1} style={learnMoreStyles.card}>
-            <Text
-              variant="bodyMedium"
-              style={{ color: theme.colors.onSurfaceVariant }}
-            >
-              navidrome lets you turn your personal music collection into your
-              own private streaming service. instead of paying for a music
-              subscription, you keep your songs on your computer or home storage
-              and stream them wherever you go.
-            </Text>
-          </Surface>
-        </View>
+          <Text
+            variant="bodyMedium"
+            style={{ color: theme.colors.onSurfaceVariant }}
+          >
+            navidrome lets you turn your personal music collection into your own
+            private streaming service. instead of paying for a music
+            subscription, you keep your songs on your computer or home storage
+            and stream them wherever you go.
+          </Text>
+        </Surface>
 
-        <View style={learnMoreStyles.section}>
+        <Surface elevation={1} style={learnMoreStyles.card}>
           <Text variant="titleMedium">what is this client app?</Text>
-          <Surface elevation={1} style={learnMoreStyles.card}>
-            <Text
-              variant="bodyMedium"
-              style={{ color: theme.colors.onSurfaceVariant }}
-            >
-              this app is a mobile music player made specifically to connect to
-              your navidrome music collection. once connected, you can browse
-              your library, play songs and listen to your music directly on your
-              phone.
-            </Text>
-          </Surface>
-        </View>
+          <Text
+            variant="bodyMedium"
+            style={{ color: theme.colors.onSurfaceVariant }}
+          >
+            this app is a mobile music player made specifically to connect to
+            your navidrome music collection. once connected, you can browse your
+            library, play songs and listen to your music directly on your phone.
+          </Text>
+        </Surface>
 
-        <View style={learnMoreStyles.section}>
+        <Surface elevation={1} style={learnMoreStyles.card}>
           <Text variant="titleMedium">getting started</Text>
-          <Surface elevation={1} style={learnMoreStyles.card}>
-            <Text
-              variant="bodyMedium"
-              style={{ color: theme.colors.onSurfaceVariant }}
-            >
-              1. set up navidrome on your computer or home storage with your
-              music.{"\n"}
-              2. open this app and enter your server address, username, and
-              password.{"\n"}
-              3. start enjoying your music. you can also try out the demo on the
-              connect screen anytime.
-            </Text>
-          </Surface>
-        </View>
+          <Text
+            variant="bodyMedium"
+            style={{ color: theme.colors.onSurfaceVariant }}
+          >
+            1. set up navidrome on your computer or home storage with your
+            music.{"\n"}
+            2. open this app and enter your server address, username, and
+            password.{"\n"}
+            3. start enjoying your music. you can also try out the demo on the
+            connect screen anytime.
+          </Text>
+        </Surface>
 
-        <View style={learnMoreStyles.section}>
+        <Surface elevation={1} style={learnMoreStyles.card}>
           <Text variant="titleMedium">useful links</Text>
           <View style={learnMoreStyles.actions}>
             <Button
@@ -106,7 +92,7 @@ export default function LearnMoreScreen() {
               github repository
             </Button>
           </View>
-        </View>
+        </Surface>
       </ScrollView>
     </Surface>
   );

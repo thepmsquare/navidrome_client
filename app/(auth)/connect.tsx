@@ -7,7 +7,6 @@ import { Alert, Linking, ScrollView, View } from "react-native";
 import {
   Button,
   Icon,
-  IconButton,
   Snackbar,
   Surface,
   Text,
@@ -218,14 +217,6 @@ export default function ConnectScreen() {
 
   return (
     <Surface style={connectStyles.page}>
-      <View style={connectStyles.helpButtonContainer}>
-        <IconButton
-          icon="help-circle-outline"
-          size={24}
-          onPress={handleLearnMore}
-          accessibilityLabel="learn more"
-        />
-      </View>
       <ScrollView
         contentContainerStyle={connectStyles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -243,7 +234,7 @@ export default function ConnectScreen() {
               {APP_SHORT_NAME}
             </Text>
             <Text
-              variant="bodyLarge"
+              variant="titleSmall"
               style={[
                 connectStyles.appSubtitle,
                 { color: theme.colors.onSurfaceVariant },
@@ -254,178 +245,172 @@ export default function ConnectScreen() {
           </View>
         </View>
 
-        <View style={connectStyles.formGroup}>
-          <Text variant="titleLarge">connect to your server</Text>
-          <Surface elevation={2} style={connectStyles.form}>
-            <ConnectProgress
-              stage={connectStage}
-              loading={loading || importing}
-            />
-            {connectStage === "ping" ? (
-              <>
-                <TextInput
-                  mode="outlined"
-                  label="server url"
-                  value={serverUrl}
-                  onChangeText={setServerUrl}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="url"
-                  textContentType="URL"
-                  keyboardType="url"
-                  returnKeyType="go"
-                  onSubmitEditing={handlePing}
-                  autoFocus
-                  left={<TextInput.Icon icon="server" />}
-                  right={
-                    serverUrl !== "https://" &&
-                    serverUrl !== "http://" &&
-                    serverUrl !== "" ? (
-                      <TextInput.Icon
-                        icon="close-circle-outline"
-                        onPress={handleClear}
-                        accessibilityLabel="clear"
-                      />
-                    ) : (
-                      <TextInput.Icon
-                        icon="content-paste"
-                        onPress={handlePaste}
-                        accessibilityLabel="paste from clipboard"
-                      />
-                    )
-                  }
-                />
-                <View style={connectStyles.inputActionsRow}>
-                  <Button
-                    mode="text"
-                    compact
-                    icon="content-paste"
-                    onPress={handlePaste}
-                    disabled={loading || importing || demoLoading}
-                  >
-                    paste from clipboard
-                  </Button>
-                </View>
-                <Button
-                  mode="contained"
-                  onPress={handlePing}
-                  disabled={isConnectDisabled}
-                  loading={loading}
-                >
-                  {loading ? "connecting..." : "connect"}
-                </Button>
-                <Button
-                  mode="outlined"
-                  onPress={handleImportProfile}
-                  disabled={loading || importing || demoLoading}
-                  loading={importing}
-                  icon="file-import"
-                >
-                  {importing ? "importing profile..." : "import profile"}
-                </Button>
-              </>
-            ) : (
-              <>
-                <View style={connectStyles.serverInfoRow}>
-                  <Icon
-                    source="server"
-                    size={18}
-                    color={theme.colors.onSurfaceVariant}
-                  />
-                  <Text
-                    variant="bodySmall"
-                    numberOfLines={1}
-                    ellipsizeMode="middle"
-                    style={[
-                      connectStyles.serverInfoText,
-                      { color: theme.colors.onSurfaceVariant },
-                    ]}
-                  >
-                    {serverUrl}
-                  </Text>
-                </View>
-
-                <TextInput
-                  mode="outlined"
-                  label="username"
-                  value={username}
-                  onChangeText={setUsername}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="username"
-                  textContentType="username"
-                  returnKeyType="next"
-                  onSubmitEditing={() => passwordInputRef.current?.focus()}
-                  autoFocus
-                  left={<TextInput.Icon icon="account" />}
-                  right={
-                    username ? (
-                      <TextInput.Icon
-                        icon="close-circle-outline"
-                        onPress={() => setUsername("")}
-                        accessibilityLabel="clear username"
-                      />
-                    ) : null
-                  }
-                />
-                <TextInput
-                  ref={passwordInputRef}
-                  mode="outlined"
-                  label="password"
-                  value={password}
-                  onChangeText={setPassword}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="password"
-                  textContentType="password"
-                  secureTextEntry={!showPassword}
-                  returnKeyType="go"
-                  onSubmitEditing={handleLogin}
-                  left={<TextInput.Icon icon="lock" />}
-                  right={
+        <Surface elevation={2} style={connectStyles.form}>
+          <Text variant="titleMedium">
+            {connectStage === "ping"
+              ? "connect to your server"
+              : "account credentials"}
+          </Text>
+          <ConnectProgress
+            stage={connectStage}
+            loading={loading || importing}
+          />
+          {connectStage === "ping" ? (
+            <>
+              <TextInput
+                mode="outlined"
+                label="server url"
+                value={serverUrl}
+                onChangeText={setServerUrl}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="url"
+                textContentType="URL"
+                keyboardType="url"
+                returnKeyType="go"
+                onSubmitEditing={handlePing}
+                autoFocus
+                left={<TextInput.Icon icon="server" />}
+                right={
+                  serverUrl !== "https://" &&
+                  serverUrl !== "http://" &&
+                  serverUrl !== "" ? (
                     <TextInput.Icon
-                      icon={showPassword ? "eye-off" : "eye"}
-                      onPress={() => setShowPassword((prev) => !prev)}
-                      accessibilityLabel={
-                        showPassword ? "hide password" : "show password"
-                      }
+                      icon="close-circle-outline"
+                      onPress={handleClear}
+                      accessibilityLabel="clear"
                     />
-                  }
+                  ) : (
+                    <TextInput.Icon
+                      icon="content-paste"
+                      onPress={handlePaste}
+                      accessibilityLabel="paste from clipboard"
+                    />
+                  )
+                }
+              />
+              <Button
+                mode="contained"
+                onPress={handlePing}
+                disabled={isConnectDisabled}
+                loading={loading}
+              >
+                {loading ? "connecting..." : "connect"}
+              </Button>
+              <Button
+                mode="outlined"
+                onPress={handleImportProfile}
+                disabled={loading || importing || demoLoading}
+                loading={importing}
+                icon="file-import"
+              >
+                {importing ? "importing profile..." : "import profile"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <View style={connectStyles.serverInfoRow}>
+                <Icon
+                  source="server"
+                  size={18}
+                  color={theme.colors.onSurfaceVariant}
                 />
-
-                <Button
-                  mode="contained"
-                  onPress={handleLogin}
-                  disabled={loading || demoLoading || !username.trim() || !password.trim()}
-                  loading={loading}
+                <Text
+                  variant="bodySmall"
+                  numberOfLines={1}
+                  ellipsizeMode="middle"
+                  style={[
+                    connectStyles.serverInfoText,
+                    { color: theme.colors.onSurfaceVariant },
+                  ]}
                 >
-                  {loading ? "logging in..." : "login"}
-                </Button>
-                <Button
-                  mode="text"
-                  onPress={() => setConnectStage("ping")}
-                  disabled={loading || demoLoading}
-                  icon="arrow-left"
-                >
-                  change server url
-                </Button>
-              </>
-            )}
-          </Surface>
-        </View>
+                  {serverUrl}
+                </Text>
+              </View>
 
-        <View style={connectStyles.aboutGroup}>
-          <Text variant="titleLarge">new to navidrome?</Text>
-          <Surface elevation={2} style={connectStyles.aboutCard}>
+              <TextInput
+                mode="outlined"
+                label="username"
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="username"
+                textContentType="username"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordInputRef.current?.focus()}
+                autoFocus
+                left={<TextInput.Icon icon="account" />}
+                right={
+                  username ? (
+                    <TextInput.Icon
+                      icon="close-circle-outline"
+                      onPress={() => setUsername("")}
+                      accessibilityLabel="clear username"
+                    />
+                  ) : null
+                }
+              />
+              <TextInput
+                ref={passwordInputRef}
+                mode="outlined"
+                label="password"
+                value={password}
+                onChangeText={setPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="password"
+                textContentType="password"
+                secureTextEntry={!showPassword}
+                returnKeyType="go"
+                onSubmitEditing={handleLogin}
+                left={<TextInput.Icon icon="lock" />}
+                right={
+                  <TextInput.Icon
+                    icon={showPassword ? "eye-off" : "eye"}
+                    onPress={() => setShowPassword((prev) => !prev)}
+                    accessibilityLabel={
+                      showPassword ? "hide password" : "show password"
+                    }
+                  />
+                }
+              />
+
+              <Button
+                mode="contained"
+                onPress={handleLogin}
+                disabled={
+                  loading || demoLoading || !username.trim() || !password.trim()
+                }
+                loading={loading}
+              >
+                {loading ? "logging in..." : "login"}
+              </Button>
+              <Button
+                mode="text"
+                onPress={() => setConnectStage("ping")}
+                disabled={loading || demoLoading}
+                icon="arrow-left"
+              >
+                change server url
+              </Button>
+            </>
+          )}
+        </Surface>
+
+        {connectStage === "ping" && (
+          <Surface elevation={1} style={connectStyles.aboutCard}>
+            <Text variant="titleMedium">new to navidrome?</Text>
             <Text
               variant="bodyMedium"
               style={{ color: theme.colors.onSurfaceVariant }}
             >
-              get started by exploring a live demo, learning how it works, or visiting the official website.
+              get started by exploring a live demo, learning how it works, or
+              visiting the official website.
             </Text>
             <View style={connectStyles.aboutActions}>
               <Button
-                mode="contained"
+                mode="contained-tonal"
                 icon="play-circle-outline"
                 onPress={handleTryDemo}
                 loading={demoLoading}
@@ -455,7 +440,7 @@ export default function ConnectScreen() {
               </View>
             </View>
           </Surface>
-        </View>
+        )}
       </ScrollView>
       <Snackbar
         visible={snackbarVisible}

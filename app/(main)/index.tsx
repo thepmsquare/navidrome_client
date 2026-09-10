@@ -7,6 +7,7 @@ import {
   Card,
   Surface,
   Text,
+  useTheme,
 } from "react-native-paper";
 
 import { client_app_sync } from "@/services/api";
@@ -17,6 +18,7 @@ import { Search3Counts } from "@/types";
 import { useAudioOutputDevice } from "@/utils/audioOutput";
 
 export default function HomeScreen() {
+  const theme = useTheme();
   const audioDevice = useAudioOutputDevice();
   const [subsonicVersion, setSubsonicVersion] = useState<string | null>(null);
   const [serverUrl, setServerUrl] = useState<string | null>(null);
@@ -46,7 +48,8 @@ export default function HomeScreen() {
           artistCount: syncResult.artistCount ?? initialCounts.artistCount,
           albumCount: syncResult.albumCount ?? initialCounts.albumCount,
           songCount: syncResult.songCount ?? initialCounts.songCount,
-          playlistCount: syncResult.playlistCount ?? initialCounts.playlistCount,
+          playlistCount:
+            syncResult.playlistCount ?? initialCounts.playlistCount,
         });
       }
     } catch (error) {
@@ -75,81 +78,146 @@ export default function HomeScreen() {
   return (
     <Surface style={homeStyles.page}>
       <ScrollView contentContainerStyle={homeStyles.scrollContent}>
-        <Text variant="displaySmall">welcome home! 🎉</Text>
-        <Text variant="bodyLarge">you are currently logged in.</Text>
+        <Text variant="headlineMedium">home</Text>
 
-        <Text variant="titleMedium">username</Text>
-        <Text variant="bodyMedium">{username}</Text>
-        <Text variant="titleMedium">subsonic version</Text>
-        <Text variant="bodyMedium">{subsonicVersion}</Text>
-        <Text variant="titleMedium">server url</Text>
-        <Text variant="bodyMedium">{serverUrl}</Text>
-        <Text variant="titleMedium">audio output</Text>
-        <Text variant="bodyMedium">
-          {audioDevice.name} ({audioDevice.type})
-        </Text>
-
-        <Text variant="titleLarge">library stats</Text>
-        {syncStatusText && <Text variant="bodyMedium">{syncStatusText}</Text>}
-
-        {loadingCounts ? (
-          <View>
-            <ActivityIndicator size="small" />
-            <Text variant="bodySmall">syncing library...</Text>
+        <Surface elevation={1} style={homeStyles.sectionCard}>
+          <Text variant="titleMedium">connection</Text>
+          <View style={homeStyles.infoRow}>
+            <Text
+              variant="labelLarge"
+              style={[
+                homeStyles.infoLabel,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
+            >
+              username
+            </Text>
+            <Text variant="bodyMedium" style={homeStyles.infoValue}>
+              {username}
+            </Text>
           </View>
-        ) : (
-          <View style={homeStyles.countsContainer}>
-            <Card style={homeStyles.countCard}>
-              <Card.Content>
-                <Text variant="headlineSmall">{counts?.artistCount ?? 0}</Text>
-                <Text variant="bodyMedium">artists</Text>
-              </Card.Content>
-            </Card>
-            <Card style={homeStyles.countCard}>
-              <Card.Content>
-                <Text variant="headlineSmall">{counts?.albumCount ?? 0}</Text>
-                <Text variant="bodyMedium">albums</Text>
-              </Card.Content>
-            </Card>
-            <Card style={homeStyles.countCard}>
-              <Card.Content>
-                <Text variant="headlineSmall">{counts?.songCount ?? 0}</Text>
-                <Text variant="bodyMedium">songs</Text>
-              </Card.Content>
-            </Card>
-            <Card style={homeStyles.countCard}>
-              <Card.Content>
-                <Text variant="headlineSmall">
-                  {counts?.playlistCount ?? 0}
-                </Text>
-                <Text variant="bodyMedium">playlists</Text>
-              </Card.Content>
-            </Card>
+          <View style={homeStyles.infoRow}>
+            <Text
+              variant="labelLarge"
+              style={[
+                homeStyles.infoLabel,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
+            >
+              server
+            </Text>
+            <Text
+              variant="bodyMedium"
+              style={homeStyles.infoValue}
+              numberOfLines={1}
+              ellipsizeMode="middle"
+            >
+              {serverUrl}
+            </Text>
           </View>
-        )}
+          <View style={homeStyles.infoRow}>
+            <Text
+              variant="labelLarge"
+              style={[
+                homeStyles.infoLabel,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
+            >
+              subsonic version
+            </Text>
+            <Text variant="bodyMedium" style={homeStyles.infoValue}>
+              {subsonicVersion}
+            </Text>
+          </View>
+          <View style={homeStyles.infoRow}>
+            <Text
+              variant="labelLarge"
+              style={[
+                homeStyles.infoLabel,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
+            >
+              audio output
+            </Text>
+            <Text variant="bodyMedium" style={homeStyles.infoValue}>
+              {audioDevice.name} ({audioDevice.type})
+            </Text>
+          </View>
+        </Surface>
 
-        <Button
-          mode="contained-tonal"
-          icon="volume-high"
-          onPress={playTestSound}
-        >
-          play test sound
-        </Button>
+        <Surface elevation={1} style={homeStyles.sectionCard}>
+          <Text variant="titleMedium">library</Text>
+          {syncStatusText && (
+            <Text
+              variant="bodySmall"
+              style={{ color: theme.colors.onSurfaceVariant }}
+            >
+              {syncStatusText}
+            </Text>
+          )}
+          {loadingCounts ? (
+            <View style={homeStyles.loadingRow}>
+              <ActivityIndicator size="small" />
+              <Text variant="bodySmall">syncing library...</Text>
+            </View>
+          ) : (
+            <View style={homeStyles.countsContainer}>
+              <Card style={homeStyles.countCard}>
+                <Card.Content>
+                  <Text variant="headlineSmall">
+                    {counts?.artistCount ?? 0}
+                  </Text>
+                  <Text variant="bodyMedium">artists</Text>
+                </Card.Content>
+              </Card>
+              <Card style={homeStyles.countCard}>
+                <Card.Content>
+                  <Text variant="headlineSmall">{counts?.albumCount ?? 0}</Text>
+                  <Text variant="bodyMedium">albums</Text>
+                </Card.Content>
+              </Card>
+              <Card style={homeStyles.countCard}>
+                <Card.Content>
+                  <Text variant="headlineSmall">{counts?.songCount ?? 0}</Text>
+                  <Text variant="bodyMedium">songs</Text>
+                </Card.Content>
+              </Card>
+              <Card style={homeStyles.countCard}>
+                <Card.Content>
+                  <Text variant="headlineSmall">
+                    {counts?.playlistCount ?? 0}
+                  </Text>
+                  <Text variant="bodyMedium">playlists</Text>
+                </Card.Content>
+              </Card>
+            </View>
+          )}
+        </Surface>
 
-        <Button
-          mode="outlined"
-          onPress={() => performSync(false)}
-          disabled={loadingCounts}
-        >
-          sync
-        </Button>
-        <Button
-          mode="outlined"
-          onPress={() => performSync(true)}
-          disabled={loadingCounts}
-        >
-          force sync
-        </Button>
+        <Surface elevation={1} style={homeStyles.sectionCard}>
+          <Text variant="titleMedium">actions</Text>
+          <Button
+            mode="contained-tonal"
+            icon="volume-high"
+            onPress={playTestSound}
+          >
+            play test sound
+          </Button>
+          <Button
+            mode="outlined"
+            onPress={() => performSync(false)}
+            disabled={loadingCounts}
+          >
+            sync
+          </Button>
+          <Button
+            mode="outlined"
+            onPress={() => performSync(true)}
+            disabled={loadingCounts}
+          >
+            force sync
+          </Button>
+        </Surface>
       </ScrollView>
     </Surface>
   );

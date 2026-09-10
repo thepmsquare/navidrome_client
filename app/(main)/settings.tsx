@@ -36,26 +36,40 @@ export default function SettingsScreen() {
   return (
     <Surface style={settingsStyles.page}>
       <ScrollView contentContainerStyle={settingsStyles.scrollContent}>
-        <Text variant="displaySmall">settings</Text>
+        <Text variant="headlineMedium">settings</Text>
 
-        <Button
-          mode="outlined"
-          onPress={handleExport}
-          loading={exporting}
-          disabled={exporting}
-          icon="file-export"
-        >
-          export profile
-        </Button>
+        <Surface elevation={1} style={settingsStyles.sectionCard}>
+          <Text variant="titleMedium">data</Text>
+          <Text
+            variant="bodyMedium"
+            style={{ color: theme.colors.onSurfaceVariant }}
+          >
+            export your server connection details and preferences as a backup
+            file. you can import this on another device from the connect screen.
+          </Text>
+          <Button
+            mode="outlined"
+            onPress={handleExport}
+            loading={exporting}
+            disabled={exporting}
+            icon="file-export"
+          >
+            export profile
+          </Button>
+        </Surface>
 
-        <Button
-          mode="contained"
-          onPress={handleLogout}
-          buttonColor={theme.colors.error}
-          textColor={theme.colors.onError}
-        >
-          log out
-        </Button>
+        <Surface elevation={1} style={settingsStyles.sectionCard}>
+          <Text variant="titleMedium">account</Text>
+
+          <Button
+            mode="outlined"
+            onPress={handleLogout}
+            textColor={theme.colors.error}
+            style={{ borderColor: theme.colors.error }}
+          >
+            log out
+          </Button>
+        </Surface>
       </ScrollView>
     </Surface>
   );
