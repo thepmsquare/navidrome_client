@@ -11,10 +11,37 @@ export default function SettingsScreen() {
   const router = useRouter();
   const theme = useTheme();
   const [exporting, setExporting] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
-  async function handleLogout() {
-    await logout();
-    router.replace("/connect");
+  async function performLogout() {
+    setLoggingOut(true);
+    try {
+      await logout();
+      router.replace("/connect");
+    } catch (error: any) {
+      Alert.alert("error", error?.message || "failed to log out");
+    } finally {
+      setLoggingOut(false);
+    }
+  }
+
+  function handleLogout() {
+    Alert.alert(
+      "log out",
+      "are you sure you want to log out?",
+      [
+        {
+          text: "cancel",
+          style: "cancel",
+        },
+        {
+          text: "log out",
+          style: "destructive",
+          onPress: performLogout,
+        },
+      ],
+      { cancelable: true },
+    );
   }
 
   async function handleExport() {
@@ -51,7 +78,7 @@ export default function SettingsScreen() {
             mode="outlined"
             onPress={handleExport}
             loading={exporting}
-            disabled={exporting}
+            disabled={exporting || loggingOut}
             icon="file-export"
           >
             export profile
@@ -64,6 +91,8 @@ export default function SettingsScreen() {
           <Button
             mode="outlined"
             onPress={handleLogout}
+            loading={loggingOut}
+            disabled={loggingOut}
             textColor={theme.colors.error}
             style={{ borderColor: theme.colors.error }}
           >

@@ -11,6 +11,7 @@ import {
 import {
   cacheSongManually,
   cancelSongCaching,
+  clearAllCachedSongs,
   deleteSongFromCache,
   getCachedSongPlaybackUri,
   isSongCaching,
@@ -31,14 +32,22 @@ jest.mock("@/services/db", () => ({
 }));
 
 const mockFileDelete = jest.fn();
+const mockDirectoryDelete = jest.fn();
+const mockDirectoryExists = { current: false };
 
 jest.mock("expo-file-system", () => {
   const mockCreate = jest.fn();
   const mockDownloadFileAsync = jest.fn();
 
   class MockDirectory {
-    exists = false;
+    get exists() {
+      return mockDirectoryExists.current;
+    }
+    set exists(val: boolean) {
+      mockDirectoryExists.current = val;
+    }
     create = mockCreate;
+    delete = mockDirectoryDelete;
     uri = "file:///data/user/0/com.thepmsquare.navidrome_client/files/manual-cache";
     constructor(..._args: any[]) {}
   }
@@ -305,6 +314,21 @@ describe("songCache service", () => {
       });
 
       unsubscribe();
+    });
+  });
+
+  describe("clearAllCachedSongs", () => {
+    it("should abort in-flight caching operations and delete cache directory if exists", async () => {
+      mockDirectoryExists.current = true;
+      await clearAllCachedSongs();
+      expect(mockDirectoryDelete).toHaveBeenCalled();
+    });
+
+    it("should not crash if cache directory does not exist", async () => {
+      mockDirectoryExists.current = false;
+      mockDirectoryDelete.mockClear();
+      await clearAllCachedSongs();
+      expect(mockDirectoryDelete).not.toHaveBeenCalled();
     });
   });
 });

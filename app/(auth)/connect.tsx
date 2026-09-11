@@ -16,7 +16,7 @@ import {
 
 import { ConnectProgress } from "@/components/ConnectProgress";
 
-import { login, ping } from "@/services/api";
+import { login, notifyAuthState, ping } from "@/services/api";
 import { pickProfileFile } from "@/services/backup";
 import { connectStyles } from "@/stylesheets";
 import { ConnectStage } from "@/types";
@@ -104,6 +104,7 @@ export default function ConnectScreen() {
       });
       await SecureStore.setItemAsync("username", username);
       await SecureStore.setItemAsync("password", password);
+      notifyAuthState(true);
       router.replace("/");
     } catch (error: any) {
       Alert.alert("login failed", error.message || "could not login");
@@ -153,6 +154,7 @@ export default function ConnectScreen() {
         );
       }
 
+      notifyAuthState(true);
       router.replace("/");
     } catch (error: any) {
       Alert.alert(
@@ -184,6 +186,7 @@ export default function ConnectScreen() {
       await SecureStore.setItemAsync("username", demoUser);
       await SecureStore.setItemAsync("password", demoPass);
 
+      notifyAuthState(true);
       router.replace("/");
     } catch (error: any) {
       Alert.alert(
