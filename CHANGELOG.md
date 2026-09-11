@@ -3,6 +3,7 @@
 ## 2.11.0+37 (in progress)
 
 - ui tweaks on all pages.
+- bug fixes in logout functionality.
 
 ## 2.10.0+36
 

@@ -10,6 +10,7 @@ import {
 } from "react-native-paper";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
+import { subscribeAuthState } from "@/services/api";
 import { layoutStyles } from "@/stylesheets";
 import { useMaterial3Theme } from "@pchmn/expo-material3-theme";
 
@@ -36,6 +37,11 @@ export default function RootLayout() {
     }
 
     checkToken();
+
+    const unsubscribe = subscribeAuthState((loggedIn) => {
+      setIsLoggedIn(loggedIn);
+    });
+    return unsubscribe;
   }, []);
 
   useEffect(() => {

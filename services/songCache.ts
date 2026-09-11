@@ -201,3 +201,25 @@ export async function cacheSongManually(
     }
   }
 }
+
+export async function clearAllCachedSongs(): Promise<void> {
+  // Cancel and abort all in-flight caching operations
+  activeControllers.forEach((controller) => {
+    try {
+      controller.abort();
+    } catch {
+      // Ignore abort errors
+    }
+  });
+  activeControllers.clear();
+
+  // Delete manual cache folder and its contents
+  try {
+    const cacheDir = new Directory(Paths.document, "manual-cache");
+    if (cacheDir.exists) {
+      cacheDir.delete();
+    }
+  } catch (error) {
+    console.error("failed to delete manual cache directory:", error);
+  }
+}

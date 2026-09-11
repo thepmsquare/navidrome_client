@@ -308,6 +308,27 @@ export async function stopPlayback(): Promise<void> {
   notifyStateChanged();
 }
 
+export async function resetPlayer(): Promise<void> {
+  try {
+    await stop();
+  } catch (error) {
+    console.error("failed to stop playback during reset:", error);
+  }
+  currentQueue = [];
+  currentIndex = 0;
+  currentTrack = null;
+  currentPlaybackSource = null;
+  currentRepeatMode = "off";
+  lastPlaybackStatus = {
+    isPlaying: false,
+    isBuffering: false,
+    duration: 0,
+    position: 0,
+    repeatMode: "off",
+  };
+  notifyStateChanged();
+}
+
 export async function seekToPosition(seconds: number): Promise<void> {
   await seekTo(seconds);
 }
