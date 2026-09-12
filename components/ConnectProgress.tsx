@@ -79,7 +79,7 @@ export function ConnectProgress({
             {
               backgroundColor: !isStepOne
                 ? theme.colors.primary
-                : theme.colors.surfaceContainerHighest,
+                : theme.colors.outlineVariant,
               opacity: !isStepOne && loading ? pulseAnim : 1,
             },
           ]}

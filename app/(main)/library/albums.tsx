@@ -26,7 +26,7 @@ export default function AlbumsScreen() {
 
   return (
     <Surface style={albumsStyles.page}>
-      <Appbar.Header>
+      <Appbar.Header statusBarHeight={0}>
         <Appbar.BackAction
           onPress={() => router.back()}
           accessibilityLabel="go back"

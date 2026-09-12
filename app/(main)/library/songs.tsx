@@ -109,7 +109,7 @@ export default function SongsScreen() {
 
   return (
     <Surface style={songsStyles.page}>
-      <Appbar.Header>
+      <Appbar.Header statusBarHeight={0}>
         <Appbar.BackAction
           onPress={() => router.back()}
           accessibilityLabel="go back"
