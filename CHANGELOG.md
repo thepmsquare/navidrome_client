@@ -4,6 +4,8 @@
 
 - ui tweaks on all pages.
 - bug fixes in logout functionality.
+- technical changes
+  - add test cases for all services.
 
 ## 2.10.0+36
 
