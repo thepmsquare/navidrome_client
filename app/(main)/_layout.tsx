@@ -3,15 +3,17 @@ import { View } from "react-native";
 import { BottomNavigation, Icon } from "react-native-paper";
 
 import { MiniPlayer } from "@/components/MiniPlayer";
+import { useAppTheme } from "@/types";
 
 export default function MainLayout() {
+  const theme = useAppTheme();
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
       }}
       tabBar={({ navigation, state, descriptors, insets }) => (
-        <View>
+        <View style={{ backgroundColor: theme.colors.background }}>
           <MiniPlayer />
           <BottomNavigation.Bar
             navigationState={state}
