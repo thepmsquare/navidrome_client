@@ -15,7 +15,10 @@ import {
   deleteSongFromCache,
   getCachedSongPlaybackUri,
   isSongCaching,
+  notifySongCacheProgress,
+  notifySongCacheUpdated,
   subscribeSongCache,
+  subscribeSongCacheProgress,
 } from "@/services/songCache";
 import { SongCacheType } from "@/types";
 
@@ -66,6 +69,13 @@ jest.mock("expo-file-system", () => {
       }
       if (typeof dirOrUri === "string" && dirOrUri.includes("missing")) {
         this.exists = false;
+      }
+      if (typeof dirOrUri === "string" && dirOrUri.includes("throw_exists")) {
+        Object.defineProperty(this, "exists", {
+          get: () => {
+            throw new Error("exists check failure");
+          },
+        });
       }
     }
   }
@@ -315,6 +325,78 @@ describe("songCache service", () => {
 
       unsubscribe();
     });
+
+    it("should catch file deletion error gracefully", async () => {
+      const mockEntry = {
+        songId: "song-del-err",
+        cacheType: SongCacheType.Manual,
+        filePath: "file:///data/user/0/manual-cache/song-del-err.mp3",
+        fileSizeBytes: 2048,
+        addedAt: "2026-09-06T12:00:00.000Z",
+        lastAccessedAt: null,
+      };
+      (getSongCacheEntry as jest.Mock).mockReturnValue(mockEntry);
+      mockFileDelete.mockImplementationOnce(() => {
+        throw new Error("delete permission denied");
+      });
+
+      await expect(deleteSongFromCache("song-del-err")).resolves.not.toThrow();
+      expect(deleteSongCacheEntry).toHaveBeenCalledWith("song-del-err");
+    });
+  });
+
+  describe("listeners and progress handling", () => {
+    it("should return cached URI even if file.exists check throws", () => {
+      (getSongCacheEntry as jest.Mock).mockReturnValue({
+        songId: "song-throw",
+        filePath: "file:///throw_exists.mp3",
+      });
+
+      const uri = getCachedSongPlaybackUri("song-throw");
+      expect(uri).toBe("file:///throw_exists.mp3");
+    });
+
+    it("should catch listener error in notifySongCacheUpdated", () => {
+      const badListener = jest.fn(() => {
+        throw new Error("listener fail");
+      });
+      const unsubscribe = subscribeSongCache(badListener);
+      expect(() => notifySongCacheUpdated("s-1", null)).not.toThrow();
+      unsubscribe();
+    });
+
+    it("should catch listener error in notifySongCacheProgress", () => {
+      const badListener = jest.fn(() => {
+        throw new Error("progress listener fail");
+      });
+      const unsubscribe = subscribeSongCacheProgress(badListener);
+      expect(() => notifySongCacheProgress("s-1", 0.5)).not.toThrow();
+      unsubscribe();
+    });
+
+    it("should handle external signal and indeterminate progress in cacheSongManually", async () => {
+      (getSongById as jest.Mock).mockReturnValue({
+        id: "song-progress",
+        title: "Progress Track",
+        suffix: "mp3",
+      });
+      (getSongStreamUrl as jest.Mock).mockResolvedValue("https://example.com/stream");
+
+      let onProgressCb: ((e: any) => void) | undefined;
+      (File.downloadFileAsync as jest.Mock).mockImplementation(
+        async (_url, _dest, options) => {
+          onProgressCb = options?.onProgress;
+          onProgressCb?.({ totalBytes: 0, bytesWritten: 100 });
+          return { uri: "file:///cached/song-progress.mp3", size: 100 };
+        },
+      );
+
+      const abortController = new AbortController();
+      const progressFn = jest.fn();
+      await cacheSongManually("song-progress", progressFn, abortController.signal);
+
+      expect(progressFn).toHaveBeenCalledWith(-1);
+    });
   });
 
   describe("clearAllCachedSongs", () => {
@@ -330,6 +412,15 @@ describe("songCache service", () => {
       await clearAllCachedSongs();
       expect(mockDirectoryDelete).not.toHaveBeenCalled();
     });
+
+    it("should catch directory delete error gracefully", async () => {
+      mockDirectoryExists.current = true;
+      mockDirectoryDelete.mockImplementationOnce(() => {
+        throw new Error("dir delete error");
+      });
+      await expect(clearAllCachedSongs()).resolves.not.toThrow();
+    });
   });
 });
+
 

@@ -1,28 +1,457 @@
 import {
+  clearDatabase,
+  getAlbumById,
+  getAllAlbums,
+  getAllArtists,
+  getAllPlaylists,
+  getAllSongs,
+  getDb,
+  getLocalCounts,
+  getPlaylistById,
   getSongById,
   getSongCacheEntry,
+  getSongsByAlbumId,
+  getSyncMeta,
+  initDatabase,
+  setSyncMeta,
+  updateSongCacheLastAccessed,
+  upsertAlbumsBatch,
+  upsertArtistsBatch,
+  upsertPlaylistsBatch,
   upsertSongCacheEntry,
+  upsertSongsBatch,
+  deleteSongCacheEntry,
 } from "@/services/db";
-import { SongCacheType } from "@/types";
+import { AlbumID3, ArtistID3, Child, Playlist, SongCacheType } from "@/types";
 
 const mockGetFirstSync = jest.fn();
+const mockGetAllSync = jest.fn();
 const mockRunSync = jest.fn();
+const mockExecSync = jest.fn();
+const mockWithTransactionSync = jest.fn((cb: () => void) => cb());
+const mockPrepareSync = jest.fn();
+const mockStmt = {
+  executeSync: jest.fn(),
+  finalizeSync: jest.fn(),
+};
 
 jest.mock("expo-sqlite", () => ({
   openDatabaseSync: jest.fn(() => ({
-    execSync: jest.fn(),
+    execSync: mockExecSync,
     getFirstSync: mockGetFirstSync,
+    getAllSync: mockGetAllSync,
     runSync: mockRunSync,
+    withTransactionSync: mockWithTransactionSync,
+    prepareSync: mockPrepareSync,
   })),
 }));
 
-describe("db song_cache and song helpers", () => {
+describe("db service", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPrepareSync.mockReturnValue(mockStmt);
   });
 
-  describe("getSongById", () => {
-    it("should query songs by id", () => {
+  describe("initDatabase and getDb", () => {
+    it("should initialize database tables with PRAGMA journal_mode = WAL", () => {
+      const db = getDb();
+      expect(db).toBeDefined();
+      expect(mockExecSync).toHaveBeenCalledWith(
+        expect.stringContaining("PRAGMA journal_mode = WAL;"),
+      );
+      initDatabase(db);
+      expect(mockExecSync).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("sync_meta", () => {
+    it("getSyncMeta should return value if row exists", () => {
+      mockGetFirstSync.mockReturnValue({ value: "scan-123" });
+      const val = getSyncMeta("lastScan");
+      expect(mockGetFirstSync).toHaveBeenCalledWith(
+        "SELECT value FROM sync_meta WHERE key = ?",
+        ["lastScan"],
+      );
+      expect(val).toBe("scan-123");
+    });
+
+    it("getSyncMeta should return null if row does not exist", () => {
+      mockGetFirstSync.mockReturnValue(null);
+      const val = getSyncMeta("missingKey");
+      expect(val).toBeNull();
+    });
+
+    it("setSyncMeta should insert or update key-value pair", () => {
+      setSyncMeta("lastScan", "scan-456");
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "INSERT INTO sync_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        ["lastScan", "scan-456"],
+      );
+    });
+  });
+
+  describe("upsertArtistsBatch", () => {
+    it("should return early if empty array provided", () => {
+      upsertArtistsBatch([]);
+      expect(mockWithTransactionSync).not.toHaveBeenCalled();
+    });
+
+    it("should execute statement for each artist and finalize statement", () => {
+      const artists: ArtistID3[] = [
+        {
+          id: "art-1",
+          name: "Artist One",
+          coverArt: "cover-1",
+          artistImageUrl: "img-1",
+          albumCount: 2,
+          starred: "2026-01-01",
+          userRating: 5,
+          musicBrainzId: "mbid-1",
+          sortName: "One, Artist",
+          roles: ["Main"],
+        },
+        {
+          id: "art-2",
+          name: "Artist Two",
+        },
+      ];
+
+      upsertArtistsBatch(artists);
+
+      expect(mockWithTransactionSync).toHaveBeenCalledTimes(1);
+      expect(mockPrepareSync).toHaveBeenCalledWith(
+        expect.stringContaining("INSERT INTO artists"),
+      );
+      expect(mockStmt.executeSync).toHaveBeenCalledTimes(2);
+      expect(mockStmt.executeSync).toHaveBeenNthCalledWith(1, [
+        "art-1",
+        "Artist One",
+        "cover-1",
+        "img-1",
+        2,
+        "2026-01-01",
+        5,
+        "mbid-1",
+        "One, Artist",
+        JSON.stringify(["Main"]),
+      ]);
+      expect(mockStmt.executeSync).toHaveBeenNthCalledWith(2, [
+        "art-2",
+        "Artist Two",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+      ]);
+      expect(mockStmt.finalizeSync).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("upsertAlbumsBatch", () => {
+    it("should return early if empty array provided", () => {
+      upsertAlbumsBatch([]);
+      expect(mockWithTransactionSync).not.toHaveBeenCalled();
+    });
+
+    it("should execute statement for each album with parsed json fields and finalize", () => {
+      const albums: AlbumID3[] = [
+        {
+          id: "alb-1",
+          name: "Album One",
+          artist: "Artist One",
+          artistId: "art-1",
+          coverArt: "cov-1",
+          songCount: 10,
+          duration: 3600,
+          playCount: 15,
+          created: "2026-01-01",
+          played: "2026-01-02",
+          starred: "2026-01-03",
+          year: 2026,
+          genre: "Rock",
+          genres: [{ name: "Rock" }],
+          userRating: 4,
+          musicBrainzId: "mb-alb-1",
+          isCompilation: true,
+          sortName: "One, Album",
+          originalReleaseDate: { year: 2025, month: 12, day: 25 },
+          releaseDate: { year: 2026, month: 1, day: 1 },
+          releaseTypes: ["Album"],
+          recordLabels: [{ name: "Record Co" }],
+          artists: [{ id: "art-1", name: "Artist One" }],
+          displayArtist: "Artist One",
+          explicitStatus: "clean",
+          version: "Deluxe",
+        },
+        {
+          id: "alb-2",
+          name: "Album Two",
+        },
+      ];
+
+      upsertAlbumsBatch(albums);
+
+      expect(mockWithTransactionSync).toHaveBeenCalledTimes(1);
+      expect(mockPrepareSync).toHaveBeenCalledWith(
+        expect.stringContaining("INSERT INTO albums"),
+      );
+      expect(mockStmt.executeSync).toHaveBeenCalledTimes(2);
+      expect(mockStmt.executeSync).toHaveBeenNthCalledWith(
+        1,
+        expect.arrayContaining([
+          "alb-1",
+          "Album One",
+          "Artist One",
+          "art-1",
+          "cov-1",
+          10,
+          3600,
+          15,
+          "2026-01-01",
+          "2026-01-02",
+          "2026-01-03",
+          2026,
+          "Rock",
+          JSON.stringify([{ name: "Rock" }]),
+          4,
+          "mb-alb-1",
+          1,
+          "One, Album",
+          JSON.stringify({ year: 2025, month: 12, day: 25 }),
+          JSON.stringify({ year: 2026, month: 1, day: 1 }),
+          JSON.stringify(["Album"]),
+          JSON.stringify([{ name: "Record Co" }]),
+          JSON.stringify([{ id: "art-1", name: "Artist One" }]),
+          "Artist One",
+          "clean",
+          "Deluxe",
+        ]),
+      );
+      expect(mockStmt.finalizeSync).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("upsertSongsBatch", () => {
+    it("should return early if empty array provided", () => {
+      upsertSongsBatch([]);
+      expect(mockWithTransactionSync).not.toHaveBeenCalled();
+    });
+
+    it("should execute statement for each song and finalize", () => {
+      const songs: Child[] = [
+        {
+          id: "s-1",
+          parent: "parent-1",
+          isDir: false,
+          title: "Song One",
+          album: "Album One",
+          albumId: "alb-1",
+          artist: "Artist One",
+          artistId: "art-1",
+          track: 1,
+          year: 2026,
+          genre: "Pop",
+          genres: [{ name: "Pop" }],
+          coverArt: "art-1",
+          size: 1024,
+          contentType: "audio/flac",
+          suffix: "flac",
+          duration: 240,
+          bitRate: 1411,
+          path: "/music/s1.flac",
+          isVideo: false,
+          userRating: 5,
+          averageRating: 4.8,
+          playCount: 12,
+          discNumber: 1,
+          created: "2026-01-01",
+          played: "2026-01-02",
+          starred: "2026-01-03",
+          type: "music",
+          bpm: 120,
+          comment: "favorite",
+          sortName: "One, Song",
+          mediaType: "song",
+          musicBrainzId: "mb-s-1",
+          isrc: ["US123"],
+          channelCount: 2,
+          samplingRate: 44100,
+          bitDepth: 16,
+          artists: [{ id: "art-1", name: "Artist One" }],
+          displayArtist: "Artist One",
+          albumArtists: [{ id: "art-1", name: "Artist One" }],
+          displayAlbumArtist: "Artist One",
+          contributors: [{ role: "Producer", artist: { id: "p1", name: "Producer" } }],
+          displayComposer: "Composer",
+          explicitStatus: "clean",
+        },
+      ];
+
+      upsertSongsBatch(songs);
+
+      expect(mockWithTransactionSync).toHaveBeenCalledTimes(1);
+      expect(mockPrepareSync).toHaveBeenCalledWith(
+        expect.stringContaining("INSERT INTO songs"),
+      );
+      expect(mockStmt.executeSync).toHaveBeenCalledTimes(1);
+      expect(mockStmt.finalizeSync).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("upsertPlaylistsBatch", () => {
+    it("should return early if empty array provided", () => {
+      upsertPlaylistsBatch([]);
+      expect(mockWithTransactionSync).not.toHaveBeenCalled();
+    });
+
+    it("should execute statement for each playlist and finalize", () => {
+      const playlists: Playlist[] = [
+        {
+          id: "pl-1",
+          name: "Playlist One",
+          comment: "Best tracks",
+          owner: "admin",
+          public: true,
+          songCount: 25,
+          duration: 5000,
+          created: "2026-01-01",
+          changed: "2026-01-02",
+          coverArt: "pl-cov-1",
+        },
+      ];
+
+      upsertPlaylistsBatch(playlists);
+
+      expect(mockWithTransactionSync).toHaveBeenCalledTimes(1);
+      expect(mockPrepareSync).toHaveBeenCalledWith(
+        expect.stringContaining("INSERT OR REPLACE INTO playlists"),
+      );
+      expect(mockStmt.executeSync).toHaveBeenCalledWith([
+        "pl-1",
+        "Playlist One",
+        "Best tracks",
+        "admin",
+        1,
+        25,
+        5000,
+        "2026-01-01",
+        "2026-01-02",
+        "pl-cov-1",
+      ]);
+      expect(mockStmt.finalizeSync).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("getLocalCounts", () => {
+    it("should return counts from tables", () => {
+      mockGetFirstSync
+        .mockReturnValueOnce({ count: 5 })
+        .mockReturnValueOnce({ count: 10 })
+        .mockReturnValueOnce({ count: 100 })
+        .mockReturnValueOnce({ count: 3 });
+
+      const counts = getLocalCounts();
+      expect(counts).toEqual({
+        artistCount: 5,
+        albumCount: 10,
+        songCount: 100,
+        playlistCount: 3,
+      });
+    });
+
+    it("should fallback to 0 if count rows are null", () => {
+      mockGetFirstSync.mockReturnValue(null);
+      const counts = getLocalCounts();
+      expect(counts).toEqual({
+        artistCount: 0,
+        albumCount: 0,
+        songCount: 0,
+        playlistCount: 0,
+      });
+    });
+  });
+
+  describe("clearDatabase", () => {
+    it("should delete records from all tables", () => {
+      clearDatabase();
+      expect(mockExecSync).toHaveBeenCalledWith(
+        expect.stringContaining("DELETE FROM artists;"),
+      );
+    });
+  });
+
+  describe("query helpers", () => {
+    it("getAllArtists should query artists sorted", () => {
+      mockGetAllSync.mockReturnValue([{ id: "art-1", name: "A" }]);
+      const res = getAllArtists();
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        "SELECT * FROM artists ORDER BY name COLLATE NOCASE ASC",
+      );
+      expect(res).toHaveLength(1);
+    });
+
+    it("getAllAlbums should query albums sorted", () => {
+      mockGetAllSync.mockReturnValue([{ id: "alb-1", name: "B" }]);
+      const res = getAllAlbums();
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        "SELECT * FROM albums ORDER BY name COLLATE NOCASE ASC",
+      );
+      expect(res).toHaveLength(1);
+    });
+
+    it("getAllSongs should query songs sorted", () => {
+      mockGetAllSync.mockReturnValue([{ id: "s-1", title: "C" }]);
+      const res = getAllSongs();
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        "SELECT * FROM songs ORDER BY title COLLATE NOCASE ASC",
+      );
+      expect(res).toHaveLength(1);
+    });
+
+    it("getAllPlaylists should query playlists sorted", () => {
+      mockGetAllSync.mockReturnValue([{ id: "pl-1", name: "D" }]);
+      const res = getAllPlaylists();
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        "SELECT * FROM playlists ORDER BY name COLLATE NOCASE ASC",
+      );
+      expect(res).toHaveLength(1);
+    });
+
+    it("getPlaylistById should query playlist by id", () => {
+      mockGetFirstSync.mockReturnValue({ id: "pl-1", name: "D" });
+      const res = getPlaylistById("pl-1");
+      expect(mockGetFirstSync).toHaveBeenCalledWith(
+        "SELECT * FROM playlists WHERE id = ?",
+        ["pl-1"],
+      );
+      expect(res?.id).toBe("pl-1");
+    });
+
+    it("getAlbumById should query album by id", () => {
+      mockGetFirstSync.mockReturnValue({ id: "alb-1", name: "Alb" });
+      const res = getAlbumById("alb-1");
+      expect(mockGetFirstSync).toHaveBeenCalledWith(
+        "SELECT * FROM albums WHERE id = ?",
+        ["alb-1"],
+      );
+      expect(res?.id).toBe("alb-1");
+    });
+
+    it("getSongsByAlbumId should query songs by albumId", () => {
+      mockGetAllSync.mockReturnValue([{ id: "s-1", title: "Track" }]);
+      const res = getSongsByAlbumId("alb-1");
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        "SELECT * FROM songs WHERE albumId = ? ORDER BY discNumber ASC, track ASC, title COLLATE NOCASE ASC",
+        ["alb-1"],
+      );
+      expect(res).toHaveLength(1);
+    });
+
+    it("getSongById should query songs by id", () => {
       mockGetFirstSync.mockReturnValue({ id: "track-1", title: "Song One" });
       const result = getSongById("track-1");
       expect(mockGetFirstSync).toHaveBeenCalledWith(
@@ -33,8 +462,8 @@ describe("db song_cache and song helpers", () => {
     });
   });
 
-  describe("upsertSongCacheEntry", () => {
-    it("should run INSERT OR REPLACE INTO song_cache", () => {
+  describe("song_cache helpers", () => {
+    it("upsertSongCacheEntry should run INSERT OR REPLACE INTO song_cache", () => {
       upsertSongCacheEntry(
         "track-1",
         SongCacheType.Manual,
@@ -53,10 +482,8 @@ describe("db song_cache and song helpers", () => {
         ]),
       );
     });
-  });
 
-  describe("getSongCacheEntry", () => {
-    it("should query song_cache by songId", () => {
+    it("getSongCacheEntry should query song_cache by songId", () => {
       const mockRow = {
         songId: "track-1",
         cacheType: SongCacheType.Manual,
@@ -75,27 +502,21 @@ describe("db song_cache and song helpers", () => {
       expect(result).toEqual(mockRow);
     });
 
-    it("should return null if not found", () => {
+    it("getSongCacheEntry should return null if not found", () => {
       mockGetFirstSync.mockReturnValue(null);
       const result = getSongCacheEntry("track-nonexistent");
       expect(result).toBeNull();
     });
-  });
 
-  describe("updateSongCacheLastAccessed", () => {
-    it("should update lastAccessedAt in song_cache", () => {
-      const { updateSongCacheLastAccessed } = jest.requireActual("@/services/db");
+    it("updateSongCacheLastAccessed should update lastAccessedAt in song_cache", () => {
       updateSongCacheLastAccessed("track-1");
       expect(mockRunSync).toHaveBeenCalledWith(
         "UPDATE song_cache SET lastAccessedAt = ? WHERE songId = ?",
         [expect.any(String), "track-1"],
       );
     });
-  });
 
-  describe("deleteSongCacheEntry", () => {
-    it("should delete song from song_cache", () => {
-      const { deleteSongCacheEntry } = jest.requireActual("@/services/db");
+    it("deleteSongCacheEntry should delete song from song_cache", () => {
       deleteSongCacheEntry("track-1");
       expect(mockRunSync).toHaveBeenCalledWith(
         "DELETE FROM song_cache WHERE songId = ?",
