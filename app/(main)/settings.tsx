@@ -1,15 +1,16 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Alert, ScrollView } from "react-native";
-import { Button, Surface, Text, useTheme } from "react-native-paper";
+import { Button, Surface, Text } from "react-native-paper";
 
 import { logout } from "@/services/api";
 import { exportBackupToFile } from "@/services/backup";
 import { settingsStyles } from "@/stylesheets";
+import { useAppTheme } from "@/types";
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const theme = useTheme();
+  const theme = useAppTheme();
   const [exporting, setExporting] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -63,9 +64,15 @@ export default function SettingsScreen() {
   return (
     <Surface style={settingsStyles.page}>
       <ScrollView contentContainerStyle={settingsStyles.scrollContent}>
-        <Text variant="headlineMedium">settings</Text>
+        <Text variant="titleLarge">settings</Text>
 
-        <Surface elevation={1} style={settingsStyles.sectionCard}>
+        <Surface
+          elevation={0}
+          style={[
+            settingsStyles.sectionCard,
+            { backgroundColor: theme.colors.surfaceContainerHighest },
+          ]}
+        >
           <Text variant="titleMedium">data</Text>
           <Text
             variant="bodyMedium"
@@ -85,7 +92,13 @@ export default function SettingsScreen() {
           </Button>
         </Surface>
 
-        <Surface elevation={1} style={settingsStyles.sectionCard}>
+        <Surface
+          elevation={0}
+          style={[
+            settingsStyles.sectionCard,
+            { backgroundColor: theme.colors.surfaceContainerHighest },
+          ]}
+        >
           <Text variant="titleMedium">account</Text>
 
           <Button

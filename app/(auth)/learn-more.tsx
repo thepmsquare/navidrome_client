@@ -1,12 +1,13 @@
 import { useRouter } from "expo-router";
 import { Alert, Linking, ScrollView, View } from "react-native";
-import { Appbar, Button, Surface, Text, useTheme } from "react-native-paper";
+import { Appbar, Button, Surface, Text } from "react-native-paper";
 
 import { learnMoreStyles } from "@/stylesheets";
+import { useAppTheme } from "@/types";
 
 export default function LearnMoreScreen() {
   const router = useRouter();
-  const theme = useTheme();
+  const theme = useAppTheme();
 
   async function openUrl(url: string) {
     try {
@@ -27,7 +28,13 @@ export default function LearnMoreScreen() {
       </Appbar.Header>
 
       <ScrollView contentContainerStyle={learnMoreStyles.scrollContent}>
-        <Surface elevation={1} style={learnMoreStyles.card}>
+        <Surface
+          elevation={0}
+          style={[
+            learnMoreStyles.card,
+            { backgroundColor: theme.colors.surfaceContainerHighest },
+          ]}
+        >
           <Text variant="titleMedium">what is navidrome?</Text>
           <Text
             variant="bodyMedium"
@@ -40,7 +47,13 @@ export default function LearnMoreScreen() {
           </Text>
         </Surface>
 
-        <Surface elevation={1} style={learnMoreStyles.card}>
+        <Surface
+          elevation={0}
+          style={[
+            learnMoreStyles.card,
+            { backgroundColor: theme.colors.surfaceContainerHighest },
+          ]}
+        >
           <Text variant="titleMedium">what is this client app?</Text>
           <Text
             variant="bodyMedium"
@@ -52,7 +65,13 @@ export default function LearnMoreScreen() {
           </Text>
         </Surface>
 
-        <Surface elevation={1} style={learnMoreStyles.card}>
+        <Surface
+          elevation={0}
+          style={[
+            learnMoreStyles.card,
+            { backgroundColor: theme.colors.surfaceContainerHighest },
+          ]}
+        >
           <Text variant="titleMedium">getting started</Text>
           <Text
             variant="bodyMedium"
@@ -67,7 +86,13 @@ export default function LearnMoreScreen() {
           </Text>
         </Surface>
 
-        <Surface elevation={1} style={learnMoreStyles.card}>
+        <Surface
+          elevation={0}
+          style={[
+            learnMoreStyles.card,
+            { backgroundColor: theme.colors.surfaceContainerHighest },
+          ]}
+        >
           <Text variant="titleMedium">useful links</Text>
           <View style={learnMoreStyles.actions}>
             <Button

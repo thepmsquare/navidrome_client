@@ -1,25 +1,24 @@
 import { StyleSheet } from "react-native";
 
+import { spacing } from "@/utils/spacing";
+
 export const miniPlayerStyles = StyleSheet.create({
   container: {
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderTopWidth: 1,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
   },
   progressBar: {
-    height: 2.5,
+    height: 3,
   },
   content: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    minHeight: 56,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    minHeight: spacing.xxl + spacing.sm,
+    gap: spacing.sm,
   },
   trackPressable: {
     flex: 1,
@@ -29,21 +28,21 @@ export const miniPlayerStyles = StyleSheet.create({
   artwork: {
     width: 44,
     height: 44,
-    borderRadius: 8,
+    borderRadius: spacing.sm,
   },
   artworkPlaceholder: {
-    borderRadius: 8,
+    borderRadius: spacing.sm,
   },
   infoContainer: {
     flex: 1,
-    marginHorizontal: 12,
+    marginHorizontal: spacing.sm,
     justifyContent: "center",
   },
   title: {
     fontWeight: "600",
   },
   subtitle: {
-    marginTop: 1,
+    marginTop: spacing.xs / 2,
   },
   actionsContainer: {
     flexDirection: "row",
@@ -51,10 +50,12 @@ export const miniPlayerStyles = StyleSheet.create({
   },
   actionButton: {
     margin: 0,
+    width: spacing.xxl,
+    height: spacing.xxl,
   },
   bufferingIndicator: {
-    width: 40,
-    height: 40,
+    width: spacing.xxl,
+    height: spacing.xxl,
     justifyContent: "center",
     alignItems: "center",
   },

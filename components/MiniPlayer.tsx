@@ -9,7 +9,6 @@ import {
   ProgressBar,
   Surface,
   Text,
-  useTheme,
 } from "react-native-paper";
 
 import { getCoverArtBaseUrl } from "@/services/api";
@@ -21,10 +20,11 @@ import {
   usePlayerState,
 } from "@/services/player";
 import { miniPlayerStyles } from "@/stylesheets";
+import { useAppTheme } from "@/types";
 
 export function MiniPlayer() {
   const router = useRouter();
-  const theme = useTheme();
+  const theme = useAppTheme();
   const playerState = usePlayerState();
   const [getArtUrl, setGetArtUrl] = useState<
     ((id?: string | null) => string | null) | null
@@ -88,11 +88,11 @@ export function MiniPlayer() {
       style={[
         miniPlayerStyles.container,
         {
-          backgroundColor: theme.colors.elevation.level2,
+          backgroundColor: theme.colors.surfaceContainer,
           borderTopColor: theme.colors.outlineVariant,
         },
       ]}
-      elevation={3}
+      elevation={0}
     >
       <ProgressBar
         progress={progress}
@@ -103,7 +103,7 @@ export function MiniPlayer() {
         }
         style={[
           miniPlayerStyles.progressBar,
-          { backgroundColor: theme.colors.surfaceVariant },
+          { backgroundColor: theme.colors.surfaceContainerHighest },
         ]}
       />
       <View style={miniPlayerStyles.content}>

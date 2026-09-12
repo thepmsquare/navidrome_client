@@ -1,29 +1,24 @@
 import { StyleSheet } from "react-native";
 
+import { spacing } from "@/utils/spacing";
+
 export const albumsStyles = StyleSheet.create({
   page: {
     flex: 1,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8,
-  },
   listContent: {
-    paddingHorizontal: 8,
-    paddingBottom: 24,
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.lg,
   },
   artwork: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
+    width: spacing.xxl,
+    height: spacing.xxl,
+    borderRadius: spacing.sm,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: 24,
+    padding: spacing.lg,
   },
 });

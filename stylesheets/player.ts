@@ -1,29 +1,31 @@
 import { StyleSheet } from "react-native";
 
+import { spacing } from "@/utils/spacing";
+
 export const playerStyles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingBottom: 24,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
     justifyContent: "space-between",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 8,
+    paddingVertical: spacing.sm,
   },
   headerTitle: {
     fontWeight: "500",
     letterSpacing: 0.5,
   },
   headerSpacer: {
-    width: 48,
+    width: spacing.xxl,
   },
   artContainer: {
     alignItems: "center",
     justifyContent: "center",
-    marginVertical: 16,
+    marginVertical: spacing.md,
   },
   artwork: {
     width: "100%",
@@ -40,7 +42,7 @@ export const playerStyles = StyleSheet.create({
     justifyContent: "center",
   },
   infoContainer: {
-    marginVertical: 12,
+    marginVertical: spacing.sm + spacing.xs,
   },
   titleRow: {
     flexDirection: "row",
@@ -49,14 +51,14 @@ export const playerStyles = StyleSheet.create({
   },
   titleTextContainer: {
     flex: 1,
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   cacheButtonContainer: {
-    marginTop: 8,
+    marginTop: spacing.sm,
     alignItems: "flex-start",
   },
   cacheButton: {
-    marginLeft: -8,
+    marginLeft: -spacing.sm,
   },
   cacheButtonContent: {
     flexDirection: "row",
@@ -64,24 +66,23 @@ export const playerStyles = StyleSheet.create({
   },
   cacheButtonLabel: {
     textTransform: "lowercase",
-    fontSize: 13,
   },
   title: {
     fontWeight: "700",
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   artist: {
     fontWeight: "500",
-    marginBottom: 2,
+    marginBottom: spacing.xs / 2,
   },
   album: {
-    marginTop: 2,
+    marginTop: spacing.xs / 2,
   },
   progressSection: {
-    marginVertical: 12,
+    marginVertical: spacing.sm + spacing.xs,
   },
   progressTouchArea: {
-    paddingVertical: 8,
+    paddingVertical: spacing.sm,
     justifyContent: "center",
   },
   progressBar: {
@@ -91,14 +92,14 @@ export const playerStyles = StyleSheet.create({
   timeRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 6,
+    marginTop: spacing.xs,
   },
   controlsRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 8,
-    marginBottom: 16,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
   },
   playButton: {
     margin: 0,
@@ -107,10 +108,10 @@ export const playerStyles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: 24,
+    padding: spacing.lg,
   },
   emptyText: {
-    marginTop: 16,
-    marginBottom: 24,
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
   },
 });

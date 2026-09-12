@@ -9,7 +9,7 @@ export default function SearchScreen() {
         alignItems: "center",
       }}
     >
-      <Text variant="headlineMedium">search</Text>
+      <Text variant="titleLarge">search</Text>
     </Surface>
   );
 }

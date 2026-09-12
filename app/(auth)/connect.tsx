@@ -11,7 +11,6 @@ import {
   Surface,
   Text,
   TextInput,
-  useTheme,
 } from "react-native-paper";
 
 import { ConnectProgress } from "@/components/ConnectProgress";
@@ -19,12 +18,12 @@ import { ConnectProgress } from "@/components/ConnectProgress";
 import { login, notifyAuthState, ping } from "@/services/api";
 import { pickProfileFile } from "@/services/backup";
 import { connectStyles } from "@/stylesheets";
-import { ConnectStage } from "@/types";
+import { ConnectStage, useAppTheme } from "@/types";
 import { APP_SHORT_NAME, APP_SUBTITLE } from "@/utils/constants";
 
 export default function ConnectScreen() {
   const router = useRouter();
-  const theme = useTheme();
+  const theme = useAppTheme();
   const [serverUrl, setServerUrl] = useState("https://");
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -233,7 +232,7 @@ export default function ConnectScreen() {
             accessibilityLabel="app icon"
           />
           <View style={connectStyles.header}>
-            <Text variant="headlineMedium" style={connectStyles.appName}>
+            <Text variant="titleLarge" style={connectStyles.appName}>
               {APP_SHORT_NAME}
             </Text>
             <Text
@@ -248,7 +247,13 @@ export default function ConnectScreen() {
           </View>
         </View>
 
-        <Surface elevation={2} style={connectStyles.form}>
+        <Surface
+          elevation={0}
+          style={[
+            connectStyles.form,
+            { backgroundColor: theme.colors.surfaceContainerHighest },
+          ]}
+        >
           <Text variant="titleMedium">
             {connectStage === "ping"
               ? "connect to your server"
@@ -402,7 +407,13 @@ export default function ConnectScreen() {
         </Surface>
 
         {connectStage === "ping" && (
-          <Surface elevation={1} style={connectStyles.aboutCard}>
+          <Surface
+            elevation={0}
+            style={[
+              connectStyles.aboutCard,
+              { backgroundColor: theme.colors.surfaceContainerHighest },
+            ]}
+          >
             <Text variant="titleMedium">new to navidrome?</Text>
             <Text
               variant="bodyMedium"

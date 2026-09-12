@@ -9,7 +9,7 @@ export default function SyncScreen() {
         alignItems: "center",
       }}
     >
-      <Text variant="headlineMedium">sync</Text>
+      <Text variant="titleLarge">sync</Text>
     </Surface>
   );
 }
