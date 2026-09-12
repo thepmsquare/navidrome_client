@@ -26,7 +26,7 @@ export default function PlaylistsScreen() {
 
   return (
     <Surface style={playlistsStyles.page}>
-      <Appbar.Header>
+      <Appbar.Header statusBarHeight={0}>
         <Appbar.BackAction
           onPress={() => router.back()}
           accessibilityLabel="go back"
