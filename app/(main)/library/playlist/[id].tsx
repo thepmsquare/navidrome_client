@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { FlatList, View } from "react-native";
 import {
   ActivityIndicator,
+  Appbar,
   Avatar,
-  IconButton,
   List,
   Surface,
   Text,
@@ -15,7 +15,7 @@ import { getCoverArtBaseUrl, getPlaylist } from "@/services/api";
 import { getPlaylistById } from "@/services/db";
 import { playPlaylist } from "@/services/player";
 import { playlistDetailStyles } from "@/stylesheets";
-import { Child, Playlist } from "@/types";
+import { Child, Playlist, useAppTheme } from "@/types";
 
 function formatDuration(seconds?: number): string {
   if (!seconds) return "";
@@ -26,6 +26,7 @@ function formatDuration(seconds?: number): string {
 
 export default function PlaylistDetailScreen() {
   const router = useRouter();
+  const theme = useAppTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [playlist, setPlaylist] = useState<Playlist | null>(() =>
@@ -63,10 +64,13 @@ export default function PlaylistDetailScreen() {
 
   return (
     <Surface style={playlistDetailStyles.page}>
-      <View style={playlistDetailStyles.header}>
-        <IconButton icon="arrow-left" size={24} onPress={() => router.back()} />
-        <Text variant="titleLarge">playlist</Text>
-      </View>
+      <Appbar.Header>
+        <Appbar.BackAction
+          onPress={() => router.back()}
+          accessibilityLabel="go back"
+        />
+        <Appbar.Content title="playlist" />
+      </Appbar.Header>
 
       <FlatList
         data={songs}
@@ -95,12 +99,21 @@ export default function PlaylistDetailScreen() {
               {playlist.comment ? (
                 <Text
                   variant="bodyMedium"
-                  style={playlistDetailStyles.commentText}
+                  style={[
+                    playlistDetailStyles.commentText,
+                    { color: theme.colors.onSurfaceVariant },
+                  ]}
                 >
                   {playlist.comment}
                 </Text>
               ) : null}
-              <Text variant="bodySmall" style={playlistDetailStyles.metaText}>
+              <Text
+                variant="bodySmall"
+                style={[
+                  playlistDetailStyles.metaText,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+              >
                 {[
                   playlist.owner ? `by ${playlist.owner}` : null,
                   playlist.songCount ? `${playlist.songCount} songs` : null,
@@ -133,13 +146,25 @@ export default function PlaylistDetailScreen() {
             style={playlistDetailStyles.trackItem}
             onPress={() => playPlaylist(songs, index)}
             left={() => (
-              <Text variant="bodyMedium" style={playlistDetailStyles.trackNumber}>
+              <Text
+                variant="bodyMedium"
+                style={[
+                  playlistDetailStyles.trackNumber,
+                  { color: theme.colors.outline },
+                ]}
+              >
                 {index + 1}
               </Text>
             )}
             right={() =>
               item.duration ? (
-                <Text variant="bodySmall" style={playlistDetailStyles.metaText}>
+                <Text
+                  variant="bodySmall"
+                  style={[
+                    playlistDetailStyles.metaText,
+                    { color: theme.colors.onSurfaceVariant },
+                  ]}
+                >
                   {formatDuration(item.duration)}
                 </Text>
               ) : null

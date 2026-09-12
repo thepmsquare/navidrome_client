@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { FlatList, View } from "react-native";
-import { Avatar, IconButton, List, Surface, Text } from "react-native-paper";
+import { Avatar, Appbar, List, Surface, Text } from "react-native-paper";
 
 import { getCoverArtBaseUrl } from "@/services/api";
 import { getAllArtists } from "@/services/db";
@@ -26,10 +26,13 @@ export default function ArtistsScreen() {
 
   return (
     <Surface style={artistsStyles.page}>
-      <View style={artistsStyles.header}>
-        <IconButton icon="arrow-left" size={24} onPress={() => router.back()} />
-        <Text variant="titleLarge">artists</Text>
-      </View>
+      <Appbar.Header>
+        <Appbar.BackAction
+          onPress={() => router.back()}
+          accessibilityLabel="go back"
+        />
+        <Appbar.Content title="artists" />
+      </Appbar.Header>
 
       <FlatList
         data={artists}

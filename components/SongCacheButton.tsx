@@ -9,7 +9,7 @@ import {
   TextStyle,
   ViewStyle,
 } from "react-native";
-import { Button, IconButton, useTheme } from "react-native-paper";
+import { Button, IconButton } from "react-native-paper";
 
 import { CircularProgressRing } from "@/components/CircularProgressRing";
 import { getSongCacheEntry } from "@/services/db";
@@ -20,7 +20,7 @@ import {
   subscribeSongCache,
   subscribeSongCacheProgress,
 } from "@/services/songCache";
-import { SongCacheRow, SongCacheType } from "@/types";
+import { SongCacheRow, SongCacheType, useAppTheme } from "@/types";
 
 export interface SongCacheButtonProps {
   songId?: string | null;
@@ -78,7 +78,7 @@ export function SongCacheButton({
   onCacheCancelled,
   onCacheRemoved,
 }: SongCacheButtonProps) {
-  const theme = useTheme();
+  const theme = useAppTheme();
 
   const [prevSongId, setPrevSongId] = useState<string | undefined | null>(undefined);
   const [cacheEntry, setCacheEntry] = useState<SongCacheRow | null>(
@@ -272,8 +272,8 @@ export function SongCacheButton({
             progress={cachingProgress}
             size={progressRingSize}
             strokeWidth={2.5}
-            color={theme.colors.primary}
-            trackColor={theme.colors.surfaceVariant ?? "rgba(128, 128, 128, 0.25)"}
+            color={theme.colors.tertiary}
+            trackColor={theme.colors.surfaceContainerHighest}
             showPercentage
           />
         </Pressable>
@@ -304,22 +304,20 @@ export function SongCacheButton({
                 progress={cachingProgress}
                 size={20}
                 strokeWidth={2}
-                color={theme.colors.primary}
-                trackColor={
-                  theme.colors.surfaceVariant ?? "rgba(128, 128, 128, 0.25)"
-                }
+                color={theme.colors.tertiary}
+                trackColor={theme.colors.surfaceContainerHighest}
                 showPercentage={false}
               />
             )
           : cacheIcon
       }
-      textColor={isCaching ? theme.colors.primary : cacheColor}
+      textColor={isCaching ? theme.colors.tertiary : cacheColor}
       onPress={handlePress}
       style={[styles.button, style]}
       contentStyle={[styles.content, contentStyle]}
       labelStyle={[
         styles.label,
-        { color: isCaching ? theme.colors.primary : cacheColor },
+        { color: isCaching ? theme.colors.tertiary : cacheColor },
         labelStyle,
       ]}
       accessibilityLabel={cacheText}
@@ -340,7 +338,6 @@ const styles = StyleSheet.create({
   },
   label: {
     textTransform: "lowercase",
-    fontSize: 13,
   },
   iconProgressContainer: {
     justifyContent: "center",

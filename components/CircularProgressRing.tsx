@@ -1,6 +1,9 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { Text } from "react-native-paper";
 import Svg, { Circle } from "react-native-svg";
+
+import { useAppTheme } from "@/types";
 
 export interface CircularProgressRingProps {
   /**
@@ -20,7 +23,7 @@ export interface CircularProgressRingProps {
    */
   color: string;
   /**
-   * Background track stroke color.
+   * Background track stroke color. Defaults to theme.colors.surfaceContainerHighest.
    */
   trackColor?: string;
   /**
@@ -34,9 +37,11 @@ export function CircularProgressRing({
   size = 28,
   strokeWidth = 2.5,
   color,
-  trackColor = "rgba(128, 128, 128, 0.25)",
+  trackColor,
   showPercentage = true,
 }: CircularProgressRingProps) {
+  const theme = useAppTheme();
+  const effectiveTrackColor = trackColor ?? theme.colors.surfaceContainerHighest;
   const radius = Math.max(1, (size - strokeWidth) / 2);
   const circumference = 2 * Math.PI * radius;
 
@@ -65,7 +70,7 @@ export function CircularProgressRing({
       <Svg width={size} height={size} style={styles.svg}>
         {/* Background track circle */}
         <Circle
-          stroke={trackColor}
+          stroke={effectiveTrackColor}
           fill="none"
           cx={size / 2}
           cy={size / 2}
@@ -121,7 +126,6 @@ const styles = StyleSheet.create({
   percentageText: {
     fontWeight: "700",
     textAlign: "center",
-    includeFontPadding: false,
     letterSpacing: -0.5,
   },
 });

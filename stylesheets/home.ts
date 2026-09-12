@@ -35,12 +35,14 @@ export const homeStyles = StyleSheet.create({
     gap: spacing.sm,
   },
   countsContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
     gap: spacing.sm + spacing.xs,
-    justifyContent: "space-between",
+  },
+  countsRow: {
+    flexDirection: "row",
+    gap: spacing.sm + spacing.xs,
   },
   countCard: {
-    width: "48%",
+    flex: 1,
+    borderRadius: 16,
   },
 });

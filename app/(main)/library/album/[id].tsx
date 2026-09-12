@@ -2,13 +2,13 @@ import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { FlatList, View } from "react-native";
-import { Avatar, IconButton, List, Surface, Text } from "react-native-paper";
+import { Appbar, Avatar, List, Surface, Text } from "react-native-paper";
 
 import { getCoverArtBaseUrl } from "@/services/api";
 import { getAlbumById, getSongsByAlbumId } from "@/services/db";
 import { playPlaylist } from "@/services/player";
 import { albumDetailStyles } from "@/stylesheets";
-import { AlbumID3, Child } from "@/types";
+import { AlbumID3, Child, useAppTheme } from "@/types";
 
 function formatDuration(seconds?: number): string {
   if (!seconds) return "";
@@ -19,6 +19,7 @@ function formatDuration(seconds?: number): string {
 
 export default function AlbumDetailScreen() {
   const router = useRouter();
+  const theme = useAppTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [album] = useState<AlbumID3 | null>(() => (id ? getAlbumById(id) : null));
@@ -39,10 +40,13 @@ export default function AlbumDetailScreen() {
 
   return (
     <Surface style={albumDetailStyles.page}>
-      <View style={albumDetailStyles.header}>
-        <IconButton icon="arrow-left" size={24} onPress={() => router.back()} />
-        <Text variant="titleLarge">album</Text>
-      </View>
+      <Appbar.Header>
+        <Appbar.BackAction
+          onPress={() => router.back()}
+          accessibilityLabel="go back"
+        />
+        <Appbar.Content title="album" />
+      </Appbar.Header>
 
       <FlatList
         data={songs}
@@ -66,11 +70,23 @@ export default function AlbumDetailScreen() {
                 {album.name}
               </Text>
               {album.artist ? (
-                <Text variant="titleMedium" style={albumDetailStyles.artistName}>
+                <Text
+                  variant="titleMedium"
+                  style={[
+                    albumDetailStyles.artistName,
+                    { color: theme.colors.onSurfaceVariant },
+                  ]}
+                >
                   {album.artist}
                 </Text>
               ) : null}
-              <Text variant="bodySmall" style={albumDetailStyles.metaText}>
+              <Text
+                variant="bodySmall"
+                style={[
+                  albumDetailStyles.metaText,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+              >
                 {[
                   album.year ? `${album.year}` : null,
                   album.songCount ? `${album.songCount} songs` : null,
@@ -93,13 +109,25 @@ export default function AlbumDetailScreen() {
             style={albumDetailStyles.trackItem}
             onPress={() => playPlaylist(songs, index)}
             left={() => (
-              <Text variant="bodyMedium" style={albumDetailStyles.trackNumber}>
+              <Text
+                variant="bodyMedium"
+                style={[
+                  albumDetailStyles.trackNumber,
+                  { color: theme.colors.outline },
+                ]}
+              >
                 {item.track ? `${item.track}` : "-"}
               </Text>
             )}
             right={() =>
               item.duration ? (
-                <Text variant="bodySmall" style={albumDetailStyles.metaText}>
+                <Text
+                  variant="bodySmall"
+                  style={[
+                    albumDetailStyles.metaText,
+                    { color: theme.colors.onSurfaceVariant },
+                  ]}
+                >
                   {formatDuration(item.duration)}
                 </Text>
               ) : null

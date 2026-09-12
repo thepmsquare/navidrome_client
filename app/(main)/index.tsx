@@ -7,18 +7,17 @@ import {
   Card,
   Surface,
   Text,
-  useTheme,
 } from "react-native-paper";
 
 import { client_app_sync } from "@/services/api";
 import { getLocalCounts } from "@/services/db";
 import { playTestSound } from "@/services/player";
 import { homeStyles } from "@/stylesheets";
-import { Search3Counts } from "@/types";
+import { Search3Counts, useAppTheme } from "@/types";
 import { useAudioOutputDevice } from "@/utils/audioOutput";
 
 export default function HomeScreen() {
-  const theme = useTheme();
+  const theme = useAppTheme();
   const audioDevice = useAudioOutputDevice();
   const [subsonicVersion, setSubsonicVersion] = useState<string | null>(null);
   const [serverUrl, setServerUrl] = useState<string | null>(null);
@@ -78,9 +77,15 @@ export default function HomeScreen() {
   return (
     <Surface style={homeStyles.page}>
       <ScrollView contentContainerStyle={homeStyles.scrollContent}>
-        <Text variant="headlineMedium">home</Text>
+        <Text variant="titleLarge">home</Text>
 
-        <Surface elevation={1} style={homeStyles.sectionCard}>
+        <Surface
+          elevation={0}
+          style={[
+            homeStyles.sectionCard,
+            { backgroundColor: theme.colors.surfaceContainerHighest },
+          ]}
+        >
           <Text variant="titleMedium">connection</Text>
           <View style={homeStyles.infoRow}>
             <Text
@@ -145,7 +150,13 @@ export default function HomeScreen() {
           </View>
         </Surface>
 
-        <Surface elevation={1} style={homeStyles.sectionCard}>
+        <Surface
+          elevation={0}
+          style={[
+            homeStyles.sectionCard,
+            { backgroundColor: theme.colors.surfaceContainerHighest },
+          ]}
+        >
           <Text variant="titleMedium">library</Text>
           {syncStatusText && (
             <Text
@@ -162,39 +173,93 @@ export default function HomeScreen() {
             </View>
           ) : (
             <View style={homeStyles.countsContainer}>
-              <Card style={homeStyles.countCard}>
-                <Card.Content>
-                  <Text variant="headlineSmall">
-                    {counts?.artistCount ?? 0}
-                  </Text>
-                  <Text variant="bodyMedium">artists</Text>
-                </Card.Content>
-              </Card>
-              <Card style={homeStyles.countCard}>
-                <Card.Content>
-                  <Text variant="headlineSmall">{counts?.albumCount ?? 0}</Text>
-                  <Text variant="bodyMedium">albums</Text>
-                </Card.Content>
-              </Card>
-              <Card style={homeStyles.countCard}>
-                <Card.Content>
-                  <Text variant="headlineSmall">{counts?.songCount ?? 0}</Text>
-                  <Text variant="bodyMedium">songs</Text>
-                </Card.Content>
-              </Card>
-              <Card style={homeStyles.countCard}>
-                <Card.Content>
-                  <Text variant="headlineSmall">
-                    {counts?.playlistCount ?? 0}
-                  </Text>
-                  <Text variant="bodyMedium">playlists</Text>
-                </Card.Content>
-              </Card>
+              <View style={homeStyles.countsRow}>
+                <Card
+                  mode="contained"
+                  style={[
+                    homeStyles.countCard,
+                    { backgroundColor: theme.colors.surfaceContainer },
+                  ]}
+                >
+                  <Card.Content>
+                    <Text variant="headlineSmall">
+                      {counts?.artistCount ?? 0}
+                    </Text>
+                    <Text
+                      variant="bodyMedium"
+                      style={{ color: theme.colors.onSurfaceVariant }}
+                    >
+                      artists
+                    </Text>
+                  </Card.Content>
+                </Card>
+                <Card
+                  mode="contained"
+                  style={[
+                    homeStyles.countCard,
+                    { backgroundColor: theme.colors.surfaceContainer },
+                  ]}
+                >
+                  <Card.Content>
+                    <Text variant="headlineSmall">{counts?.albumCount ?? 0}</Text>
+                    <Text
+                      variant="bodyMedium"
+                      style={{ color: theme.colors.onSurfaceVariant }}
+                    >
+                      albums
+                    </Text>
+                  </Card.Content>
+                </Card>
+              </View>
+              <View style={homeStyles.countsRow}>
+                <Card
+                  mode="contained"
+                  style={[
+                    homeStyles.countCard,
+                    { backgroundColor: theme.colors.surfaceContainer },
+                  ]}
+                >
+                  <Card.Content>
+                    <Text variant="headlineSmall">{counts?.songCount ?? 0}</Text>
+                    <Text
+                      variant="bodyMedium"
+                      style={{ color: theme.colors.onSurfaceVariant }}
+                    >
+                      songs
+                    </Text>
+                  </Card.Content>
+                </Card>
+                <Card
+                  mode="contained"
+                  style={[
+                    homeStyles.countCard,
+                    { backgroundColor: theme.colors.surfaceContainer },
+                  ]}
+                >
+                  <Card.Content>
+                    <Text variant="headlineSmall">
+                      {counts?.playlistCount ?? 0}
+                    </Text>
+                    <Text
+                      variant="bodyMedium"
+                      style={{ color: theme.colors.onSurfaceVariant }}
+                    >
+                      playlists
+                    </Text>
+                  </Card.Content>
+                </Card>
+              </View>
             </View>
           )}
         </Surface>
 
-        <Surface elevation={1} style={homeStyles.sectionCard}>
+        <Surface
+          elevation={0}
+          style={[
+            homeStyles.sectionCard,
+            { backgroundColor: theme.colors.surfaceContainerHighest },
+          ]}
+        >
           <Text variant="titleMedium">actions</Text>
           <Button
             mode="contained-tonal"

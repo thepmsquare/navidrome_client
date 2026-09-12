@@ -56,7 +56,7 @@ export const connectStyles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
     paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
+    paddingVertical: spacing.xs / 2,
   },
   serverInfoText: {
     flex: 1,

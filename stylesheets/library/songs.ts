@@ -1,40 +1,35 @@
 import { StyleSheet } from "react-native";
 
+import { spacing } from "@/utils/spacing";
+
 export const songsStyles = StyleSheet.create({
   page: {
     flex: 1,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8,
-  },
   searchbar: {
-    marginHorizontal: 16,
-    marginBottom: 8,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
   },
   sortRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    marginBottom: 8,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
   },
   listContent: {
-    paddingHorizontal: 8,
-    paddingBottom: 24,
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.lg,
   },
   artwork: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
+    width: spacing.xxl,
+    height: spacing.xxl,
+    borderRadius: spacing.sm,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: 24,
+    padding: spacing.lg,
   },
 });

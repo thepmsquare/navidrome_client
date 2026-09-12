@@ -1,27 +1,22 @@
 import { StyleSheet } from "react-native";
 
+import { spacing } from "@/utils/spacing";
+
 export const playlistDetailStyles = StyleSheet.create({
   page: {
     flex: 1,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8,
-  },
   playlistInfoContainer: {
     alignItems: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    gap: 8,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
   },
   coverArt: {
     width: 180,
     height: 180,
-    borderRadius: 12,
-    marginBottom: 8,
+    borderRadius: 16,
+    marginBottom: spacing.sm,
   },
   playlistName: {
     textAlign: "center",
@@ -29,30 +24,27 @@ export const playlistDetailStyles = StyleSheet.create({
   },
   commentText: {
     textAlign: "center",
-    opacity: 0.8,
   },
   metaText: {
     textAlign: "center",
-    opacity: 0.7,
   },
   trackNumber: {
-    width: 32,
+    width: spacing.xl,
     textAlign: "center",
-    opacity: 0.6,
   },
   trackItem: {
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
   },
   listContent: {
-    paddingHorizontal: 8,
-    paddingBottom: 32,
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.xl,
   },
   emptyContainer: {
-    padding: 24,
+    padding: spacing.lg,
     alignItems: "center",
   },
   loadingContainer: {
-    padding: 32,
+    padding: spacing.xl,
     alignItems: "center",
     justifyContent: "center",
   },

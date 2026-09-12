@@ -8,7 +8,6 @@ import {
   IconButton,
   ProgressBar,
   Text,
-  useTheme,
 } from "react-native-paper";
 
 import { SongCacheButton } from "@/components/SongCacheButton";
@@ -22,6 +21,7 @@ import {
   usePlayerState,
 } from "@/services/player";
 import { playerStyles } from "@/stylesheets";
+import { useAppTheme } from "@/types";
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds) || seconds < 0) return "0:00";
@@ -33,7 +33,7 @@ function formatTime(seconds: number): string {
 
 export default function PlayerScreen() {
   const router = useRouter();
-  const theme = useTheme();
+  const theme = useAppTheme();
   const playerState = usePlayerState();
   const [progressBarWidth, setProgressBarWidth] = useState<number>(0);
   const [getArtUrl, setGetArtUrl] = useState<
@@ -123,7 +123,7 @@ export default function PlayerScreen() {
           <Avatar.Icon
             size={96}
             icon="music-off"
-            style={{ backgroundColor: theme.colors.surfaceVariant }}
+            style={{ backgroundColor: theme.colors.surfaceContainerHighest }}
             color={theme.colors.onSurfaceVariant}
           />
           <Text
@@ -201,7 +201,7 @@ export default function PlayerScreen() {
           <View
             style={[
               playerStyles.artworkPlaceholder,
-              { backgroundColor: theme.colors.surfaceVariant },
+              { backgroundColor: theme.colors.surfaceContainerHighest },
             ]}
           >
             <Avatar.Icon
@@ -275,7 +275,7 @@ export default function PlayerScreen() {
             }
             style={[
               playerStyles.progressBar,
-              { backgroundColor: theme.colors.surfaceVariant },
+              { backgroundColor: theme.colors.surfaceContainerHighest },
             ]}
           />
         </Pressable>

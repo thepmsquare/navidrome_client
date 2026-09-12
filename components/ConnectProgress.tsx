@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Animated, StyleSheet, View } from "react-native";
-import { useTheme } from "react-native-paper";
 
-import { ConnectStage } from "@/types";
+import { ConnectStage, useAppTheme } from "@/types";
+import { spacing } from "@/utils/spacing";
 
 export interface ConnectProgressProps {
   stage: ConnectStage;
@@ -13,7 +13,7 @@ export function ConnectProgress({
   stage,
   loading = false,
 }: ConnectProgressProps) {
-  const theme = useTheme();
+  const theme = useAppTheme();
   const [pulseAnim] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
@@ -79,7 +79,7 @@ export function ConnectProgress({
             {
               backgroundColor: !isStepOne
                 ? theme.colors.primary
-                : theme.colors.surfaceVariant,
+                : theme.colors.surfaceContainerHighest,
               opacity: !isStepOne && loading ? pulseAnim : 1,
             },
           ]}
@@ -91,18 +91,18 @@ export function ConnectProgress({
 
 const styles = StyleSheet.create({
   container: {
-    gap: 6,
+    gap: spacing.xs,
   },
   segmentsRow: {
     flexDirection: "row",
-    gap: 8,
-    height: 4,
+    gap: spacing.sm,
+    height: spacing.xs,
     width: "100%",
   },
   segment: {
     flex: 1,
     height: "100%",
-    borderRadius: 2,
+    borderRadius: spacing.xs / 2,
   },
 });
 

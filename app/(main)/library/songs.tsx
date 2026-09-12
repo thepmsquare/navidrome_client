@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { FlatList, View } from "react-native";
 import {
+  Appbar,
   Avatar,
   Button,
   IconButton,
@@ -108,10 +109,13 @@ export default function SongsScreen() {
 
   return (
     <Surface style={songsStyles.page}>
-      <View style={songsStyles.header}>
-        <IconButton icon="arrow-left" size={24} onPress={() => router.back()} />
-        <Text variant="titleLarge">songs</Text>
-      </View>
+      <Appbar.Header>
+        <Appbar.BackAction
+          onPress={() => router.back()}
+          accessibilityLabel="go back"
+        />
+        <Appbar.Content title="songs" />
+      </Appbar.Header>
 
       <Searchbar
         placeholder="search songs"
