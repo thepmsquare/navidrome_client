@@ -30,6 +30,7 @@ import {
   usePlayerState,
 } from "@/services/player";
 import * as songCache from "@/services/songCache";
+import { updateSongCacheLastAccessed } from "@/services/db";
 import { Child } from "@/types";
 
 let stateListenerCb: ((status: any) => void) | null = null;
@@ -39,6 +40,10 @@ let prevTrackCb: (() => void) | null = null;
 let playbackErrorCb: ((err: any) => void) | null = null;
 let repeatModeCb: ((data: any) => void) | null = null;
 let songCacheCb: ((data: any) => void) | null = null;
+
+jest.mock("@/services/db", () => ({
+  updateSongCacheLastAccessed: jest.fn(),
+}));
 
 jest.mock("@/modules/audio-playback", () => ({
   loadTrack: jest.fn(),
@@ -82,6 +87,7 @@ jest.mock("@/services/api", () => ({
 }));
 
 jest.mock("@/services/songCache", () => ({
+  autoCacheSong: jest.fn().mockResolvedValue(undefined),
   getCachedSongPlaybackUri: jest.fn(),
   subscribeSongCache: jest.fn((cb) => {
     songCacheCb = cb;
@@ -162,6 +168,23 @@ describe("player service", () => {
         }),
       );
       expect(getPlayerState().isPlayingFromCache).toBe(true);
+      expect(songCache.autoCacheSong).not.toHaveBeenCalled();
+      expect(updateSongCacheLastAccessed).toHaveBeenCalledWith("song-1");
+    });
+
+    it("should kick off autoCacheSong in background when playing streaming track", async () => {
+      (songCache.getCachedSongPlaybackUri as jest.Mock).mockReturnValue(null);
+
+      await playPlaylist([sampleSong1], 0);
+
+      expect(audioPlayback.loadTrack).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: "https://stream/song-1",
+        }),
+      );
+      expect(getPlayerState().isPlayingFromCache).toBe(false);
+      expect(songCache.autoCacheSong).toHaveBeenCalledWith("song-1");
+      expect(updateSongCacheLastAccessed).not.toHaveBeenCalled();
     });
   });
 

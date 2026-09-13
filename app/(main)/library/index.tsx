@@ -82,6 +82,17 @@ export default function LibraryHomeScreen() {
           >
             artists
           </Button>
+
+          <Button
+            mode="contained-tonal"
+            icon="cloud-check"
+            style={libraryStyles.button}
+            loading={loadingRoute === "/library/offline"}
+            disabled={loadingRoute !== null}
+            onPress={() => handleNavigate("/library/offline")}
+          >
+            available offline
+          </Button>
         </Surface>
       </ScrollView>
     </Surface>

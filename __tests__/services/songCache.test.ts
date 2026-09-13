@@ -5,12 +5,15 @@ import {
   deleteSongCacheEntry,
   getSongById,
   getSongCacheEntry,
+  insertSongCacheEntryIfNotExists,
   updateSongCacheLastAccessed,
   upsertSongCacheEntry,
 } from "@/services/db";
 import {
+  autoCacheSong,
   cacheSongManually,
   cancelSongCaching,
+  clearAllAutoCachedSongs,
   clearAllCachedSongs,
   deleteSongFromCache,
   getCachedSongPlaybackUri,
@@ -27,9 +30,17 @@ jest.mock("@/services/api", () => ({
 }));
 
 jest.mock("@/services/db", () => ({
+  deleteAutoSongCacheEntries: jest.fn(),
   deleteSongCacheEntry: jest.fn(),
+  getAutoCacheCount: jest.fn(() => 0),
+  getAutoCacheEnabled: jest.fn(() => true),
+  getAutoCacheMaxBytes: jest.fn(() => 1024 * 1024 * 1024),
+  getAutoCacheSongIds: jest.fn(() => []),
+  getAutoCacheTotalSize: jest.fn(() => 0),
+  getLeastRecentlyUsedAutoCacheEntries: jest.fn(() => []),
   getSongById: jest.fn(),
   getSongCacheEntry: jest.fn(),
+  insertSongCacheEntryIfNotExists: jest.fn(),
   updateSongCacheLastAccessed: jest.fn(),
   upsertSongCacheEntry: jest.fn(),
 }));
@@ -51,8 +62,12 @@ jest.mock("expo-file-system", () => {
     }
     create = mockCreate;
     delete = mockDirectoryDelete;
-    uri = "file:///data/user/0/com.thepmsquare.navidrome_client/files/manual-cache";
-    constructor(..._args: any[]) {}
+    uri: string;
+    constructor(_parent?: any, name?: string) {
+      this.uri = name
+        ? `file:///data/user/0/com.thepmsquare.navidrome_client/files/${name}`
+        : "file:///data/user/0/com.thepmsquare.navidrome_client/files/manual-cache";
+    }
   }
 
   class MockFile {
@@ -63,7 +78,10 @@ jest.mock("expo-file-system", () => {
     static downloadFileAsync = mockDownloadFileAsync;
     constructor(dirOrUri: any, name?: string) {
       if (name) {
-        this.uri = `file:///data/user/0/com.thepmsquare.navidrome_client/files/manual-cache/${name}`;
+        const base =
+          dirOrUri?.uri ||
+          "file:///data/user/0/com.thepmsquare.navidrome_client/files/manual-cache";
+        this.uri = `${base}/${name}`;
       } else {
         this.uri = typeof dirOrUri === "string" ? dirOrUri : "file:///test/file";
       }
@@ -396,6 +414,291 @@ describe("songCache service", () => {
       await cacheSongManually("song-progress", progressFn, abortController.signal);
 
       expect(progressFn).toHaveBeenCalledWith(-1);
+    });
+  });
+
+  describe("autoCacheSong", () => {
+    it("should return early if autoCache is disabled", async () => {
+      const { getAutoCacheEnabled } = require("@/services/db");
+      (getAutoCacheEnabled as jest.Mock).mockReturnValueOnce(false);
+
+      await autoCacheSong("song-disabled");
+      expect(File.downloadFileAsync).not.toHaveBeenCalled();
+      expect(getSongById).not.toHaveBeenCalled();
+    });
+
+    it("should return early if song does not exist", async () => {
+      (getSongById as jest.Mock).mockReturnValue(null);
+      await autoCacheSong("nonexistent-song");
+      expect(File.downloadFileAsync).not.toHaveBeenCalled();
+      expect(insertSongCacheEntryIfNotExists).not.toHaveBeenCalled();
+    });
+
+    it("should return early if song is already cached in db", async () => {
+      (getSongById as jest.Mock).mockReturnValue({
+        id: "song-already-cached",
+        title: "Cached Track",
+        suffix: "mp3",
+      });
+      (getSongCacheEntry as jest.Mock).mockReturnValue({
+        songId: "song-already-cached",
+        cacheType: SongCacheType.Manual,
+        filePath: "file:///path/to/manual.mp3",
+        fileSizeBytes: 1234,
+        addedAt: "2026-09-01T00:00:00.000Z",
+        lastAccessedAt: null,
+      });
+
+      await autoCacheSong("song-already-cached");
+      expect(File.downloadFileAsync).not.toHaveBeenCalled();
+      expect(insertSongCacheEntryIfNotExists).not.toHaveBeenCalled();
+    });
+
+    it("should download to auto-cache directory and insert with cacheType Auto on success", async () => {
+      (getSongById as jest.Mock).mockReturnValue({
+        id: "song-auto-1",
+        title: "Auto Song 1",
+        suffix: "flac",
+      });
+      (getSongCacheEntry as jest.Mock)
+        .mockReturnValueOnce(null) // initial check
+        .mockReturnValueOnce(null) // post-download check
+        .mockReturnValueOnce({
+          songId: "song-auto-1",
+          cacheType: SongCacheType.Auto,
+          filePath:
+            "file:///data/user/0/com.thepmsquare.navidrome_client/files/auto-cache/song-auto-1.flac",
+          fileSizeBytes: 1048576,
+          addedAt: "2026-09-13T00:00:00.000Z",
+          lastAccessedAt: null,
+        });
+      (getSongStreamUrl as jest.Mock).mockResolvedValue(
+        "https://example.com/stream?id=song-auto-1",
+      );
+      (File.downloadFileAsync as jest.Mock).mockResolvedValue({
+        uri: "file:///data/user/0/com.thepmsquare.navidrome_client/files/auto-cache/song-auto-1.flac",
+        size: 1048576,
+      });
+      (insertSongCacheEntryIfNotExists as jest.Mock).mockReturnValue(true);
+
+      const progressSpy = jest.fn();
+      const unsubProgress = subscribeSongCacheProgress(progressSpy);
+
+      const listenerSpy = jest.fn();
+      const unsubCache = subscribeSongCache(listenerSpy);
+
+      await autoCacheSong("song-auto-1");
+
+      unsubProgress();
+      unsubCache();
+
+      expect(File.downloadFileAsync).toHaveBeenCalledWith(
+        "https://example.com/stream?id=song-auto-1",
+        expect.objectContaining({
+          uri: "file:///data/user/0/com.thepmsquare.navidrome_client/files/auto-cache/song-auto-1.flac",
+        }),
+        expect.objectContaining({
+          idempotent: true,
+        }),
+      );
+
+      // Auto caching should NOT emit progress events (invisible to user)
+      expect(progressSpy).not.toHaveBeenCalled();
+
+      expect(insertSongCacheEntryIfNotExists).toHaveBeenCalledWith(
+        "song-auto-1",
+        SongCacheType.Auto,
+        "file:///data/user/0/com.thepmsquare.navidrome_client/files/auto-cache/song-auto-1.flac",
+        1048576,
+      );
+
+      expect(listenerSpy).toHaveBeenCalledWith({
+        songId: "song-auto-1",
+        entry: expect.objectContaining({
+          songId: "song-auto-1",
+          cacheType: SongCacheType.Auto,
+        }),
+      });
+    });
+
+    it("should clean up auto file and not overwrite if existing entry appears after download", async () => {
+      (getSongById as jest.Mock).mockReturnValue({
+        id: "song-concurrent-manual",
+        title: "Concurrent Song",
+        suffix: "mp3",
+      });
+      // Initial check returns null, but post-download check returns manual row
+      (getSongCacheEntry as jest.Mock)
+        .mockReturnValueOnce(null)
+        .mockReturnValueOnce({
+          songId: "song-concurrent-manual",
+          cacheType: SongCacheType.Manual,
+          filePath: "file:///path/to/manual.mp3",
+          fileSizeBytes: 1234,
+          addedAt: "2026-09-01T00:00:00.000Z",
+          lastAccessedAt: null,
+        });
+      (getSongStreamUrl as jest.Mock).mockResolvedValue(
+        "https://example.com/stream?id=song-concurrent-manual",
+      );
+      (File.downloadFileAsync as jest.Mock).mockResolvedValue({
+        uri: "file:///data/user/0/com.thepmsquare.navidrome_client/files/auto-cache/song-concurrent-manual.mp3",
+        size: 500000,
+      });
+
+      mockFileDelete.mockClear();
+      await autoCacheSong("song-concurrent-manual");
+
+      expect(insertSongCacheEntryIfNotExists).not.toHaveBeenCalled();
+      expect(mockFileDelete).toHaveBeenCalled();
+    });
+
+    it("should clean up partial file on download failure", async () => {
+      (getSongById as jest.Mock).mockReturnValue({
+        id: "song-fail",
+        title: "Fail Track",
+        suffix: "mp3",
+      });
+      (getSongCacheEntry as jest.Mock).mockReturnValue(null);
+      (getSongStreamUrl as jest.Mock).mockResolvedValue("https://example.com/stream");
+      (File.downloadFileAsync as jest.Mock).mockRejectedValue(
+        new Error("network failure"),
+      );
+
+      mockFileDelete.mockClear();
+      await expect(autoCacheSong("song-fail")).resolves.not.toThrow();
+      expect(mockFileDelete).toHaveBeenCalled();
+    });
+
+    it("should evict least-recently-used auto entries when limit is exceeded", async () => {
+      const {
+        getAutoCacheMaxBytes,
+        getAutoCacheTotalSize,
+        getLeastRecentlyUsedAutoCacheEntries,
+      } = require("@/services/db");
+
+      (getSongById as jest.Mock).mockReturnValue({
+        id: "song-new",
+        title: "New Song",
+        suffix: "flac",
+      });
+      (getSongCacheEntry as jest.Mock)
+        .mockReturnValueOnce(null)
+        .mockReturnValueOnce(null)
+        .mockReturnValueOnce({
+          songId: "song-new",
+          cacheType: SongCacheType.Auto,
+          filePath: "file:///auto-cache/song-new.flac",
+          fileSizeBytes: 300,
+          addedAt: "2026-09-13T00:00:00.000Z",
+          lastAccessedAt: null,
+        });
+
+      (getSongStreamUrl as jest.Mock).mockResolvedValue("https://example.com/stream");
+      (File.downloadFileAsync as jest.Mock).mockResolvedValue({
+        uri: "file:///data/user/0/com.thepmsquare.navidrome_client/files/auto-cache/song-new.flac",
+        size: 300,
+      });
+
+      (getAutoCacheMaxBytes as jest.Mock).mockReturnValue(1000);
+      (getAutoCacheTotalSize as jest.Mock).mockReturnValue(800); // 800 + 300 = 1100 > 1000
+
+      const victim = {
+        songId: "song-lru-victim",
+        cacheType: SongCacheType.Auto,
+        filePath: "file:///data/user/0/com.thepmsquare.navidrome_client/files/auto-cache/victim.mp3",
+        fileSizeBytes: 400,
+        addedAt: "2026-09-01T00:00:00.000Z",
+        lastAccessedAt: "2026-09-02T00:00:00.000Z",
+      };
+
+      (getLeastRecentlyUsedAutoCacheEntries as jest.Mock)
+        .mockReturnValueOnce([victim])
+        .mockReturnValue([]);
+
+      (insertSongCacheEntryIfNotExists as jest.Mock).mockReturnValue(true);
+
+      mockFileDelete.mockClear();
+      await autoCacheSong("song-new");
+
+      expect(mockFileDelete).toHaveBeenCalled();
+      expect(deleteSongCacheEntry).toHaveBeenCalledWith("song-lru-victim");
+      expect(insertSongCacheEntryIfNotExists).toHaveBeenCalledWith(
+        "song-new",
+        SongCacheType.Auto,
+        "file:///data/user/0/com.thepmsquare.navidrome_client/files/auto-cache/song-new.flac",
+        300,
+      );
+    });
+
+    it("should skip caching and clean up destination if single file exceeds maxBytes alone", async () => {
+      const {
+        getAutoCacheMaxBytes,
+        getAutoCacheTotalSize,
+        getLeastRecentlyUsedAutoCacheEntries,
+      } = require("@/services/db");
+
+      (getSongById as jest.Mock).mockReturnValue({
+        id: "song-giant",
+        title: "Giant Song",
+        suffix: "flac",
+      });
+      (getSongCacheEntry as jest.Mock)
+        .mockReturnValueOnce(null)
+        .mockReturnValueOnce(null);
+
+      (getSongStreamUrl as jest.Mock).mockResolvedValue("https://example.com/stream");
+      (File.downloadFileAsync as jest.Mock).mockResolvedValue({
+        uri: "file:///data/user/0/com.thepmsquare.navidrome_client/files/auto-cache/song-giant.flac",
+        size: 2000,
+      });
+
+      (getAutoCacheMaxBytes as jest.Mock).mockReturnValue(1000);
+      (getAutoCacheTotalSize as jest.Mock).mockReturnValue(0);
+      (getLeastRecentlyUsedAutoCacheEntries as jest.Mock).mockReturnValue([]);
+
+      mockFileDelete.mockClear();
+      await autoCacheSong("song-giant");
+
+      expect(mockFileDelete).toHaveBeenCalled();
+      expect(insertSongCacheEntryIfNotExists).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("clearAllAutoCachedSongs", () => {
+    it("should abort auto-caching, delete auto directory, and delete db auto rows", async () => {
+      const {
+        getAutoCacheSongIds,
+        deleteAutoSongCacheEntries,
+      } = require("@/services/db");
+
+      (getAutoCacheSongIds as jest.Mock).mockReturnValue(["auto-song-1", "auto-song-2"]);
+      mockDirectoryExists.current = true;
+      mockDirectoryDelete.mockClear();
+
+      const listenerSpy = jest.fn();
+      const unsub = subscribeSongCache(listenerSpy);
+
+      await clearAllAutoCachedSongs();
+
+      unsub();
+
+      expect(mockDirectoryDelete).toHaveBeenCalled();
+      expect(deleteAutoSongCacheEntries).toHaveBeenCalled();
+      expect(listenerSpy).toHaveBeenCalledWith({
+        songId: "auto-song-1",
+        entry: null,
+      });
+      expect(listenerSpy).toHaveBeenCalledWith({
+        songId: "auto-song-2",
+        entry: null,
+      });
+    });
+
+    it("should handle missing auto-cache directory without error", async () => {
+      mockDirectoryExists.current = false;
+      mockDirectoryDelete.mockClear();
+      await expect(clearAllAutoCachedSongs()).resolves.not.toThrow();
     });
   });
 

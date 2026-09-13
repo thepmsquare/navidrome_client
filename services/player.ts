@@ -19,7 +19,9 @@ import {
   stop,
 } from "@/modules/audio-playback";
 import { getCoverArtBaseUrl, getSongStreamUrl, scrobbleSong } from "@/services/api";
+import { updateSongCacheLastAccessed } from "@/services/db";
 import {
+  autoCacheSong,
   getCachedSongPlaybackUri,
   subscribeSongCache,
 } from "@/services/songCache";
@@ -220,6 +222,10 @@ export async function playTrackAtIndex(index: number): Promise<void> {
 
     currentPlaybackSource = { songId: song.id, isFromCache };
 
+    if (isFromCache) {
+      updateSongCacheLastAccessed(song.id);
+    }
+
     await loadTrack({
       url: playbackUrl,
       title: song.title,
@@ -230,6 +236,12 @@ export async function playTrackAtIndex(index: number): Promise<void> {
     });
 
     scrobbleSong(song.id);
+
+    if (!isFromCache) {
+      autoCacheSong(song.id).catch((err) => {
+        console.error("failed to auto-cache song in background:", err);
+      });
+    }
   } catch (error) {
     console.error("failed to play track:", error);
   }

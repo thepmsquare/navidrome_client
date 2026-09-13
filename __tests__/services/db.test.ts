@@ -5,6 +5,7 @@ import {
   getAllArtists,
   getAllPlaylists,
   getAllSongs,
+  getCachedSongs,
   getDb,
   getLocalCounts,
   getPlaylistById,
@@ -21,6 +22,16 @@ import {
   upsertSongCacheEntry,
   upsertSongsBatch,
   deleteSongCacheEntry,
+  insertSongCacheEntryIfNotExists,
+  getAutoCacheMaxBytes,
+  setAutoCacheMaxBytes,
+  getAutoCacheTotalSize,
+  getLeastRecentlyUsedAutoCacheEntries,
+  getAutoCacheEnabled,
+  setAutoCacheEnabled,
+  deleteAutoSongCacheEntries,
+  getAutoCacheSongIds,
+  getAutoCacheCount,
 } from "@/services/db";
 import { AlbumID3, ArtistID3, Child, Playlist, SongCacheType } from "@/types";
 
@@ -412,6 +423,15 @@ describe("db service", () => {
       expect(res).toHaveLength(1);
     });
 
+    it("getCachedSongs should query songs joined with song_cache", () => {
+      mockGetAllSync.mockReturnValue([{ id: "s-1", title: "C" }]);
+      const res = getCachedSongs();
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        expect.stringContaining("INNER JOIN song_cache"),
+      );
+      expect(res).toHaveLength(1);
+    });
+
     it("getAllPlaylists should query playlists sorted", () => {
       mockGetAllSync.mockReturnValue([{ id: "pl-1", name: "D" }]);
       const res = getAllPlaylists();
@@ -483,6 +503,50 @@ describe("db service", () => {
       );
     });
 
+    it("insertSongCacheEntryIfNotExists should insert when entry does not exist", () => {
+      mockGetFirstSync.mockReturnValue(null);
+      const inserted = insertSongCacheEntryIfNotExists(
+        "track-auto-1",
+        SongCacheType.Auto,
+        "file:///path/to/auto.flac",
+        456789,
+      );
+      expect(inserted).toBe(true);
+      expect(mockRunSync).toHaveBeenCalledWith(
+        expect.stringContaining("INSERT OR IGNORE INTO song_cache"),
+        expect.arrayContaining([
+          "track-auto-1",
+          SongCacheType.Auto,
+          "file:///path/to/auto.flac",
+          456789,
+          expect.any(String),
+          null,
+        ]),
+      );
+    });
+
+    it("insertSongCacheEntryIfNotExists should return false and not insert when entry already exists", () => {
+      mockGetFirstSync.mockReturnValue({
+        songId: "track-auto-1",
+        cacheType: SongCacheType.Manual,
+        filePath: "file:///path/to/manual.flac",
+        fileSizeBytes: 123456,
+        addedAt: "2026-09-06T12:00:00.000Z",
+        lastAccessedAt: null,
+      });
+      const inserted = insertSongCacheEntryIfNotExists(
+        "track-auto-1",
+        SongCacheType.Auto,
+        "file:///path/to/auto.flac",
+        456789,
+      );
+      expect(inserted).toBe(false);
+      expect(mockRunSync).not.toHaveBeenCalledWith(
+        expect.stringContaining("INSERT OR IGNORE INTO song_cache"),
+        expect.anything(),
+      );
+    });
+
     it("getSongCacheEntry should query song_cache by songId", () => {
       const mockRow = {
         songId: "track-1",
@@ -522,6 +586,112 @@ describe("db service", () => {
         "DELETE FROM song_cache WHERE songId = ?",
         ["track-1"],
       );
+    });
+
+    it("getAutoCacheMaxBytes should return default 1 GiB when no row in sync_meta", () => {
+      mockGetFirstSync.mockReturnValue(null);
+      const result = getAutoCacheMaxBytes();
+      expect(result).toBe(1024 * 1024 * 1024);
+    });
+
+    it("getAutoCacheMaxBytes should return parsed bytes when stored in sync_meta", () => {
+      mockGetFirstSync.mockReturnValue({ value: "2147483648" });
+      const result = getAutoCacheMaxBytes();
+      expect(result).toBe(2147483648);
+    });
+
+    it("setAutoCacheMaxBytes should insert or replace in sync_meta", () => {
+      setAutoCacheMaxBytes(1073741824);
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "INSERT OR REPLACE INTO sync_meta (key, value) VALUES ('auto_cache_max_bytes', ?)",
+        ["1073741824"],
+      );
+    });
+
+    it("getAutoCacheTotalSize should sum fileSizeBytes for auto cacheType", () => {
+      mockGetFirstSync.mockReturnValue({ total: 52428800 });
+      const total = getAutoCacheTotalSize();
+      expect(mockGetFirstSync).toHaveBeenCalledWith(
+        "SELECT SUM(fileSizeBytes) AS total FROM song_cache WHERE cacheType = 'auto'",
+      );
+      expect(total).toBe(52428800);
+    });
+
+    it("getAutoCacheTotalSize should return 0 if sum is null", () => {
+      mockGetFirstSync.mockReturnValue({ total: null });
+      const total = getAutoCacheTotalSize();
+      expect(total).toBe(0);
+    });
+
+    it("getLeastRecentlyUsedAutoCacheEntries should query song_cache ordered by lastAccessedAt ASC", () => {
+      const mockEntries = [
+        {
+          songId: "track-old",
+          cacheType: SongCacheType.Auto,
+          filePath: "file:///path/old.mp3",
+          fileSizeBytes: 1000,
+          addedAt: "2026-09-01T00:00:00.000Z",
+          lastAccessedAt: "2026-09-02T00:00:00.000Z",
+        },
+      ];
+      mockGetAllSync.mockReturnValue(mockEntries);
+      const result = getLeastRecentlyUsedAutoCacheEntries(1);
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        "SELECT * FROM song_cache WHERE cacheType = 'auto' ORDER BY lastAccessedAt ASC LIMIT ?",
+        [1],
+      );
+      expect(result).toEqual(mockEntries);
+    });
+
+    it("getAutoCacheEnabled should return true by default when unset", () => {
+      mockGetFirstSync.mockReturnValue(null);
+      expect(getAutoCacheEnabled()).toBe(true);
+    });
+
+    it("getAutoCacheEnabled should return false when set to 'false'", () => {
+      mockGetFirstSync.mockReturnValue({ value: "false" });
+      expect(getAutoCacheEnabled()).toBe(false);
+    });
+
+    it("getAutoCacheEnabled should return true when set to 'true'", () => {
+      mockGetFirstSync.mockReturnValue({ value: "true" });
+      expect(getAutoCacheEnabled()).toBe(true);
+    });
+
+    it("setAutoCacheEnabled should insert or replace in sync_meta", () => {
+      setAutoCacheEnabled(false);
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "INSERT OR REPLACE INTO sync_meta (key, value) VALUES ('auto_cache_enabled', ?)",
+        ["false"],
+      );
+    });
+
+    it("deleteAutoSongCacheEntries should delete auto cache rows", () => {
+      deleteAutoSongCacheEntries();
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "DELETE FROM song_cache WHERE cacheType = 'auto'",
+      );
+    });
+
+    it("getAutoCacheSongIds should return list of auto-cached songIds", () => {
+      mockGetAllSync.mockReturnValue([
+        { songId: "auto-1" },
+        { songId: "auto-2" },
+      ]);
+      const ids = getAutoCacheSongIds();
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        "SELECT songId FROM song_cache WHERE cacheType = 'auto'",
+      );
+      expect(ids).toEqual(["auto-1", "auto-2"]);
+    });
+
+    it("getAutoCacheCount should return count of auto-cached rows", () => {
+      mockGetFirstSync.mockReturnValue({ count: 5 });
+      const count = getAutoCacheCount();
+      expect(mockGetFirstSync).toHaveBeenCalledWith(
+        "SELECT COUNT(*) AS count FROM song_cache WHERE cacheType = 'auto'",
+      );
+      expect(count).toBe(5);
     });
   });
 });
