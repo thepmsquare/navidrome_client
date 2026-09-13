@@ -9,7 +9,7 @@ import {
   SongCacheRow,
   SongCacheType,
 } from "@/types";
-import { DB_NAME } from "@/utils/constants";
+import { DB_NAME, DEFAULT_AUTO_CACHE_MAX_BYTES } from "@/utils/constants";
 
 let dbInstance: SQLite.SQLiteDatabase | null = null;
 
@@ -557,6 +557,15 @@ export function getSongById(id: string): Child | null {
   return db.getFirstSync<Child>("SELECT * FROM songs WHERE id = ?", [id]);
 }
 
+export function getCachedSongs(): Child[] {
+  const db = getDb();
+  return db.getAllSync<Child>(
+    `SELECT s.* FROM songs s
+     INNER JOIN song_cache sc ON s.id = sc.songId
+     ORDER BY s.title COLLATE NOCASE ASC`,
+  );
+}
+
 export function upsertSongCacheEntry(
   songId: string,
   cacheType: SongCacheType,
@@ -571,6 +580,27 @@ export function upsertSongCacheEntry(
     ) VALUES (?, ?, ?, ?, ?, ?)`,
     [songId, cacheType, filePath, fileSizeBytes, addedAt, null],
   );
+}
+
+export function insertSongCacheEntryIfNotExists(
+  songId: string,
+  cacheType: SongCacheType,
+  filePath: string,
+  fileSizeBytes: number,
+): boolean {
+  const db = getDb();
+  const existing = getSongCacheEntry(songId);
+  if (existing) {
+    return false;
+  }
+  const addedAt = new Date().toISOString();
+  db.runSync(
+    `INSERT OR IGNORE INTO song_cache (
+      songId, cacheType, filePath, fileSizeBytes, addedAt, lastAccessedAt
+    ) VALUES (?, ?, ?, ?, ?, ?)`,
+    [songId, cacheType, filePath, fileSizeBytes, addedAt, null],
+  );
+  return true;
 }
 
 export function getSongCacheEntry(songId: string): SongCacheRow | null {
@@ -593,6 +623,78 @@ export function updateSongCacheLastAccessed(songId: string): void {
 export function deleteSongCacheEntry(songId: string): void {
   const db = getDb();
   db.runSync("DELETE FROM song_cache WHERE songId = ?", [songId]);
+}
+
+export function getAutoCacheMaxBytes(): number {
+  const val = getSyncMeta("auto_cache_max_bytes");
+  if (!val) {
+    return DEFAULT_AUTO_CACHE_MAX_BYTES;
+  }
+  const parsed = parseInt(val, 10);
+  return isNaN(parsed) || parsed <= 0 ? DEFAULT_AUTO_CACHE_MAX_BYTES : parsed;
+}
+
+export function setAutoCacheMaxBytes(bytes: number): void {
+  const db = getDb();
+  db.runSync(
+    "INSERT OR REPLACE INTO sync_meta (key, value) VALUES ('auto_cache_max_bytes', ?)",
+    [String(bytes)],
+  );
+}
+
+export function getAutoCacheTotalSize(): number {
+  const db = getDb();
+  const row = db.getFirstSync<{ total: number | null }>(
+    "SELECT SUM(fileSizeBytes) AS total FROM song_cache WHERE cacheType = 'auto'",
+  );
+  return row?.total ?? 0;
+}
+
+export function getLeastRecentlyUsedAutoCacheEntries(
+  limit: number,
+): SongCacheRow[] {
+  const db = getDb();
+  return db.getAllSync<SongCacheRow>(
+    "SELECT * FROM song_cache WHERE cacheType = 'auto' ORDER BY lastAccessedAt ASC LIMIT ?",
+    [limit],
+  );
+}
+
+export function getAutoCacheEnabled(): boolean {
+  const val = getSyncMeta("auto_cache_enabled");
+  if (val === null) {
+    return true;
+  }
+  return val !== "false";
+}
+
+export function setAutoCacheEnabled(enabled: boolean): void {
+  const db = getDb();
+  db.runSync(
+    "INSERT OR REPLACE INTO sync_meta (key, value) VALUES ('auto_cache_enabled', ?)",
+    [String(enabled)],
+  );
+}
+
+export function deleteAutoSongCacheEntries(): void {
+  const db = getDb();
+  db.runSync("DELETE FROM song_cache WHERE cacheType = 'auto'");
+}
+
+export function getAutoCacheSongIds(): string[] {
+  const db = getDb();
+  const rows = db.getAllSync<{ songId: string }>(
+    "SELECT songId FROM song_cache WHERE cacheType = 'auto'",
+  );
+  return rows.map((r) => r.songId);
+}
+
+export function getAutoCacheCount(): number {
+  const db = getDb();
+  const row = db.getFirstSync<{ count: number }>(
+    "SELECT COUNT(*) AS count FROM song_cache WHERE cacheType = 'auto'",
+  );
+  return row?.count ?? 0;
 }
 
 

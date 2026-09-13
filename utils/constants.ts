@@ -11,3 +11,7 @@ export const ANDROID_VERSION_CODE = appConstants.ANDROID_VERSION_CODE;
 export const DB_NAME = appConstants.DB_NAME;
 export const APP_IDENTIFIER = appConstants.APP_IDENTIFIER;
 export const BACKUP_VERSION = 1;
+
+export const DEFAULT_AUTO_CACHE_MAX_GIB = 1;
+export const DEFAULT_AUTO_CACHE_MAX_BYTES =
+  DEFAULT_AUTO_CACHE_MAX_GIB * 1024 * 1024 * 1024;

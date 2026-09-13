@@ -1,9 +1,12 @@
 # changelog
 
-## 2.11.0+37 (in progress)
+## 2.11.0+37
 
 - ui tweaks on all pages.
 - bug fixes in logout functionality.
+- implement auto caching songs.
+- add settings to set limit or stop auto caching.
+- add new section in library to list "available offline songs".
 - technical changes
   - add test cases for all services.
 
