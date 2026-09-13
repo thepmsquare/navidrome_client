@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Alert, ScrollView, View } from "react-native";
 import { Button, Surface, Switch, Text, TextInput } from "react-native-paper";
 
@@ -50,9 +50,6 @@ export default function SettingsScreen() {
   );
   const [clearingAutoCache, setClearingAutoCache] = useState(false);
 
-  useEffect(() => {
-    setAutoCacheUsageBytes(getAutoCacheTotalSize());
-  }, []);
 
   async function handleToggleAutoCache(nextValue: boolean) {
     if (nextValue) {
