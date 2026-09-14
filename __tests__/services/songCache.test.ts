@@ -16,6 +16,7 @@ import {
   clearAllAutoCachedSongs,
   clearAllCachedSongs,
   deleteSongFromCache,
+  getActiveDownloadSongIds,
   getCachedSongPlaybackUri,
   isSongCaching,
   notifySongCacheProgress,
@@ -314,6 +315,137 @@ describe("songCache service", () => {
 
       await expect(downloadPromise).rejects.toThrow("aborted");
       expect(isSongCaching("song-cancel")).toBe(false);
+    });
+
+    it("returns active song IDs via getActiveDownloadSongIds while downloading", async () => {
+      (getSongById as jest.Mock).mockReturnValue({
+        id: "song-active-1",
+        title: "Active Song",
+      });
+      (getSongStreamUrl as jest.Mock).mockResolvedValue("https://example.com/stream");
+      (File.downloadFileAsync as jest.Mock).mockImplementation(
+        async (_url, _dest, options) =>
+          new Promise((_resolve, reject) => {
+            options?.signal?.addEventListener("abort", () => {
+              const abortErr = new Error("aborted");
+              abortErr.name = "AbortError";
+              reject(abortErr);
+            });
+          }),
+      );
+
+      const downloadPromise = cacheSongManually("song-active-1");
+      await new Promise<void>((r) => setImmediate(() => r()));
+
+      expect(getActiveDownloadSongIds()).toContain("song-active-1");
+
+      cancelSongCaching("song-active-1");
+      await expect(downloadPromise).rejects.toThrow("aborted");
+
+      expect(getActiveDownloadSongIds()).not.toContain("song-active-1");
+    });
+
+    it("cancelling a cacheSongManually upgrade mid-download preserves existing Auto row", async () => {
+      const autoEntry = {
+        songId: "song-upgrade-cancel",
+        cacheType: SongCacheType.Auto,
+        filePath: "file:///data/user/0/auto-cache/song-upgrade-cancel.mp3",
+        fileSizeBytes: 1048576,
+        addedAt: "2026-09-01T00:00:00.000Z",
+        lastAccessedAt: null,
+      };
+      (getSongCacheEntry as jest.Mock).mockReturnValue(autoEntry);
+      (getSongById as jest.Mock).mockReturnValue({
+        id: "song-upgrade-cancel",
+        title: "Upgrade Cancel Track",
+        suffix: "mp3",
+      });
+      (getSongStreamUrl as jest.Mock).mockResolvedValue("https://example.com/stream");
+
+      (File.downloadFileAsync as jest.Mock).mockImplementation(
+        async (_url, _dest, options) => {
+          return new Promise((_resolve, reject) => {
+            options?.signal?.addEventListener("abort", () => {
+              const abortErr = new Error("aborted");
+              abortErr.name = "AbortError";
+              reject(abortErr);
+            });
+          });
+        },
+      );
+
+      const downloadPromise = cacheSongManually("song-upgrade-cancel");
+      await new Promise<void>((r) => setImmediate(() => r()));
+
+      cancelSongCaching("song-upgrade-cancel");
+      await expect(downloadPromise).rejects.toThrow("aborted");
+
+      expect(deleteSongCacheEntry).not.toHaveBeenCalledWith("song-upgrade-cancel");
+      const currentEntry = getSongCacheEntry("song-upgrade-cancel");
+      expect(currentEntry).toEqual(autoEntry);
+      expect(currentEntry?.cacheType).toBe(SongCacheType.Auto);
+      expect(currentEntry?.filePath).toBe(autoEntry.filePath);
+    });
+
+    it("calls notifySongCacheUpdated with current DB entry when cancelled", async () => {
+      const listener = jest.fn();
+      const unsubscribe = subscribeSongCache(listener);
+
+      // Case A: Song had no prior entry (getSongCacheEntry returns null)
+      (getSongCacheEntry as jest.Mock).mockReturnValue(null);
+      (getSongById as jest.Mock).mockReturnValue({
+        id: "song-cancel-uncached",
+        title: "Uncached Cancel Track",
+      });
+      (getSongStreamUrl as jest.Mock).mockResolvedValue("https://example.com/stream");
+      (File.downloadFileAsync as jest.Mock).mockImplementation(
+        async (_url, _dest, options) => {
+          return new Promise((_resolve, reject) => {
+            options?.signal?.addEventListener("abort", () => {
+              const abortErr = new Error("aborted");
+              abortErr.name = "AbortError";
+              reject(abortErr);
+            });
+          });
+        },
+      );
+
+      const downloadPromiseA = cacheSongManually("song-cancel-uncached");
+      await new Promise<void>((r) => setImmediate(() => r()));
+
+      cancelSongCaching("song-cancel-uncached");
+      expect(listener).toHaveBeenCalledWith({
+        songId: "song-cancel-uncached",
+        entry: null,
+      });
+      await expect(downloadPromiseA).rejects.toThrow("aborted");
+
+      // Case B: Song had an existing Auto entry
+      const autoEntry = {
+        songId: "song-cancel-auto",
+        cacheType: SongCacheType.Auto,
+        filePath: "file:///path/auto.mp3",
+        fileSizeBytes: 5000,
+        addedAt: "2026-09-01T00:00:00.000Z",
+        lastAccessedAt: null,
+      };
+      (getSongCacheEntry as jest.Mock).mockReturnValue(autoEntry);
+      (getSongById as jest.Mock).mockReturnValue({
+        id: "song-cancel-auto",
+        title: "Auto Cancel Track",
+      });
+
+      const downloadPromiseB = cacheSongManually("song-cancel-auto");
+      await new Promise<void>((r) => setImmediate(() => r()));
+
+      cancelSongCaching("song-cancel-auto");
+      expect(listener).toHaveBeenCalledWith({
+        songId: "song-cancel-auto",
+        entry: autoEntry,
+      });
+      await expect(downloadPromiseB).rejects.toThrow("aborted");
+
+      unsubscribe();
     });
   });
 

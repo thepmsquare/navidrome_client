@@ -43,4 +43,8 @@ export const albumDetailStyles = StyleSheet.create({
     padding: spacing.lg,
     alignItems: "center",
   },
+  rightContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
 });

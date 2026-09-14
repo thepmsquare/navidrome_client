@@ -1,5 +1,16 @@
 # changelog
 
+## 2.12.0+38 (in progress)
+
+- add visual indicators in album and playlist details page per song if available offline.
+- playlists and albums now have option to bulk "make available offline" (incomplete).
+- new download queue screen (incomplete).
+- technical changes
+  - add option to the cacheButton with mini variant to hide if uncached.
+  - new BulkSongCacheButton reusable component.
+  - update the icon for temporary available offline.
+  - add tests for cache-related services.
+
 ## 2.11.0+37
 
 - ui tweaks on all pages.

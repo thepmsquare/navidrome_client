@@ -1,14 +1,17 @@
 import { Image } from "expo-image";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import { FlatList, View } from "react-native";
 import { Appbar, Avatar, List, Surface, Text } from "react-native-paper";
 
+import { BulkSongCacheButton } from "@/components/BulkSongCacheButton";
+import { SongCacheButton } from "@/components/SongCacheButton";
 import { getCoverArtBaseUrl } from "@/services/api";
-import { getAlbumById, getSongsByAlbumId } from "@/services/db";
+import { getAlbumById, getAllSongCacheEntries, getSongsByAlbumId } from "@/services/db";
 import { playPlaylist } from "@/services/player";
+import { subscribeSongCache } from "@/services/songCache";
 import { albumDetailStyles } from "@/stylesheets";
-import { AlbumID3, Child, useAppTheme } from "@/types";
+import { AlbumID3, Child, SongCacheRow, useAppTheme } from "@/types";
 
 function formatDuration(seconds?: number): string {
   if (!seconds) return "";
@@ -24,9 +27,33 @@ export default function AlbumDetailScreen() {
 
   const [album] = useState<AlbumID3 | null>(() => (id ? getAlbumById(id) : null));
   const [songs] = useState<Child[]>(() => (id ? getSongsByAlbumId(id) : []));
+  const [cacheEntries, setCacheEntries] = useState<Map<string, SongCacheRow>>(() =>
+    getAllSongCacheEntries(),
+  );
   const [getArtUrl, setGetArtUrl] = useState<
     ((artId?: string | null) => string | null) | null
   >(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      setCacheEntries(getAllSongCacheEntries());
+    }, []),
+  );
+
+  useEffect(() => {
+    const unsubscribe = subscribeSongCache(({ songId, entry }) => {
+      setCacheEntries((prev) => {
+        const next = new Map(prev);
+        if (entry) {
+          next.set(songId, entry);
+        } else {
+          next.delete(songId);
+        }
+        return next;
+      });
+    });
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     getCoverArtBaseUrl()
@@ -94,6 +121,10 @@ export default function AlbumDetailScreen() {
                   .filter(Boolean)
                   .join(" • ")}
               </Text>
+              <BulkSongCacheButton
+                songIds={songs.map((s) => s.id)}
+                cacheEntries={cacheEntries}
+              />
             </View>
           ) : null
         }
@@ -119,19 +150,27 @@ export default function AlbumDetailScreen() {
                 {item.track ? `${item.track}` : "-"}
               </Text>
             )}
-            right={() =>
-              item.duration ? (
-                <Text
-                  variant="bodySmall"
-                  style={[
-                    albumDetailStyles.metaText,
-                    { color: theme.colors.onSurfaceVariant },
-                  ]}
-                >
-                  {formatDuration(item.duration)}
-                </Text>
-              ) : null
-            }
+            right={() => (
+              <View style={albumDetailStyles.rightContainer}>
+                <SongCacheButton
+                  songId={item.id}
+                  mini
+                  hideIfUncached
+                  initialEntry={cacheEntries.get(item.id) ?? null}
+                />
+                {item.duration ? (
+                  <Text
+                    variant="bodySmall"
+                    style={[
+                      albumDetailStyles.metaText,
+                      { color: theme.colors.onSurfaceVariant },
+                    ]}
+                  >
+                    {formatDuration(item.duration)}
+                  </Text>
+                ) : null}
+              </View>
+            )}
           />
         )}
       />

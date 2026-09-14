@@ -48,4 +48,8 @@ export const playlistDetailStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  rightContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
 });
