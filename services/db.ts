@@ -557,6 +557,18 @@ export function getSongById(id: string): Child | null {
   return db.getFirstSync<Child>("SELECT * FROM songs WHERE id = ?", [id]);
 }
 
+export function getSongsByIds(ids: string[]): Child[] {
+  if (!ids || ids.length === 0) {
+    return [];
+  }
+  const db = getDb();
+  const placeholders = ids.map(() => "?").join(", ");
+  return db.getAllSync<Child>(
+    `SELECT * FROM songs WHERE id IN (${placeholders})`,
+    ids,
+  );
+}
+
 export function getCachedSongs(): Child[] {
   const db = getDb();
   return db.getAllSync<Child>(
@@ -609,6 +621,16 @@ export function getSongCacheEntry(songId: string): SongCacheRow | null {
     "SELECT * FROM song_cache WHERE songId = ?",
     [songId],
   );
+}
+
+export function getAllSongCacheEntries(): Map<string, SongCacheRow> {
+  const db = getDb();
+  const rows = db.getAllSync<SongCacheRow>("SELECT * FROM song_cache");
+  const map = new Map<string, SongCacheRow>();
+  for (const row of rows) {
+    map.set(row.songId, row);
+  }
+  return map;
 }
 
 export function updateSongCacheLastAccessed(songId: string): void {

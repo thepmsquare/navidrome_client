@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import { FlatList, View } from "react-native";
 import {
   ActivityIndicator,
@@ -11,11 +11,14 @@ import {
   Text,
 } from "react-native-paper";
 
+import { BulkSongCacheButton } from "@/components/BulkSongCacheButton";
+import { SongCacheButton } from "@/components/SongCacheButton";
 import { getCoverArtBaseUrl, getPlaylist } from "@/services/api";
-import { getPlaylistById } from "@/services/db";
+import { getAllSongCacheEntries, getPlaylistById } from "@/services/db";
 import { playPlaylist } from "@/services/player";
+import { subscribeSongCache } from "@/services/songCache";
 import { playlistDetailStyles } from "@/stylesheets";
-import { Child, Playlist, useAppTheme } from "@/types";
+import { Child, Playlist, SongCacheRow, useAppTheme } from "@/types";
 
 function formatDuration(seconds?: number): string {
   if (!seconds) return "";
@@ -34,9 +37,33 @@ export default function PlaylistDetailScreen() {
   );
   const [songs, setSongs] = useState<Child[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [cacheEntries, setCacheEntries] = useState<Map<string, SongCacheRow>>(() =>
+    getAllSongCacheEntries(),
+  );
   const [getArtUrl, setGetArtUrl] = useState<
     ((artId?: string | null) => string | null) | null
   >(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      setCacheEntries(getAllSongCacheEntries());
+    }, []),
+  );
+
+  useEffect(() => {
+    const unsubscribe = subscribeSongCache(({ songId, entry }) => {
+      setCacheEntries((prev) => {
+        const next = new Map(prev);
+        if (entry) {
+          next.set(songId, entry);
+        } else {
+          next.delete(songId);
+        }
+        return next;
+      });
+    });
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     getCoverArtBaseUrl()
@@ -124,6 +151,10 @@ export default function PlaylistDetailScreen() {
                   .filter(Boolean)
                   .join(" • ")}
               </Text>
+              <BulkSongCacheButton
+                songIds={songs.map((s) => s.id)}
+                cacheEntries={cacheEntries}
+              />
             </View>
           ) : null
         }
@@ -156,19 +187,27 @@ export default function PlaylistDetailScreen() {
                 {index + 1}
               </Text>
             )}
-            right={() =>
-              item.duration ? (
-                <Text
-                  variant="bodySmall"
-                  style={[
-                    playlistDetailStyles.metaText,
-                    { color: theme.colors.onSurfaceVariant },
-                  ]}
-                >
-                  {formatDuration(item.duration)}
-                </Text>
-              ) : null
-            }
+            right={() => (
+              <View style={playlistDetailStyles.rightContainer}>
+                <SongCacheButton
+                  songId={item.id}
+                  mini
+                  hideIfUncached
+                  initialEntry={cacheEntries.get(item.id) ?? null}
+                />
+                {item.duration ? (
+                  <Text
+                    variant="bodySmall"
+                    style={[
+                      playlistDetailStyles.metaText,
+                      { color: theme.colors.onSurfaceVariant },
+                    ]}
+                  >
+                    {formatDuration(item.duration)}
+                  </Text>
+                ) : null}
+              </View>
+            )}
           />
         )}
       />

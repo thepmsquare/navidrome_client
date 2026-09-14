@@ -115,6 +115,7 @@ export function cancelSongCaching(songId: string): boolean {
     controller.abort();
     activeControllers.delete(songId);
     notifySongCacheProgress(songId, 0);
+    notifySongCacheUpdated(songId, getSongCacheEntry(songId));
     return true;
   }
   return false;
@@ -122,6 +123,10 @@ export function cancelSongCaching(songId: string): boolean {
 
 export function isSongCaching(songId: string): boolean {
   return activeControllers.has(songId);
+}
+
+export function getActiveDownloadSongIds(): string[] {
+  return Array.from(activeControllers.keys());
 }
 
 export async function cacheSongManually(

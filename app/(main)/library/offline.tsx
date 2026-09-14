@@ -4,24 +4,29 @@ import { useCallback, useEffect, useState } from "react";
 import { FlatList, View } from "react-native";
 import { Appbar, Avatar, List, Surface, Text } from "react-native-paper";
 
+import { SongCacheButton } from "@/components/SongCacheButton";
 import { getCoverArtBaseUrl } from "@/services/api";
-import { getCachedSongs } from "@/services/db";
+import { getAllSongCacheEntries, getCachedSongs } from "@/services/db";
 import { playPlaylist } from "@/services/player";
 import { songsStyles } from "@/stylesheets";
-import { Child } from "@/types";
+import { Child, SongCacheRow } from "@/types";
 
 export default function AvailableOfflineScreen() {
   const router = useRouter();
   const [songs, setSongs] = useState<Child[]>(() => getCachedSongs());
+  const [cacheEntries, setCacheEntries] = useState<Map<string, SongCacheRow>>(() =>
+    getAllSongCacheEntries?.() ?? new Map(),
+  );
   const [getArtUrl, setGetArtUrl] = useState<
     ((id?: string | null) => string | null) | null
   >(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      setSongs(getCachedSongs());
-    }, []),
-  );
+  const refreshSongsAndCache = useCallback(() => {
+    setSongs(getCachedSongs());
+    setCacheEntries(getAllSongCacheEntries?.() ?? new Map());
+  }, []);
+
+  useFocusEffect(refreshSongsAndCache);
 
   useEffect(() => {
     getCoverArtBaseUrl()
@@ -75,6 +80,15 @@ export default function AvailableOfflineScreen() {
                   <Avatar.Icon {...props} size={48} icon="music" />
                 )
               }
+              right={() => (
+                <SongCacheButton
+                  songId={item.id}
+                  mini
+                  hideIfUncached
+                  initialEntry={cacheEntries.get(item.id) ?? null}
+                  onCacheRemoved={refreshSongsAndCache}
+                />
+              )}
             />
           );
         }}

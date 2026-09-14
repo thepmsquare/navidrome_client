@@ -17,6 +17,7 @@ import {
   cacheSongManually,
   cancelSongCaching,
   deleteSongFromCache,
+  isSongCaching,
   subscribeSongCache,
   subscribeSongCacheProgress,
 } from "@/services/songCache";
@@ -50,6 +51,10 @@ export interface SongCacheButtonProps {
    * Optional preloaded cache entry (e.g. from batch queries in flat lists).
    */
   initialEntry?: SongCacheRow | null;
+  /**
+   * If true and in icon-only mode, hides the button when uncached (and not caching).
+   */
+  hideIfUncached?: boolean;
   style?: StyleProp<ViewStyle>;
   contentStyle?: StyleProp<ViewStyle>;
   labelStyle?: StyleProp<TextStyle>;
@@ -68,6 +73,7 @@ export function SongCacheButton({
   iconSize = 24,
   mode = "text",
   compact = true,
+  hideIfUncached = false,
   initialEntry,
   style,
   contentStyle,
@@ -84,7 +90,9 @@ export function SongCacheButton({
   const [cacheEntry, setCacheEntry] = useState<SongCacheRow | null>(
     initialEntry ?? null,
   );
-  const [isCaching, setIsCaching] = useState(false);
+  const [isCaching, setIsCaching] = useState(() =>
+    songId ? (isSongCaching?.(songId) ?? false) : false,
+  );
   const [cachingProgress, setCachingProgress] = useState(0);
 
   // Sync cache state when songId changes or on initial load
@@ -97,7 +105,7 @@ export function SongCacheButton({
           ? getSongCacheEntry(songId)
           : null,
     );
-    setIsCaching(false);
+    setIsCaching(songId ? (isSongCaching?.(songId) ?? false) : false);
     setCachingProgress(0);
   }
 
@@ -227,7 +235,7 @@ export function SongCacheButton({
   const cacheIcon = isManual
     ? "check-circle"
     : isAuto
-      ? "cached"
+      ? "clock-outline"
       : "download-outline";
 
   const cacheColor = isManual
@@ -255,6 +263,10 @@ export function SongCacheButton({
   const progressRingSize = Math.max(22, iconSize + 2);
 
   if (isIconOnly) {
+    if (hideIfUncached && !isCaching && !cacheEntry) {
+      return null;
+    }
+
     if (isCaching) {
       return (
         <Pressable

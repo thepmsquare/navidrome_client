@@ -10,7 +10,9 @@ import {
   getLocalCounts,
   getPlaylistById,
   getSongById,
+  getSongsByIds,
   getSongCacheEntry,
+  getAllSongCacheEntries,
   getSongsByAlbumId,
   getSyncMeta,
   initDatabase,
@@ -480,6 +482,26 @@ describe("db service", () => {
       );
       expect(result).toEqual({ id: "track-1", title: "Song One" });
     });
+
+    it("getSongsByIds should return empty array if empty array provided", () => {
+      const result = getSongsByIds([]);
+      expect(result).toEqual([]);
+      expect(mockGetAllSync).not.toHaveBeenCalled();
+    });
+
+    it("getSongsByIds should query songs with IN clause", () => {
+      const mockSongs = [
+        { id: "track-1", title: "Song One" },
+        { id: "track-2", title: "Song Two" },
+      ];
+      mockGetAllSync.mockReturnValue(mockSongs);
+      const result = getSongsByIds(["track-1", "track-2"]);
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        "SELECT * FROM songs WHERE id IN (?, ?)",
+        ["track-1", "track-2"],
+      );
+      expect(result).toEqual(mockSongs);
+    });
   });
 
   describe("song_cache helpers", () => {
@@ -570,6 +592,40 @@ describe("db service", () => {
       mockGetFirstSync.mockReturnValue(null);
       const result = getSongCacheEntry("track-nonexistent");
       expect(result).toBeNull();
+    });
+
+    it("getAllSongCacheEntries should return map of all rows keyed by songId", () => {
+      const mockRows = [
+        {
+          songId: "track-1",
+          cacheType: SongCacheType.Manual,
+          filePath: "file:///path/to/song1.flac",
+          fileSizeBytes: 1000,
+          addedAt: "2026-09-06T12:00:00.000Z",
+          lastAccessedAt: null,
+        },
+        {
+          songId: "track-2",
+          cacheType: SongCacheType.Auto,
+          filePath: "file:///path/to/song2.flac",
+          fileSizeBytes: 2000,
+          addedAt: "2026-09-06T13:00:00.000Z",
+          lastAccessedAt: "2026-09-06T14:00:00.000Z",
+        },
+      ];
+      mockGetAllSync.mockReturnValue(mockRows);
+
+      const result = getAllSongCacheEntries();
+      expect(mockGetAllSync).toHaveBeenCalledWith("SELECT * FROM song_cache");
+      expect(result.size).toBe(2);
+      expect(result.get("track-1")).toEqual(mockRows[0]);
+      expect(result.get("track-2")).toEqual(mockRows[1]);
+    });
+
+    it("getAllSongCacheEntries should return empty map when table is empty", () => {
+      mockGetAllSync.mockReturnValue([]);
+      const result = getAllSongCacheEntries();
+      expect(result.size).toBe(0);
     });
 
     it("updateSongCacheLastAccessed should update lastAccessedAt in song_cache", () => {

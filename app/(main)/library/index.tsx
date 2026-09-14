@@ -93,6 +93,17 @@ export default function LibraryHomeScreen() {
           >
             available offline
           </Button>
+
+          <Button
+            mode="contained-tonal"
+            icon="download"
+            style={libraryStyles.button}
+            loading={loadingRoute === "/library/queue"}
+            disabled={loadingRoute !== null}
+            onPress={() => handleNavigate("/library/queue")}
+          >
+            download queue
+          </Button>
         </Surface>
       </ScrollView>
     </Surface>

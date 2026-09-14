@@ -30,6 +30,7 @@ jest.mock("@/services/api", () => ({
 
 jest.mock("@/services/db", () => ({
   getCachedSongs: jest.fn(),
+  getAllSongCacheEntries: jest.fn(() => new Map()),
 }));
 
 jest.mock("@/services/player", () => ({

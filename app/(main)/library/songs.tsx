@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, View } from "react-native";
 import {
   Appbar,
@@ -14,11 +14,12 @@ import {
   Text,
 } from "react-native-paper";
 
+import { SongCacheButton } from "@/components/SongCacheButton";
 import { getCoverArtBaseUrl } from "@/services/api";
-import { getAllSongs } from "@/services/db";
+import { getAllSongCacheEntries, getAllSongs } from "@/services/db";
 import { playPlaylist } from "@/services/player";
 import { songsStyles } from "@/stylesheets";
-import { Child } from "@/types";
+import { Child, SongCacheRow } from "@/types";
 
 type SortKey =
   | "title"
@@ -62,6 +63,15 @@ export default function SongsScreen() {
   const [getArtUrl, setGetArtUrl] = useState<
     ((id?: string | null) => string | null) | null
   >(null);
+  const [cacheEntries, setCacheEntries] = useState<Map<string, SongCacheRow>>(() =>
+    getAllSongCacheEntries(),
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      setCacheEntries(getAllSongCacheEntries());
+    }, []),
+  );
 
   useEffect(() => {
     getCoverArtBaseUrl()
@@ -191,6 +201,14 @@ export default function SongsScreen() {
                   <Avatar.Icon {...props} size={48} icon="music" />
                 )
               }
+              right={() => (
+                <SongCacheButton
+                  songId={item.id}
+                  mini
+                  hideIfUncached
+                  initialEntry={cacheEntries.get(item.id) ?? null}
+                />
+              )}
             />
           );
         }}
