@@ -9,7 +9,12 @@ import {
   SongCacheRow,
   SongCacheType,
 } from "@/types";
-import { DB_NAME, DEFAULT_AUTO_CACHE_MAX_BYTES } from "@/utils/constants";
+import {
+  DB_NAME,
+  DEFAULT_AUTO_CACHE_MAX_BYTES,
+  DEFAULT_SCROBBLE_MIN_DURATION,
+  DEFAULT_SCROBBLE_MIN_PERCENT,
+} from "@/utils/constants";
 
 let dbInstance: SQLite.SQLiteDatabase | null = null;
 
@@ -717,6 +722,33 @@ export function getAutoCacheCount(): number {
     "SELECT COUNT(*) AS count FROM song_cache WHERE cacheType = 'auto'",
   );
   return row?.count ?? 0;
+}
+
+export function getScrobbleMinDuration(): number {
+  const val = getSyncMeta("scrobble_min_duration");
+  if (!val) return DEFAULT_SCROBBLE_MIN_DURATION;
+  const parsed = parseInt(val, 10);
+  return isNaN(parsed) || parsed < 0 ? DEFAULT_SCROBBLE_MIN_DURATION : parsed;
+}
+
+export function setScrobbleMinDuration(seconds: number): void {
+  setSyncMeta("scrobble_min_duration", String(Math.max(0, Math.round(seconds))));
+}
+
+export function getScrobbleMinPercent(): number {
+  const val = getSyncMeta("scrobble_min_percent");
+  if (!val) return DEFAULT_SCROBBLE_MIN_PERCENT;
+  const parsed = parseInt(val, 10);
+  return isNaN(parsed) || parsed < 0 || parsed > 100
+    ? DEFAULT_SCROBBLE_MIN_PERCENT
+    : parsed;
+}
+
+export function setScrobbleMinPercent(percent: number): void {
+  setSyncMeta(
+    "scrobble_min_percent",
+    String(Math.min(100, Math.max(0, Math.round(percent)))),
+  );
 }
 
 

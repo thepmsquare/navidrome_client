@@ -43,6 +43,8 @@ let songCacheCb: ((data: any) => void) | null = null;
 
 jest.mock("@/services/db", () => ({
   updateSongCacheLastAccessed: jest.fn(),
+  getScrobbleMinDuration: jest.fn().mockReturnValue(240),
+  getScrobbleMinPercent: jest.fn().mockReturnValue(75),
 }));
 
 jest.mock("@/modules/audio-playback", () => ({
@@ -83,7 +85,8 @@ jest.mock("@/modules/audio-playback", () => ({
 jest.mock("@/services/api", () => ({
   getCoverArtBaseUrl: jest.fn(async () => (id?: string | null) => (id ? `https://art/${id}` : null)),
   getSongStreamUrl: jest.fn(async (id: string) => `https://stream/${id}`),
-  scrobbleSong: jest.fn(),
+  scrobble: jest.fn().mockResolvedValue(true),
+  scrobbleSong: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock("@/services/songCache", () => ({
@@ -133,7 +136,100 @@ describe("player service", () => {
         artworkUrl: "https://art/art-1",
         playWhenReady: true,
       });
+      // now-playing ping fires immediately at track load
+      expect(api.scrobble).toHaveBeenCalledWith({ id: "song-1", submission: false });
+      // scrobbleSong should NOT be called yet (threshold not met)
+      expect(api.scrobbleSong).not.toHaveBeenCalled();
+    });
+
+    it("scrobbleSong should fire when duration threshold is met via playback state", async () => {
+      await playPlaylist([sampleSong1], 0);
+      jest.clearAllMocks();
+
+      // Simulate playback position reaching min duration (default 240s)
+      stateListenerCb!({
+        isPlaying: true,
+        isBuffering: false,
+        duration: 300,
+        position: 241,
+        repeatMode: "off",
+      });
+
       expect(api.scrobbleSong).toHaveBeenCalledWith("song-1");
+    });
+
+    it("scrobbleSong should fire when percent threshold is met via playback state", async () => {
+      await playPlaylist([sampleSong1], 0);
+      jest.clearAllMocks();
+
+      // Simulate playback reaching 76% of a 200s song (default 75%)
+      stateListenerCb!({
+        isPlaying: true,
+        isBuffering: false,
+        duration: 200,
+        position: 152,
+        repeatMode: "off",
+      });
+
+      expect(api.scrobbleSong).toHaveBeenCalledWith("song-1");
+    });
+
+    it("scrobbleSong should not fire twice for the same track", async () => {
+      await playPlaylist([sampleSong1], 0);
+      jest.clearAllMocks();
+
+      stateListenerCb!({
+        isPlaying: true,
+        isBuffering: false,
+        duration: 300,
+        position: 241,
+        repeatMode: "off",
+      });
+      stateListenerCb!({
+        isPlaying: true,
+        isBuffering: false,
+        duration: 300,
+        position: 250,
+        repeatMode: "off",
+      });
+
+      expect(api.scrobbleSong).toHaveBeenCalledTimes(1);
+    });
+
+    it("scrobbled label should reset when next track starts after natural track end", async () => {
+      await playPlaylist([sampleSong1, sampleSong2], 0);
+
+      // Scrobble song 1 by meeting duration threshold
+      stateListenerCb!({
+        isPlaying: true,
+        isBuffering: false,
+        duration: 300,
+        position: 241,
+        repeatMode: "off",
+      });
+      expect(api.scrobbleSong).toHaveBeenCalledWith("song-1");
+      expect(getPlayerState().scrobbled).toBe(true);
+      jest.clearAllMocks();
+
+      // Natural track end — loadTrack is async so activePlaybackTrackId
+      // is null for song-2 until it resolves
+      trackEndedCb!();
+
+      // A stale playback-state callback arrives before loadTrack resolves
+      // (activePlaybackTrackId is still null for song-2 at this point)
+      stateListenerCb!({
+        isPlaying: true,
+        isBuffering: false,
+        duration: 300,
+        position: 241, // stale high position from song-1
+        repeatMode: "off",
+      });
+
+      expect(getPlayerState().currentTrack?.id).toBe("song-2");
+      // scrobbled must be false — the label should have disappeared
+      expect(getPlayerState().scrobbled).toBe(false);
+      // scrobbleSong must NOT have fired for song-2 yet
+      expect(api.scrobbleSong).not.toHaveBeenCalled();
     });
 
     it("playSong should play single song in queue", async () => {

@@ -18,8 +18,8 @@ import {
   setVolume,
   stop,
 } from "@/modules/audio-playback";
-import { getCoverArtBaseUrl, getSongStreamUrl, scrobbleSong } from "@/services/api";
-import { updateSongCacheLastAccessed } from "@/services/db";
+import { getCoverArtBaseUrl, getSongStreamUrl, scrobble, scrobbleSong } from "@/services/api";
+import { getScrobbleMinDuration, getScrobbleMinPercent, updateSongCacheLastAccessed } from "@/services/db";
 import {
   autoCacheSong,
   getCachedSongPlaybackUri,
@@ -46,6 +46,7 @@ export interface PlayerState {
   hasPrevious: boolean;
   hasNext: boolean;
   isPlayingFromCache: boolean;
+  scrobbled: boolean;
 }
 
 let currentQueue: Child[] = [];
@@ -61,6 +62,11 @@ let lastPlaybackStatus: PlaybackStatus = {
   repeatMode: "off",
 };
 let isInitialized = false;
+let scrobbleTriggeredForTrackId: string | null = null;
+// Set only after loadTrack resolves for the current song. Any playback-state
+// callbacks that arrive before this is set (e.g. late events from the
+// previous track) are ignored by checkAndScrobble.
+let activePlaybackTrackId: string | null = null;
 
 const stateListeners = new Set<(state: PlayerState) => void>();
 
@@ -86,6 +92,10 @@ export function getPlayerState(): PlayerState {
     currentPlaybackSource?.songId === currentTrack.id &&
     !!currentPlaybackSource.isFromCache;
 
+  const scrobbled =
+    scrobbleTriggeredForTrackId !== null &&
+    scrobbleTriggeredForTrackId === currentTrack?.id;
+
   return {
     currentTrack,
     isPlaying: lastPlaybackStatus.isPlaying,
@@ -96,6 +106,7 @@ export function getPlayerState(): PlayerState {
     hasPrevious,
     hasNext,
     isPlayingFromCache,
+    scrobbled,
   };
 }
 
@@ -140,12 +151,41 @@ async function switchToRemoteStream(songId: string): Promise<void> {
   }
 }
 
+function checkAndScrobble(): void {
+  if (!currentTrack) return;
+  if (scrobbleTriggeredForTrackId === currentTrack.id) return;
+  // Only check once the audio layer has actually loaded this track.
+  // This prevents stale position values from a just-finished track from
+  // triggering an immediate scrobble on the incoming song.
+  if (activePlaybackTrackId !== currentTrack.id) return;
+
+  const position = lastPlaybackStatus.position;
+  const duration = lastPlaybackStatus.duration || currentTrack.duration || 0;
+
+  if (duration <= 0) return;
+
+  const minDuration = getScrobbleMinDuration();
+  const minPercent = getScrobbleMinPercent();
+
+  const durationMet = position >= minDuration;
+  const percentMet = (position / duration) * 100 >= minPercent;
+
+  if (durationMet || percentMet) {
+    scrobbleTriggeredForTrackId = currentTrack.id;
+    scrobbleSong(currentTrack.id).catch((err) =>
+      console.error("failed to scrobble song:", err),
+    );
+    notifyStateChanged();
+  }
+}
+
 function ensureListenersInitialized(): void {
   if (isInitialized) return;
   isInitialized = true;
 
   addPlaybackStateListener((status) => {
     lastPlaybackStatus = status;
+    checkAndScrobble();
     notifyStateChanged();
   });
 
@@ -201,6 +241,18 @@ export async function playTrackAtIndex(index: number): Promise<void> {
   const song = currentQueue[index];
   if (!song) return;
 
+  // Reset scrobble guard for the new track. activePlaybackTrackId is also
+  // cleared so that checkAndScrobble ignores any stale playback-state
+  // callbacks that still carry the previous song's position before the
+  // audio layer has loaded the new track.
+  scrobbleTriggeredForTrackId = null;
+  activePlaybackTrackId = null;
+  lastPlaybackStatus = {
+    ...lastPlaybackStatus,
+    position: 0,
+    duration: 0,
+  };
+
   currentTrack = {
     id: song.id,
     title: song.title,
@@ -235,7 +287,16 @@ export async function playTrackAtIndex(index: number): Promise<void> {
       playWhenReady: true,
     });
 
-    scrobbleSong(song.id);
+    // Mark the track as active for scrobble eligibility only after the
+    // audio layer has successfully loaded it.
+    if (currentTrack?.id === song.id) {
+      activePlaybackTrackId = song.id;
+    }
+
+    // Send "now playing" ping immediately (submission: false)
+    scrobble({ id: song.id, submission: false }).catch((err) =>
+      console.error("failed to send now playing ping:", err),
+    );
 
     if (!isFromCache) {
       autoCacheSong(song.id).catch((err) => {
@@ -331,6 +392,8 @@ export async function resetPlayer(): Promise<void> {
   currentTrack = null;
   currentPlaybackSource = null;
   currentRepeatMode = "off";
+  scrobbleTriggeredForTrackId = null;
+  activePlaybackTrackId = null;
   lastPlaybackStatus = {
     isPlaying: false,
     isBuffering: false,
