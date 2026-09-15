@@ -254,6 +254,14 @@ export default function PlayerScreen() {
 
         <View style={playerStyles.cacheButtonContainer}>
           <SongCacheButton songId={currentTrack.id} />
+          {playerState.scrobbled && (
+            <Text
+              variant="labelSmall"
+              style={{ color: theme.colors.primary, opacity: 0.65 }}
+            >
+              ✓ scrobbled
+            </Text>
+          )}
         </View>
       </View>
 

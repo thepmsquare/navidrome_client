@@ -10,8 +10,12 @@ import {
   getAutoCacheEnabled,
   getAutoCacheMaxBytes,
   getAutoCacheTotalSize,
+  getScrobbleMinDuration,
+  getScrobbleMinPercent,
   setAutoCacheEnabled,
   setAutoCacheMaxBytes,
+  setScrobbleMinDuration,
+  setScrobbleMinPercent,
 } from "@/services/db";
 import { clearAllAutoCachedSongs } from "@/services/songCache";
 import { settingsStyles } from "@/stylesheets";
@@ -49,6 +53,12 @@ export default function SettingsScreen() {
     getAutoCacheEnabled(),
   );
   const [clearingAutoCache, setClearingAutoCache] = useState(false);
+  const [scrobbleMinDurationText, setScrobbleMinDurationText] = useState(() =>
+    String(getScrobbleMinDuration()),
+  );
+  const [scrobbleMinPercentText, setScrobbleMinPercentText] = useState(() =>
+    String(getScrobbleMinPercent()),
+  );
 
 
   async function handleToggleAutoCache(nextValue: boolean) {
@@ -104,6 +114,22 @@ export default function SettingsScreen() {
     if (!isNaN(parsed) && parsed > 0) {
       const bytes = Math.round(parsed * 1024 * 1024 * 1024);
       setAutoCacheMaxBytes(bytes);
+    }
+  }
+
+  function handleScrobbleDurationChange(text: string) {
+    setScrobbleMinDurationText(text);
+    const parsed = parseInt(text, 10);
+    if (!isNaN(parsed) && parsed >= 0) {
+      setScrobbleMinDuration(parsed);
+    }
+  }
+
+  function handleScrobblePercentChange(text: string) {
+    setScrobbleMinPercentText(text);
+    const parsed = parseInt(text, 10);
+    if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
+      setScrobbleMinPercent(parsed);
     }
   }
 
@@ -239,6 +265,38 @@ export default function SettingsScreen() {
             onChangeText={handleLimitChange}
             keyboardType="decimal-pad"
             disabled={!autoCacheEnabled || clearingAutoCache}
+          />
+        </Surface>
+
+        <Surface
+          elevation={0}
+          style={[
+            settingsStyles.sectionCard,
+            { backgroundColor: theme.colors.surfaceContainerHighest },
+          ]}
+        >
+          <Text variant="titleMedium">scrobble</Text>
+          <Text
+            variant="bodyMedium"
+            style={{ color: theme.colors.onSurfaceVariant }}
+          >
+            scrobble is submitted when either threshold is met
+          </Text>
+
+          <TextInput
+            mode="outlined"
+            label="min duration (seconds)"
+            value={scrobbleMinDurationText}
+            onChangeText={handleScrobbleDurationChange}
+            keyboardType="number-pad"
+          />
+
+          <TextInput
+            mode="outlined"
+            label="min percent (0–100)"
+            value={scrobbleMinPercentText}
+            onChangeText={handleScrobblePercentChange}
+            keyboardType="number-pad"
           />
         </Surface>
 
