@@ -5,8 +5,8 @@
   "APP_SLUG": "navidrome_client",
   "APP_SCHEME": "navidromeclient",
   "PACKAGE_NAME": "com.thepmsquare.navidrome_client",
-  "APP_VERSION": "2.12.0",
-  "ANDROID_VERSION_CODE": 38,
+  "APP_VERSION": "2.13.0",
+  "ANDROID_VERSION_CODE": 39,
   "DB_NAME": "navidrome.db",
   "APP_IDENTIFIER": "navidrome_client_backup"
 }

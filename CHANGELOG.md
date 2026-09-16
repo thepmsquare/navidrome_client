@@ -1,5 +1,11 @@
 # changelog
 
+## 2.13.0+39 (in progress)
+
+- techincal changes
+  - fixes in test audio.
+  - update test cases for playback.
+
 ## 2.12.0+38
 
 - add visual indicators in album and playlist details page per song if available offline.

@@ -13,10 +13,12 @@ import {
   pause,
   play,
   PlaybackStatus,
+  playTestSound as nativePlayTestSound,
   seekTo,
   setRepeatMode,
   setVolume,
   stop,
+  stopTestSound as nativeStopTestSound,
 } from "@/modules/audio-playback";
 import { getCoverArtBaseUrl, getSongStreamUrl, scrobble, scrobbleSong } from "@/services/api";
 import { getScrobbleMinDuration, getScrobbleMinPercent, updateSongCacheLastAccessed } from "@/services/db";
@@ -441,27 +443,18 @@ const TEST_AUDIO_SOURCE = require("@/assets/sounds/test.wav");
 
 export async function playTestSound(): Promise<void> {
   try {
-    ensureListenersInitialized();
     const resolved = Image.resolveAssetSource(TEST_AUDIO_SOURCE);
-
-    currentTrack = {
-      id: "test-sound",
-      title: "test sound",
-      artist: "navidrome client",
-      album: "app sounds",
-      coverArt: null,
-      duration: 2,
-    };
-    notifyStateChanged();
-
-    await loadTrack({
-      url: resolved.uri,
-      title: "test sound",
-      artist: "navidrome client",
-      playWhenReady: true,
-    });
+    await nativePlayTestSound(resolved.uri);
   } catch (error) {
     console.error("failed to play test sound:", error);
+  }
+}
+
+export async function stopTestSound(): Promise<void> {
+  try {
+    await nativeStopTestSound();
+  } catch (error) {
+    console.error("failed to stop test sound:", error);
   }
 }
 

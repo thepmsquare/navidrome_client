@@ -25,6 +25,7 @@ import {
   setPlaybackRepeatMode,
   setPlaybackVolume,
   stopPlayback,
+  stopTestSound,
   subscribePlayerState,
   togglePlayback,
   usePlayerState,
@@ -55,6 +56,8 @@ jest.mock("@/modules/audio-playback", () => ({
   seekTo: jest.fn(),
   setVolume: jest.fn(),
   setRepeatMode: jest.fn(),
+  playTestSound: jest.fn(),
+  stopTestSound: jest.fn(),
   getPlaybackStatus: jest.fn().mockResolvedValue({
     isPlaying: false,
     isBuffering: false,
@@ -492,7 +495,7 @@ describe("player service", () => {
   });
 
   describe("playTestSound", () => {
-    it("should resolve asset and load track for test sound", async () => {
+    it("should resolve asset and call native playTestSound without affecting currentTrack", async () => {
       jest.spyOn(Image, "resolveAssetSource").mockReturnValue({
         uri: "file:///assets/test.wav",
         width: 0,
@@ -500,15 +503,14 @@ describe("player service", () => {
         scale: 1,
       });
 
+      const initialTrack = getCurrentTrack();
       await playTestSound();
 
-      expect(getCurrentTrack()?.id).toBe("test-sound");
-      expect(audioPlayback.loadTrack).toHaveBeenCalledWith({
-        url: "file:///assets/test.wav",
-        title: "test sound",
-        artist: "navidrome client",
-        playWhenReady: true,
-      });
+      expect(getCurrentTrack()).toBe(initialTrack);
+      expect(audioPlayback.playTestSound).toHaveBeenCalledWith(
+        "file:///assets/test.wav",
+      );
+      expect(audioPlayback.loadTrack).not.toHaveBeenCalled();
     });
 
     it("should catch error in playTestSound gracefully", async () => {
@@ -516,6 +518,16 @@ describe("player service", () => {
         throw new Error("asset resolve error");
       });
       await expect(playTestSound()).resolves.not.toThrow();
+    });
+
+    it("should call native stopTestSound and catch errors gracefully", async () => {
+      await stopTestSound();
+      expect(audioPlayback.stopTestSound).toHaveBeenCalled();
+
+      (audioPlayback.stopTestSound as jest.Mock).mockRejectedValueOnce(
+        new Error("stop test error"),
+      );
+      await expect(stopTestSound()).resolves.not.toThrow();
     });
   });
 
