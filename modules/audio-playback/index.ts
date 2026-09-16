@@ -51,6 +51,8 @@ declare class AudioPlaybackNativeModule extends NativeModule<AudioPlaybackEvents
   setVolume(volume: number): Promise<void>;
   setRepeatMode(mode: "off" | "one" | "all"): Promise<void>;
   getPlaybackStatus(): Promise<PlaybackStatus>;
+  playTestSound(url: string): Promise<void>;
+  stopTestSound(): Promise<void>;
 }
 
 let AudioPlayback: AudioPlaybackNativeModule | null = null;
@@ -60,6 +62,16 @@ try {
     requireNativeModule<AudioPlaybackNativeModule>("AudioPlayback");
 } catch {
   AudioPlayback = null;
+}
+
+export async function playTestSound(url: string): Promise<void> {
+  if (!AudioPlayback) return;
+  await AudioPlayback.playTestSound(url);
+}
+
+export async function stopTestSound(): Promise<void> {
+  if (!AudioPlayback) return;
+  await AudioPlayback.stopTestSound();
 }
 
 export async function loadTrack(params: TrackParams): Promise<void> {

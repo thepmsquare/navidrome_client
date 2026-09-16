@@ -4,12 +4,18 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.net.Uri
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import androidx.annotation.OptIn
+import androidx.media3.common.AudioAttributes as Media3AudioAttributes
+import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlayer
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -19,9 +25,29 @@ class AudioPlaybackModule : Module() {
   private var service: AudioPlaybackService? = null
   private var isBound = false
   private val mainHandler = Handler(Looper.getMainLooper())
+  private var testPlayer: ExoPlayer? = null
 
   companion object {
     const val TAG = "AudioPlaybackModule"
+  }
+
+  private fun releaseTestPlayer() {
+    if (Looper.myLooper() == Looper.getMainLooper()) {
+      testPlayer?.let { p ->
+        try {
+          p.stop()
+          p.clearMediaItems()
+          p.release()
+        } catch (e: Exception) {
+          android.util.Log.w(TAG, "Error releasing testPlayer: ${e.message}")
+        }
+      }
+      testPlayer = null
+    } else {
+      mainHandler.post {
+        releaseTestPlayer()
+      }
+    }
   }
 
   private val serviceConnection = object : ServiceConnection {
@@ -91,6 +117,7 @@ class AudioPlaybackModule : Module() {
     }
 
     OnDestroy {
+      releaseTestPlayer()
       val context = getContext()
       if (context != null && isBound) {
         try {
@@ -102,6 +129,73 @@ class AudioPlaybackModule : Module() {
       }
       service?.setEventListener(null)
       service = null
+    }
+
+    AsyncFunction("playTestSound") { url: String, promise: Promise ->
+      mainHandler.post {
+        try {
+          if (url.isBlank()) {
+            promise.reject("ERR_INVALID_URL", "URL cannot be empty", null)
+            return@post
+          }
+
+          val context = getContext()
+          if (context == null) {
+            promise.reject("ERR_NO_CONTEXT", "Context not available", null)
+            return@post
+          }
+
+          releaseTestPlayer()
+
+          val testAudioAttributes = Media3AudioAttributes.Builder()
+            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+            .setUsage(C.USAGE_MEDIA)
+            .build()
+
+          val player = ExoPlayer.Builder(context)
+            .setLooper(Looper.getMainLooper())
+            .setAudioAttributes(testAudioAttributes, false)
+            .setHandleAudioBecomingNoisy(true)
+            .build()
+
+          player.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+              if (playbackState == Player.STATE_ENDED) {
+                releaseTestPlayer()
+              }
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+              android.util.Log.w(TAG, "Test sound error: ${error.errorCodeName}", error)
+              releaseTestPlayer()
+            }
+          })
+
+          val mediaItem = MediaItem.fromUri(Uri.parse(url))
+          player.setMediaItem(mediaItem)
+          player.prepare()
+          player.playWhenReady = true
+          testPlayer = player
+
+          promise.resolve(null)
+        } catch (e: Exception) {
+          android.util.Log.e(TAG, "Error playing test sound: ${e.message}", e)
+          releaseTestPlayer()
+          promise.reject("ERR_PLAY_TEST_SOUND", e.message ?: "Unknown error", e)
+        }
+      }
+    }
+
+    AsyncFunction("stopTestSound") { promise: Promise ->
+      mainHandler.post {
+        try {
+          releaseTestPlayer()
+          promise.resolve(null)
+        } catch (e: Exception) {
+          android.util.Log.e(TAG, "Error stopping test sound: ${e.message}", e)
+          promise.reject("ERR_STOP_TEST_SOUND", e.message ?: "Unknown error", e)
+        }
+      }
     }
 
     AsyncFunction("loadTrack") { url: String, title: String?, artist: String?, album: String?, artworkUrl: String?, playWhenReady: Boolean, promise: Promise ->

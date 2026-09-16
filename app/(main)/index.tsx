@@ -11,7 +11,7 @@ import {
 
 import { client_app_sync } from "@/services/api";
 import { getLocalCounts } from "@/services/db";
-import { playTestSound } from "@/services/player";
+import { playTestSound, usePlayerState } from "@/services/player";
 import { homeStyles } from "@/stylesheets";
 import { Search3Counts, useAppTheme } from "@/types";
 import { useAudioOutputDevice } from "@/utils/audioOutput";
@@ -19,6 +19,7 @@ import { useAudioOutputDevice } from "@/utils/audioOutput";
 export default function HomeScreen() {
   const theme = useAppTheme();
   const audioDevice = useAudioOutputDevice();
+  const { isPlaying } = usePlayerState();
   const [subsonicVersion, setSubsonicVersion] = useState<string | null>(null);
   const [serverUrl, setServerUrl] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
@@ -201,7 +202,9 @@ export default function HomeScreen() {
                   ]}
                 >
                   <Card.Content>
-                    <Text variant="headlineSmall">{counts?.albumCount ?? 0}</Text>
+                    <Text variant="headlineSmall">
+                      {counts?.albumCount ?? 0}
+                    </Text>
                     <Text
                       variant="bodyMedium"
                       style={{ color: theme.colors.onSurfaceVariant }}
@@ -220,7 +223,9 @@ export default function HomeScreen() {
                   ]}
                 >
                   <Card.Content>
-                    <Text variant="headlineSmall">{counts?.songCount ?? 0}</Text>
+                    <Text variant="headlineSmall">
+                      {counts?.songCount ?? 0}
+                    </Text>
                     <Text
                       variant="bodyMedium"
                       style={{ color: theme.colors.onSurfaceVariant }}
@@ -265,8 +270,9 @@ export default function HomeScreen() {
             mode="contained-tonal"
             icon="volume-high"
             onPress={playTestSound}
+            disabled={isPlaying}
           >
-            play test sound
+            play test sound {isPlaying && "(disabled while music is playing)"}
           </Button>
           <Button
             mode="outlined"
