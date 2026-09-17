@@ -73,6 +73,16 @@ export default function AlbumDetailScreen() {
           accessibilityLabel="go back"
         />
         <Appbar.Content title="album" />
+        <Appbar.Action
+          icon="play"
+          onPress={() => {
+            if (songs.length > 0) {
+              playPlaylist(songs, 0);
+            }
+          }}
+          disabled={songs.length === 0}
+          accessibilityLabel="play album"
+        />
       </Appbar.Header>
 
       <FlatList
