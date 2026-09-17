@@ -97,6 +97,16 @@ export default function PlaylistDetailScreen() {
           accessibilityLabel="go back"
         />
         <Appbar.Content title="playlist" />
+        <Appbar.Action
+          icon="play"
+          onPress={() => {
+            if (songs.length > 0) {
+              playPlaylist(songs, 0);
+            }
+          }}
+          disabled={songs.length === 0}
+          accessibilityLabel="play playlist"
+        />
       </Appbar.Header>
 
       <FlatList

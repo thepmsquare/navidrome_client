@@ -1,7 +1,8 @@
 # changelog
 
-## 2.13.0+39 (in progress)
+## 2.13.0+39
 
+- add play icon on album and playlist details page.
 - techincal changes
   - fixes in test audio.
   - update test cases for playback.
