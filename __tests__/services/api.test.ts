@@ -620,26 +620,37 @@ describe("api service", () => {
       await expect(scrobble({ id: "s-1" })).rejects.toThrow("scrobble err");
     });
 
-    it("scrobbleSong should invoke scrobble twice and catch errors gracefully", async () => {
-      global.fetch = jest
-        .fn()
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            "subsonic-response": {
-              status: "ok",
-              version: "1.16.1",
-              type: "navidrome",
-              serverVersion: "0.54.0",
-            },
-          }),
-        })
-        .mockResolvedValueOnce({
-          ok: false,
-          status: 500,
-        });
+    it("scrobbleSong should invoke scrobble with submission true", async () => {
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          "subsonic-response": {
+            status: "ok",
+            version: "1.16.1",
+            type: "navidrome",
+            serverVersion: "0.54.0",
+          },
+        }),
+      });
 
-      await expect(scrobbleSong("song-1")).resolves.not.toThrow();
+      await scrobbleSong("song-1");
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("submission=true"),
+      );
+    });
+
+    it("scrobble should return true on 200 even if response body is empty or non-json", async () => {
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => {
+          throw new Error("Unexpected end of JSON input");
+        },
+      });
+
+      await expect(
+        scrobble({ id: "song-1", submission: true }),
+      ).resolves.toBe(true);
     });
   });
 

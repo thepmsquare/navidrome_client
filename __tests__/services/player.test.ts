@@ -211,6 +211,7 @@ describe("player service", () => {
         repeatMode: "off",
       });
       expect(api.scrobbleSong).toHaveBeenCalledWith("song-1");
+      await Promise.resolve();
       expect(getPlayerState().scrobbled).toBe(true);
       jest.clearAllMocks();
 
@@ -233,6 +234,78 @@ describe("player service", () => {
       expect(getPlayerState().scrobbled).toBe(false);
       // scrobbleSong must NOT have fired for song-2 yet
       expect(api.scrobbleSong).not.toHaveBeenCalled();
+    });
+
+    it("scrobbled should remain false if scrobbleSong fails, allowing retry", async () => {
+      await playPlaylist([sampleSong1], 0);
+      jest.clearAllMocks();
+
+      (api.scrobbleSong as jest.Mock).mockRejectedValueOnce(new Error("network error"));
+
+      stateListenerCb!({
+        isPlaying: true,
+        isBuffering: false,
+        duration: 300,
+        position: 241,
+        repeatMode: "off",
+      });
+
+      expect(api.scrobbleSong).toHaveBeenCalledWith("song-1");
+      await Promise.resolve();
+      expect(getPlayerState().scrobbled).toBe(false);
+
+      (api.scrobbleSong as jest.Mock).mockResolvedValueOnce(undefined);
+      stateListenerCb!({
+        isPlaying: true,
+        isBuffering: false,
+        duration: 300,
+        position: 242,
+        repeatMode: "off",
+      });
+
+      expect(api.scrobbleSong).toHaveBeenCalledTimes(2);
+      await Promise.resolve();
+      expect(getPlayerState().scrobbled).toBe(true);
+    });
+
+    it("repeat-one mode should reset scrobble guard on loop so each iteration scrobbles", async () => {
+      await playPlaylist([sampleSong1], 0);
+      await setPlaybackRepeatMode("one");
+      jest.clearAllMocks();
+
+      stateListenerCb!({
+        isPlaying: true,
+        isBuffering: false,
+        duration: 300,
+        position: 245,
+        repeatMode: "one",
+      });
+      await Promise.resolve();
+      expect(api.scrobbleSong).toHaveBeenCalledWith("song-1");
+      expect(getPlayerState().scrobbled).toBe(true);
+
+      // Loop occurs: position jumps back near 0
+      stateListenerCb!({
+        isPlaying: true,
+        isBuffering: false,
+        duration: 300,
+        position: 1,
+        repeatMode: "one",
+      });
+      await Promise.resolve();
+      expect(getPlayerState().scrobbled).toBe(false);
+
+      // Next iteration reaches threshold again
+      stateListenerCb!({
+        isPlaying: true,
+        isBuffering: false,
+        duration: 300,
+        position: 241,
+        repeatMode: "one",
+      });
+      await Promise.resolve();
+      expect(api.scrobbleSong).toHaveBeenCalledTimes(2);
+      expect(getPlayerState().scrobbled).toBe(true);
     });
 
     it("playSong should play single song in queue", async () => {

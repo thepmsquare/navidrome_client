@@ -1,5 +1,10 @@
 # changelog
 
+## 2.14.1+41
+
+- techincal changes
+  - fixes in scrobble logic.
+
 ## 2.14.0+40
 
 - implement universal search page.

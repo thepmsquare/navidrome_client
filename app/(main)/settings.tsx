@@ -117,19 +117,41 @@ export default function SettingsScreen() {
     }
   }
 
+  function handleLimitBlur() {
+    const parsed = parseFloat(autoCacheLimitText);
+    if (isNaN(parsed) || parsed <= 0) {
+      const currentGb = getAutoCacheMaxBytes() / (1024 * 1024 * 1024);
+      setAutoCacheLimitText(String(currentGb));
+    }
+  }
+
   function handleScrobbleDurationChange(text: string) {
     setScrobbleMinDurationText(text);
     const parsed = parseInt(text, 10);
-    if (!isNaN(parsed) && parsed >= 0) {
+    if (!isNaN(parsed) && parsed >= 10) {
       setScrobbleMinDuration(parsed);
+    }
+  }
+
+  function handleScrobbleDurationBlur() {
+    const parsed = parseInt(scrobbleMinDurationText, 10);
+    if (isNaN(parsed) || parsed < 10) {
+      setScrobbleMinDurationText(String(getScrobbleMinDuration()));
     }
   }
 
   function handleScrobblePercentChange(text: string) {
     setScrobbleMinPercentText(text);
     const parsed = parseInt(text, 10);
-    if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
+    if (!isNaN(parsed) && parsed >= 5 && parsed <= 100) {
       setScrobbleMinPercent(parsed);
+    }
+  }
+
+  function handleScrobblePercentBlur() {
+    const parsed = parseInt(scrobbleMinPercentText, 10);
+    if (isNaN(parsed) || parsed < 5 || parsed > 100) {
+      setScrobbleMinPercentText(String(getScrobbleMinPercent()));
     }
   }
 
@@ -263,6 +285,7 @@ export default function SettingsScreen() {
             label="limit in gib"
             value={autoCacheLimitText}
             onChangeText={handleLimitChange}
+            onBlur={handleLimitBlur}
             keyboardType="decimal-pad"
             disabled={!autoCacheEnabled || clearingAutoCache}
           />
@@ -288,14 +311,16 @@ export default function SettingsScreen() {
             label="min duration (seconds)"
             value={scrobbleMinDurationText}
             onChangeText={handleScrobbleDurationChange}
+            onBlur={handleScrobbleDurationBlur}
             keyboardType="number-pad"
           />
 
           <TextInput
             mode="outlined"
-            label="min percent (0–100)"
+            label="min percent (5–100)"
             value={scrobbleMinPercentText}
             onChangeText={handleScrobblePercentChange}
+            onBlur={handleScrobblePercentBlur}
             keyboardType="number-pad"
           />
         </Surface>
