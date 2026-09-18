@@ -1,5 +1,12 @@
 # changelog
 
+## 2.14.0+40
+
+- implement universal search page.
+- add fuzzy search.
+- techincal changes
+  - refactor search in library -> songs to use same functions as universal search page.
+
 ## 2.13.0+39
 
 - add play icon on album and playlist details page.

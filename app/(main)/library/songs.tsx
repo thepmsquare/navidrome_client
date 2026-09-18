@@ -16,7 +16,7 @@ import {
 
 import { SongCacheButton } from "@/components/SongCacheButton";
 import { getCoverArtBaseUrl } from "@/services/api";
-import { getAllSongCacheEntries, getAllSongs } from "@/services/db";
+import { getAllSongCacheEntries, getAllSongs, searchSongs } from "@/services/db";
 import { playPlaylist } from "@/services/player";
 import { songsStyles } from "@/stylesheets";
 import { Child, SongCacheRow } from "@/types";
@@ -85,13 +85,10 @@ export default function SongsScreen() {
     let result = songs;
 
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      result = result.filter(
-        (song) =>
-          song.title.toLowerCase().includes(query) ||
-          (song.artist && song.artist.toLowerCase().includes(query)) ||
-          (song.album && song.album.toLowerCase().includes(query)),
-      );
+      result = searchSongs(searchQuery, 1000);
+      if (sortKey === "title" && sortOrder === "asc") {
+        return result;
+      }
     }
 
     return [...result].sort((a, b) => {

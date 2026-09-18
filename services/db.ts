@@ -751,6 +751,220 @@ export function setScrobbleMinPercent(percent: number): void {
   );
 }
 
+function escapeLike(str: string): string {
+  return str.replace(/[%_\\]/g, "\\$0");
+}
+
+export function searchSongs(query: string, limit: number = 50): Child[] {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  const db = getDb();
+  const tokens = trimmed.split(/\s+/).filter(Boolean);
+  const escapedTrimmed = escapeLike(trimmed);
+
+  // Exact substring & prefix patterns for ranking
+  const prefixPattern = `${escapedTrimmed}%`;
+  const substringPattern = `%${escapedTrimmed}%`;
+
+  const tokenClauses: string[] = [];
+  const queryParams: (string | number)[] = [];
+
+  for (const token of tokens) {
+    const escapedToken = `%${escapeLike(token)}%`;
+    tokenClauses.push(
+      "(title LIKE ? ESCAPE '\\' OR artist LIKE ? ESCAPE '\\' OR album LIKE ? ESCAPE '\\')",
+    );
+    queryParams.push(escapedToken, escapedToken, escapedToken);
+  }
+
+  let whereClause = tokenClauses.join(" AND ");
+
+  // If single token with length >= 2 and <= 15, also include fuzzy character sequence match
+  if (tokens.length === 1 && tokens[0].length >= 2 && tokens[0].length <= 15) {
+    const clean = tokens[0].replace(/[^a-zA-Z0-9]/g, "");
+    if (clean.length >= 2) {
+      const fuzzyPattern = `%${clean.split("").map(escapeLike).join("%")}%`;
+      whereClause = `(${whereClause}) OR (title LIKE ? ESCAPE '\\' OR artist LIKE ? ESCAPE '\\' OR album LIKE ? ESCAPE '\\')`;
+      queryParams.push(fuzzyPattern, fuzzyPattern, fuzzyPattern);
+    }
+  }
+
+  const sql = `
+    SELECT * FROM songs
+    WHERE ${whereClause}
+    ORDER BY
+      CASE
+        WHEN title LIKE ? ESCAPE '\\' THEN 1
+        WHEN title LIKE ? ESCAPE '\\' THEN 2
+        WHEN artist LIKE ? ESCAPE '\\' THEN 3
+        WHEN album LIKE ? ESCAPE '\\' THEN 4
+        ELSE 5
+      END,
+      title COLLATE NOCASE ASC
+    LIMIT ?
+  `;
+
+  queryParams.push(
+    prefixPattern,
+    substringPattern,
+    substringPattern,
+    substringPattern,
+    limit,
+  );
+
+  return db.getAllSync<Child>(sql, queryParams);
+}
+
+export function searchAlbums(query: string, limit: number = 20): AlbumID3[] {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  const db = getDb();
+  const tokens = trimmed.split(/\s+/).filter(Boolean);
+  const escapedTrimmed = escapeLike(trimmed);
+
+  const prefixPattern = `${escapedTrimmed}%`;
+  const substringPattern = `%${escapedTrimmed}%`;
+
+  const tokenClauses: string[] = [];
+  const queryParams: (string | number)[] = [];
+
+  for (const token of tokens) {
+    const escapedToken = `%${escapeLike(token)}%`;
+    tokenClauses.push("(name LIKE ? ESCAPE '\\' OR artist LIKE ? ESCAPE '\\')");
+    queryParams.push(escapedToken, escapedToken);
+  }
+
+  let whereClause = tokenClauses.join(" AND ");
+
+  if (tokens.length === 1 && tokens[0].length >= 2 && tokens[0].length <= 15) {
+    const clean = tokens[0].replace(/[^a-zA-Z0-9]/g, "");
+    if (clean.length >= 2) {
+      const fuzzyPattern = `%${clean.split("").map(escapeLike).join("%")}%`;
+      whereClause = `(${whereClause}) OR (name LIKE ? ESCAPE '\\' OR artist LIKE ? ESCAPE '\\')`;
+      queryParams.push(fuzzyPattern, fuzzyPattern);
+    }
+  }
+
+  const sql = `
+    SELECT * FROM albums
+    WHERE ${whereClause}
+    ORDER BY
+      CASE
+        WHEN name LIKE ? ESCAPE '\\' THEN 1
+        WHEN name LIKE ? ESCAPE '\\' THEN 2
+        WHEN artist LIKE ? ESCAPE '\\' THEN 3
+        ELSE 4
+      END,
+      name COLLATE NOCASE ASC
+    LIMIT ?
+  `;
+
+  queryParams.push(prefixPattern, substringPattern, substringPattern, limit);
+
+  return db.getAllSync<AlbumID3>(sql, queryParams);
+}
+
+export function searchArtists(query: string, limit: number = 20): ArtistID3[] {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  const db = getDb();
+  const tokens = trimmed.split(/\s+/).filter(Boolean);
+  const escapedTrimmed = escapeLike(trimmed);
+
+  const prefixPattern = `${escapedTrimmed}%`;
+  const substringPattern = `%${escapedTrimmed}%`;
+
+  const tokenClauses: string[] = [];
+  const queryParams: (string | number)[] = [];
+
+  for (const token of tokens) {
+    const escapedToken = `%${escapeLike(token)}%`;
+    tokenClauses.push("name LIKE ? ESCAPE '\\'");
+    queryParams.push(escapedToken);
+  }
+
+  let whereClause = tokenClauses.join(" AND ");
+
+  if (tokens.length === 1 && tokens[0].length >= 2 && tokens[0].length <= 15) {
+    const clean = tokens[0].replace(/[^a-zA-Z0-9]/g, "");
+    if (clean.length >= 2) {
+      const fuzzyPattern = `%${clean.split("").map(escapeLike).join("%")}%`;
+      whereClause = `(${whereClause}) OR (name LIKE ? ESCAPE '\\')`;
+      queryParams.push(fuzzyPattern);
+    }
+  }
+
+  const sql = `
+    SELECT * FROM artists
+    WHERE ${whereClause}
+    ORDER BY
+      CASE
+        WHEN name LIKE ? ESCAPE '\\' THEN 1
+        WHEN name LIKE ? ESCAPE '\\' THEN 2
+        ELSE 3
+      END,
+      name COLLATE NOCASE ASC
+    LIMIT ?
+  `;
+
+  queryParams.push(prefixPattern, substringPattern, limit);
+
+  return db.getAllSync<ArtistID3>(sql, queryParams);
+}
+
+export function searchPlaylists(query: string, limit: number = 20): Playlist[] {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  const db = getDb();
+  const tokens = trimmed.split(/\s+/).filter(Boolean);
+  const escapedTrimmed = escapeLike(trimmed);
+
+  const prefixPattern = `${escapedTrimmed}%`;
+  const substringPattern = `%${escapedTrimmed}%`;
+
+  const tokenClauses: string[] = [];
+  const queryParams: (string | number)[] = [];
+
+  for (const token of tokens) {
+    const escapedToken = `%${escapeLike(token)}%`;
+    tokenClauses.push("name LIKE ? ESCAPE '\\'");
+    queryParams.push(escapedToken);
+  }
+
+  let whereClause = tokenClauses.join(" AND ");
+
+  if (tokens.length === 1 && tokens[0].length >= 2 && tokens[0].length <= 15) {
+    const clean = tokens[0].replace(/[^a-zA-Z0-9]/g, "");
+    if (clean.length >= 2) {
+      const fuzzyPattern = `%${clean.split("").map(escapeLike).join("%")}%`;
+      whereClause = `(${whereClause}) OR (name LIKE ? ESCAPE '\\')`;
+      queryParams.push(fuzzyPattern);
+    }
+  }
+
+  const sql = `
+    SELECT * FROM playlists
+    WHERE ${whereClause}
+    ORDER BY
+      CASE
+        WHEN name LIKE ? ESCAPE '\\' THEN 1
+        WHEN name LIKE ? ESCAPE '\\' THEN 2
+        ELSE 3
+      END,
+      name COLLATE NOCASE ASC
+    LIMIT ?
+  `;
+
+  queryParams.push(prefixPattern, substringPattern, limit);
+
+  return db.getAllSync<Playlist>(sql, queryParams);
+}
+
+
 
 
 
