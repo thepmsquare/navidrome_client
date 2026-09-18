@@ -15,8 +15,8 @@ import {
   Playlist,
   PlaylistWithEntries,
   ScanStatus,
-  Search3Params,
   ScrobbleParams,
+  Search3Params,
   SearchResult3,
   ServerCredentials,
   subsonicGetPlaylistResponseWrapperSchema,
@@ -409,26 +409,22 @@ export async function scrobble(params: ScrobbleParams): Promise<boolean> {
     throw new Error(`scrobble request failed with status ${response.status}`);
   }
 
-  const data = await response.json();
-  const parsed = subsonicPingResponseWrapperSchema.safeParse(data);
-  if (parsed.success && parsed.data["subsonic-response"].status === "ok") {
-    return true;
-  }
-  if (parsed.success && parsed.data["subsonic-response"].error) {
-    throw new Error(
-      parsed.data["subsonic-response"].error.message || "scrobble failed",
-    );
+  try {
+    const data = await response.json();
+    const subResponse = data?.["subsonic-response"];
+    if (subResponse?.status === "failed" || subResponse?.error) {
+      throw new Error(subResponse.error?.message || "scrobble failed");
+    }
+  } catch (err: any) {
+    if (err.message && !err.message.includes("JSON")) {
+      throw err;
+    }
   }
   return true;
 }
 
 export async function scrobbleSong(songId: string): Promise<void> {
-  try {
-    await scrobble({ id: songId, submission: false });
-    await scrobble({ id: songId, submission: true, time: Date.now() });
-  } catch (error) {
-    console.error("failed to scrobble song:", error);
-  }
+  await scrobble({ id: songId, submission: true, time: Date.now() });
 }
 
 export async function getPlaylists(username?: string): Promise<Playlist[]> {
@@ -494,9 +490,3 @@ export async function getPlaylist(
 
   return res.playlist;
 }
-
-
-
-
-
-

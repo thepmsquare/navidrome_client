@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Image } from "react-native";
+import { AppState, Image } from "react-native";
 
 import {
   addNextTrackListener,
@@ -10,18 +10,27 @@ import {
   addTrackEndedListener,
   getPlaybackStatus,
   loadTrack,
+  playTestSound as nativePlayTestSound,
+  stopTestSound as nativeStopTestSound,
   pause,
   play,
   PlaybackStatus,
-  playTestSound as nativePlayTestSound,
   seekTo,
   setRepeatMode,
   setVolume,
   stop,
-  stopTestSound as nativeStopTestSound,
 } from "@/modules/audio-playback";
-import { getCoverArtBaseUrl, getSongStreamUrl, scrobble, scrobbleSong } from "@/services/api";
-import { getScrobbleMinDuration, getScrobbleMinPercent, updateSongCacheLastAccessed } from "@/services/db";
+import {
+  getCoverArtBaseUrl,
+  getSongStreamUrl,
+  scrobble,
+  scrobbleSong,
+} from "@/services/api";
+import {
+  getScrobbleMinDuration,
+  getScrobbleMinPercent,
+  updateSongCacheLastAccessed,
+} from "@/services/db";
 import {
   autoCacheSong,
   getCachedSongPlaybackUri,
@@ -54,7 +63,8 @@ export interface PlayerState {
 let currentQueue: Child[] = [];
 let currentIndex = 0;
 let currentTrack: ActiveTrackInfo | null = null;
-let currentPlaybackSource: { songId: string; isFromCache: boolean } | null = null;
+let currentPlaybackSource: { songId: string; isFromCache: boolean } | null =
+  null;
 let currentRepeatMode: "off" | "one" | "all" = "off";
 let lastPlaybackStatus: PlaybackStatus = {
   isPlaying: false,
@@ -64,7 +74,8 @@ let lastPlaybackStatus: PlaybackStatus = {
   repeatMode: "off",
 };
 let isInitialized = false;
-let scrobbleTriggeredForTrackId: string | null = null;
+let scrobbleInFlightTrackId: string | null = null;
+let scrobbledSuccessfullyTrackId: string | null = null;
 // Set only after loadTrack resolves for the current song. Any playback-state
 // callbacks that arrive before this is set (e.g. late events from the
 // previous track) are ignored by checkAndScrobble.
@@ -84,7 +95,9 @@ function notifyStateChanged(): void {
 }
 
 export function getPlayerState(): PlayerState {
-  const hasPrevious = currentIndex > 0 || (currentRepeatMode === "all" && currentQueue.length > 0);
+  const hasPrevious =
+    currentIndex > 0 ||
+    (currentRepeatMode === "all" && currentQueue.length > 0);
   const hasNext =
     currentIndex + 1 < currentQueue.length ||
     (currentRepeatMode === "all" && currentQueue.length > 0);
@@ -95,8 +108,8 @@ export function getPlayerState(): PlayerState {
     !!currentPlaybackSource.isFromCache;
 
   const scrobbled =
-    scrobbleTriggeredForTrackId !== null &&
-    scrobbleTriggeredForTrackId === currentTrack?.id;
+    scrobbledSuccessfullyTrackId !== null &&
+    scrobbledSuccessfullyTrackId === currentTrack?.id;
 
   return {
     currentTrack,
@@ -153,9 +166,12 @@ async function switchToRemoteStream(songId: string): Promise<void> {
   }
 }
 
-function checkAndScrobble(): void {
+async function checkAndScrobble(): Promise<void> {
   if (!currentTrack) return;
-  if (scrobbleTriggeredForTrackId === currentTrack.id) return;
+  // If already successfully scrobbled or currently in flight, do not trigger again
+  if (scrobbledSuccessfullyTrackId === currentTrack.id) return;
+  if (scrobbleInFlightTrackId === currentTrack.id) return;
+
   // Only check once the audio layer has actually loaded this track.
   // This prevents stale position values from a just-finished track from
   // triggering an immediate scrobble on the incoming song.
@@ -173,11 +189,19 @@ function checkAndScrobble(): void {
   const percentMet = (position / duration) * 100 >= minPercent;
 
   if (durationMet || percentMet) {
-    scrobbleTriggeredForTrackId = currentTrack.id;
-    scrobbleSong(currentTrack.id).catch((err) =>
-      console.error("failed to scrobble song:", err),
-    );
-    notifyStateChanged();
+    const trackId = currentTrack.id;
+    scrobbleInFlightTrackId = trackId;
+    try {
+      await scrobbleSong(trackId);
+      scrobbledSuccessfullyTrackId = trackId;
+      notifyStateChanged();
+    } catch (err) {
+      console.error("failed to scrobble song:", err);
+    } finally {
+      if (scrobbleInFlightTrackId === trackId) {
+        scrobbleInFlightTrackId = null;
+      }
+    }
   }
 }
 
@@ -186,9 +210,31 @@ function ensureListenersInitialized(): void {
   isInitialized = true;
 
   addPlaybackStateListener((status) => {
+    if (
+      currentRepeatMode === "one" &&
+      status.position < 2 &&
+      lastPlaybackStatus.position > 5
+    ) {
+      scrobbleInFlightTrackId = null;
+      scrobbledSuccessfullyTrackId = null;
+    }
     lastPlaybackStatus = status;
     checkAndScrobble();
     notifyStateChanged();
+  });
+
+  // Ensure playback state and scrobble status sync when returning from background
+  AppState.addEventListener("change", async (nextAppState) => {
+    if (nextAppState === "active") {
+      try {
+        const latest = await getPlaybackStatus();
+        lastPlaybackStatus = latest;
+        await checkAndScrobble();
+        notifyStateChanged();
+      } catch {
+        // ignore
+      }
+    }
   });
 
   addTrackEndedListener(() => {
@@ -247,7 +293,8 @@ export async function playTrackAtIndex(index: number): Promise<void> {
   // cleared so that checkAndScrobble ignores any stale playback-state
   // callbacks that still carry the previous song's position before the
   // audio layer has loaded the new track.
-  scrobbleTriggeredForTrackId = null;
+  scrobbleInFlightTrackId = null;
+  scrobbledSuccessfullyTrackId = null;
   activePlaybackTrackId = null;
   lastPlaybackStatus = {
     ...lastPlaybackStatus,
@@ -394,7 +441,8 @@ export async function resetPlayer(): Promise<void> {
   currentTrack = null;
   currentPlaybackSource = null;
   currentRepeatMode = "off";
-  scrobbleTriggeredForTrackId = null;
+  scrobbleInFlightTrackId = null;
+  scrobbledSuccessfullyTrackId = null;
   activePlaybackTrackId = null;
   lastPlaybackStatus = {
     isPlaying: false,
@@ -480,12 +528,16 @@ export function usePlayerState(): PlayerState {
       try {
         const latest = await getPlaybackStatus();
         lastPlaybackStatus = latest;
+        await checkAndScrobble();
         setState((prev) => ({
           ...prev,
           isPlaying: latest.isPlaying,
           isBuffering: latest.isBuffering,
           duration: latest.duration || prev.currentTrack?.duration || 0,
           position: latest.position,
+          scrobbled:
+            scrobbledSuccessfullyTrackId !== null &&
+            scrobbledSuccessfullyTrackId === prev.currentTrack?.id,
         }));
       } catch {
         // ignore polling errors
@@ -504,4 +556,3 @@ export {
   addRepeatModeListener,
 };
 export type { PlaybackStatus };
-

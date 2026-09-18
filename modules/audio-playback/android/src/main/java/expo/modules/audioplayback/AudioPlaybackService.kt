@@ -85,6 +85,29 @@ class AudioPlaybackService : Service() {
 
   private var eventListener: PlaybackEventListener? = null
   private var isForegroundServiceStarted = false
+  private var progressRunnable: Runnable? = null
+
+  private fun startProgressUpdates() {
+    stopProgressUpdates()
+    val runnable = object : Runnable {
+      override fun run() {
+        val p = player
+        if (p != null && p.isPlaying) {
+          eventListener?.onPlaybackStateChanged(getPlaybackStatusMap())
+          mainHandler.postDelayed(this, 1000L)
+        }
+      }
+    }
+    progressRunnable = runnable
+    mainHandler.post(runnable)
+  }
+
+  private fun stopProgressUpdates() {
+    progressRunnable?.let {
+      mainHandler.removeCallbacks(it)
+    }
+    progressRunnable = null
+  }
 
   companion object {
     const val CHANNEL_ID = "audio_playback_channel"
@@ -134,6 +157,7 @@ class AudioPlaybackService : Service() {
   }
 
   override fun onDestroy() {
+    stopProgressUpdates()
     scope.coroutineContext[Job]?.cancel()
     unregisterReceiver()
     releaseAudioFocus()
@@ -173,16 +197,33 @@ class AudioPlaybackService : Service() {
 
     exoPlayer.addListener(object : Player.Listener {
       override fun onIsPlayingChanged(isPlaying: Boolean) {
+        if (isPlaying) {
+          startProgressUpdates()
+        } else {
+          stopProgressUpdates()
+        }
         eventListener?.onPlaybackStateChanged(getPlaybackStatusMap())
         updateNotification()
       }
 
       override fun onPlaybackStateChanged(playbackState: Int) {
         if (playbackState == Player.STATE_ENDED) {
+          stopProgressUpdates()
           eventListener?.onTrackEnded()
         }
         eventListener?.onPlaybackStateChanged(getPlaybackStatusMap())
         updateNotification()
+      }
+
+      override fun onPositionDiscontinuity(
+        oldPosition: Player.PositionInfo,
+        newPosition: Player.PositionInfo,
+        reason: Int
+      ) {
+        if (reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION &&
+            player?.repeatMode == Player.REPEAT_MODE_ONE) {
+          eventListener?.onPlaybackStateChanged(getPlaybackStatusMap())
+        }
       }
 
       override fun onPlayerError(error: PlaybackException) {
@@ -477,6 +518,7 @@ class AudioPlaybackService : Service() {
   }
 
   fun stopPlayback() {
+    stopProgressUpdates()
     val p = player ?: return
     p.stop()
     releaseAudioFocus()

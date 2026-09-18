@@ -34,6 +34,10 @@ import {
   deleteAutoSongCacheEntries,
   getAutoCacheSongIds,
   getAutoCacheCount,
+  getScrobbleMinDuration,
+  setScrobbleMinDuration,
+  getScrobbleMinPercent,
+  setScrobbleMinPercent,
 } from "@/services/db";
 import { AlbumID3, ArtistID3, Child, Playlist, SongCacheType } from "@/types";
 
@@ -748,6 +752,73 @@ describe("db service", () => {
         "SELECT COUNT(*) AS count FROM song_cache WHERE cacheType = 'auto'",
       );
       expect(count).toBe(5);
+    });
+  });
+
+  describe("scrobble settings", () => {
+    it("getScrobbleMinDuration should return default when not set", () => {
+      mockGetFirstSync.mockReturnValue(null);
+      expect(getScrobbleMinDuration()).toBe(240);
+    });
+
+    it("getScrobbleMinDuration should return parsed value if >= 10", () => {
+      mockGetFirstSync.mockReturnValue({ value: "180" });
+      expect(getScrobbleMinDuration()).toBe(180);
+    });
+
+    it("getScrobbleMinDuration should return default if value < 10 or invalid", () => {
+      mockGetFirstSync.mockReturnValue({ value: "5" });
+      expect(getScrobbleMinDuration()).toBe(240);
+      mockGetFirstSync.mockReturnValue({ value: "abc" });
+      expect(getScrobbleMinDuration()).toBe(240);
+    });
+
+    it("setScrobbleMinDuration should clamp to minimum 10 seconds", () => {
+      setScrobbleMinDuration(300);
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "INSERT INTO sync_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        ["scrobble_min_duration", "300"],
+      );
+      setScrobbleMinDuration(3);
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "INSERT INTO sync_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        ["scrobble_min_duration", "10"],
+      );
+    });
+
+    it("getScrobbleMinPercent should return default when not set", () => {
+      mockGetFirstSync.mockReturnValue(null);
+      expect(getScrobbleMinPercent()).toBe(75);
+    });
+
+    it("getScrobbleMinPercent should return parsed value if between 5 and 100", () => {
+      mockGetFirstSync.mockReturnValue({ value: "50" });
+      expect(getScrobbleMinPercent()).toBe(50);
+    });
+
+    it("getScrobbleMinPercent should return default if value < 5 or > 100", () => {
+      mockGetFirstSync.mockReturnValue({ value: "2" });
+      expect(getScrobbleMinPercent()).toBe(75);
+      mockGetFirstSync.mockReturnValue({ value: "120" });
+      expect(getScrobbleMinPercent()).toBe(75);
+    });
+
+    it("setScrobbleMinPercent should clamp between 5 and 100", () => {
+      setScrobbleMinPercent(80);
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "INSERT INTO sync_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        ["scrobble_min_percent", "80"],
+      );
+      setScrobbleMinPercent(2);
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "INSERT INTO sync_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        ["scrobble_min_percent", "5"],
+      );
+      setScrobbleMinPercent(150);
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "INSERT INTO sync_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        ["scrobble_min_percent", "100"],
+      );
     });
   });
 });

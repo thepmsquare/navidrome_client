@@ -728,18 +728,18 @@ export function getScrobbleMinDuration(): number {
   const val = getSyncMeta("scrobble_min_duration");
   if (!val) return DEFAULT_SCROBBLE_MIN_DURATION;
   const parsed = parseInt(val, 10);
-  return isNaN(parsed) || parsed < 0 ? DEFAULT_SCROBBLE_MIN_DURATION : parsed;
+  return isNaN(parsed) || parsed < 10 ? DEFAULT_SCROBBLE_MIN_DURATION : parsed;
 }
 
 export function setScrobbleMinDuration(seconds: number): void {
-  setSyncMeta("scrobble_min_duration", String(Math.max(0, Math.round(seconds))));
+  setSyncMeta("scrobble_min_duration", String(Math.max(10, Math.round(seconds))));
 }
 
 export function getScrobbleMinPercent(): number {
   const val = getSyncMeta("scrobble_min_percent");
   if (!val) return DEFAULT_SCROBBLE_MIN_PERCENT;
   const parsed = parseInt(val, 10);
-  return isNaN(parsed) || parsed < 0 || parsed > 100
+  return isNaN(parsed) || parsed < 5 || parsed > 100
     ? DEFAULT_SCROBBLE_MIN_PERCENT
     : parsed;
 }
@@ -747,7 +747,7 @@ export function getScrobbleMinPercent(): number {
 export function setScrobbleMinPercent(percent: number): void {
   setSyncMeta(
     "scrobble_min_percent",
-    String(Math.min(100, Math.max(0, Math.round(percent)))),
+    String(Math.min(100, Math.max(5, Math.round(percent)))),
   );
 }
 
