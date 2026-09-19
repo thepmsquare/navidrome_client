@@ -525,6 +525,26 @@ describe("player service", () => {
       expect(getCurrentRepeatMode()).toBe("all");
     });
 
+    it("repeat all should wrap around to first track when last track ends", async () => {
+      await playPlaylist([sampleSong1, sampleSong2], 1);
+      await setPlaybackRepeatMode("all");
+      expect(getCurrentIndex()).toBe(1);
+      expect(getCurrentTrack()?.id).toBe("song-2");
+
+      jest.clearAllMocks();
+
+      await playNext();
+
+      // Should wrap around to song-1
+      expect(getCurrentIndex()).toBe(0);
+      expect(getCurrentTrack()?.id).toBe("song-1");
+      expect(audioPlayback.loadTrack).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Song One",
+        }),
+      );
+    });
+
     it("should recover from cache playback error by switching to remote stream", async () => {
       (songCache.getCachedSongPlaybackUri as jest.Mock).mockReturnValue(
         "file:///cached/song-1.mp3",
@@ -642,17 +662,7 @@ describe("player service", () => {
       });
     });
 
-    it("should poll playback status when isPlaying is true", async () => {
-      jest.useFakeTimers();
-
-      (audioPlayback.getPlaybackStatus as jest.Mock).mockResolvedValue({
-        isPlaying: true,
-        isBuffering: false,
-        duration: 200,
-        position: 30,
-        repeatMode: "off",
-      });
-
+    it("should update state when playback status changes via listener", async () => {
       function TestPlayingComponent() {
         const state = usePlayerState();
         return React.createElement("text", null, `${state.isPlaying}-${state.position}`);
@@ -663,7 +673,13 @@ describe("player service", () => {
         tree = renderer.create(React.createElement(TestPlayingComponent));
       });
 
-      // Simulate playing state update
+      expect(tree.toJSON()).toEqual({
+        type: "text",
+        props: {},
+        children: ["false-0"],
+      });
+
+      // Simulate playing state update from native listener
       await renderer.act(async () => {
         stateListenerCb?.({
           isPlaying: true,
@@ -674,16 +690,15 @@ describe("player service", () => {
         });
       });
 
-      // Advance timer for interval
-      await renderer.act(async () => {
-        jest.advanceTimersByTime(1000);
+      expect(tree.toJSON()).toEqual({
+        type: "text",
+        props: {},
+        children: ["true-10"],
       });
 
       renderer.act(() => {
         tree.unmount();
       });
-
-      jest.useRealTimers();
     });
   });
 });

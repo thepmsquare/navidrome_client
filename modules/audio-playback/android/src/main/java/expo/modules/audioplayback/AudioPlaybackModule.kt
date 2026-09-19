@@ -323,16 +323,12 @@ class AudioPlaybackModule : Module() {
             promise.reject("ERR_NO_PLAYER", "Player not initialized", null)
             return@post
           }
-          val repeatMode = when (mode.lowercase()) {
-            "off" -> Player.REPEAT_MODE_OFF
-            "one" -> Player.REPEAT_MODE_ONE
-            "all" -> Player.REPEAT_MODE_ALL
-            else -> {
-              promise.reject("ERR_INVALID_REPEAT_MODE", "Mode must be 'off', 'one', or 'all'", null)
-              return@post
-            }
+          val normalized = mode.lowercase()
+          if (normalized != "off" && normalized != "one" && normalized != "all") {
+            promise.reject("ERR_INVALID_REPEAT_MODE", "Mode must be 'off', 'one', or 'all'", null)
+            return@post
           }
-          s.setRepeatMode(repeatMode)
+          s.setRepeatMode(normalized)
           promise.resolve(null)
         } catch (e: Exception) {
           android.util.Log.e(TAG, "Error setting repeat mode: ${e.message}", e)

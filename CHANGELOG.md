@@ -1,5 +1,14 @@
 # changelog
 
+## 2.14.2+42 (in progress)
+
+- fix repeat all mode not working.
+- tapping on notification now opens the app.
+- techincal changes
+  - fixes in playback logic.
+  - better audio focus handling.
+  - add artwork caching for the notification service.
+
 ## 2.14.1+41
 
 - techincal changes

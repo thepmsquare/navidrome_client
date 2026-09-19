@@ -520,33 +520,6 @@ export function usePlayerState(): PlayerState {
     return unsubscribe;
   }, []);
 
-  // Update progress periodically when playing
-  useEffect(() => {
-    if (!state.isPlaying) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const latest = await getPlaybackStatus();
-        lastPlaybackStatus = latest;
-        await checkAndScrobble();
-        setState((prev) => ({
-          ...prev,
-          isPlaying: latest.isPlaying,
-          isBuffering: latest.isBuffering,
-          duration: latest.duration || prev.currentTrack?.duration || 0,
-          position: latest.position,
-          scrobbled:
-            scrobbledSuccessfullyTrackId !== null &&
-            scrobbledSuccessfullyTrackId === prev.currentTrack?.id,
-        }));
-      } catch {
-        // ignore polling errors
-      }
-    }, 800);
-
-    return () => clearInterval(interval);
-  }, [state.isPlaying]);
-
   return state;
 }
 
