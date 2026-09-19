@@ -12,9 +12,6 @@ import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.media.AudioAttributes
-import android.media.AudioFocusRequest
-import android.media.AudioManager
 import android.net.Uri
 import android.os.Binder
 import android.os.Build
@@ -39,13 +36,16 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaStyleNotificationHelper
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
+import android.util.LruCache
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import java.io.File
 import java.net.URL
+import java.security.MessageDigest
 import kotlin.math.min
 
 @OptIn(UnstableApi::class)
@@ -69,7 +69,6 @@ class AudioPlaybackService : Service() {
   private var forwardingPlayer: ForwardingPlayer? = null
   private var mediaSession: MediaSession? = null
   private var notificationManager: NotificationManager? = null
-  private var audioManager: AudioManager? = null
   private val mainHandler = Handler(Looper.getMainLooper())
 
   private var currentTitle: String = ""
@@ -78,10 +77,10 @@ class AudioPlaybackService : Service() {
   private var currentArtworkUrl: String? = null
   private var currentArtworkBitmap: Bitmap? = null
   private var artworkLoadJob: Job? = null
+  private var currentRepeatMode: String = "off"
 
   private val scope = CoroutineScope(Dispatchers.IO + Job())
   private var mediaActionReceiver: BroadcastReceiver? = null
-  private var audioFocusRequest: AudioFocusRequest? = null
 
   private var eventListener: PlaybackEventListener? = null
   private var isForegroundServiceStarted = false
@@ -122,6 +121,12 @@ class AudioPlaybackService : Service() {
 
     private var instance: AudioPlaybackService? = null
 
+    private val artworkMemoryCache = object : LruCache<String, Bitmap>(25) {
+      override fun sizeOf(key: String, bitmap: Bitmap): Int {
+        return 1
+      }
+    }
+
     fun getInstance(): AudioPlaybackService? = instance
 
     fun startService(context: Context) {
@@ -160,7 +165,6 @@ class AudioPlaybackService : Service() {
     stopProgressUpdates()
     scope.coroutineContext[Job]?.cancel()
     unregisterReceiver()
-    releaseAudioFocus()
     releasePlayer()
     instance = null
     super.onDestroy()
@@ -240,13 +244,14 @@ class AudioPlaybackService : Service() {
           Player.REPEAT_MODE_ALL -> "all"
           else -> "off"
         }
-        eventListener?.onRepeatModeChanged(modeString)
-        updateSessionCustomLayout()
-        updateNotification()
+        if (modeString != currentRepeatMode) {
+          currentRepeatMode = modeString
+          eventListener?.onRepeatModeChanged(modeString)
+          updateSessionCustomLayout()
+          updateNotification()
+        }
       }
     })
-
-    audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
 
     val customPlayer = object : ForwardingPlayer(exoPlayer) {
       override fun getAvailableCommands(): Player.Commands {
@@ -350,16 +355,10 @@ class AudioPlaybackService : Service() {
 
   private fun updateSessionCustomLayout() {
     val session = mediaSession ?: return
-    val repeatMode = player?.repeatMode ?: Player.REPEAT_MODE_OFF
-
-    val repeatIcon = when (repeatMode) {
-      Player.REPEAT_MODE_ONE -> android.R.drawable.ic_media_play
-      Player.REPEAT_MODE_ALL -> android.R.drawable.ic_media_play
-      else -> android.R.drawable.ic_media_pause
-    }
+    val repeatIcon = getRepeatIconResId(currentRepeatMode)
 
     val repeatButton = CommandButton.Builder()
-      .setDisplayName(getRepeatModeLabel(repeatMode))
+      .setDisplayName(getRepeatModeLabel(currentRepeatMode))
       .setSessionCommand(SessionCommand(ACTION_REPEAT, Bundle.EMPTY))
       .setIconResId(repeatIcon)
       .build()
@@ -446,14 +445,13 @@ class AudioPlaybackService : Service() {
 
   private fun handleRepeat() {
     mainHandler.post {
-      val p = player ?: return@post
-      val newMode = when (p.repeatMode) {
-        Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
-        Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
-        else -> Player.REPEAT_MODE_OFF
+      val newMode = when (currentRepeatMode) {
+        "off" -> "all"
+        "all" -> "one"
+        else -> "off"
       }
-      p.repeatMode = newMode
-      updateSessionCustomLayout()
+      setRepeatMode(newMode)
+      eventListener?.onRepeatModeChanged(newMode)
     }
   }
 
@@ -470,7 +468,8 @@ class AudioPlaybackService : Service() {
     currentArtist = artist
     currentAlbum = album
     currentArtworkUrl = artworkUrl
-    currentArtworkBitmap = null
+    val cachedBitmap = if (!artworkUrl.isNullOrBlank()) artworkMemoryCache.get(artworkUrl) else null
+    currentArtworkBitmap = cachedBitmap
 
     val mediaMetadata = MediaMetadata.Builder()
       .setTitle(title.takeIf { it.isNotBlank() })
@@ -489,13 +488,17 @@ class AudioPlaybackService : Service() {
 
     if (!artworkUrl.isNullOrBlank()) {
       artworkLoadJob?.cancel()
-      artworkLoadJob = scope.launch {
-        try {
-          loadArtwork(artworkUrl)
-        } catch (e: Exception) {
-          android.util.Log.w(TAG, "Failed to load artwork: ${e.message}")
-          mainHandler.post {
-            updateNotification()
+      if (cachedBitmap != null) {
+        updateNotification()
+      } else {
+        artworkLoadJob = scope.launch {
+          try {
+            loadArtwork(artworkUrl)
+          } catch (e: Exception) {
+            android.util.Log.w(TAG, "Failed to load artwork: ${e.message}")
+            mainHandler.post {
+              updateNotification()
+            }
           }
         }
       }
@@ -506,7 +509,6 @@ class AudioPlaybackService : Service() {
 
   fun playPlayback() {
     val p = player ?: return
-    requestAudioFocus()
     p.play()
     startAsForegroundService()
   }
@@ -521,7 +523,6 @@ class AudioPlaybackService : Service() {
     stopProgressUpdates()
     val p = player ?: return
     p.stop()
-    releaseAudioFocus()
     stopForegroundService()
   }
 
@@ -534,26 +535,34 @@ class AudioPlaybackService : Service() {
     player?.volume = volume.coerceIn(0f, 1f)
   }
 
-  fun setRepeatMode(repeatMode: Int) {
-    player?.repeatMode = repeatMode
+  fun setRepeatMode(mode: String) {
+    val normalized = mode.lowercase()
+    currentRepeatMode = when (normalized) {
+      "one" -> "one"
+      "all" -> "all"
+      else -> "off"
+    }
+    // In a single-item timeline architecture, ExoPlayer only handles REPEAT_MODE_ONE natively.
+    // "all" and "off" must let ExoPlayer reach STATE_ENDED so TypeScript can sequence the queue.
+    player?.repeatMode = if (currentRepeatMode == "one") {
+      Player.REPEAT_MODE_ONE
+    } else {
+      Player.REPEAT_MODE_OFF
+    }
     updateSessionCustomLayout()
+    updateNotification()
   }
 
   fun isPlayerInitialized(): Boolean = player != null
 
   fun getPlaybackStatusMap(): Map<String, Any?> {
     val p = player
-    val repeatModeString = when (p?.repeatMode) {
-      Player.REPEAT_MODE_ONE -> "one"
-      Player.REPEAT_MODE_ALL -> "all"
-      else -> "off"
-    }
     return mapOf(
       "isPlaying" to (p?.isPlaying ?: false),
       "isBuffering" to (p?.playbackState == Player.STATE_BUFFERING),
       "duration" to ((p?.duration ?: 0L).takeIf { it > 0 }?.let { it / 1000.0 } ?: 0.0),
       "position" to ((p?.currentPosition ?: 0L) / 1000.0),
-      "repeatMode" to repeatModeString
+      "repeatMode" to currentRepeatMode
     )
   }
 
@@ -618,7 +627,6 @@ class AudioPlaybackService : Service() {
     val session = mediaSession ?: return null
 
     val isPlaying = p.isPlaying
-    val repeatMode = p.repeatMode
 
     val prevIntent = Intent(ACTION_PREV).setPackage(packageName)
     val prevPending = PendingIntent.getBroadcast(
@@ -658,14 +666,22 @@ class AudioPlaybackService : Service() {
       android.R.drawable.ic_media_play
     }
 
-    val repeatIcon = when (repeatMode) {
-      Player.REPEAT_MODE_ONE -> android.R.drawable.ic_media_play
-      Player.REPEAT_MODE_ALL -> android.R.drawable.ic_media_play
-      else -> android.R.drawable.ic_media_pause
-    }
+    val repeatIcon = getRepeatIconResId(currentRepeatMode)
 
     val style = MediaStyleNotificationHelper.MediaStyle(session)
       .setShowActionsInCompactView(0, 1, 2)
+
+    val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+      flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+    }
+    val contentPendingIntent = if (launchIntent != null) {
+      PendingIntent.getActivity(
+        this,
+        100,
+        launchIntent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+      )
+    } else null
 
     val builder = NotificationCompat.Builder(this, CHANNEL_ID)
       .setSmallIcon(iconResId)
@@ -675,10 +691,11 @@ class AudioPlaybackService : Service() {
       .setStyle(style)
       .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
       .setOngoing(isPlaying)
+      .setContentIntent(contentPendingIntent)
       .addAction(android.R.drawable.ic_media_previous, "previous", prevPending)
       .addAction(playPauseIcon, if (isPlaying) "pause" else "play", playPausePending)
       .addAction(android.R.drawable.ic_media_next, "next", nextPending)
-      .addAction(repeatIcon, getRepeatModeLabel(repeatMode), repeatPending)
+      .addAction(repeatIcon, getRepeatModeLabel(currentRepeatMode), repeatPending)
       .addAction(android.R.drawable.ic_menu_close_clear_cancel, "stop", stopPending)
 
     val artwork = currentArtworkBitmap ?: iconResId.takeIf { it != 0 }?.let {
@@ -711,48 +728,116 @@ class AudioPlaybackService : Service() {
     }
   }
 
-  private fun getRepeatModeLabel(repeatMode: Int): String {
-    return when (repeatMode) {
-      Player.REPEAT_MODE_ONE -> "repeat one"
-      Player.REPEAT_MODE_ALL -> "repeat all"
-      else -> "no repeat"
+  private fun getRepeatIconResId(mode: String): Int {
+    return try {
+      val resName = when (mode) {
+        "one" -> "ic_repeat_one"
+        "all" -> "ic_repeat"
+        else -> "ic_repeat_off"
+      }
+      val resId = resources.getIdentifier(resName, "drawable", packageName)
+      if (resId != 0) resId else android.R.drawable.ic_menu_rotate
+    } catch (_: Exception) {
+      android.R.drawable.ic_menu_rotate
     }
+  }
+
+  private fun getRepeatModeLabel(mode: String): String {
+    return when (mode) {
+      "one" -> "repeat one"
+      "all" -> "repeat all"
+      else -> "repeat off"
+    }
+  }
+
+  private fun getArtworkCacheDir(): File {
+    val dir = File(cacheDir, "artwork_cache")
+    if (!dir.exists()) {
+      dir.mkdirs()
+    }
+    return dir
+  }
+
+  private fun getArtworkCacheFile(url: String): File {
+    val hash = MessageDigest.getInstance("MD5")
+      .digest(url.toByteArray())
+      .joinToString("") { "%02x".format(it) }
+    return File(getArtworkCacheDir(), "$hash.img")
   }
 
   private suspend fun loadArtwork(artworkUrl: String) {
     try {
-      val connection = URL(artworkUrl).openConnection()
-      connection.connectTimeout = 5000
-      connection.readTimeout = 5000
+      var bitmap = artworkMemoryCache.get(artworkUrl)
 
-      val bytes = connection.getInputStream().use { it.readBytes() }
+      if (bitmap == null) {
+        val cacheFile = getArtworkCacheFile(artworkUrl)
+        val bytes: ByteArray = if (cacheFile.exists() && cacheFile.length() > 0) {
+          try {
+            cacheFile.readBytes()
+          } catch (e: Exception) {
+            android.util.Log.w(TAG, "Error reading artwork from disk cache: ${e.message}")
+            ByteArray(0)
+          }
+        } else {
+          ByteArray(0)
+        }
 
-      val options = BitmapFactory.Options().apply {
-        inJustDecodeBounds = true
+        val finalBytes: ByteArray = if (bytes.isNotEmpty()) {
+          bytes
+        } else {
+          val fetchedBytes = if (artworkUrl.startsWith("file:") || artworkUrl.startsWith("content:")) {
+            val uri = Uri.parse(artworkUrl)
+            contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: ByteArray(0)
+          } else {
+            val connection = URL(artworkUrl).openConnection()
+            connection.connectTimeout = 5000
+            connection.readTimeout = 5000
+            connection.getInputStream().use { it.readBytes() }
+          }
+
+          if (fetchedBytes.isNotEmpty()) {
+            try {
+              cacheFile.writeBytes(fetchedBytes)
+            } catch (e: Exception) {
+              android.util.Log.w(TAG, "Error writing artwork to disk cache: ${e.message}")
+            }
+          }
+          fetchedBytes
+        }
+
+        if (finalBytes.isNotEmpty()) {
+          val options = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+          }
+          BitmapFactory.decodeByteArray(finalBytes, 0, finalBytes.size, options)
+
+          val inSampleSize = calculateInSampleSize(
+            options.outWidth,
+            options.outHeight,
+            MAX_ARTWORK_SIZE,
+            MAX_ARTWORK_SIZE
+          )
+
+          options.inJustDecodeBounds = false
+          options.inSampleSize = inSampleSize
+
+          val decoded = BitmapFactory.decodeByteArray(finalBytes, 0, finalBytes.size, options)
+          if (decoded != null) {
+            artworkMemoryCache.put(artworkUrl, decoded)
+            bitmap = decoded
+          }
+        }
       }
-      BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
 
-      val inSampleSize = calculateInSampleSize(
-        options.outWidth,
-        options.outHeight,
-        MAX_ARTWORK_SIZE,
-        MAX_ARTWORK_SIZE
-      )
-
-      options.inJustDecodeBounds = false
-      options.inSampleSize = inSampleSize
-
-      val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
-      if (bitmap != null) {
+      if (bitmap != null && currentArtworkUrl == artworkUrl) {
         currentArtworkBitmap = bitmap
+        mainHandler.post {
+          updateNotification()
+        }
       }
     } catch (e: Exception) {
       android.util.Log.e(TAG, "Artwork loading error: ${e.message}", e)
       throw e
-    }
-
-    mainHandler.post {
-      updateNotification()
     }
   }
 
@@ -771,48 +856,6 @@ class AudioPlaybackService : Service() {
     return inSampleSize
   }
 
-  private fun requestAudioFocus() {
-    val am = audioManager ?: return
-
-    try {
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        val audioAttributes = AudioAttributes.Builder()
-          .setUsage(AudioAttributes.USAGE_MEDIA)
-          .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-          .build()
-
-        val audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-          .setAudioAttributes(audioAttributes)
-          .setAcceptsDelayedFocusGain(false)
-          .build()
-
-        this.audioFocusRequest = audioFocusRequest
-        am.requestAudioFocus(audioFocusRequest)
-      } else {
-        @Suppress("DEPRECATION")
-        am.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN)
-      }
-    } catch (e: Exception) {
-      android.util.Log.w(TAG, "Failed to request audio focus: ${e.message}")
-    }
-  }
-
-  private fun releaseAudioFocus() {
-    val am = audioManager ?: return
-
-    try {
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        audioFocusRequest?.let { am.abandonAudioFocusRequest(it) }
-        audioFocusRequest = null
-      } else {
-        @Suppress("DEPRECATION")
-        am.abandonAudioFocus(null)
-      }
-    } catch (e: Exception) {
-      android.util.Log.w(TAG, "Failed to release audio focus: ${e.message}")
-    }
-  }
-
   private fun releasePlayer() {
     try {
       stopForegroundService()
@@ -821,7 +864,6 @@ class AudioPlaybackService : Service() {
       player?.release()
       player = null
       forwardingPlayer = null
-      currentArtworkBitmap?.recycle()
       currentArtworkBitmap = null
     } catch (e: Exception) {
       android.util.Log.e(TAG, "Error releasing player: ${e.message}", e)
