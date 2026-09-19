@@ -38,6 +38,12 @@ import {
   setScrobbleMinDuration,
   getScrobbleMinPercent,
   setScrobbleMinPercent,
+  getKeepPlayingOnAppDismissed,
+  setKeepPlayingOnAppDismissed,
+  clearPlayerSession,
+  getPlayerSession,
+  savePlayerSession,
+  PersistedPlayerSession,
 } from "@/services/db";
 import { AlbumID3, ArtistID3, Child, Playlist, SongCacheType } from "@/types";
 
@@ -819,6 +825,123 @@ describe("db service", () => {
         "INSERT INTO sync_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
         ["scrobble_min_percent", "100"],
       );
+    });
+
+    it("getKeepPlayingOnAppDismissed should return false by default", () => {
+      mockGetFirstSync.mockReturnValue(null);
+      expect(getKeepPlayingOnAppDismissed()).toBe(false);
+    });
+
+    it("getKeepPlayingOnAppDismissed should return true when set to 'true'", () => {
+      mockGetFirstSync.mockReturnValue({ value: "true" });
+      expect(getKeepPlayingOnAppDismissed()).toBe(true);
+    });
+
+    it("getKeepPlayingOnAppDismissed should return false when set to 'false'", () => {
+      mockGetFirstSync.mockReturnValue({ value: "false" });
+      expect(getKeepPlayingOnAppDismissed()).toBe(false);
+    });
+
+    it("setKeepPlayingOnAppDismissed should store boolean string in sync_meta", () => {
+      setKeepPlayingOnAppDismissed(true);
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "INSERT INTO sync_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        ["keep_playing_on_app_dismissed", "true"],
+      );
+      setKeepPlayingOnAppDismissed(false);
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "INSERT INTO sync_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        ["keep_playing_on_app_dismissed", "false"],
+      );
+    });
+  });
+
+  describe("player_session", () => {
+    const mockSession: PersistedPlayerSession = {
+      queue: [
+        {
+          id: "song-1",
+          title: "Song 1",
+          artist: "Artist 1",
+          album: "Album 1",
+          coverArt: "art-1",
+          duration: 180,
+        },
+      ],
+      currentIndex: 0,
+      position: 42,
+      repeatMode: "all",
+      updatedAt: "2026-09-19T00:00:00.000Z",
+    };
+
+    it("savePlayerSession should insert/update player session row", () => {
+      savePlayerSession(mockSession);
+      expect(mockRunSync).toHaveBeenCalledWith(
+        expect.stringContaining("INSERT INTO player_session"),
+        [
+          JSON.stringify(mockSession.queue),
+          0,
+          42,
+          "all",
+          "2026-09-19T00:00:00.000Z",
+        ],
+      );
+    });
+
+    it("getPlayerSession should return null when row does not exist", () => {
+      mockGetFirstSync.mockReturnValue(null);
+      const result = getPlayerSession();
+      expect(result).toBeNull();
+      expect(mockGetFirstSync).toHaveBeenCalledWith(
+        expect.stringContaining("SELECT queueJson, currentIndex, position, repeatMode, updatedAt FROM player_session WHERE id = 1"),
+      );
+    });
+
+    it("getPlayerSession should parse and return saved session", () => {
+      mockGetFirstSync.mockReturnValue({
+        queueJson: JSON.stringify(mockSession.queue),
+        currentIndex: 0,
+        position: 42,
+        repeatMode: "all",
+        updatedAt: "2026-09-19T00:00:00.000Z",
+      });
+
+      const result = getPlayerSession();
+      expect(result).toEqual(mockSession);
+    });
+
+    it("getPlayerSession should default repeatMode to off if unknown", () => {
+      mockGetFirstSync.mockReturnValue({
+        queueJson: JSON.stringify(mockSession.queue),
+        currentIndex: 0,
+        position: 42,
+        repeatMode: "invalid_mode",
+        updatedAt: "2026-09-19T00:00:00.000Z",
+      });
+
+      const result = getPlayerSession();
+      expect(result?.repeatMode).toBe("off");
+    });
+
+    it("getPlayerSession should return null and catch JSON parse error on corrupted queueJson", () => {
+      const spyError = jest.spyOn(console, "error").mockImplementation(() => {});
+      mockGetFirstSync.mockReturnValue({
+        queueJson: "{corrupted json",
+        currentIndex: 0,
+        position: 0,
+        repeatMode: "off",
+        updatedAt: "2026-09-19T00:00:00.000Z",
+      });
+
+      const result = getPlayerSession();
+      expect(result).toBeNull();
+      expect(spyError).toHaveBeenCalled();
+      spyError.mockRestore();
+    });
+
+    it("clearPlayerSession should delete session row", () => {
+      clearPlayerSession();
+      expect(mockRunSync).toHaveBeenCalledWith("DELETE FROM player_session WHERE id = 1");
     });
   });
 });

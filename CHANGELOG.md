@@ -1,13 +1,16 @@
 # changelog
 
-## 2.14.2+42 (in progress)
+## 2.15.0+42 (in progress)
 
+- add setting to continue playback when app is discarded. (default: false)
 - fix repeat all mode not working.
 - tapping on notification now opens the app.
 - techincal changes
   - fixes in playback logic.
   - better audio focus handling.
   - add artwork caching for the notification service.
+  - move playback state from memory to sqlite.
+  - update test cases for playback.
 
 ## 2.14.1+41
 

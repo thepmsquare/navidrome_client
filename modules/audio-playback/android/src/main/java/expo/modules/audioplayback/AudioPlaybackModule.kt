@@ -360,6 +360,27 @@ class AudioPlaybackModule : Module() {
         }
       }
     }
+
+    AsyncFunction("setStopOnAppDismissed") { stop: Boolean, promise: Promise ->
+      mainHandler.post {
+        try {
+          val s = getOrFindService()
+          if (s != null) {
+            s.setStopOnAppDismissed(stop)
+          } else {
+            val ctx = getContext()
+            if (ctx != null) {
+              val prefs = ctx.getSharedPreferences(AudioPlaybackService.PREFS_NAME, Context.MODE_PRIVATE)
+              prefs.edit().putBoolean(AudioPlaybackService.PREF_STOP_ON_APP_DISMISSED, stop).apply()
+            }
+          }
+          promise.resolve(null)
+        } catch (e: Exception) {
+          android.util.Log.e(TAG, "Error setting stop on app dismissed: ${e.message}", e)
+          promise.reject("ERR_STOP_ON_DISMISSED", e.message ?: "Unknown error", e)
+        }
+      }
+    }
   }
 
   private fun getContext(): Context? {

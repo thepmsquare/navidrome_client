@@ -166,6 +166,15 @@ export function initDatabase(db: SQLite.SQLiteDatabase = getDb()): void {
     );
 
     CREATE INDEX IF NOT EXISTS idx_song_cache_cacheType ON song_cache(cacheType);
+
+    CREATE TABLE IF NOT EXISTS player_session (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      queueJson TEXT NOT NULL,
+      currentIndex INTEGER NOT NULL,
+      position REAL NOT NULL,
+      repeatMode TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    );
   `);
 }
 
@@ -508,6 +517,7 @@ export function clearDatabase(): void {
     DELETE FROM playlists;
     DELETE FROM sync_meta;
     DELETE FROM song_cache;
+    DELETE FROM player_session;
   `);
 }
 
@@ -751,6 +761,18 @@ export function setScrobbleMinPercent(percent: number): void {
   );
 }
 
+export function getKeepPlayingOnAppDismissed(): boolean {
+  const val = getSyncMeta("keep_playing_on_app_dismissed");
+  if (val === null) {
+    return false;
+  }
+  return val === "true";
+}
+
+export function setKeepPlayingOnAppDismissed(enabled: boolean): void {
+  setSyncMeta("keep_playing_on_app_dismissed", String(enabled));
+}
+
 function escapeLike(str: string): string {
   return str.replace(/[%_\\]/g, "\\$0");
 }
@@ -964,8 +986,69 @@ export function searchPlaylists(query: string, limit: number = 20): Playlist[] {
   return db.getAllSync<Playlist>(sql, queryParams);
 }
 
+export interface PersistedPlayerSession {
+  queue: Child[];
+  currentIndex: number;
+  position: number;
+  repeatMode: "off" | "one" | "all";
+  updatedAt: string;
+}
 
+export function savePlayerSession(session: PersistedPlayerSession): void {
+  const db = getDb();
+  db.runSync(
+    `INSERT INTO player_session (id, queueJson, currentIndex, position, repeatMode, updatedAt)
+     VALUES (1, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       queueJson = excluded.queueJson,
+       currentIndex = excluded.currentIndex,
+       position = excluded.position,
+       repeatMode = excluded.repeatMode,
+       updatedAt = excluded.updatedAt`,
+    [
+      JSON.stringify(session.queue),
+      session.currentIndex,
+      session.position,
+      session.repeatMode,
+      session.updatedAt,
+    ],
+  );
+}
 
+export function getPlayerSession(): PersistedPlayerSession | null {
+  const db = getDb();
+  const row = db.getFirstSync<{
+    queueJson: string;
+    currentIndex: number;
+    position: number;
+    repeatMode: string;
+    updatedAt: string;
+  }>(
+    "SELECT queueJson, currentIndex, position, repeatMode, updatedAt FROM player_session WHERE id = 1",
+  );
 
+  if (!row) return null;
 
+  try {
+    const queue = JSON.parse(row.queueJson) as Child[];
+    const repeatMode =
+      row.repeatMode === "one" || row.repeatMode === "all"
+        ? row.repeatMode
+        : "off";
+    return {
+      queue,
+      currentIndex: row.currentIndex,
+      position: row.position,
+      repeatMode,
+      updatedAt: row.updatedAt,
+    };
+  } catch (err) {
+    console.error("failed to parse player session queueJson:", err);
+    return null;
+  }
+}
 
+export function clearPlayerSession(): void {
+  const db = getDb();
+  db.runSync("DELETE FROM player_session WHERE id = 1");
+}

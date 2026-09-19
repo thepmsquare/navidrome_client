@@ -17,6 +17,7 @@ import {
   PlaybackStatus,
   seekTo,
   setRepeatMode,
+  setStopOnAppDismissed,
   setVolume,
   stop,
 } from "@/modules/audio-playback";
@@ -27,8 +28,13 @@ import {
   scrobbleSong,
 } from "@/services/api";
 import {
+  clearPlayerSession,
+  getKeepPlayingOnAppDismissed,
+  getPlayerSession,
   getScrobbleMinDuration,
   getScrobbleMinPercent,
+  savePlayerSession,
+  setKeepPlayingOnAppDismissed,
   updateSongCacheLastAccessed,
 } from "@/services/db";
 import {
@@ -80,6 +86,74 @@ let scrobbledSuccessfullyTrackId: string | null = null;
 // callbacks that arrive before this is set (e.g. late events from the
 // previous track) are ignored by checkAndScrobble.
 let activePlaybackTrackId: string | null = null;
+let lastPersistedPositionTimestamp = 0;
+
+function persistCurrentSession(): void {
+  try {
+    if (currentQueue.length === 0) {
+      clearPlayerSession();
+      return;
+    }
+    savePlayerSession({
+      queue: currentQueue,
+      currentIndex,
+      position: Math.floor(lastPlaybackStatus.position || 0),
+      repeatMode: currentRepeatMode,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error("failed to persist player session:", err);
+  }
+}
+
+export function hydratePlayerSession(): void {
+  try {
+    const session = getPlayerSession();
+    if (session && session.queue && session.queue.length > 0) {
+      currentQueue = session.queue;
+      currentIndex =
+        session.currentIndex >= 0 && session.currentIndex < session.queue.length
+          ? session.currentIndex
+          : 0;
+      currentRepeatMode = session.repeatMode ?? "off";
+      const song = currentQueue[currentIndex];
+      if (song) {
+        currentTrack = {
+          id: song.id,
+          title: song.title,
+          artist: song.artist,
+          album: song.album,
+          coverArt: song.coverArt,
+          duration: song.duration,
+        };
+        lastPlaybackStatus = {
+          isPlaying: false,
+          isBuffering: false,
+          duration: song.duration || 0,
+          position: session.position || 0,
+          repeatMode: currentRepeatMode,
+        };
+      }
+    }
+  } catch (err) {
+    console.error("failed to hydrate player session:", err);
+  }
+
+  try {
+    const keepPlaying = getKeepPlayingOnAppDismissed();
+    setStopOnAppDismissed(!keepPlaying).catch(() => {});
+  } catch {
+    // ignore
+  }
+}
+
+let hasHydrated = false;
+
+export function ensureSessionHydrated(): void {
+  if (hasHydrated) return;
+  hasHydrated = true;
+  hydratePlayerSession();
+}
 
 const stateListeners = new Set<(state: PlayerState) => void>();
 
@@ -95,6 +169,7 @@ function notifyStateChanged(): void {
 }
 
 export function getPlayerState(): PlayerState {
+  ensureSessionHydrated();
   const hasPrevious =
     currentIndex > 0 ||
     (currentRepeatMode === "all" && currentQueue.length > 0);
@@ -221,9 +296,17 @@ function ensureListenersInitialized(): void {
     lastPlaybackStatus = status;
     checkAndScrobble();
     notifyStateChanged();
+
+    // Throttled position persistence during active playback (every 10 seconds)
+    const now = Date.now();
+    if (status.isPlaying && now - lastPersistedPositionTimestamp >= 10000) {
+      lastPersistedPositionTimestamp = now;
+      persistCurrentSession();
+    }
   });
 
-  // Ensure playback state and scrobble status sync when returning from background
+  // Ensure playback state and scrobble status sync when returning from background,
+  // and persist session state when entering background
   AppState.addEventListener("change", async (nextAppState) => {
     if (nextAppState === "active") {
       try {
@@ -234,6 +317,8 @@ function ensureListenersInitialized(): void {
       } catch {
         // ignore
       }
+    } else if (nextAppState === "background" || nextAppState === "inactive") {
+      persistCurrentSession();
     }
   });
 
@@ -266,6 +351,7 @@ function ensureListenersInitialized(): void {
     currentRepeatMode = data.mode;
     lastPlaybackStatus.repeatMode = data.mode;
     notifyStateChanged();
+    persistCurrentSession();
   });
 
   // If a song currently playing from local cache is removed from cache,
@@ -313,6 +399,7 @@ export async function playTrackAtIndex(index: number): Promise<void> {
 
   ensureListenersInitialized();
   notifyStateChanged();
+  persistCurrentSession();
 
   try {
     const cachedUri = getCachedSongPlaybackUri(song.id);
@@ -392,40 +479,58 @@ export async function playPrevious(): Promise<void> {
 }
 
 export function getCurrentQueue(): Child[] {
+  ensureSessionHydrated();
   return currentQueue;
 }
 
 export function getCurrentIndex(): number {
+  ensureSessionHydrated();
   return currentIndex;
 }
 
 export function getCurrentTrack(): ActiveTrackInfo | null {
+  ensureSessionHydrated();
   return currentTrack;
 }
 
 export function getCurrentRepeatMode(): "off" | "one" | "all" {
+  ensureSessionHydrated();
   return currentRepeatMode;
 }
 
 export async function pausePlayback(): Promise<void> {
   await pause();
+  persistCurrentSession();
 }
 
 export async function resumePlayback(): Promise<void> {
+  if (currentTrack && activePlaybackTrackId !== currentTrack.id) {
+    const resumePosition = lastPlaybackStatus.position;
+    await playTrackAtIndex(currentIndex);
+    if (resumePosition > 0) {
+      await seekTo(resumePosition);
+    }
+    return;
+  }
   await play();
 }
 
 export async function togglePlayback(): Promise<void> {
+  if (currentTrack && activePlaybackTrackId !== currentTrack.id) {
+    await resumePlayback();
+    return;
+  }
   const status = await getPlaybackStatus();
   if (status.isPlaying) {
-    await pause();
+    await pausePlayback();
   } else {
-    await play();
+    await resumePlayback();
   }
 }
 
 export async function stopPlayback(): Promise<void> {
   await stop();
+  activePlaybackTrackId = null;
   currentTrack = null;
   notifyStateChanged();
 }
@@ -436,6 +541,7 @@ export async function resetPlayer(): Promise<void> {
   } catch (error) {
     console.error("failed to stop playback during reset:", error);
   }
+  hasHydrated = true;
   currentQueue = [];
   currentIndex = 0;
   currentTrack = null;
@@ -444,6 +550,7 @@ export async function resetPlayer(): Promise<void> {
   scrobbleInFlightTrackId = null;
   scrobbledSuccessfullyTrackId = null;
   activePlaybackTrackId = null;
+  lastPersistedPositionTimestamp = 0;
   lastPlaybackStatus = {
     isPlaying: false,
     isBuffering: false,
@@ -451,10 +558,24 @@ export async function resetPlayer(): Promise<void> {
     position: 0,
     repeatMode: "off",
   };
+  try {
+    clearPlayerSession();
+  } catch (error) {
+    console.error("failed to clear player session:", error);
+  }
   notifyStateChanged();
 }
 
 export async function seekToPosition(seconds: number): Promise<void> {
+  if (currentTrack && activePlaybackTrackId !== currentTrack.id) {
+    lastPlaybackStatus = {
+      ...lastPlaybackStatus,
+      position: seconds,
+    };
+    notifyStateChanged();
+    persistCurrentSession();
+    return;
+  }
   await seekTo(seconds);
 }
 
@@ -469,6 +590,7 @@ export async function setPlaybackRepeatMode(
   currentRepeatMode = mode;
   lastPlaybackStatus.repeatMode = mode;
   notifyStateChanged();
+  persistCurrentSession();
 }
 
 export async function cycleRepeatMode(): Promise<void> {
@@ -479,6 +601,17 @@ export async function cycleRepeatMode(): Promise<void> {
         ? "one"
         : "off";
   await setPlaybackRepeatMode(nextMode);
+}
+
+export async function updateKeepPlayingOnAppDismissed(
+  enabled: boolean,
+): Promise<void> {
+  try {
+    setKeepPlayingOnAppDismissed(enabled);
+    await setStopOnAppDismissed(!enabled);
+  } catch (err) {
+    console.error("failed to update keep playing on app dismissed:", err);
+  }
 }
 
 export async function getStatus(): Promise<PlaybackStatus> {

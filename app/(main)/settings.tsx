@@ -10,6 +10,7 @@ import {
   getAutoCacheEnabled,
   getAutoCacheMaxBytes,
   getAutoCacheTotalSize,
+  getKeepPlayingOnAppDismissed,
   getScrobbleMinDuration,
   getScrobbleMinPercent,
   setAutoCacheEnabled,
@@ -17,6 +18,7 @@ import {
   setScrobbleMinDuration,
   setScrobbleMinPercent,
 } from "@/services/db";
+import { updateKeepPlayingOnAppDismissed } from "@/services/player";
 import { clearAllAutoCachedSongs } from "@/services/songCache";
 import { settingsStyles } from "@/stylesheets";
 import { useAppTheme } from "@/types";
@@ -59,6 +61,14 @@ export default function SettingsScreen() {
   const [scrobbleMinPercentText, setScrobbleMinPercentText] = useState(() =>
     String(getScrobbleMinPercent()),
   );
+  const [keepPlayingOnAppDismissed, setKeepPlayingOnAppDismissedState] = useState(() =>
+    getKeepPlayingOnAppDismissed(),
+  );
+
+  async function handleToggleKeepPlaying(nextValue: boolean) {
+    setKeepPlayingOnAppDismissedState(nextValue);
+    await updateKeepPlayingOnAppDismissed(nextValue);
+  }
 
 
   async function handleToggleAutoCache(nextValue: boolean) {
@@ -323,6 +333,42 @@ export default function SettingsScreen() {
             onBlur={handleScrobblePercentBlur}
             keyboardType="number-pad"
           />
+        </Surface>
+
+        <Surface
+          elevation={0}
+          style={[
+            settingsStyles.sectionCard,
+            { backgroundColor: theme.colors.surfaceContainerHighest },
+          ]}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <View style={{ flex: 1, paddingRight: spacing.sm }}>
+              <Text variant="titleMedium">playback</Text>
+              <Text
+                variant="bodyMedium"
+                style={{ color: theme.colors.onSurfaceVariant }}
+              >
+                continue playback when app is closed
+              </Text>
+              <Text
+                variant="bodySmall"
+                style={{ color: theme.colors.outline, marginTop: spacing.xs }}
+              >
+                keep audio playing when the app is swiped away from the app switcher
+              </Text>
+            </View>
+            <Switch
+              value={keepPlayingOnAppDismissed}
+              onValueChange={handleToggleKeepPlaying}
+            />
+          </View>
         </Surface>
 
         <Surface
