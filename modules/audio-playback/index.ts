@@ -50,6 +50,7 @@ declare class AudioPlaybackNativeModule extends NativeModule<AudioPlaybackEvents
   seekTo(positionSeconds: number): Promise<void>;
   setVolume(volume: number): Promise<void>;
   setRepeatMode(mode: "off" | "one" | "all"): Promise<void>;
+  setStopOnAppDismissed(stop: boolean): Promise<void>;
   getPlaybackStatus(): Promise<PlaybackStatus>;
   playTestSound(url: string): Promise<void>;
   stopTestSound(): Promise<void>;
@@ -116,6 +117,11 @@ export async function setRepeatMode(
 ): Promise<void> {
   if (!AudioPlayback) return;
   await AudioPlayback.setRepeatMode(mode);
+}
+
+export async function setStopOnAppDismissed(stop: boolean): Promise<void> {
+  if (!AudioPlayback) return;
+  await AudioPlayback.setStopOnAppDismissed(stop);
 }
 
 export async function getPlaybackStatus(): Promise<PlaybackStatus> {

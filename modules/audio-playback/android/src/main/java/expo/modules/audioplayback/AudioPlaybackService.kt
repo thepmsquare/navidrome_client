@@ -118,6 +118,8 @@ class AudioPlaybackService : Service() {
     const val ACTION_REPEAT = "expo.modules.audioplayback.ACTION_REPEAT"
     const val TAG = "AudioPlaybackService"
     const val MAX_ARTWORK_SIZE = 512
+    const val PREFS_NAME = "audio_playback_prefs"
+    const val PREF_STOP_ON_APP_DISMISSED = "stop_on_app_dismissed"
 
     private var instance: AudioPlaybackService? = null
 
@@ -161,6 +163,17 @@ class AudioPlaybackService : Service() {
     return START_STICKY
   }
 
+  override fun onTaskRemoved(rootIntent: Intent?) {
+    super.onTaskRemoved(rootIntent)
+    if (shouldStopOnAppDismissed()) {
+      stopProgressUpdates()
+      val p = player
+      p?.stop()
+      stopForegroundService()
+      stopSelf()
+    }
+  }
+
   override fun onDestroy() {
     stopProgressUpdates()
     scope.coroutineContext[Job]?.cancel()
@@ -168,6 +181,16 @@ class AudioPlaybackService : Service() {
     releasePlayer()
     instance = null
     super.onDestroy()
+  }
+
+  fun setStopOnAppDismissed(stop: Boolean) {
+    val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs.edit().putBoolean(PREF_STOP_ON_APP_DISMISSED, stop).apply()
+  }
+
+  fun shouldStopOnAppDismissed(): Boolean {
+    val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    return prefs.getBoolean(PREF_STOP_ON_APP_DISMISSED, true)
   }
 
   fun setEventListener(listener: PlaybackEventListener?) {

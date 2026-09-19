@@ -29,9 +29,18 @@ import {
   subscribePlayerState,
   togglePlayback,
   usePlayerState,
+  hydratePlayerSession,
+  updateKeepPlayingOnAppDismissed,
 } from "@/services/player";
 import * as songCache from "@/services/songCache";
-import { updateSongCacheLastAccessed } from "@/services/db";
+import {
+  clearPlayerSession,
+  getKeepPlayingOnAppDismissed,
+  getPlayerSession,
+  savePlayerSession,
+  setKeepPlayingOnAppDismissed,
+  updateSongCacheLastAccessed,
+} from "@/services/db";
 import { Child } from "@/types";
 
 let stateListenerCb: ((status: any) => void) | null = null;
@@ -46,6 +55,11 @@ jest.mock("@/services/db", () => ({
   updateSongCacheLastAccessed: jest.fn(),
   getScrobbleMinDuration: jest.fn().mockReturnValue(240),
   getScrobbleMinPercent: jest.fn().mockReturnValue(75),
+  savePlayerSession: jest.fn(),
+  getPlayerSession: jest.fn().mockReturnValue(null),
+  clearPlayerSession: jest.fn(),
+  getKeepPlayingOnAppDismissed: jest.fn().mockReturnValue(false),
+  setKeepPlayingOnAppDismissed: jest.fn(),
 }));
 
 jest.mock("@/modules/audio-playback", () => ({
@@ -56,6 +70,7 @@ jest.mock("@/modules/audio-playback", () => ({
   seekTo: jest.fn(),
   setVolume: jest.fn(),
   setRepeatMode: jest.fn(),
+  setStopOnAppDismissed: jest.fn().mockResolvedValue(undefined),
   playTestSound: jest.fn(),
   stopTestSound: jest.fn(),
   getPlaybackStatus: jest.fn().mockResolvedValue({
@@ -699,6 +714,224 @@ describe("player service", () => {
       renderer.act(() => {
         tree.unmount();
       });
+    });
+  });
+
+  describe("session persistence and hydration", () => {
+    it("should persist session when playlist starts", async () => {
+      await playPlaylist([sampleSong1, sampleSong2], 0);
+
+      expect(savePlayerSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          queue: [sampleSong1, sampleSong2],
+          currentIndex: 0,
+          position: 0,
+          repeatMode: "off",
+        }),
+      );
+    });
+
+    it("should persist session when playback is paused", async () => {
+      await playPlaylist([sampleSong1], 0);
+      (savePlayerSession as jest.Mock).mockClear();
+
+      stateListenerCb!({
+        isPlaying: true,
+        isBuffering: false,
+        duration: 200,
+        position: 45,
+        repeatMode: "off",
+      });
+
+      await pausePlayback();
+
+      expect(savePlayerSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          queue: [sampleSong1],
+          currentIndex: 0,
+          position: 45,
+          repeatMode: "off",
+        }),
+      );
+    });
+
+    it("should persist session when repeat mode is changed", async () => {
+      await playPlaylist([sampleSong1], 0);
+      (savePlayerSession as jest.Mock).mockClear();
+
+      await setPlaybackRepeatMode("all");
+
+      expect(savePlayerSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          repeatMode: "all",
+        }),
+      );
+    });
+
+    it("should persist session periodically (throttled) during playback", async () => {
+      await playPlaylist([sampleSong1], 0);
+      (savePlayerSession as jest.Mock).mockClear();
+
+      const realDateNow = Date.now;
+      try {
+        let mockedTime = 100000;
+        Date.now = jest.fn(() => mockedTime);
+
+        // First update at mockedTime (100000)
+        stateListenerCb!({
+          isPlaying: true,
+          isBuffering: false,
+          duration: 200,
+          position: 10,
+          repeatMode: "off",
+        });
+        expect(savePlayerSession).toHaveBeenCalledTimes(1);
+        (savePlayerSession as jest.Mock).mockClear();
+
+        // 3 seconds later (< 10s throttle) - should NOT trigger save
+        mockedTime += 3000;
+        stateListenerCb!({
+          isPlaying: true,
+          isBuffering: false,
+          duration: 200,
+          position: 13,
+          repeatMode: "off",
+        });
+        expect(savePlayerSession).not.toHaveBeenCalled();
+
+        // 11 seconds later (total 14s > 10s throttle) - should trigger save
+        mockedTime += 11000;
+        stateListenerCb!({
+          isPlaying: true,
+          isBuffering: false,
+          duration: 200,
+          position: 24,
+          repeatMode: "off",
+        });
+        expect(savePlayerSession).toHaveBeenCalledTimes(1);
+        expect(savePlayerSession).toHaveBeenCalledWith(
+          expect.objectContaining({
+            position: 24,
+          }),
+        );
+      } finally {
+        Date.now = realDateNow;
+      }
+    });
+
+    it("should clear session when player is reset", async () => {
+      await playPlaylist([sampleSong1], 0);
+      await resetPlayer();
+
+      expect(clearPlayerSession).toHaveBeenCalled();
+    });
+
+    it("hydratePlayerSession should restore queue, index, position, and repeatMode", () => {
+      (getPlayerSession as jest.Mock).mockReturnValueOnce({
+        queue: [sampleSong1, sampleSong2],
+        currentIndex: 1,
+        position: 50,
+        repeatMode: "all",
+        updatedAt: "2026-09-19T00:00:00.000Z",
+      });
+
+      hydratePlayerSession();
+
+      expect(getCurrentQueue()).toEqual([sampleSong1, sampleSong2]);
+      expect(getCurrentIndex()).toBe(1);
+      expect(getCurrentTrack()?.id).toBe("song-2");
+      expect(getCurrentRepeatMode()).toBe("all");
+      const state = getPlayerState();
+      expect(state.position).toBe(50);
+      expect(state.isPlaying).toBe(false);
+    });
+
+    it("resumePlayback after cold start hydration should load track and seek to saved position", async () => {
+      (getPlayerSession as jest.Mock).mockReturnValueOnce({
+        queue: [sampleSong1, sampleSong2],
+        currentIndex: 1,
+        position: 65,
+        repeatMode: "off",
+        updatedAt: "2026-09-19T00:00:00.000Z",
+      });
+
+      hydratePlayerSession();
+
+      await resumePlayback();
+
+      expect(audioPlayback.loadTrack).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Song Two",
+          playWhenReady: true,
+        }),
+      );
+      expect(audioPlayback.seekTo).toHaveBeenCalledWith(65);
+    });
+
+    it("togglePlayback after cold start hydration should call resumePlayback and seek to saved position", async () => {
+      (getPlayerSession as jest.Mock).mockReturnValueOnce({
+        queue: [sampleSong1, sampleSong2],
+        currentIndex: 0,
+        position: 30,
+        repeatMode: "off",
+        updatedAt: "2026-09-19T00:00:00.000Z",
+      });
+
+      hydratePlayerSession();
+
+      await togglePlayback();
+
+      expect(audioPlayback.loadTrack).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Song One",
+          playWhenReady: true,
+        }),
+      );
+      expect(audioPlayback.seekTo).toHaveBeenCalledWith(30);
+    });
+
+    it("seekToPosition before track is active should update state position and persist", async () => {
+      (getPlayerSession as jest.Mock).mockReturnValueOnce({
+        queue: [sampleSong1],
+        currentIndex: 0,
+        position: 10,
+        repeatMode: "off",
+        updatedAt: "2026-09-19T00:00:00.000Z",
+      });
+
+      hydratePlayerSession();
+      (savePlayerSession as jest.Mock).mockClear();
+
+      await seekToPosition(75);
+
+      expect(getPlayerState().position).toBe(75);
+      expect(savePlayerSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          position: 75,
+        }),
+      );
+      // Native seekTo should not be called because track is not active yet in ExoPlayer
+      expect(audioPlayback.seekTo).not.toHaveBeenCalled();
+    });
+
+    it("updateKeepPlayingOnAppDismissed should update db and native audioPlayback", async () => {
+      await updateKeepPlayingOnAppDismissed(true);
+
+      expect(setKeepPlayingOnAppDismissed).toHaveBeenCalledWith(true);
+      expect(audioPlayback.setStopOnAppDismissed).toHaveBeenCalledWith(false);
+
+      await updateKeepPlayingOnAppDismissed(false);
+
+      expect(setKeepPlayingOnAppDismissed).toHaveBeenCalledWith(false);
+      expect(audioPlayback.setStopOnAppDismissed).toHaveBeenCalledWith(true);
+    });
+
+    it("hydratePlayerSession should synchronize stopOnAppDismissed from db", () => {
+      (getKeepPlayingOnAppDismissed as jest.Mock).mockReturnValueOnce(true);
+
+      hydratePlayerSession();
+
+      expect(audioPlayback.setStopOnAppDismissed).toHaveBeenCalledWith(false);
     });
   });
 });
