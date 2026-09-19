@@ -1,6 +1,6 @@
 # changelog
 
-## 2.15.0+42 (in progress)
+## 2.15.0+42
 
 - add setting to continue playback when app is discarded. (default: false)
 - fix repeat all mode not working.
