@@ -1,5 +1,5 @@
 import React from "react";
-import { Image } from "react-native";
+import { AppState, Image } from "react-native";
 import renderer from "react-test-renderer";
 
 import * as audioPlayback from "@/modules/audio-playback";
@@ -40,7 +40,9 @@ import {
   savePlayerSession,
   setKeepPlayingOnAppDismissed,
   updateSongCacheLastAccessed,
+  addPendingScrobble,
 } from "@/services/db";
+import { syncPendingScrobbles } from "@/services/scrobbleQueue";
 import { Child } from "@/types";
 
 let stateListenerCb: ((status: any) => void) | null = null;
@@ -50,6 +52,18 @@ let prevTrackCb: (() => void) | null = null;
 let playbackErrorCb: ((err: any) => void) | null = null;
 let repeatModeCb: ((data: any) => void) | null = null;
 let songCacheCb: ((data: any) => void) | null = null;
+let appStateCb: ((state: string) => void) | null = null;
+
+jest.spyOn(AppState, "addEventListener").mockImplementation(((event: string, cb: any) => {
+  if (event === "change") {
+    appStateCb = cb;
+  }
+  return { remove: jest.fn() };
+}) as any);
+
+jest.mock("@/services/scrobbleQueue", () => ({
+  syncPendingScrobbles: jest.fn().mockResolvedValue({ synced: 0, failed: 0 }),
+}));
 
 jest.mock("@/services/db", () => ({
   updateSongCacheLastAccessed: jest.fn(),
@@ -60,6 +74,7 @@ jest.mock("@/services/db", () => ({
   clearPlayerSession: jest.fn(),
   getKeepPlayingOnAppDismissed: jest.fn().mockReturnValue(false),
   setKeepPlayingOnAppDismissed: jest.fn(),
+  addPendingScrobble: jest.fn(),
 }));
 
 jest.mock("@/modules/audio-playback", () => ({
@@ -160,49 +175,62 @@ describe("player service", () => {
       expect(api.scrobbleSong).not.toHaveBeenCalled();
     });
 
-    it("scrobbleSong should fire when duration threshold is met via playback state", async () => {
+    function simulateContinuousPlayback(
+      duration: number,
+      targetPosition: number,
+      step: number = 2,
+      repeatMode: "off" | "one" | "all" = "off",
+    ) {
+      for (let pos = step; pos <= targetPosition; pos += step) {
+        stateListenerCb!({
+          isPlaying: true,
+          isBuffering: false,
+          duration,
+          position: pos,
+          repeatMode,
+        });
+      }
+    }
+
+    it("scrobbleSong should fire when duration threshold is met via continuous playback", async () => {
       await playPlaylist([sampleSong1], 0);
       jest.clearAllMocks();
 
-      // Simulate playback position reaching min duration (default 240s)
+      simulateContinuousPlayback(300, 241, 2);
+
+      expect(api.scrobbleSong).toHaveBeenCalledWith("song-1", expect.any(Number));
+    });
+
+    it("scrobbleSong should fire when percent threshold is met via continuous playback", async () => {
+      await playPlaylist([sampleSong1], 0);
+      jest.clearAllMocks();
+
+      simulateContinuousPlayback(200, 152, 2);
+
+      expect(api.scrobbleSong).toHaveBeenCalledWith("song-1", expect.any(Number));
+    });
+
+    it("scrobbleSong should not fire on seek jump ahead past threshold without listening", async () => {
+      await playPlaylist([sampleSong1], 0);
+      jest.clearAllMocks();
+
+      await seekToPosition(245);
       stateListenerCb!({
         isPlaying: true,
         isBuffering: false,
         duration: 300,
-        position: 241,
+        position: 245,
         repeatMode: "off",
       });
 
-      expect(api.scrobbleSong).toHaveBeenCalledWith("song-1");
-    });
-
-    it("scrobbleSong should fire when percent threshold is met via playback state", async () => {
-      await playPlaylist([sampleSong1], 0);
-      jest.clearAllMocks();
-
-      // Simulate playback reaching 76% of a 200s song (default 75%)
-      stateListenerCb!({
-        isPlaying: true,
-        isBuffering: false,
-        duration: 200,
-        position: 152,
-        repeatMode: "off",
-      });
-
-      expect(api.scrobbleSong).toHaveBeenCalledWith("song-1");
+      expect(api.scrobbleSong).not.toHaveBeenCalled();
     });
 
     it("scrobbleSong should not fire twice for the same track", async () => {
       await playPlaylist([sampleSong1], 0);
       jest.clearAllMocks();
 
-      stateListenerCb!({
-        isPlaying: true,
-        isBuffering: false,
-        duration: 300,
-        position: 241,
-        repeatMode: "off",
-      });
+      simulateContinuousPlayback(300, 241, 2);
       stateListenerCb!({
         isPlaying: true,
         isBuffering: false,
@@ -217,25 +245,17 @@ describe("player service", () => {
     it("scrobbled label should reset when next track starts after natural track end", async () => {
       await playPlaylist([sampleSong1, sampleSong2], 0);
 
-      // Scrobble song 1 by meeting duration threshold
-      stateListenerCb!({
-        isPlaying: true,
-        isBuffering: false,
-        duration: 300,
-        position: 241,
-        repeatMode: "off",
-      });
-      expect(api.scrobbleSong).toHaveBeenCalledWith("song-1");
+      // Scrobble song 1 by meeting duration threshold via continuous playback
+      simulateContinuousPlayback(300, 241, 2);
+      expect(api.scrobbleSong).toHaveBeenCalledWith("song-1", expect.any(Number));
       await Promise.resolve();
       expect(getPlayerState().scrobbled).toBe(true);
       jest.clearAllMocks();
 
-      // Natural track end — loadTrack is async so activePlaybackTrackId
-      // is null for song-2 until it resolves
-      trackEndedCb!();
+      // Natural track end
+      await trackEndedCb!();
 
       // A stale playback-state callback arrives before loadTrack resolves
-      // (activePlaybackTrackId is still null for song-2 at this point)
       stateListenerCb!({
         isPlaying: true,
         isBuffering: false,
@@ -251,35 +271,17 @@ describe("player service", () => {
       expect(api.scrobbleSong).not.toHaveBeenCalled();
     });
 
-    it("scrobbled should remain false if scrobbleSong fails, allowing retry", async () => {
+    it("scrobbleSong failure should queue track into pending_scrobbles and mark scrobbled", async () => {
       await playPlaylist([sampleSong1], 0);
       jest.clearAllMocks();
 
       (api.scrobbleSong as jest.Mock).mockRejectedValueOnce(new Error("network error"));
 
-      stateListenerCb!({
-        isPlaying: true,
-        isBuffering: false,
-        duration: 300,
-        position: 241,
-        repeatMode: "off",
-      });
-
-      expect(api.scrobbleSong).toHaveBeenCalledWith("song-1");
+      simulateContinuousPlayback(300, 241, 2);
       await Promise.resolve();
-      expect(getPlayerState().scrobbled).toBe(false);
 
-      (api.scrobbleSong as jest.Mock).mockResolvedValueOnce(undefined);
-      stateListenerCb!({
-        isPlaying: true,
-        isBuffering: false,
-        duration: 300,
-        position: 242,
-        repeatMode: "off",
-      });
-
-      expect(api.scrobbleSong).toHaveBeenCalledTimes(2);
-      await Promise.resolve();
+      expect(api.scrobbleSong).toHaveBeenCalledWith("song-1", expect.any(Number));
+      expect(addPendingScrobble).toHaveBeenCalledWith("song-1", expect.any(Number));
       expect(getPlayerState().scrobbled).toBe(true);
     });
 
@@ -288,15 +290,9 @@ describe("player service", () => {
       await setPlaybackRepeatMode("one");
       jest.clearAllMocks();
 
-      stateListenerCb!({
-        isPlaying: true,
-        isBuffering: false,
-        duration: 300,
-        position: 245,
-        repeatMode: "one",
-      });
+      simulateContinuousPlayback(300, 245, 2, "one");
       await Promise.resolve();
-      expect(api.scrobbleSong).toHaveBeenCalledWith("song-1");
+      expect(api.scrobbleSong).toHaveBeenCalledWith("song-1", expect.any(Number));
       expect(getPlayerState().scrobbled).toBe(true);
 
       // Loop occurs: position jumps back near 0
@@ -310,17 +306,32 @@ describe("player service", () => {
       await Promise.resolve();
       expect(getPlayerState().scrobbled).toBe(false);
 
-      // Next iteration reaches threshold again
-      stateListenerCb!({
-        isPlaying: true,
-        isBuffering: false,
-        duration: 300,
-        position: 241,
-        repeatMode: "one",
-      });
+      // Next iteration reaches threshold again via continuous playback
+      simulateContinuousPlayback(300, 245, 2, "one");
       await Promise.resolve();
       expect(api.scrobbleSong).toHaveBeenCalledTimes(2);
       expect(getPlayerState().scrobbled).toBe(true);
+    });
+
+    it("natural track end should scrobble if listened threshold was reached upon completion", async () => {
+      await playPlaylist([sampleSong1, sampleSong2], 0);
+      jest.clearAllMocks();
+
+      // Listen to 74s of 100s track (target is 75s, within 2s grace at track end)
+      simulateContinuousPlayback(100, 74, 2);
+      expect(api.scrobbleSong).not.toHaveBeenCalled();
+
+      // Natural track end fires
+      await trackEndedCb!();
+
+      expect(api.scrobbleSong).toHaveBeenCalledWith("song-1", expect.any(Number));
+    });
+
+    it("app resume should trigger syncPendingScrobbles", async () => {
+      expect(appStateCb).toBeDefined();
+      await appStateCb!("active");
+
+      expect(syncPendingScrobbles).toHaveBeenCalled();
     });
 
     it("playSong should play single song in queue", async () => {

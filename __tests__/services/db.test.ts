@@ -44,6 +44,12 @@ import {
   getPlayerSession,
   savePlayerSession,
   PersistedPlayerSession,
+  addPendingScrobble,
+  getPendingScrobbles,
+  removePendingScrobble,
+  incrementPendingScrobbleAttempts,
+  getPendingScrobblesCount,
+  clearPendingScrobbles,
 } from "@/services/db";
 import { AlbumID3, ArtistID3, Child, Playlist, SongCacheType } from "@/types";
 
@@ -942,6 +948,86 @@ describe("db service", () => {
     it("clearPlayerSession should delete session row", () => {
       clearPlayerSession();
       expect(mockRunSync).toHaveBeenCalledWith("DELETE FROM player_session WHERE id = 1");
+    });
+  });
+
+  describe("pending_scrobbles", () => {
+    it("addPendingScrobble should insert row with provided timestamp", () => {
+      const ts = 1700000000000;
+      addPendingScrobble("song-123", ts);
+
+      expect(mockRunSync).toHaveBeenCalledWith(
+        expect.stringContaining("INSERT INTO pending_scrobbles"),
+        expect.arrayContaining(["song-123", ts, 0]),
+      );
+    });
+
+    it("addPendingScrobble should default timestamp to now if not provided", () => {
+      const before = Date.now();
+      addPendingScrobble("song-123");
+      const after = Date.now();
+
+      expect(mockRunSync).toHaveBeenCalledWith(
+        expect.stringContaining("INSERT INTO pending_scrobbles"),
+        expect.arrayContaining(["song-123"]),
+      );
+      const callArgs = mockRunSync.mock.calls[0][1];
+      expect(callArgs[0]).toBe("song-123");
+      expect(callArgs[1]).toBeGreaterThanOrEqual(before);
+      expect(callArgs[1]).toBeLessThanOrEqual(after);
+    });
+
+    it("getPendingScrobbles should query pending scrobbles ordered by createdAt ASC", () => {
+      const mockRows = [
+        { id: 1, song_id: "s-1", timestamp: 100, attempts: 0, created_at: 100 },
+        { id: 2, song_id: "s-2", timestamp: 200, attempts: 1, created_at: 200 },
+      ];
+      mockGetAllSync.mockReturnValue(mockRows);
+
+      const result = getPendingScrobbles();
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        "SELECT id, song_id, timestamp, attempts, created_at FROM pending_scrobbles ORDER BY created_at ASC",
+      );
+      expect(result).toEqual([
+        { id: 1, songId: "s-1", timestamp: 100, attempts: 0, createdAt: 100 },
+        { id: 2, songId: "s-2", timestamp: 200, attempts: 1, createdAt: 200 },
+      ]);
+    });
+
+    it("removePendingScrobble should delete row by id", () => {
+      removePendingScrobble(42);
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "DELETE FROM pending_scrobbles WHERE id = ?",
+        [42],
+      );
+    });
+
+    it("incrementPendingScrobbleAttempts should update attempts by id", () => {
+      incrementPendingScrobbleAttempts(42);
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "UPDATE pending_scrobbles SET attempts = attempts + 1 WHERE id = ?",
+        [42],
+      );
+    });
+
+    it("getPendingScrobblesCount should return count from table", () => {
+      mockGetFirstSync.mockReturnValue({ count: 5 });
+      const count = getPendingScrobblesCount();
+      expect(mockGetFirstSync).toHaveBeenCalledWith(
+        "SELECT COUNT(*) as count FROM pending_scrobbles",
+      );
+      expect(count).toBe(5);
+    });
+
+    it("getPendingScrobblesCount should return 0 if null returned", () => {
+      mockGetFirstSync.mockReturnValue(null);
+      const count = getPendingScrobblesCount();
+      expect(count).toBe(0);
+    });
+
+    it("clearPendingScrobbles should delete all rows", () => {
+      clearPendingScrobbles();
+      expect(mockRunSync).toHaveBeenCalledWith("DELETE FROM pending_scrobbles");
     });
   });
 });

@@ -8,6 +8,7 @@ import {
   Search3Counts,
   SongCacheRow,
   SongCacheType,
+  PendingScrobble,
 } from "@/types";
 import {
   DB_NAME,
@@ -175,6 +176,16 @@ export function initDatabase(db: SQLite.SQLiteDatabase = getDb()): void {
       repeatMode TEXT NOT NULL,
       updatedAt TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS pending_scrobbles (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      song_id TEXT NOT NULL,
+      timestamp INTEGER NOT NULL,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_pending_scrobbles_created ON pending_scrobbles(created_at);
   `);
 }
 
@@ -518,6 +529,7 @@ export function clearDatabase(): void {
     DELETE FROM sync_meta;
     DELETE FROM song_cache;
     DELETE FROM player_session;
+    DELETE FROM pending_scrobbles;
   `);
 }
 
@@ -1051,4 +1063,61 @@ export function getPlayerSession(): PersistedPlayerSession | null {
 export function clearPlayerSession(): void {
   const db = getDb();
   db.runSync("DELETE FROM player_session WHERE id = 1");
+}
+
+export function addPendingScrobble(songId: string, timestamp?: number): void {
+  const db = getDb();
+  const now = Date.now();
+  const ts = timestamp ?? now;
+  db.runSync(
+    "INSERT INTO pending_scrobbles (song_id, timestamp, attempts, created_at) VALUES (?, ?, ?, ?)",
+    [songId, ts, 0, now],
+  );
+}
+
+export function getPendingScrobbles(): PendingScrobble[] {
+  const db = getDb();
+  const rows = db.getAllSync<{
+    id: number;
+    song_id: string;
+    timestamp: number;
+    attempts: number;
+    created_at: number;
+  }>(
+    "SELECT id, song_id, timestamp, attempts, created_at FROM pending_scrobbles ORDER BY created_at ASC",
+  );
+
+  return rows.map((r) => ({
+    id: r.id,
+    songId: r.song_id,
+    timestamp: r.timestamp,
+    attempts: r.attempts,
+    createdAt: r.created_at,
+  }));
+}
+
+export function removePendingScrobble(id: number): void {
+  const db = getDb();
+  db.runSync("DELETE FROM pending_scrobbles WHERE id = ?", [id]);
+}
+
+export function incrementPendingScrobbleAttempts(id: number): void {
+  const db = getDb();
+  db.runSync(
+    "UPDATE pending_scrobbles SET attempts = attempts + 1 WHERE id = ?",
+    [id],
+  );
+}
+
+export function getPendingScrobblesCount(): number {
+  const db = getDb();
+  const row = db.getFirstSync<{ count: number }>(
+    "SELECT COUNT(*) as count FROM pending_scrobbles",
+  );
+  return row?.count ?? 0;
+}
+
+export function clearPendingScrobbles(): void {
+  const db = getDb();
+  db.runSync("DELETE FROM pending_scrobbles");
 }

@@ -1,5 +1,11 @@
 # changelog
 
+## 2.15.1+43
+
+- techincal changes
+  - fixes in scrobble logic.
+  - add offline scrobble.
+
 ## 2.15.0+42
 
 - add setting to continue playback when app is discarded. (default: false)

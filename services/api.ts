@@ -423,8 +423,8 @@ export async function scrobble(params: ScrobbleParams): Promise<boolean> {
   return true;
 }
 
-export async function scrobbleSong(songId: string): Promise<void> {
-  await scrobble({ id: songId, submission: true, time: Date.now() });
+export async function scrobbleSong(songId: string, time?: number): Promise<void> {
+  await scrobble({ id: songId, submission: true, time: time ?? Date.now() });
 }
 
 export async function getPlaylists(username?: string): Promise<Playlist[]> {
