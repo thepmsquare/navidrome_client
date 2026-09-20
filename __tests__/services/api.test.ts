@@ -640,6 +640,23 @@ describe("api service", () => {
       );
     });
 
+    it("scrobbleSong should invoke scrobble with explicit timestamp if provided", async () => {
+      global.fetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          "subsonic-response": {
+            status: "ok",
+          },
+        }),
+      });
+
+      await scrobbleSong("song-1", 1600000000000);
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("time=1600000000000"),
+      );
+    });
+
     it("scrobble should return true on 200 even if response body is empty or non-json", async () => {
       global.fetch = jest.fn().mockResolvedValueOnce({
         ok: true,

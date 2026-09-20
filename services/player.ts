@@ -36,7 +36,9 @@ import {
   savePlayerSession,
   setKeepPlayingOnAppDismissed,
   updateSongCacheLastAccessed,
+  addPendingScrobble,
 } from "@/services/db";
+import { syncPendingScrobbles } from "@/services/scrobbleQueue";
 import {
   autoCacheSong,
   getCachedSongPlaybackUri,
@@ -87,6 +89,9 @@ let scrobbledSuccessfullyTrackId: string | null = null;
 // previous track) are ignored by checkAndScrobble.
 let activePlaybackTrackId: string | null = null;
 let lastPersistedPositionTimestamp = 0;
+let accumulatedListeningTimeSeconds = 0;
+let lastEvaluatedPosition: number | null = null;
+let hasPendingSeek = false;
 
 function persistCurrentSession(): void {
   try {
@@ -241,43 +246,62 @@ async function switchToRemoteStream(songId: string): Promise<void> {
   }
 }
 
-async function checkAndScrobble(): Promise<void> {
-  if (!currentTrack) return;
+function checkAndScrobble(forceEndOfTrack: boolean = false): Promise<void> {
+  if (!currentTrack) return Promise.resolve();
+  const trackToScrobble = currentTrack;
+  const trackId = trackToScrobble.id;
+
   // If already successfully scrobbled or currently in flight, do not trigger again
-  if (scrobbledSuccessfullyTrackId === currentTrack.id) return;
-  if (scrobbleInFlightTrackId === currentTrack.id) return;
+  if (scrobbledSuccessfullyTrackId === trackId) return Promise.resolve();
+  if (scrobbleInFlightTrackId === trackId) return Promise.resolve();
 
   // Only check once the audio layer has actually loaded this track.
   // This prevents stale position values from a just-finished track from
   // triggering an immediate scrobble on the incoming song.
-  if (activePlaybackTrackId !== currentTrack.id) return;
+  if (!forceEndOfTrack && activePlaybackTrackId !== trackId) return Promise.resolve();
 
   const position = lastPlaybackStatus.position;
-  const duration = lastPlaybackStatus.duration || currentTrack.duration || 0;
+  const duration = lastPlaybackStatus.duration || trackToScrobble.duration || 0;
 
-  if (duration <= 0) return;
+  if (duration <= 0) return Promise.resolve();
 
   const minDuration = getScrobbleMinDuration();
   const minPercent = getScrobbleMinPercent();
+  const targetDuration = Math.min(minDuration, (minPercent / 100) * duration);
 
   const durationMet = position >= minDuration;
   const percentMet = (position / duration) * 100 >= minPercent;
+  const positionMet = durationMet || percentMet || forceEndOfTrack;
 
-  if (durationMet || percentMet) {
-    const trackId = currentTrack.id;
+  const listenedMet =
+    accumulatedListeningTimeSeconds >= targetDuration ||
+    (forceEndOfTrack && accumulatedListeningTimeSeconds >= targetDuration - 2);
+
+  if (positionMet && listenedMet) {
+    const listenTimestamp = Date.now();
     scrobbleInFlightTrackId = trackId;
-    try {
-      await scrobbleSong(trackId);
-      scrobbledSuccessfullyTrackId = trackId;
-      notifyStateChanged();
-    } catch (err) {
-      console.error("failed to scrobble song:", err);
-    } finally {
-      if (scrobbleInFlightTrackId === trackId) {
-        scrobbleInFlightTrackId = null;
+    return (async () => {
+      try {
+        await scrobbleSong(trackId, listenTimestamp);
+        scrobbledSuccessfullyTrackId = trackId;
+        notifyStateChanged();
+      } catch (err) {
+        console.error("failed to scrobble song, queueing for offline sync:", err);
+        try {
+          addPendingScrobble(trackId, listenTimestamp);
+          scrobbledSuccessfullyTrackId = trackId;
+          notifyStateChanged();
+        } catch (dbErr) {
+          console.error("failed to persist pending scrobble:", dbErr);
+        }
+      } finally {
+        if (scrobbleInFlightTrackId === trackId) {
+          scrobbleInFlightTrackId = null;
+        }
       }
-    }
+    })();
   }
+  return Promise.resolve();
 }
 
 function ensureListenersInitialized(): void {
@@ -292,7 +316,26 @@ function ensureListenersInitialized(): void {
     ) {
       scrobbleInFlightTrackId = null;
       scrobbledSuccessfullyTrackId = null;
+      accumulatedListeningTimeSeconds = 0;
+      lastEvaluatedPosition = null;
+      hasPendingSeek = false;
     }
+
+    if (activePlaybackTrackId === currentTrack?.id && status.isPlaying) {
+      if (hasPendingSeek) {
+        hasPendingSeek = false;
+        lastEvaluatedPosition = status.position;
+      } else if (lastEvaluatedPosition !== null) {
+        const delta = status.position - lastEvaluatedPosition;
+        if (delta > 0 && delta <= 3.0) {
+          accumulatedListeningTimeSeconds += delta;
+        }
+      }
+      lastEvaluatedPosition = status.position;
+    } else {
+      lastEvaluatedPosition = status.position;
+    }
+
     lastPlaybackStatus = status;
     checkAndScrobble();
     notifyStateChanged();
@@ -317,12 +360,18 @@ function ensureListenersInitialized(): void {
       } catch {
         // ignore
       }
+      syncPendingScrobbles().catch((err) =>
+        console.error("failed to sync pending scrobbles on app active:", err),
+      );
     } else if (nextAppState === "background" || nextAppState === "inactive") {
       persistCurrentSession();
     }
   });
 
   addTrackEndedListener(() => {
+    checkAndScrobble(true).catch((err) => {
+      console.error("failed track-ended scrobble check:", err);
+    });
     playNext();
   });
 
@@ -382,6 +431,9 @@ export async function playTrackAtIndex(index: number): Promise<void> {
   scrobbleInFlightTrackId = null;
   scrobbledSuccessfullyTrackId = null;
   activePlaybackTrackId = null;
+  accumulatedListeningTimeSeconds = 0;
+  lastEvaluatedPosition = null;
+  hasPendingSeek = false;
   lastPlaybackStatus = {
     ...lastPlaybackStatus,
     position: 0,
@@ -427,6 +479,7 @@ export async function playTrackAtIndex(index: number): Promise<void> {
     // audio layer has successfully loaded it.
     if (currentTrack?.id === song.id) {
       activePlaybackTrackId = song.id;
+      lastEvaluatedPosition = 0;
     }
 
     // Send "now playing" ping immediately (submission: false)
@@ -550,6 +603,9 @@ export async function resetPlayer(): Promise<void> {
   scrobbleInFlightTrackId = null;
   scrobbledSuccessfullyTrackId = null;
   activePlaybackTrackId = null;
+  accumulatedListeningTimeSeconds = 0;
+  lastEvaluatedPosition = null;
+  hasPendingSeek = false;
   lastPersistedPositionTimestamp = 0;
   lastPlaybackStatus = {
     isPlaying: false,
@@ -567,6 +623,8 @@ export async function resetPlayer(): Promise<void> {
 }
 
 export async function seekToPosition(seconds: number): Promise<void> {
+  hasPendingSeek = true;
+  lastEvaluatedPosition = seconds;
   if (currentTrack && activePlaybackTrackId !== currentTrack.id) {
     lastPlaybackStatus = {
       ...lastPlaybackStatus,
