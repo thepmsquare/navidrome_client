@@ -1,10 +1,11 @@
 import React from "react";
 import renderer from "react-test-renderer";
-import { Switch } from "react-native-paper";
+import { Switch, Text } from "react-native-paper";
 
 import SettingsScreen from "@/app/(main)/settings";
 import * as db from "@/services/db";
 import * as player from "@/services/player";
+import { ANDROID_VERSION_CODE, APP_VERSION } from "@/utils/constants";
 
 const mockReplace = jest.fn();
 jest.mock("expo-router", () => ({
@@ -83,5 +84,20 @@ describe("SettingsScreen", () => {
     });
 
     expect(player.updateKeepPlayingOnAppDismissed).toHaveBeenCalledWith(true);
+  });
+
+  it("renders version number and version code below logout button", () => {
+    let tree: any;
+    renderer.act(() => {
+      tree = renderer.create(<SettingsScreen />);
+    });
+
+    const root = tree.root;
+    const texts = root.findAllByType(Text);
+    const expectedVersionString = `version ${APP_VERSION} (${ANDROID_VERSION_CODE})`;
+    const matchingText = texts.find(
+      (t) => t.props.children === expectedVersionString,
+    );
+    expect(matchingText).toBeDefined();
   });
 });

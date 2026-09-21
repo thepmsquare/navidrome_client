@@ -22,6 +22,7 @@ import { updateKeepPlayingOnAppDismissed } from "@/services/player";
 import { clearAllAutoCachedSongs } from "@/services/songCache";
 import { settingsStyles } from "@/stylesheets";
 import { useAppTheme } from "@/types";
+import { ANDROID_VERSION_CODE, APP_VERSION } from "@/utils/constants";
 import { spacing } from "@/utils/spacing";
 
 function formatSize(bytes: number): string {
@@ -391,6 +392,16 @@ export default function SettingsScreen() {
             log out
           </Button>
         </Surface>
+
+        <Text
+          variant="bodySmall"
+          style={{
+            textAlign: "center",
+            color: theme.colors.outline,
+          }}
+        >
+          {`version ${APP_VERSION} (${ANDROID_VERSION_CODE})`}
+        </Text>
       </ScrollView>
     </Surface>
   );
