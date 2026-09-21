@@ -1,5 +1,9 @@
 # changelog
 
+## 2.15.2+44
+
+- display app version number on settings page.
+
 ## 2.15.1+43
 
 - techincal changes
