@@ -6,6 +6,17 @@ export const albumsStyles = StyleSheet.create({
   page: {
     flex: 1,
   },
+  searchbar: {
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  sortRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+  },
   listContent: {
     paddingHorizontal: spacing.sm,
     paddingBottom: spacing.lg,
