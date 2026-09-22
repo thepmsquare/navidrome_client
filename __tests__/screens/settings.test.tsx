@@ -96,7 +96,7 @@ describe("SettingsScreen", () => {
     const texts = root.findAllByType(Text);
     const expectedVersionString = `version ${APP_VERSION} (${ANDROID_VERSION_CODE})`;
     const matchingText = texts.find(
-      (t) => t.props.children === expectedVersionString,
+      (t: any) => t.props.children === expectedVersionString,
     );
     expect(matchingText).toBeDefined();
   });
