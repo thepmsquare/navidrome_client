@@ -2,6 +2,7 @@
 
 ## 2.16.0+45 (in progress)
 
+- add search and sort options in library -> albums.
 - techincal changes
   - update test cases.
 
