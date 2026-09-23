@@ -4,6 +4,7 @@
 
 - add search and sort options in library -> albums.
 - techincal changes
+  - bug fix in fetching album art.
   - update test cases.
 
 ## 2.15.2+44

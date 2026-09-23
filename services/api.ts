@@ -370,15 +370,16 @@ export async function client_app_sync(
   };
 }
 
-export async function getCoverArtBaseUrl(): Promise<
-  (id?: string | null) => string | null
+export async function getCoverArtBaseUrl(defaultSize: number = 300): Promise<
+  (id?: string | null, size?: number) => string | null
 > {
   const creds = await getStoredCredentials();
   const restBase = getRestBaseUrl(creds.serverUrl);
   const authQuery = await buildAuthParams(creds);
-  return (id?: string | null) => {
+  return (id?: string | null, size?: number) => {
     if (!id) return null;
-    return `${restBase}/getCoverArt.view?${authQuery}&id=${encodeURIComponent(id)}&size=300`;
+    const targetSize = size ?? defaultSize;
+    return `${restBase}/getCoverArt.view?${authQuery}&id=${encodeURIComponent(id)}&size=${targetSize}`;
   };
 }
 

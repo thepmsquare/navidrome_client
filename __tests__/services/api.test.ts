@@ -547,13 +547,18 @@ describe("api service", () => {
   });
 
   describe("getCoverArtBaseUrl and getSongStreamUrl", () => {
-    it("getCoverArtBaseUrl returns formatter that handles null and ids", async () => {
+    it("getCoverArtBaseUrl returns formatter that handles null, ids, and custom sizes", async () => {
       const getArtUrl = await getCoverArtBaseUrl();
       expect(getArtUrl(null)).toBeNull();
       expect(getArtUrl("cover-123")).toContain(
         "/rest/getCoverArt.view?u=demo_user",
       );
       expect(getArtUrl("cover-123")).toContain("id=cover-123");
+      expect(getArtUrl("cover-123")).toContain("size=300");
+      expect(getArtUrl("cover-123", 600)).toContain("size=600");
+
+      const get600ArtUrl = await getCoverArtBaseUrl(600);
+      expect(get600ArtUrl("cover-123")).toContain("size=600");
     });
 
     it("getSongStreamUrl returns url with songId", async () => {
