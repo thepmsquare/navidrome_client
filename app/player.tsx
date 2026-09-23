@@ -37,11 +37,11 @@ export default function PlayerScreen() {
   const playerState = usePlayerState();
   const [progressBarWidth, setProgressBarWidth] = useState<number>(0);
   const [getArtUrl, setGetArtUrl] = useState<
-    ((id?: string | null) => string | null) | null
+    ((id?: string | null, size?: number) => string | null) | null
   >(null);
 
   useEffect(() => {
-    getCoverArtBaseUrl()
+    getCoverArtBaseUrl(600)
       .then((fn) => setGetArtUrl(() => fn))
       .catch((err) =>
         console.error("failed to get cover art url helper in player screen:", err),
@@ -146,7 +146,7 @@ export default function PlayerScreen() {
 
   const artUrl =
     getArtUrl && currentTrack.coverArt
-      ? getArtUrl(currentTrack.coverArt)
+      ? getArtUrl(currentTrack.coverArt, 600)
       : null;
 
   return (
