@@ -2,7 +2,7 @@
 
 ## 2.16.0+45 (in progress)
 
-- add search and sort options in library -> albums.
+- add search and sort options in library -> albums, library -> artists, library -> playlists.
 - techincal changes
   - bug fix in fetching album art.
   - update test cases.
