@@ -390,6 +390,13 @@ export async function getSongStreamUrl(songId: string): Promise<string> {
   return `${restBase}/stream.view?${authQuery}&id=${encodeURIComponent(songId)}`;
 }
 
+export async function getSongDownloadUrl(songId: string): Promise<string> {
+  const creds = await getStoredCredentials();
+  const restBase = getRestBaseUrl(creds.serverUrl);
+  const authQuery = await buildAuthParams(creds);
+  return `${restBase}/download.view?${authQuery}&id=${encodeURIComponent(songId)}`;
+}
+
 export async function scrobble(params: ScrobbleParams): Promise<boolean> {
   const creds = await getStoredCredentials();
   const restBase = getRestBaseUrl(creds.serverUrl);
