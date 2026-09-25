@@ -57,6 +57,12 @@ export const playerStyles = StyleSheet.create({
     marginTop: spacing.sm,
     alignItems: "flex-start",
   },
+  actionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+  },
   cacheButton: {
     marginLeft: -spacing.sm,
   },

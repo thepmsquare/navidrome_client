@@ -4,6 +4,7 @@ import {
   getPlaylist,
   getPlaylists,
   getScanStatus,
+  getSongDownloadUrl,
   getSongStreamUrl,
   getStoredCredentials,
   login,
@@ -564,6 +565,12 @@ describe("api service", () => {
     it("getSongStreamUrl returns url with songId", async () => {
       const url = await getSongStreamUrl("song-456");
       expect(url).toContain("/rest/stream.view?u=demo_user");
+      expect(url).toContain("id=song-456");
+    });
+
+    it("getSongDownloadUrl returns url with songId", async () => {
+      const url = await getSongDownloadUrl("song-456");
+      expect(url).toContain("/rest/download.view?u=demo_user");
       expect(url).toContain("id=song-456");
     });
   });

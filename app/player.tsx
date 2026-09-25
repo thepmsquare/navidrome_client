@@ -7,10 +7,12 @@ import {
   Avatar,
   IconButton,
   ProgressBar,
+  Snackbar,
   Text,
 } from "react-native-paper";
 
 import { SongCacheButton } from "@/components/SongCacheButton";
+import { SongSaveButton } from "@/components/SongSaveButton";
 import { getCoverArtBaseUrl } from "@/services/api";
 import {
   cycleRepeatMode,
@@ -36,9 +38,16 @@ export default function PlayerScreen() {
   const theme = useAppTheme();
   const playerState = usePlayerState();
   const [progressBarWidth, setProgressBarWidth] = useState<number>(0);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
   const [getArtUrl, setGetArtUrl] = useState<
     ((id?: string | null, size?: number) => string | null) | null
   >(null);
+
+  const showSnackbar = (message: string) => {
+    setSnackbarMessage(message);
+    setSnackbarVisible(true);
+  };
 
   useEffect(() => {
     getCoverArtBaseUrl(600)
@@ -253,7 +262,18 @@ export default function PlayerScreen() {
         )}
 
         <View style={playerStyles.cacheButtonContainer}>
-          <SongCacheButton songId={currentTrack.id} />
+          <View style={playerStyles.actionsRow}>
+            <SongCacheButton songId={currentTrack.id} />
+            <SongSaveButton
+              songId={currentTrack.id}
+              onSaveSuccess={(fileName) => {
+                showSnackbar(`saved "${fileName}" to files`);
+              }}
+              onSaveError={() => {
+                showSnackbar("failed to save to files");
+              }}
+            />
+          </View>
           {playerState.scrobbled && (
             <Text
               variant="labelSmall"
@@ -356,6 +376,14 @@ export default function PlayerScreen() {
           }}
         />
       </View>
+
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={3000}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </View>
   );
 }
