@@ -30,7 +30,11 @@ import {
   togglePlayback,
   usePlayerState,
   hydratePlayerSession,
+  setRatingCurrentTrack,
+  toggleStarCurrentTrack,
   updateKeepPlayingOnAppDismissed,
+  updateTrackRatingState,
+  updateTrackStarredState,
 } from "@/services/player";
 import * as songCache from "@/services/songCache";
 import {
@@ -75,6 +79,9 @@ jest.mock("@/services/db", () => ({
   getKeepPlayingOnAppDismissed: jest.fn().mockReturnValue(false),
   setKeepPlayingOnAppDismissed: jest.fn(),
   addPendingScrobble: jest.fn(),
+  getSongById: jest.fn().mockReturnValue(null),
+  updateSongStarred: jest.fn(),
+  updateSongRating: jest.fn(),
 }));
 
 jest.mock("@/modules/audio-playback", () => ({
@@ -120,6 +127,9 @@ jest.mock("@/services/api", () => ({
   getSongStreamUrl: jest.fn(async (id: string) => `https://stream/${id}`),
   scrobble: jest.fn().mockResolvedValue(true),
   scrobbleSong: jest.fn().mockResolvedValue(undefined),
+  star: jest.fn().mockResolvedValue(true),
+  unstar: jest.fn().mockResolvedValue(true),
+  setRating: jest.fn().mockResolvedValue(true),
 }));
 
 jest.mock("@/services/songCache", () => ({
@@ -943,6 +953,40 @@ describe("player service", () => {
       hydratePlayerSession();
 
       expect(audioPlayback.setStopOnAppDismissed).toHaveBeenCalledWith(false);
+    });
+
+    describe("toggleStarCurrentTrack and setRatingCurrentTrack", () => {
+      it("toggleStarCurrentTrack should toggle star on and call star API and update db", async () => {
+        await playSong({ id: "song-10", title: "Song 10" } as Child);
+        expect(getPlayerState().currentTrack?.starred).toBeFalsy();
+
+        const res = await toggleStarCurrentTrack();
+        expect(res).toBe(true);
+        expect(api.star).toHaveBeenCalledWith("song-10");
+        expect(getPlayerState().currentTrack?.starred).toBeTruthy();
+
+        // Toggling again should unstar
+        const resUnstar = await toggleStarCurrentTrack();
+        expect(resUnstar).toBe(false);
+        expect(api.unstar).toHaveBeenCalledWith("song-10");
+        expect(getPlayerState().currentTrack?.starred).toBeNull();
+      });
+
+      it("setRatingCurrentTrack should update rating and call setRating API", async () => {
+        await playSong({ id: "song-11", title: "Song 11" } as Child);
+        expect(getPlayerState().currentTrack?.userRating).toBeFalsy();
+
+        const rating = await setRatingCurrentTrack(4);
+        expect(rating).toBe(4);
+        expect(api.setRating).toHaveBeenCalledWith("song-11", 4);
+        expect(getPlayerState().currentTrack?.userRating).toBe(4);
+
+        // Clicking same rating should clear it
+        const cleared = await setRatingCurrentTrack(4);
+        expect(cleared).toBe(0);
+        expect(api.setRating).toHaveBeenCalledWith("song-11", 0);
+        expect(getPlayerState().currentTrack?.userRating).toBeNull();
+      });
     });
   });
 });

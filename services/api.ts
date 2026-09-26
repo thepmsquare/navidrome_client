@@ -19,12 +19,16 @@ import {
   Search3Params,
   SearchResult3,
   ServerCredentials,
+  SetRatingParams,
+  StarParams,
   subsonicGetPlaylistResponseWrapperSchema,
   subsonicGetPlaylistsResponseWrapperSchema,
   subsonicGetScanStatusResponseWrapperSchema,
   subsonicPingResponseWrapperSchema,
+  subsonicResponseWrapperSchema,
   subsonicSearch3ResponseWrapperSchema,
   SyncResult,
+  UnstarParams,
 } from "@/types";
 import { APP_FULL_NAME } from "@/utils/constants";
 import { createAuthToken, generateSalt } from "@/utils/crypto";
@@ -498,3 +502,197 @@ export async function getPlaylist(
 
   return res.playlist;
 }
+
+export async function setRating(params: SetRatingParams): Promise<boolean>;
+export async function setRating(id: string, rating: number): Promise<boolean>;
+export async function setRating(
+  idOrParams: string | SetRatingParams,
+  ratingArg?: number,
+): Promise<boolean> {
+  let id: string;
+  let rating: number;
+
+  if (typeof idOrParams === "object" && idOrParams !== null) {
+    id = idOrParams.id;
+    rating = idOrParams.rating;
+  } else {
+    id = idOrParams;
+    rating = ratingArg!;
+  }
+
+  if (!id || typeof id !== "string" || id.trim() === "") {
+    throw new Error("id is required");
+  }
+
+  if (
+    typeof rating !== "number" ||
+    !Number.isFinite(rating) ||
+    rating < 0 ||
+    rating > 5 ||
+    !Number.isInteger(rating)
+  ) {
+    throw new Error("rating must be an integer between 0 and 5");
+  }
+
+  const creds = await getStoredCredentials();
+  const restBase = getRestBaseUrl(creds.serverUrl);
+  const authQuery = await buildAuthParams(creds);
+
+  const queryParams = new URLSearchParams();
+  queryParams.append("id", id);
+  queryParams.append("rating", rating.toString());
+
+  const url = `${restBase}/setRating.view?${authQuery}&${queryParams.toString()}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`setRating request failed with status ${response.status}`);
+  }
+
+  try {
+    const data = await response.json();
+    const parsed = subsonicResponseWrapperSchema.safeParse(data);
+    if (!parsed.success) {
+      throw new Error("failed to parse setRating response");
+    }
+
+    const res = parsed.data["subsonic-response"];
+    if (res.status !== "ok") {
+      throw new Error(res.error?.message || "setRating failed");
+    }
+  } catch (err: any) {
+    if (err.message && !err.message.toLowerCase().includes("json")) {
+      throw err;
+    }
+  }
+
+  return true;
+}
+
+export async function star(params: StarParams): Promise<boolean>;
+export async function star(id: string): Promise<boolean>;
+export async function star(paramsOrId: string | StarParams): Promise<boolean> {
+  const params: StarParams =
+    typeof paramsOrId === "string" ? { id: paramsOrId } : paramsOrId;
+
+  if (!params || typeof params !== "object") {
+    throw new Error("at least one id, albumId, or artistId must be provided");
+  }
+
+  const queryParams = new URLSearchParams();
+
+  const appendParam = (key: string, value?: string | string[]) => {
+    if (!value) return;
+    if (Array.isArray(value)) {
+      value.forEach((v) => {
+        if (typeof v === "string" && v.trim() !== "") {
+          queryParams.append(key, v);
+        }
+      });
+    } else if (typeof value === "string" && value.trim() !== "") {
+      queryParams.append(key, value);
+    }
+  };
+
+  appendParam("id", params.id);
+  appendParam("albumId", params.albumId);
+  appendParam("artistId", params.artistId);
+
+  if (queryParams.toString() === "") {
+    throw new Error("at least one id, albumId, or artistId must be provided");
+  }
+
+  const creds = await getStoredCredentials();
+  const restBase = getRestBaseUrl(creds.serverUrl);
+  const authQuery = await buildAuthParams(creds);
+
+  const url = `${restBase}/star.view?${authQuery}&${queryParams.toString()}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`star request failed with status ${response.status}`);
+  }
+
+  try {
+    const data = await response.json();
+    const parsed = subsonicResponseWrapperSchema.safeParse(data);
+    if (!parsed.success) {
+      throw new Error("failed to parse star response");
+    }
+
+    const res = parsed.data["subsonic-response"];
+    if (res.status !== "ok") {
+      throw new Error(res.error?.message || "star failed");
+    }
+  } catch (err: any) {
+    if (err.message && !err.message.toLowerCase().includes("json")) {
+      throw err;
+    }
+  }
+
+  return true;
+}
+
+export async function unstar(params: UnstarParams): Promise<boolean>;
+export async function unstar(id: string): Promise<boolean>;
+export async function unstar(
+  paramsOrId: string | UnstarParams,
+): Promise<boolean> {
+  const params: UnstarParams =
+    typeof paramsOrId === "string" ? { id: paramsOrId } : paramsOrId;
+
+  if (!params || typeof params !== "object") {
+    throw new Error("at least one id, albumId, or artistId must be provided");
+  }
+
+  const queryParams = new URLSearchParams();
+
+  const appendParam = (key: string, value?: string | string[]) => {
+    if (!value) return;
+    if (Array.isArray(value)) {
+      value.forEach((v) => {
+        if (typeof v === "string" && v.trim() !== "") {
+          queryParams.append(key, v);
+        }
+      });
+    } else if (typeof value === "string" && value.trim() !== "") {
+      queryParams.append(key, value);
+    }
+  };
+
+  appendParam("id", params.id);
+  appendParam("albumId", params.albumId);
+  appendParam("artistId", params.artistId);
+
+  if (queryParams.toString() === "") {
+    throw new Error("at least one id, albumId, or artistId must be provided");
+  }
+
+  const creds = await getStoredCredentials();
+  const restBase = getRestBaseUrl(creds.serverUrl);
+  const authQuery = await buildAuthParams(creds);
+
+  const url = `${restBase}/unstar.view?${authQuery}&${queryParams.toString()}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`unstar request failed with status ${response.status}`);
+  }
+
+  try {
+    const data = await response.json();
+    const parsed = subsonicResponseWrapperSchema.safeParse(data);
+    if (!parsed.success) {
+      throw new Error("failed to parse unstar response");
+    }
+
+    const res = parsed.data["subsonic-response"];
+    if (res.status !== "ok") {
+      throw new Error(res.error?.message || "unstar failed");
+    }
+  } catch (err: any) {
+    if (err.message && !err.message.toLowerCase().includes("json")) {
+      throw err;
+    }
+  }
+
+  return true;
+}
+

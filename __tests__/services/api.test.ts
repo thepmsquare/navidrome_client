@@ -13,7 +13,10 @@ import {
   scrobble,
   scrobbleSong,
   search3,
+  setRating,
+  star,
   subscribeAuthState,
+  unstar,
 } from "@/services/api";
 import * as db from "@/services/db";
 import * as SecureStore from "expo-secure-store";
@@ -827,4 +830,415 @@ describe("api service", () => {
       );
     });
   });
+
+  describe("setRating", () => {
+    it("should set rating successfully with (id, rating) arguments", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          "subsonic-response": {
+            status: "ok",
+            version: "1.16.1",
+            type: "navidrome",
+            serverVersion: "0.54.0",
+          },
+        }),
+      });
+
+      const res = await setRating("song-1", 5);
+      expect(res).toBe(true);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/setRating.view?"),
+      );
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("id=song-1"),
+      );
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("rating=5"),
+      );
+    });
+
+    it("should set rating successfully with ({ id, rating }) object argument", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          "subsonic-response": {
+            status: "ok",
+            version: "1.16.1",
+          },
+        }),
+      });
+
+      const res = await setRating({ id: "song-2", rating: 3 });
+      expect(res).toBe(true);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("id=song-2"),
+      );
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("rating=3"),
+      );
+    });
+
+    it("should allow setting rating to 0 to remove rating", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          "subsonic-response": {
+            status: "ok",
+          },
+        }),
+      });
+
+      const res = await setRating("song-1", 0);
+      expect(res).toBe(true);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("rating=0"),
+      );
+    });
+
+    it("should throw error if id is missing or empty", async () => {
+      await expect(setRating("", 4)).rejects.toThrow("id is required");
+      await expect(
+        setRating({ id: "   ", rating: 4 }),
+      ).rejects.toThrow("id is required");
+    });
+
+    it("should throw error if rating is not an integer between 0 and 5", async () => {
+      await expect(setRating("song-1", -1)).rejects.toThrow(
+        "rating must be an integer between 0 and 5",
+      );
+      await expect(setRating("song-1", 6)).rejects.toThrow(
+        "rating must be an integer between 0 and 5",
+      );
+      await expect(setRating("song-1", 3.5)).rejects.toThrow(
+        "rating must be an integer between 0 and 5",
+      );
+    });
+
+    it("should throw error if fetch response is not ok", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+      });
+
+      await expect(setRating("song-1", 4)).rejects.toThrow(
+        "setRating request failed with status 500",
+      );
+    });
+
+    it("should throw error if subsonic response status is not ok", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          "subsonic-response": {
+            status: "failed",
+            error: { code: 10, message: "parameter missing" },
+          },
+        }),
+      });
+
+      await expect(setRating("song-1", 4)).rejects.toThrow("parameter missing");
+    });
+
+    it("should throw error if response fails schema parsing", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          unexpected: "data",
+        }),
+      });
+
+      await expect(setRating("song-1", 4)).rejects.toThrow(
+        "failed to parse setRating response",
+      );
+    });
+
+    it("should resolve true on 200 even if body is empty or non-json", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => {
+          throw new Error("Unexpected end of JSON input");
+        },
+      });
+
+      await expect(setRating("song-1", 4)).resolves.toBe(true);
+    });
+  });
+
+  describe("star", () => {
+    it("should star single id passed as string", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          "subsonic-response": {
+            status: "ok",
+            version: "1.16.1",
+          },
+        }),
+      });
+
+      const res = await star("song-1");
+      expect(res).toBe(true);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/star.view?"),
+      );
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("id=song-1"),
+      );
+    });
+
+    it("should star single id passed in params object", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          "subsonic-response": {
+            status: "ok",
+          },
+        }),
+      });
+
+      const res = await star({ id: "song-1" });
+      expect(res).toBe(true);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("id=song-1"),
+      );
+    });
+
+    it("should star multiple ids passed as array", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          "subsonic-response": {
+            status: "ok",
+          },
+        }),
+      });
+
+      const res = await star({ id: ["song-1", "song-2"] });
+      expect(res).toBe(true);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("id=song-1&id=song-2"),
+      );
+    });
+
+    it("should star albumId and artistId (single and array)", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          "subsonic-response": {
+            status: "ok",
+          },
+        }),
+      });
+
+      const res = await star({
+        albumId: ["alb-1", "alb-2"],
+        artistId: "art-1",
+      });
+      expect(res).toBe(true);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("albumId=alb-1&albumId=alb-2"),
+      );
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("artistId=art-1"),
+      );
+    });
+
+    it("should throw error if no id, albumId, or artistId is provided", async () => {
+      await expect(star({})).rejects.toThrow(
+        "at least one id, albumId, or artistId must be provided",
+      );
+      await expect(star({ id: [] })).rejects.toThrow(
+        "at least one id, albumId, or artistId must be provided",
+      );
+    });
+
+    it("should throw error if fetch response is not ok", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+      });
+
+      await expect(star("song-1")).rejects.toThrow(
+        "star request failed with status 400",
+      );
+    });
+
+    it("should throw error if subsonic response status is not ok", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          "subsonic-response": {
+            status: "failed",
+            error: { code: 10, message: "item not found" },
+          },
+        }),
+      });
+
+      await expect(star("song-1")).rejects.toThrow("item not found");
+    });
+
+    it("should throw error if response fails schema parsing", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          invalid: true,
+        }),
+      });
+
+      await expect(star("song-1")).rejects.toThrow(
+        "failed to parse star response",
+      );
+    });
+
+    it("should resolve true on 200 even if body is empty or non-json", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => {
+          throw new Error("Unexpected end of JSON input");
+        },
+      });
+
+      await expect(star("song-1")).resolves.toBe(true);
+    });
+  });
+
+  describe("unstar", () => {
+    it("should unstar single id passed as string", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          "subsonic-response": {
+            status: "ok",
+            version: "1.16.1",
+          },
+        }),
+      });
+
+      const res = await unstar("song-1");
+      expect(res).toBe(true);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/unstar.view?"),
+      );
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("id=song-1"),
+      );
+    });
+
+    it("should unstar single id passed in params object", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          "subsonic-response": {
+            status: "ok",
+          },
+        }),
+      });
+
+      const res = await unstar({ id: "song-1" });
+      expect(res).toBe(true);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("id=song-1"),
+      );
+    });
+
+    it("should unstar multiple ids passed as array", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          "subsonic-response": {
+            status: "ok",
+          },
+        }),
+      });
+
+      const res = await unstar({ id: ["song-1", "song-2"] });
+      expect(res).toBe(true);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("id=song-1&id=song-2"),
+      );
+    });
+
+    it("should unstar albumId and artistId (single and array)", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          "subsonic-response": {
+            status: "ok",
+          },
+        }),
+      });
+
+      const res = await unstar({
+        albumId: "alb-1",
+        artistId: ["art-1", "art-2"],
+      });
+      expect(res).toBe(true);
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("albumId=alb-1"),
+      );
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("artistId=art-1&artistId=art-2"),
+      );
+    });
+
+    it("should throw error if no id, albumId, or artistId is provided", async () => {
+      await expect(unstar({})).rejects.toThrow(
+        "at least one id, albumId, or artistId must be provided",
+      );
+      await expect(unstar({ id: [] })).rejects.toThrow(
+        "at least one id, albumId, or artistId must be provided",
+      );
+    });
+
+    it("should throw error if fetch response is not ok", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 403,
+      });
+
+      await expect(unstar("song-1")).rejects.toThrow(
+        "unstar request failed with status 403",
+      );
+    });
+
+    it("should throw error if subsonic response status is not ok", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          "subsonic-response": {
+            status: "failed",
+            error: { code: 10, message: "cannot unstar item" },
+          },
+        }),
+      });
+
+      await expect(unstar("song-1")).rejects.toThrow("cannot unstar item");
+    });
+
+    it("should throw error if response fails schema parsing", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          invalid: 123,
+        }),
+      });
+
+      await expect(unstar("song-1")).rejects.toThrow(
+        "failed to parse unstar response",
+      );
+    });
+
+    it("should resolve true on 200 even if body is empty or non-json", async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => {
+          throw new Error("Unexpected end of JSON input");
+        },
+      });
+
+      await expect(unstar("song-1")).resolves.toBe(true);
+    });
+  });
 });
+

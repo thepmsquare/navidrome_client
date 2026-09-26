@@ -584,6 +584,25 @@ export function getSongById(id: string): Child | null {
   return db.getFirstSync<Child>("SELECT * FROM songs WHERE id = ?", [id]);
 }
 
+export function updateSongStarred(
+  songId: string,
+  starred: string | null,
+): void {
+  const db = getDb();
+  db.runSync("UPDATE songs SET starred = ? WHERE id = ?", [starred, songId]);
+}
+
+export function updateSongRating(
+  songId: string,
+  userRating: number | null,
+): void {
+  const db = getDb();
+  db.runSync("UPDATE songs SET userRating = ? WHERE id = ?", [
+    userRating,
+    songId,
+  ]);
+}
+
 export function getSongsByIds(ids: string[]): Child[] {
   if (!ids || ids.length === 0) {
     return [];

@@ -8,6 +8,7 @@ import {
   IconButton,
   ProgressBar,
   Snackbar,
+  Surface,
   Text,
 } from "react-native-paper";
 
@@ -19,7 +20,9 @@ import {
   playNext,
   playPrevious,
   seekToPosition,
+  setRatingCurrentTrack,
   togglePlayback,
+  toggleStarCurrentTrack,
   usePlayerState,
 } from "@/services/player";
 import { playerStyles } from "@/stylesheets";
@@ -68,6 +71,33 @@ export default function PlayerScreen() {
     hasNext,
     isPlayingFromCache,
   } = playerState;
+
+  const isStarred = !!currentTrack?.starred;
+  const currentRating = currentTrack?.userRating ?? 0;
+
+  const handleToggleStar = async () => {
+    try {
+      const nowStarred = await toggleStarCurrentTrack();
+      showSnackbar(nowStarred ? "added to favorites" : "removed from favorites");
+    } catch {
+      showSnackbar("failed to update favorite");
+    }
+  };
+
+  const handleSetRating = async (ratingVal: number) => {
+    try {
+      const resultingRating = await setRatingCurrentTrack(ratingVal);
+      if (resultingRating === 0) {
+        showSnackbar("rating removed");
+      } else {
+        showSnackbar(
+          `rated ${resultingRating} star${resultingRating > 1 ? "s" : ""}`,
+        );
+      }
+    } catch {
+      showSnackbar("failed to update rating");
+    }
+  };
 
   const progress = useMemo(() => {
     if (!duration || duration <= 0) return 0;
@@ -223,49 +253,111 @@ export default function PlayerScreen() {
         )}
       </View>
 
-      {/* Song Name, Artist, and Album Name */}
+      {/* Song Name, Artist, Album Name, and Favorite Heart */}
       <View style={playerStyles.infoContainer}>
-        <Text
-          variant="headlineSmall"
-          numberOfLines={2}
-          ellipsizeMode="tail"
-          style={[playerStyles.title, { color: theme.colors.onSurface }]}
-        >
-          {currentTrack.title || "unknown track"}
-        </Text>
-        <Text
-          variant="titleMedium"
-          numberOfLines={1}
-          ellipsizeMode="tail"
-          style={[playerStyles.artist, { color: theme.colors.onSurfaceVariant }]}
-        >
-          {currentTrack.artist || "unknown artist"}
-        </Text>
-        {currentTrack.album ? (
-          <Text
-            variant="bodyMedium"
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            style={[playerStyles.album, { color: theme.colors.outline }]}
-          >
-            {currentTrack.album}
-          </Text>
-        ) : (
-          <Text
-            variant="bodyMedium"
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            style={[playerStyles.album, { color: theme.colors.outline }]}
-          >
-            unknown album
-          </Text>
-        )}
+        <View style={playerStyles.titleRow}>
+          <View style={playerStyles.titleTextContainer}>
+            <Text
+              variant="headlineSmall"
+              numberOfLines={2}
+              ellipsizeMode="tail"
+              style={[playerStyles.title, { color: theme.colors.onSurface }]}
+            >
+              {currentTrack.title || "unknown track"}
+            </Text>
+            <Text
+              variant="titleMedium"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={[
+                playerStyles.artist,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
+            >
+              {currentTrack.artist || "unknown artist"}
+            </Text>
+            {currentTrack.album ? (
+              <Text
+                variant="bodyMedium"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={[playerStyles.album, { color: theme.colors.outline }]}
+              >
+                {currentTrack.album}
+              </Text>
+            ) : null}
+          </View>
 
-        <View style={playerStyles.cacheButtonContainer}>
-          <View style={playerStyles.actionsRow}>
-            <SongCacheButton songId={currentTrack.id} />
+          <IconButton
+            icon={isStarred ? "heart" : "heart-outline"}
+            size={28}
+            iconColor={
+              isStarred
+                ? theme.colors.error
+                : theme.colors.onSurfaceVariant
+            }
+            accessibilityLabel={isStarred ? "unstar song" : "star song"}
+            style={playerStyles.heartButton}
+            onPress={handleToggleStar}
+          />
+        </View>
+
+        {/* Tonal Utility Surface: 5-Star Rating + Quick Actions */}
+        <Surface
+          elevation={0}
+          style={[
+            playerStyles.actionSurface,
+            { backgroundColor: theme.colors.surfaceContainerLow },
+          ]}
+        >
+          {/* 5-Star Interactive Rating */}
+          <View
+            style={playerStyles.ratingContainer}
+            accessibilityRole="radiogroup"
+            accessibilityLabel="song rating"
+          >
+            {[1, 2, 3, 4, 5].map((starVal) => {
+              const isFilled = currentRating >= starVal;
+              return (
+                <IconButton
+                  key={starVal}
+                  icon={isFilled ? "star" : "star-outline"}
+                  size={20}
+                  iconColor={
+                    isFilled
+                      ? theme.colors.tertiary
+                      : theme.colors.outline
+                  }
+                  accessibilityLabel={`rate ${starVal} star${starVal > 1 ? "s" : ""}`}
+                  style={playerStyles.starButton}
+                  onPress={() => handleSetRating(starVal)}
+                />
+              );
+            })}
+          </View>
+
+          {/* Quick Utility Actions: Cache, Save & Scrobble Badge */}
+          <View style={playerStyles.utilityActions}>
+            {playerState.scrobbled && (
+              <Text
+                variant="labelSmall"
+                style={[
+                  playerStyles.scrobbledBadge,
+                  { color: theme.colors.primary },
+                ]}
+              >
+                ✓ scrobbled
+              </Text>
+            )}
+            <SongCacheButton
+              songId={currentTrack.id}
+              variant="icon"
+              iconSize={20}
+            />
             <SongSaveButton
               songId={currentTrack.id}
+              variant="icon"
+              iconSize={20}
               onSaveSuccess={(fileName) => {
                 showSnackbar(`saved "${fileName}" to files`);
               }}
@@ -274,16 +366,9 @@ export default function PlayerScreen() {
               }}
             />
           </View>
-          {playerState.scrobbled && (
-            <Text
-              variant="labelSmall"
-              style={{ color: theme.colors.primary, opacity: 0.65 }}
-            >
-              ✓ scrobbled
-            </Text>
-          )}
-        </View>
+        </Surface>
       </View>
+
 
       {/* Song Progress and Timestamps */}
       <View style={playerStyles.progressSection}>

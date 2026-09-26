@@ -40,6 +40,20 @@ export interface ScrobbleParams {
   submission?: boolean;
 }
 
+export interface SetRatingParams {
+  id: string;
+  rating: number;
+}
+
+export interface StarParams {
+  id?: string | string[];
+  albumId?: string | string[];
+  artistId?: string | string[];
+}
+
+export type UnstarParams = StarParams;
+
+
 
 export const subsonicErrorSchema = z.object({
   code: z.number(),
@@ -58,6 +72,22 @@ export const pingResponseSchema = z.object({
 export const subsonicPingResponseWrapperSchema = z.object({
   "subsonic-response": pingResponseSchema,
 });
+
+export const subsonicResponseSchema = z.object({
+  status: z.string(),
+  version: z.string().optional(),
+  type: z.string().optional(),
+  serverVersion: z.string().optional(),
+  openSubsonic: z.boolean().optional(),
+  error: subsonicErrorSchema.optional(),
+});
+
+export const subsonicResponseWrapperSchema = z.object({
+  "subsonic-response": subsonicResponseSchema,
+});
+
+export const subsonicEmptyResponseSchema = subsonicResponseSchema;
+export const subsonicEmptyResponseWrapperSchema = subsonicResponseWrapperSchema;
 
 export const scanStatusSchema = z.object({
   scanning: z.boolean(),
@@ -296,5 +326,12 @@ export type GetPlaylistResponse = z.infer<typeof getPlaylistResponseSchema>;
 export type SubsonicGetPlaylistResponseWrapper = z.infer<
   typeof subsonicGetPlaylistResponseWrapperSchema
 >;
+export type SubsonicResponse = z.infer<typeof subsonicResponseSchema>;
+export type SubsonicResponseWrapper = z.infer<
+  typeof subsonicResponseWrapperSchema
+>;
+export type SubsonicEmptyResponse = SubsonicResponse;
+export type SubsonicEmptyResponseWrapper = SubsonicResponseWrapper;
+
 
 
