@@ -26,17 +26,23 @@ import {
   getSongStreamUrl,
   scrobble,
   scrobbleSong,
+  setRating,
+  star,
+  unstar,
 } from "@/services/api";
 import {
+  addPendingScrobble,
   clearPlayerSession,
   getKeepPlayingOnAppDismissed,
   getPlayerSession,
   getScrobbleMinDuration,
   getScrobbleMinPercent,
+  getSongById,
   savePlayerSession,
   setKeepPlayingOnAppDismissed,
   updateSongCacheLastAccessed,
-  addPendingScrobble,
+  updateSongRating,
+  updateSongStarred,
 } from "@/services/db";
 import { syncPendingScrobbles } from "@/services/scrobbleQueue";
 import {
@@ -53,6 +59,8 @@ export interface ActiveTrackInfo {
   album?: string | null;
   coverArt?: string | null;
   duration?: number | null;
+  starred?: string | null;
+  userRating?: number | null;
 }
 
 export interface PlayerState {
@@ -123,6 +131,17 @@ export function hydratePlayerSession(): void {
       currentRepeatMode = session.repeatMode ?? "off";
       const song = currentQueue[currentIndex];
       if (song) {
+        let dbStarred = song.starred;
+        let dbRating = song.userRating;
+        try {
+          const dbSong = getSongById(song.id);
+          if (dbSong) {
+            dbStarred = dbSong.starred ?? song.starred;
+            dbRating = dbSong.userRating ?? song.userRating;
+          }
+        } catch {
+          // ignore
+        }
         currentTrack = {
           id: song.id,
           title: song.title,
@@ -130,6 +149,8 @@ export function hydratePlayerSession(): void {
           album: song.album,
           coverArt: song.coverArt,
           duration: song.duration,
+          starred: dbStarred,
+          userRating: dbRating,
         };
         lastPlaybackStatus = {
           isPlaying: false,
@@ -440,6 +461,18 @@ export async function playTrackAtIndex(index: number): Promise<void> {
     duration: 0,
   };
 
+  let dbStarred = song.starred;
+  let dbRating = song.userRating;
+  try {
+    const dbSong = getSongById(song.id);
+    if (dbSong) {
+      dbStarred = dbSong.starred ?? song.starred;
+      dbRating = dbSong.userRating ?? song.userRating;
+    }
+  } catch {
+    // ignore
+  }
+
   currentTrack = {
     id: song.id,
     title: song.title,
@@ -447,6 +480,8 @@ export async function playTrackAtIndex(index: number): Promise<void> {
     album: song.album,
     coverArt: song.coverArt,
     duration: song.duration,
+    starred: dbStarred,
+    userRating: dbRating,
   };
 
   ensureListenersInitialized();
@@ -714,9 +749,98 @@ export function usePlayerState(): PlayerState {
   return state;
 }
 
+export async function toggleStarCurrentTrack(): Promise<boolean> {
+  if (!currentTrack) return false;
+  const songId = currentTrack.id;
+  const isCurrentlyStarred = !!currentTrack.starred;
+  const newStarred = isCurrentlyStarred ? null : new Date().toISOString();
+
+  updateTrackStarredState(songId, newStarred);
+
+  try {
+    if (isCurrentlyStarred) {
+      await unstar(songId);
+    } else {
+      await star(songId);
+    }
+    try {
+      updateSongStarred(songId, newStarred);
+    } catch {
+      // ignore
+    }
+    return !isCurrentlyStarred;
+  } catch (error) {
+    updateTrackStarredState(
+      songId,
+      isCurrentlyStarred ? currentTrack.starred ?? new Date().toISOString() : null,
+    );
+    console.error("failed to toggle star for track:", error);
+    throw error;
+  }
+}
+
+export function updateTrackStarredState(
+  songId: string,
+  starred: string | null,
+): void {
+  if (currentTrack && currentTrack.id === songId) {
+    currentTrack = {
+      ...currentTrack,
+      starred,
+    };
+  }
+  const queueItem = currentQueue.find((s) => s.id === songId);
+  if (queueItem) {
+    queueItem.starred = starred;
+  }
+  notifyStateChanged();
+}
+
+export async function setRatingCurrentTrack(rating: number): Promise<number> {
+  if (!currentTrack) return 0;
+  const songId = currentTrack.id;
+  const previousRating = currentTrack.userRating ?? 0;
+  const newRating = rating === previousRating ? 0 : rating;
+  const targetRatingVal = newRating === 0 ? null : newRating;
+
+  updateTrackRatingState(songId, targetRatingVal);
+
+  try {
+    await setRating(songId, newRating);
+    try {
+      updateSongRating(songId, targetRatingVal);
+    } catch {
+      // ignore
+    }
+    return newRating;
+  } catch (error) {
+    updateTrackRatingState(songId, previousRating === 0 ? null : previousRating);
+    console.error("failed to set rating for track:", error);
+    throw error;
+  }
+}
+
+export function updateTrackRatingState(
+  songId: string,
+  userRating: number | null,
+): void {
+  if (currentTrack && currentTrack.id === songId) {
+    currentTrack = {
+      ...currentTrack,
+      userRating,
+    };
+  }
+  const queueItem = currentQueue.find((s) => s.id === songId);
+  if (queueItem) {
+    queueItem.userRating = userRating;
+  }
+  notifyStateChanged();
+}
+
 export {
   addPlaybackErrorListener,
   addPlaybackStateListener,
   addRepeatModeListener,
 };
 export type { PlaybackStatus };
+

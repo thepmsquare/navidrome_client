@@ -18,6 +18,8 @@ import {
   initDatabase,
   setSyncMeta,
   updateSongCacheLastAccessed,
+  updateSongRating,
+  updateSongStarred,
   upsertAlbumsBatch,
   upsertArtistsBatch,
   upsertPlaylistsBatch,
@@ -517,6 +519,22 @@ describe("db service", () => {
         ["track-1", "track-2"],
       );
       expect(result).toEqual(mockSongs);
+    });
+
+    it("updateSongStarred should run UPDATE songs SET starred", () => {
+      updateSongStarred("track-1", "2026-09-26T10:00:00Z");
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "UPDATE songs SET starred = ? WHERE id = ?",
+        ["2026-09-26T10:00:00Z", "track-1"],
+      );
+    });
+
+    it("updateSongRating should run UPDATE songs SET userRating", () => {
+      updateSongRating("track-1", 5);
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "UPDATE songs SET userRating = ? WHERE id = ?",
+        [5, "track-1"],
+      );
     });
   });
 

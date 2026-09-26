@@ -53,6 +53,36 @@ export const playerStyles = StyleSheet.create({
     flex: 1,
     marginRight: spacing.sm,
   },
+  heartButton: {
+    margin: 0,
+  },
+  actionSurface: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderRadius: 16,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  ratingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  starButton: {
+    margin: 0,
+    width: 32,
+    height: 32,
+  },
+  utilityActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  scrobbledBadge: {
+    fontWeight: "600",
+    opacity: 0.8,
+  },
   cacheButtonContainer: {
     marginTop: spacing.sm,
     alignItems: "flex-start",
@@ -121,3 +151,4 @@ export const playerStyles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
 });
+

@@ -1,11 +1,13 @@
 # changelog
 
-## 2.16.0+45 (in progress)
+## 2.16.0+45
 
 - add search and sort options in library -> albums, library -> artists, library -> playlists.
 - add "save to files" option for songs in music player page.
+- add option to star songs and set ratings in music player page.
 - techincal changes
   - bug fix in fetching album art.
+  - add utils for star / ratings.
   - update test cases.
 
 ## 2.15.2+44
