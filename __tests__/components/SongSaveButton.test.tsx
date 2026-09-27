@@ -140,4 +140,40 @@ describe("SongSaveButton", () => {
     const tree = JSON.stringify(component.toJSON());
     expect(tree).toContain("saving... 45%");
   });
+
+  it("prompts confirmation to cancel save to files when tapped while exporting", () => {
+    const { Alert } = require("react-native");
+    jest.spyOn(Alert, "alert").mockImplementation(() => {});
+
+    let component: any;
+    renderer.act(() => {
+      component = renderer.create(<SongSaveButton songId="song-1" mini />);
+    });
+
+    // Simulate export progress starting
+    renderer.act(() => {
+      exportProgressListener?.({ songId: "song-1", progress: 0.2 });
+    });
+
+    const pressable = component.root.findByProps({
+      accessibilityLabel: "cancel save to files",
+    });
+    renderer.act(() => {
+      pressable.props.onPress();
+    });
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      "cancel save to files",
+      "are you sure you want to cancel saving this song?",
+      expect.any(Array),
+    );
+
+    const alertCalls = (Alert.alert as jest.Mock).mock.calls;
+    const confirmBtn = alertCalls[0][2].find((b: any) => b.text === "yes");
+    renderer.act(() => {
+      confirmBtn.onPress();
+    });
+
+    expect(cancelSongExport).toHaveBeenCalledWith("song-1");
+  });
 });

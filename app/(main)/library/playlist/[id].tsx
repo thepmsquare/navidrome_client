@@ -162,6 +162,7 @@ export default function PlaylistDetailScreen() {
                   .join(" • ")}
               </Text>
               <BulkSongCacheButton
+                sourceKey={`playlist:${playlist.id}`}
                 songIds={songs.map((s) => s.id)}
                 cacheEntries={cacheEntries}
               />

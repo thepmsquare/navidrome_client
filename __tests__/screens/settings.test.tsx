@@ -100,4 +100,45 @@ describe("SettingsScreen", () => {
     );
     expect(matchingText).toBeDefined();
   });
+
+  it("renders 'automatically make available offline' without the word cache", () => {
+    let tree: any;
+    renderer.act(() => {
+      tree = renderer.create(<SettingsScreen />);
+    });
+
+    const root = tree.root;
+    const texts = root.findAllByType(Text).map((t: any) => t.props.children);
+    expect(texts).toContain("automatically make available offline");
+    expect(texts).toContain("automatically make songs available offline while streaming");
+    expect(texts.some((t: any) => typeof t === "string" && /cache/i.test(t))).toBe(false);
+  });
+
+  it("prompts confirmation when toggling off auto-offline with cached songs", async () => {
+    const { Alert } = require("react-native");
+    jest.spyOn(Alert, "alert").mockImplementation(() => {});
+
+    (db.getAutoCacheCount as jest.Mock).mockReturnValue(3);
+    (db.getAutoCacheTotalSize as jest.Mock).mockReturnValue(15 * 1024 * 1024);
+
+    let tree: any;
+    renderer.act(() => {
+      tree = renderer.create(<SettingsScreen />);
+    });
+
+    const root = tree.root;
+    const switches = root.findAllByType(Switch);
+    const autoOfflineSwitch = switches[0];
+
+    await renderer.act(async () => {
+      autoOfflineSwitch.props.onValueChange(false);
+    });
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      "turn off automatically make available offline",
+      expect.stringContaining("remove 3 offline song(s)"),
+      expect.any(Array),
+      { cancelable: true },
+    );
+  });
 });

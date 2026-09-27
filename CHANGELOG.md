@@ -1,5 +1,10 @@
 # changelog
 
+## 2.16.1+46
+
+- techincal changes
+  - bug fixes in bulk download.
+
 ## 2.16.0+45
 
 - add search and sort options in library -> albums, library -> artists, library -> playlists.

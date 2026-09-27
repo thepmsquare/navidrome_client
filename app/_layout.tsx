@@ -11,6 +11,7 @@ import {
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { subscribeAuthState } from "@/services/api";
+import { resumePendingDownloadsAfterRestart } from "@/services/songCache";
 import { layoutStyles } from "@/stylesheets";
 import { useMaterial3Theme } from "@pchmn/expo-material3-theme";
 
@@ -37,6 +38,12 @@ export default function RootLayout() {
     }
 
     checkToken();
+
+    try {
+      resumePendingDownloadsAfterRestart();
+    } catch (e) {
+      console.error("failed to resume pending downloads after restart:", e);
+    }
 
     const unsubscribe = subscribeAuthState((loggedIn) => {
       setIsLoggedIn(loggedIn);

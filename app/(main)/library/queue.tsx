@@ -2,30 +2,59 @@ import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, FlatList, Pressable, StyleSheet, View } from "react-native";
-import { Appbar, Avatar, List, Surface, Text } from "react-native-paper";
+import { Appbar, Avatar, IconButton, List, Surface, Text } from "react-native-paper";
 
 import { CircularProgressRing } from "@/components/CircularProgressRing";
 import { getCoverArtBaseUrl } from "@/services/api";
-import { getSongById, getSongsByIds } from "@/services/db";
+import { getDownloadQueueState, getSongById, getSongsByIds } from "@/services/db";
 import {
   cancelSongCaching,
-  getActiveDownloadSongIds,
-  subscribeSongCache,
+  dequeuePendingSong,
+  subscribeCacheQueue,
   subscribeSongCacheProgress,
 } from "@/services/songCache";
 import { songsStyles } from "@/stylesheets";
-import { Child, useAppTheme } from "@/types";
+import { Child, DownloadQueueState, useAppTheme } from "@/types";
+
+interface QueueItem {
+  song: Child;
+  status: "active" | "pending";
+}
 
 export default function DownloadQueueScreen() {
   const router = useRouter();
   const theme = useAppTheme();
 
-  const [activeSongs, setActiveSongs] = useState<Child[]>(() => {
-    const ids = getActiveDownloadSongIds?.() ?? [];
-    if (ids.length === 0) return [];
-    const found = getSongsByIds?.(ids) ?? [];
-    const map = new Map(found.map((s) => [s.id, s]));
-    return ids.map((id) => map.get(id) ?? ({ id, title: id } as Child));
+  const [queueState, setQueueState] = useState<DownloadQueueState>(() => {
+    try {
+      return getDownloadQueueState?.() ?? { pending: [], active: null };
+    } catch {
+      return { pending: [], active: null };
+    }
+  });
+
+  const [songMap, setSongMap] = useState<Map<string, Child>>(() => {
+    try {
+      const state = getDownloadQueueState?.() ?? { pending: [], active: null };
+      const allIds = [
+        ...(state.active ? [state.active] : []),
+        ...state.pending,
+      ];
+      if (allIds.length === 0) return new Map();
+      const found = getSongsByIds?.(allIds) ?? [];
+      const map = new Map<string, Child>();
+      for (const s of found) {
+        map.set(s.id, s);
+      }
+      for (const id of allIds) {
+        if (!map.has(id)) {
+          map.set(id, getSongById?.(id) ?? ({ id, title: id } as Child));
+        }
+      }
+      return map;
+    } catch {
+      return new Map();
+    }
   });
 
   const [progressMap, setProgressMap] = useState<Map<string, number>>(
@@ -36,18 +65,39 @@ export default function DownloadQueueScreen() {
     ((id?: string | null) => string | null) | null
   >(null);
 
-  const refreshActiveSongs = useCallback(() => {
-    const ids = getActiveDownloadSongIds?.() ?? [];
-    if (ids.length === 0) {
-      setActiveSongs([]);
+  const refreshSongs = useCallback((state: DownloadQueueState) => {
+    const allIds = [
+      ...(state.active ? [state.active] : []),
+      ...state.pending,
+    ];
+    if (allIds.length === 0) {
+      setSongMap(new Map());
       return;
     }
-    const found = getSongsByIds?.(ids) ?? [];
-    const map = new Map(found.map((s) => [s.id, s]));
-    setActiveSongs(ids.map((id) => map.get(id) ?? ({ id, title: id } as Child)));
+    const found = getSongsByIds?.(allIds) ?? [];
+    const map = new Map<string, Child>();
+    for (const s of found) {
+      map.set(s.id, s);
+    }
+    for (const id of allIds) {
+      if (!map.has(id)) {
+        map.set(id, getSongById?.(id) ?? ({ id, title: id } as Child));
+      }
+    }
+    setSongMap(map);
   }, []);
 
-  useFocusEffect(refreshActiveSongs);
+  const refreshQueue = useCallback(() => {
+    try {
+      const state = getDownloadQueueState?.() ?? { pending: [], active: null };
+      setQueueState(state);
+      refreshSongs(state);
+    } catch {
+      // Ignore
+    }
+  }, [refreshSongs]);
+
+  useFocusEffect(refreshQueue);
 
   useEffect(() => {
     getCoverArtBaseUrl()
@@ -57,47 +107,39 @@ export default function DownloadQueueScreen() {
       );
   }, []);
 
+  // Subscribe to queue state updates
+  useEffect(() => {
+    const unsubscribeQueue = subscribeCacheQueue?.((state) => {
+      setQueueState(state);
+      refreshSongs(state);
+    });
+
+    return () => {
+      unsubscribeQueue?.();
+    };
+  }, [refreshSongs]);
+
   // Subscribe to live progress
   useEffect(() => {
-    const unsubscribeProgress = subscribeSongCacheProgress(
+    const unsubscribeProgress = subscribeSongCacheProgress?.(
       ({ songId, progress }) => {
         setProgressMap((prev) => {
           const next = new Map(prev);
           next.set(songId, progress);
           return next;
         });
-
-        // Ensure newly started download is in list
-        setActiveSongs((prev) => {
-          if (prev.some((s) => s.id === songId)) {
-            return prev;
-          }
-          const song = getSongById?.(songId) ?? ({ id: songId, title: songId } as Child);
-          return [...prev, song];
-        });
       },
     );
 
-    // Subscribe to completions/reverts to remove from queue
-    const unsubscribeCache = subscribeSongCache(({ songId }) => {
-      setActiveSongs((prev) => prev.filter((s) => s.id !== songId));
-      setProgressMap((prev) => {
-        const next = new Map(prev);
-        next.delete(songId);
-        return next;
-      });
-    });
-
     return () => {
-      unsubscribeProgress();
-      unsubscribeCache();
+      unsubscribeProgress?.();
     };
   }, []);
 
   const handleCancelSong = (songId: string) => {
     Alert.alert(
       "cancel download",
-      "are you sure you want to cancel caching this song?",
+      "are you sure you want to cancel downloading this song?",
       [
         {
           text: "no",
@@ -114,6 +156,22 @@ export default function DownloadQueueScreen() {
     );
   };
 
+  const queueItems: QueueItem[] = [];
+  if (queueState.active) {
+    const song =
+      songMap.get(queueState.active) ??
+      ({ id: queueState.active, title: queueState.active } as Child);
+    queueItems.push({ song, status: "active" });
+  }
+  for (const pendingId of queueState.pending) {
+    const song =
+      songMap.get(pendingId) ??
+      ({ id: pendingId, title: pendingId } as Child);
+    queueItems.push({ song, status: "pending" });
+  }
+
+  const totalCount = queueItems.length;
+
   return (
     <Surface style={songsStyles.page}>
       <Appbar.Header statusBarHeight={0}>
@@ -124,9 +182,30 @@ export default function DownloadQueueScreen() {
         <Appbar.Content title="download queue" />
       </Appbar.Header>
 
+      {totalCount > 0 ? (
+        <View style={styles.counterContainer} testID="download-queue-counter">
+          <Text
+            variant="labelLarge"
+            style={[styles.counterText, { color: theme.colors.onSurfaceVariant }]}
+          >
+            {totalCount === 1
+              ? "1 song in queue"
+              : `${totalCount} songs in queue`}
+          </Text>
+          {queueState.active && queueState.pending.length > 0 ? (
+            <Text
+              variant="bodySmall"
+              style={{ color: theme.colors.outline }}
+            >
+              {`1 downloading • ${queueState.pending.length} queued`}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
       <FlatList
-        data={activeSongs}
-        keyExtractor={(item) => item.id}
+        data={queueItems}
+        keyExtractor={(item) => item.song.id}
         contentContainerStyle={songsStyles.listContent}
         ListEmptyComponent={
           <View style={songsStyles.emptyContainer}>
@@ -134,21 +213,61 @@ export default function DownloadQueueScreen() {
           </View>
         }
         renderItem={({ item }) => {
-          const artUrl = getArtUrl ? getArtUrl(item.coverArt) : null;
-          const progress = progressMap.get(item.id) ?? 0;
+          const song = item.song;
+          const artUrl = getArtUrl ? getArtUrl(song.coverArt) : null;
           const description =
-            item.artist && item.album
-              ? `${item.artist} • ${item.album}`
-              : (item.artist ?? item.album ?? undefined);
+            song.artist && song.album
+              ? `${song.artist} • ${song.album}`
+              : (song.artist ?? song.album ?? undefined);
+
+          if (item.status === "active") {
+            const progress = progressMap.get(song.id) ?? 0;
+            return (
+              <List.Item
+                title={song.title}
+                description={description}
+                left={(props) =>
+                  artUrl ? (
+                    <Image
+                      source={{ uri: artUrl, cacheKey: `${song.coverArt}-300` }}
+                      style={songsStyles.artwork}
+                      contentFit="cover"
+                      transition={200}
+                      cachePolicy="memory-disk"
+                    />
+                  ) : (
+                    <Avatar.Icon {...props} size={48} icon="music" />
+                  )
+                }
+                right={() => (
+                  <Pressable
+                    style={styles.progressContainer}
+                    accessibilityRole="button"
+                    accessibilityLabel="cancel download"
+                    onPress={() => handleCancelSong(song.id)}
+                  >
+                    <CircularProgressRing
+                      progress={progress}
+                      size={28}
+                      strokeWidth={2.5}
+                      color={theme.colors.tertiary}
+                      trackColor={theme.colors.surfaceContainerHighest}
+                      showPercentage
+                    />
+                  </Pressable>
+                )}
+              />
+            );
+          }
 
           return (
             <List.Item
-              title={item.title}
+              title={song.title}
               description={description}
               left={(props) =>
                 artUrl ? (
                   <Image
-                    source={{ uri: artUrl, cacheKey: `${item.coverArt}-300` }}
+                    source={{ uri: artUrl, cacheKey: `${song.coverArt}-300` }}
                     style={songsStyles.artwork}
                     contentFit="cover"
                     transition={200}
@@ -159,21 +278,13 @@ export default function DownloadQueueScreen() {
                 )
               }
               right={() => (
-                <Pressable
-                  style={styles.progressContainer}
+                <IconButton
+                  icon="close"
+                  size={20}
                   accessibilityRole="button"
-                  accessibilityLabel="cancel download"
-                  onPress={() => handleCancelSong(item.id)}
-                >
-                  <CircularProgressRing
-                    progress={progress}
-                    size={28}
-                    strokeWidth={2.5}
-                    color={theme.colors.tertiary}
-                    trackColor={theme.colors.surfaceContainerHighest}
-                    showPercentage
-                  />
-                </Pressable>
+                  accessibilityLabel="remove from queue"
+                  onPress={() => dequeuePendingSong(song.id)}
+                />
               )}
             />
           );
@@ -188,5 +299,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 6,
+  },
+  counterContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  counterText: {
+    fontWeight: "600",
   },
 });

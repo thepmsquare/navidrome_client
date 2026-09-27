@@ -14,8 +14,16 @@ import {
   insertSongCacheEntryIfNotExists,
   updateSongCacheLastAccessed,
   upsertSongCacheEntry,
+  clearAllRequestersForSong,
+  getDownloadQueueState,
+  getNextPendingDownload,
+  markDownloadActive,
+  removeFromDownloadQueue,
+  revertActiveDownloadsToPending,
 } from "@/services/db";
-import { SongCacheRow, SongCacheType } from "@/types";
+import { DownloadQueueState, SongCacheRow, SongCacheType } from "@/types";
+
+export { getDownloadQueueState };
 
 export function getCachedSongPlaybackUri(songId: string): string | null {
   const entry = getSongCacheEntry(songId);
@@ -46,6 +54,26 @@ type SongCacheProgressListener = (event: {
 
 const cacheListeners = new Set<SongCacheListener>();
 const progressListeners = new Set<SongCacheProgressListener>();
+export type CacheQueueListener = (state: DownloadQueueState) => void;
+const cacheQueueListeners = new Set<CacheQueueListener>();
+
+export function subscribeCacheQueue(listener: CacheQueueListener): () => void {
+  cacheQueueListeners.add(listener);
+  return () => {
+    cacheQueueListeners.delete(listener);
+  };
+}
+
+export function notifyCacheQueueUpdated(): void {
+  const state = getDownloadQueueState();
+  cacheQueueListeners.forEach((listener) => {
+    try {
+      listener(state);
+    } catch (e) {
+      console.error("error in cache queue listener:", e);
+    }
+  });
+}
 
 export function subscribeSongCache(listener: SongCacheListener): () => void {
   cacheListeners.add(listener);
@@ -90,6 +118,9 @@ export async function deleteSongFromCache(songId: string): Promise<void> {
   }
 
   deleteSongCacheEntry(songId);
+  removeFromDownloadQueue(songId);
+  clearAllRequestersForSong(songId);
+  notifyCacheQueueUpdated();
   notifySongCacheUpdated(songId, null);
 }
 
@@ -108,6 +139,62 @@ export function notifySongCacheProgress(
 
 const activeControllers = new Map<string, AbortController>();
 const activeAutoControllers = new Map<string, AbortController>();
+let isQueueAdvancing = false;
+
+export function dequeuePendingSong(songId: string): void {
+  removeFromDownloadQueue(songId);
+  clearAllRequestersForSong(songId);
+  notifyCacheQueueUpdated();
+}
+
+export function tryStartNextDownload(): void {
+  if (activeControllers.size > 0 || isQueueAdvancing) {
+    return;
+  }
+  const nextSongId = getNextPendingDownload();
+  if (!nextSongId) {
+    return;
+  }
+  isQueueAdvancing = true;
+  markDownloadActive(nextSongId);
+  notifyCacheQueueUpdated();
+
+  (async () => {
+    try {
+      await cacheSongManually(nextSongId);
+    } catch {
+      // Failed or cancelled downloads are dropped from queue
+    } finally {
+      removeFromDownloadQueue(nextSongId);
+      clearAllRequestersForSong(nextSongId);
+      notifyCacheQueueUpdated();
+      isQueueAdvancing = false;
+      tryStartNextDownload();
+    }
+  })();
+}
+
+export function resumePendingDownloadsAfterRestart(): string[] {
+  const revertedIds = revertActiveDownloadsToPending();
+  const cacheDir = new Directory(Paths.document, "manual-cache");
+
+  for (const songId of revertedIds) {
+    try {
+      const song = getSongById(songId);
+      const suffix = song?.suffix || "mp3";
+      const file = new File(cacheDir, `${songId}.${suffix}`);
+      if (file.exists) {
+        file.delete();
+      }
+    } catch (e) {
+      console.error("failed to clean up partial file for reverted download:", e);
+    }
+  }
+
+  notifyCacheQueueUpdated();
+  tryStartNextDownload();
+  return revertedIds;
+}
 
 export function cancelSongCaching(songId: string): boolean {
   const controller = activeControllers.get(songId);

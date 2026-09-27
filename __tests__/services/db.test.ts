@@ -52,6 +52,17 @@ import {
   incrementPendingScrobbleAttempts,
   getPendingScrobblesCount,
   clearPendingScrobbles,
+  enqueuePendingDownload,
+  getNextPendingDownload,
+  markDownloadActive,
+  removeFromDownloadQueue,
+  getDownloadQueueState,
+  revertActiveDownloadsToPending,
+  addQueueRequester,
+  removeQueueRequester,
+  getQueueRequesterCount,
+  getRequestersForSource,
+  clearAllRequestersForSong,
 } from "@/services/db";
 import { AlbumID3, ArtistID3, Child, Playlist, SongCacheType } from "@/types";
 
@@ -411,6 +422,12 @@ describe("db service", () => {
       clearDatabase();
       expect(mockExecSync).toHaveBeenCalledWith(
         expect.stringContaining("DELETE FROM artists;"),
+      );
+      expect(mockExecSync).toHaveBeenCalledWith(
+        expect.stringContaining("DELETE FROM download_queue;"),
+      );
+      expect(mockExecSync).toHaveBeenCalledWith(
+        expect.stringContaining("DELETE FROM download_queue_requesters;"),
       );
     });
   });
@@ -1046,6 +1063,152 @@ describe("db service", () => {
     it("clearPendingScrobbles should delete all rows", () => {
       clearPendingScrobbles();
       expect(mockRunSync).toHaveBeenCalledWith("DELETE FROM pending_scrobbles");
+    });
+  });
+
+  describe("download_queue", () => {
+    it("enqueuePendingDownload should insert song with pending status and ignore if exists", () => {
+      enqueuePendingDownload("song-1");
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "INSERT OR IGNORE INTO download_queue (songId, status, createdAt) VALUES (?, 'pending', ?)",
+        ["song-1", expect.any(String)],
+      );
+    });
+
+    it("getNextPendingDownload should return first pending songId in insert order", () => {
+      mockGetFirstSync.mockReturnValue({ songId: "song-123" });
+      const next = getNextPendingDownload();
+      expect(mockGetFirstSync).toHaveBeenCalledWith(
+        "SELECT songId FROM download_queue WHERE status = 'pending' ORDER BY rowid ASC LIMIT 1",
+      );
+      expect(next).toBe("song-123");
+    });
+
+    it("getNextPendingDownload should return null if no pending song exists", () => {
+      mockGetFirstSync.mockReturnValue(null);
+      const next = getNextPendingDownload();
+      expect(next).toBeNull();
+    });
+
+    it("markDownloadActive should update status to active for songId", () => {
+      markDownloadActive("song-123");
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "UPDATE download_queue SET status = 'active' WHERE songId = ?",
+        ["song-123"],
+      );
+    });
+
+    it("removeFromDownloadQueue should delete song by songId", () => {
+      removeFromDownloadQueue("song-123");
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "DELETE FROM download_queue WHERE songId = ?",
+        ["song-123"],
+      );
+    });
+
+    it("getDownloadQueueState should split items by active and pending", () => {
+      mockGetAllSync.mockReturnValue([
+        { songId: "song-active", status: "active" },
+        { songId: "song-pending-1", status: "pending" },
+        { songId: "song-pending-2", status: "pending" },
+      ]);
+      const state = getDownloadQueueState();
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        "SELECT songId, status FROM download_queue ORDER BY rowid ASC",
+      );
+      expect(state).toEqual({
+        active: "song-active",
+        pending: ["song-pending-1", "song-pending-2"],
+      });
+    });
+
+    it("getDownloadQueueState should return empty pending and null active when queue is empty", () => {
+      mockGetAllSync.mockReturnValue([]);
+      const state = getDownloadQueueState();
+      expect(state).toEqual({
+        active: null,
+        pending: [],
+      });
+    });
+
+    it("revertActiveDownloadsToPending should revert active rows and return their songIds", () => {
+      mockGetAllSync.mockReturnValue([
+        { songId: "song-active-1" },
+        { songId: "song-active-2" },
+      ]);
+      const songIds = revertActiveDownloadsToPending();
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        "SELECT songId FROM download_queue WHERE status = 'active'",
+      );
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "UPDATE download_queue SET status = 'pending' WHERE status = 'active'",
+      );
+      expect(songIds).toEqual(["song-active-1", "song-active-2"]);
+    });
+
+    it("revertActiveDownloadsToPending should return empty array and not update if no active rows", () => {
+      mockGetAllSync.mockReturnValue([]);
+      const songIds = revertActiveDownloadsToPending();
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        "SELECT songId FROM download_queue WHERE status = 'active'",
+      );
+      expect(mockRunSync).not.toHaveBeenCalled();
+      expect(songIds).toEqual([]);
+    });
+  });
+
+  describe("download_queue_requesters", () => {
+    it("addQueueRequester should insert requester with INSERT OR IGNORE", () => {
+      addQueueRequester("song-1", "album:123");
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "INSERT OR IGNORE INTO download_queue_requesters (songId, sourceKey) VALUES (?, ?)",
+        ["song-1", "album:123"],
+      );
+    });
+
+    it("removeQueueRequester should delete by songId and sourceKey", () => {
+      removeQueueRequester("song-1", "album:123");
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "DELETE FROM download_queue_requesters WHERE songId = ? AND sourceKey = ?",
+        ["song-1", "album:123"],
+      );
+    });
+
+    it("getQueueRequesterCount should return count for songId", () => {
+      mockGetFirstSync.mockReturnValue({ count: 3 });
+      const count = getQueueRequesterCount("song-1");
+      expect(mockGetFirstSync).toHaveBeenCalledWith(
+        "SELECT COUNT(*) as count FROM download_queue_requesters WHERE songId = ?",
+        ["song-1"],
+      );
+      expect(count).toBe(3);
+    });
+
+    it("getQueueRequesterCount should return 0 if null returned", () => {
+      mockGetFirstSync.mockReturnValue(null);
+      const count = getQueueRequesterCount("song-1");
+      expect(count).toBe(0);
+    });
+
+    it("getRequestersForSource should return list of songIds requested by sourceKey", () => {
+      mockGetAllSync.mockReturnValue([
+        { songId: "song-1" },
+        { songId: "song-2" },
+      ]);
+      const songIds = getRequestersForSource("album:123");
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        "SELECT songId FROM download_queue_requesters WHERE sourceKey = ? ORDER BY rowid ASC",
+        ["album:123"],
+      );
+      expect(songIds).toEqual(["song-1", "song-2"]);
+    });
+
+    it("clearAllRequestersForSong should delete all requesters for songId", () => {
+      clearAllRequestersForSong("song-1");
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "DELETE FROM download_queue_requesters WHERE songId = ?",
+        ["song-1"],
+      );
     });
   });
 });
