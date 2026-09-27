@@ -1,36 +1,56 @@
-import { useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, StyleProp, ViewStyle } from "react-native";
 import { Button } from "react-native-paper";
 
 import {
-  cacheSongManually,
   cancelSongCaching,
   deleteSongFromCache,
+  getDownloadQueueState,
+  notifyCacheQueueUpdated,
+  subscribeCacheQueue,
+  tryStartNextDownload,
 } from "@/services/songCache";
-import { SongCacheRow, SongCacheType, useAppTheme } from "@/types";
+import {
+  addQueueRequester,
+  enqueuePendingDownload,
+  getQueueRequesterCount,
+  getRequestersForSource,
+  removeFromDownloadQueue,
+  removeQueueRequester,
+} from "@/services/db";
+import { DownloadQueueState, SongCacheRow, SongCacheType, useAppTheme } from "@/types";
 
 export interface BulkSongCacheButtonProps {
+  sourceKey: string;
   songIds: string[];
   cacheEntries: Map<string, SongCacheRow>;
   style?: StyleProp<ViewStyle>;
 }
 
 export function BulkSongCacheButton({
+  sourceKey,
   songIds,
   cacheEntries,
   style,
 }: BulkSongCacheButtonProps) {
   const theme = useAppTheme();
 
-  const [isRunning, setIsRunning] = useState(false);
-  const [, setCurrentDownloadingId] = useState<string | null>(null);
-  const currentDownloadingIdRef = useRef<string | null>(null);
-  const stopRequestedRef = useRef(false);
+  const [queueState, setQueueState] = useState<DownloadQueueState>(() => {
+    try {
+      return getDownloadQueueState();
+    } catch {
+      return { pending: [], active: null };
+    }
+  });
 
-  const updateCurrentDownloadingId = (id: string | null) => {
-    currentDownloadingIdRef.current = id;
-    setCurrentDownloadingId(id);
-  };
+  useEffect(() => {
+    const unsubscribe = subscribeCacheQueue((state) => {
+      setQueueState(state);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const totalCount = songIds.length;
   const manualCount = songIds.filter(
@@ -38,6 +58,21 @@ export function BulkSongCacheButton({
   ).length;
   const allUncached = songIds.every((id) => !cacheEntries.has(id));
   const fullyManual = totalCount > 0 && manualCount === totalCount;
+
+  let myRequestedIds: string[] = [];
+  try {
+    const sourceRequested = getRequestersForSource(sourceKey);
+    const songIdSet = new Set(songIds);
+    myRequestedIds = sourceRequested.filter((id) => songIdSet.has(id));
+  } catch {
+    myRequestedIds = [];
+  }
+
+  const isRunning = Boolean(
+    myRequestedIds.length > 0 &&
+      ((queueState.active && myRequestedIds.includes(queueState.active)) ||
+        myRequestedIds.some((id) => queueState.pending.includes(id))),
+  );
 
   if (totalCount === 0) {
     return null;
@@ -57,7 +92,7 @@ export function BulkSongCacheButton({
   const confirmRemoveFromCache = () => {
     Alert.alert(
       "remove offline songs",
-      `are you sure you want to remove these ${totalCount} songs from offline cache?`,
+      `are you sure you want to remove these ${totalCount} offline songs?`,
       [
         {
           text: "no",
@@ -89,40 +124,43 @@ export function BulkSongCacheButton({
           text: "yes",
           style: "destructive",
           onPress: () => {
-            stopRequestedRef.current = true;
-            if (currentDownloadingIdRef.current) {
-              cancelSongCaching(currentDownloadingIdRef.current);
+            if (myRequestedIds.length === 0) {
+              return;
             }
+            const unfinishedSongIds = myRequestedIds.filter(
+              (id) =>
+                id === queueState.active || queueState.pending.includes(id),
+            );
+            for (const songId of unfinishedSongIds) {
+              removeQueueRequester(songId, sourceKey);
+              if (getQueueRequesterCount(songId) === 0) {
+                removeFromDownloadQueue(songId);
+              }
+            }
+            if (
+              queueState.active &&
+              myRequestedIds.includes(queueState.active) &&
+              getQueueRequesterCount(queueState.active) === 0
+            ) {
+              cancelSongCaching(queueState.active);
+            }
+            notifyCacheQueueUpdated();
           },
         },
       ],
     );
   };
 
-  const startBulkDownload = async () => {
-    setIsRunning(true);
-    stopRequestedRef.current = false;
-
-    const workList = songIds.filter(
+  const handleStart = () => {
+    const toEnqueue = songIds.filter(
       (id) => cacheEntries.get(id)?.cacheType !== SongCacheType.Manual,
     );
-
-    for (const songId of workList) {
-      if (stopRequestedRef.current) {
-        break;
-      }
-      updateCurrentDownloadingId(songId);
-      try {
-        await cacheSongManually(songId);
-      } catch {
-        if (stopRequestedRef.current) {
-          break;
-        }
-      }
+    for (const songId of toEnqueue) {
+      addQueueRequester(songId, sourceKey);
+      enqueuePendingDownload(songId);
     }
-
-    setIsRunning(false);
-    updateCurrentDownloadingId(null);
+    notifyCacheQueueUpdated();
+    tryStartNextDownload();
   };
 
   const handlePress = () => {
@@ -136,7 +174,7 @@ export function BulkSongCacheButton({
       return;
     }
 
-    startBulkDownload();
+    handleStart();
   };
 
   const icon = isRunning
@@ -163,3 +201,4 @@ export function BulkSongCacheButton({
 }
 
 export default BulkSongCacheButton;
+

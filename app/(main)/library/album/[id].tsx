@@ -132,6 +132,7 @@ export default function AlbumDetailScreen() {
                   .join(" • ")}
               </Text>
               <BulkSongCacheButton
+                sourceKey={`album:${album.id}`}
                 songIds={songs.map((s) => s.id)}
                 cacheEntries={cacheEntries}
               />

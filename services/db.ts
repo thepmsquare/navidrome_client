@@ -9,6 +9,9 @@ import {
   SongCacheRow,
   SongCacheType,
   PendingScrobble,
+  DownloadQueueRow,
+  DownloadQueueState,
+  DownloadQueueStatus,
 } from "@/types";
 import {
   DB_NAME,
@@ -186,6 +189,18 @@ export function initDatabase(db: SQLite.SQLiteDatabase = getDb()): void {
     );
 
     CREATE INDEX IF NOT EXISTS idx_pending_scrobbles_created ON pending_scrobbles(created_at);
+
+    CREATE TABLE IF NOT EXISTS download_queue (
+      songId TEXT PRIMARY KEY,
+      status TEXT NOT NULL CHECK (status IN ('pending','active')),
+      createdAt TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS download_queue_requesters (
+      songId TEXT NOT NULL,
+      sourceKey TEXT NOT NULL,
+      PRIMARY KEY (songId, sourceKey)
+    );
   `);
 }
 
@@ -530,6 +545,8 @@ export function clearDatabase(): void {
     DELETE FROM song_cache;
     DELETE FROM player_session;
     DELETE FROM pending_scrobbles;
+    DELETE FROM download_queue;
+    DELETE FROM download_queue_requesters;
   `);
 }
 
@@ -1140,3 +1157,107 @@ export function clearPendingScrobbles(): void {
   const db = getDb();
   db.runSync("DELETE FROM pending_scrobbles");
 }
+
+export function enqueuePendingDownload(songId: string): void {
+  const db = getDb();
+  const createdAt = new Date().toISOString();
+  db.runSync(
+    "INSERT OR IGNORE INTO download_queue (songId, status, createdAt) VALUES (?, 'pending', ?)",
+    [songId, createdAt],
+  );
+}
+
+export function getNextPendingDownload(): string | null {
+  const db = getDb();
+  const row = db.getFirstSync<{ songId: string }>(
+    "SELECT songId FROM download_queue WHERE status = 'pending' ORDER BY rowid ASC LIMIT 1",
+  );
+  return row?.songId ?? null;
+}
+
+export function markDownloadActive(songId: string): void {
+  const db = getDb();
+  db.runSync("UPDATE download_queue SET status = 'active' WHERE songId = ?", [
+    songId,
+  ]);
+}
+
+export function removeFromDownloadQueue(songId: string): void {
+  const db = getDb();
+  db.runSync("DELETE FROM download_queue WHERE songId = ?", [songId]);
+}
+
+export function getDownloadQueueState(): DownloadQueueState {
+  const db = getDb();
+  const rows = db.getAllSync<{ songId: string; status: DownloadQueueStatus }>(
+    "SELECT songId, status FROM download_queue ORDER BY rowid ASC",
+  );
+  const pending: string[] = [];
+  let active: string | null = null;
+  for (const row of rows) {
+    if (row.status === "active") {
+      if (!active) {
+        active = row.songId;
+      }
+    } else if (row.status === "pending") {
+      pending.push(row.songId);
+    }
+  }
+  return { pending, active };
+}
+
+export function revertActiveDownloadsToPending(): string[] {
+  const db = getDb();
+  const rows = db.getAllSync<{ songId: string }>(
+    "SELECT songId FROM download_queue WHERE status = 'active'",
+  );
+  const songIds = rows.map((r) => r.songId);
+  if (songIds.length > 0) {
+    db.runSync(
+      "UPDATE download_queue SET status = 'pending' WHERE status = 'active'",
+    );
+  }
+  return songIds;
+}
+
+export function addQueueRequester(songId: string, sourceKey: string): void {
+  const db = getDb();
+  db.runSync(
+    "INSERT OR IGNORE INTO download_queue_requesters (songId, sourceKey) VALUES (?, ?)",
+    [songId, sourceKey],
+  );
+}
+
+export function removeQueueRequester(songId: string, sourceKey: string): void {
+  const db = getDb();
+  db.runSync(
+    "DELETE FROM download_queue_requesters WHERE songId = ? AND sourceKey = ?",
+    [songId, sourceKey],
+  );
+}
+
+export function getQueueRequesterCount(songId: string): number {
+  const db = getDb();
+  const row = db.getFirstSync<{ count: number }>(
+    "SELECT COUNT(*) as count FROM download_queue_requesters WHERE songId = ?",
+    [songId],
+  );
+  return row?.count ?? 0;
+}
+
+export function getRequestersForSource(sourceKey: string): string[] {
+  const db = getDb();
+  const rows = db.getAllSync<{ songId: string }>(
+    "SELECT songId FROM download_queue_requesters WHERE sourceKey = ? ORDER BY rowid ASC",
+    [sourceKey],
+  );
+  return rows.map((r) => r.songId);
+}
+
+export function clearAllRequestersForSong(songId: string): void {
+  const db = getDb();
+  db.runSync("DELETE FROM download_queue_requesters WHERE songId = ?", [
+    songId,
+  ]);
+}
+

@@ -85,8 +85,8 @@ export default function SettingsScreen() {
 
     if (count > 0) {
       Alert.alert(
-        "turn off auto-cache",
-        `turn off auto-cache? this will remove ${count} auto-cached song(s) (${formatSize(usage)}) from your device.`,
+        "turn off automatically make available offline",
+        `turn off automatically make available offline? this will remove ${count} offline song(s) (${formatSize(usage)}) from your device.`,
         [
           {
             text: "cancel",
@@ -103,7 +103,7 @@ export default function SettingsScreen() {
                 await clearAllAutoCachedSongs();
                 setAutoCacheUsageBytes(0);
               } catch (error: any) {
-                Alert.alert("error", error?.message || "failed to clear auto-cache");
+                Alert.alert("error", error?.message || "failed to remove offline songs");
               } finally {
                 setClearingAutoCache(false);
               }
@@ -265,12 +265,12 @@ export default function SettingsScreen() {
             }}
           >
             <View style={{ flex: 1, paddingRight: spacing.sm }}>
-              <Text variant="titleMedium">auto-cache</Text>
+              <Text variant="titleMedium">automatically make available offline</Text>
               <Text
                 variant="bodyMedium"
                 style={{ color: theme.colors.onSurfaceVariant }}
               >
-                automatically cache songs while streaming
+                automatically make songs available offline while streaming
               </Text>
             </View>
             <Switch

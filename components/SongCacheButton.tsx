@@ -12,12 +12,17 @@ import {
 import { Button, IconButton } from "react-native-paper";
 
 import { CircularProgressRing } from "@/components/CircularProgressRing";
-import { getSongCacheEntry } from "@/services/db";
+import {
+  clearAllRequestersForSong,
+  getSongCacheEntry,
+  removeFromDownloadQueue,
+} from "@/services/db";
 import {
   cacheSongManually,
   cancelSongCaching,
   deleteSongFromCache,
   isSongCaching,
+  notifyCacheQueueUpdated,
   subscribeSongCache,
   subscribeSongCacheProgress,
 } from "@/services/songCache";
@@ -146,7 +151,7 @@ export function SongCacheButton({
   const confirmCancelDownload = () => {
     Alert.alert(
       "cancel download",
-      "are you sure you want to cancel caching this song?",
+      "are you sure you want to cancel downloading this song?",
       [
         {
           text: "no",
@@ -157,6 +162,9 @@ export function SongCacheButton({
           style: "destructive",
           onPress: () => {
             cancelSongCaching(songId);
+            removeFromDownloadQueue(songId);
+            clearAllRequestersForSong(songId);
+            notifyCacheQueueUpdated();
             setIsCaching(false);
             setCachingProgress(0);
             onCacheCancelled?.();
@@ -169,7 +177,7 @@ export function SongCacheButton({
   const confirmRemoveFromCache = () => {
     Alert.alert(
       "remove offline song",
-      "are you sure you want to remove this song from offline cache?",
+      "are you sure you want to remove this offline song?",
       [
         {
           text: "no",

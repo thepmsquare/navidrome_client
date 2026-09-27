@@ -111,7 +111,7 @@ export function SongSaveButton({
 
   const confirmCancelExport = () => {
     Alert.alert(
-      "cancel export",
+      "cancel save to files",
       "are you sure you want to cancel saving this song?",
       [
         {
@@ -191,7 +191,7 @@ export function SongSaveButton({
           ]}
           hitSlop={hitSlop}
           accessibilityRole="button"
-          accessibilityLabel="cancel export"
+          accessibilityLabel="cancel save to files"
           onPress={handlePress}
         >
           <CircularProgressRing
