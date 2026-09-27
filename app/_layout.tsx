@@ -11,6 +11,7 @@ import {
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { subscribeAuthState } from "@/services/api";
+import { resumeDownloadQueueOnStartup } from "@/services/songCache";
 import { layoutStyles } from "@/stylesheets";
 import { useMaterial3Theme } from "@pchmn/expo-material3-theme";
 
@@ -24,6 +25,10 @@ export default function RootLayout() {
   const { theme } = useMaterial3Theme();
 
   useEffect(() => {
+    resumeDownloadQueueOnStartup().catch((err) => {
+      console.error("failed to resume download queue on startup:", err);
+    });
+
     async function checkToken() {
       const serverUrl = await SecureStore.getItemAsync("serverUrl");
       const subsonicVersion = await SecureStore.getItemAsync("subsonicVersion");

@@ -3,9 +3,14 @@ import { File } from "expo-file-system";
 import { getSongStreamUrl } from "@/services/api";
 import {
   deleteSongCacheEntry,
+  enqueuePendingDownload,
+  getNextPendingDownload,
   getSongById,
   getSongCacheEntry,
   insertSongCacheEntryIfNotExists,
+  markDownloadActive,
+  removeFromDownloadQueue,
+  revertActiveDownloadsToPending,
   updateSongCacheLastAccessed,
   upsertSongCacheEntry,
 } from "@/services/db";
@@ -16,13 +21,19 @@ import {
   clearAllAutoCachedSongs,
   clearAllCachedSongs,
   deleteSongFromCache,
+  dequeuePendingSong,
+  enqueueSongsForManualCache,
   getActiveDownloadSongIds,
   getCachedSongPlaybackUri,
+  getDownloadQueueState,
   isSongCaching,
   notifySongCacheProgress,
   notifySongCacheUpdated,
+  resumeDownloadQueueOnStartup,
+  subscribeCacheQueue,
   subscribeSongCache,
   subscribeSongCacheProgress,
+  tryStartNextDownload,
 } from "@/services/songCache";
 import { SongCacheType } from "@/types";
 
@@ -33,15 +44,21 @@ jest.mock("@/services/api", () => ({
 jest.mock("@/services/db", () => ({
   deleteAutoSongCacheEntries: jest.fn(),
   deleteSongCacheEntry: jest.fn(),
+  enqueuePendingDownload: jest.fn(),
   getAutoCacheCount: jest.fn(() => 0),
   getAutoCacheEnabled: jest.fn(() => true),
   getAutoCacheMaxBytes: jest.fn(() => 1024 * 1024 * 1024),
   getAutoCacheSongIds: jest.fn(() => []),
   getAutoCacheTotalSize: jest.fn(() => 0),
+  getDownloadQueueState: jest.fn(() => ({ pending: [], active: null })),
   getLeastRecentlyUsedAutoCacheEntries: jest.fn(() => []),
+  getNextPendingDownload: jest.fn(),
   getSongById: jest.fn(),
   getSongCacheEntry: jest.fn(),
   insertSongCacheEntryIfNotExists: jest.fn(),
+  markDownloadActive: jest.fn(),
+  removeFromDownloadQueue: jest.fn(),
+  revertActiveDownloadsToPending: jest.fn(() => []),
   updateSongCacheLastAccessed: jest.fn(),
   upsertSongCacheEntry: jest.fn(),
 }));
@@ -854,6 +871,126 @@ describe("songCache service", () => {
         throw new Error("dir delete error");
       });
       await expect(clearAllCachedSongs()).resolves.not.toThrow();
+    });
+  });
+
+  describe("download queue worker logic", () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    describe("subscribeCacheQueue", () => {
+      it("broadcasts queue state to listeners when notified", () => {
+        const mockState = { pending: ["song-1"], active: "song-2" };
+        (getDownloadQueueState as jest.Mock).mockReturnValue(mockState);
+
+        const listener = jest.fn();
+        const unsubscribe = subscribeCacheQueue(listener);
+
+        (getNextPendingDownload as jest.Mock).mockReturnValue(null);
+        enqueueSongsForManualCache([]);
+
+        expect(listener).toHaveBeenCalledWith(mockState);
+
+        listener.mockClear();
+        unsubscribe();
+        enqueueSongsForManualCache([]);
+        expect(listener).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("enqueueSongsForManualCache", () => {
+      it("skips songs already manual-cached and enqueues the rest", () => {
+        (getSongCacheEntry as jest.Mock).mockImplementation((id: string) => {
+          if (id === "manual-1") {
+            return { songId: id, cacheType: SongCacheType.Manual };
+          }
+          if (id === "auto-1") {
+            return { songId: id, cacheType: SongCacheType.Auto };
+          }
+          return null;
+        });
+        (getNextPendingDownload as jest.Mock).mockReturnValue(null);
+
+        enqueueSongsForManualCache(["manual-1", "auto-1", "uncached-1"]);
+
+        expect(enqueuePendingDownload).not.toHaveBeenCalledWith("manual-1");
+        expect(enqueuePendingDownload).toHaveBeenCalledWith("auto-1");
+        expect(enqueuePendingDownload).toHaveBeenCalledWith("uncached-1");
+      });
+    });
+
+    describe("tryStartNextDownload", () => {
+      it("does nothing if there are no pending downloads", () => {
+        (getNextPendingDownload as jest.Mock).mockReturnValue(null);
+        tryStartNextDownload();
+        expect(markDownloadActive).not.toHaveBeenCalled();
+      });
+
+      it("marks download active and triggers cacheSongManually", async () => {
+        (getNextPendingDownload as jest.Mock).mockReturnValueOnce("song-next").mockReturnValue(null);
+        (getSongById as jest.Mock).mockReturnValue({ id: "song-next", suffix: "mp3" });
+        (getSongStreamUrl as jest.Mock).mockResolvedValue("https://stream/song-next");
+
+        tryStartNextDownload();
+
+        expect(markDownloadActive).toHaveBeenCalledWith("song-next");
+      });
+    });
+
+    describe("dequeuePendingSong", () => {
+      it("removes song from queue and notifies listeners", () => {
+        const listener = jest.fn();
+        const unsubscribe = subscribeCacheQueue(listener);
+
+        dequeuePendingSong("song-pending-1");
+
+        expect(removeFromDownloadQueue).toHaveBeenCalledWith("song-pending-1");
+        expect(listener).toHaveBeenCalled();
+        unsubscribe();
+      });
+    });
+
+    describe("cancelSongCaching", () => {
+      it("aborts active controller, removes from queue, notifies, and advances queue", async () => {
+        (getSongById as jest.Mock).mockReturnValue({ id: "active-song", suffix: "mp3" });
+        (getSongStreamUrl as jest.Mock).mockReturnValue(new Promise(() => {})); // Hang
+
+        // Start manual cache to register active controller
+        cacheSongManually("active-song");
+        expect(getActiveDownloadSongIds()).toContain("active-song");
+
+        (getNextPendingDownload as jest.Mock).mockReturnValue(null);
+        const result = cancelSongCaching("active-song");
+
+        expect(result).toBe(true);
+        expect(getActiveDownloadSongIds()).not.toContain("active-song");
+        expect(removeFromDownloadQueue).toHaveBeenCalledWith("active-song");
+      });
+    });
+
+    describe("resumeDownloadQueueOnStartup", () => {
+      it("reverts active downloads, deletes leftover partial files, and advances queue", async () => {
+        (revertActiveDownloadsToPending as jest.Mock).mockReturnValue(["stale-active-1"]);
+        (getSongById as jest.Mock).mockReturnValue({ id: "stale-active-1", suffix: "flac" });
+        (getNextPendingDownload as jest.Mock).mockReturnValue(null);
+
+        mockFileDelete.mockClear();
+        await resumeDownloadQueueOnStartup();
+
+        expect(revertActiveDownloadsToPending).toHaveBeenCalled();
+        expect(mockFileDelete).toHaveBeenCalled();
+      });
+
+      it("handles cleanup error gracefully", async () => {
+        (revertActiveDownloadsToPending as jest.Mock).mockReturnValue(["stale-active-err"]);
+        (getSongById as jest.Mock).mockImplementation(() => {
+          throw new Error("getSongById error");
+        });
+        (getNextPendingDownload as jest.Mock).mockReturnValue(null);
+
+        await expect(resumeDownloadQueueOnStartup()).resolves.not.toThrow();
+      });
     });
   });
 });

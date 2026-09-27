@@ -7,8 +7,9 @@ import { getCoverArtBaseUrl } from "@/services/api";
 import { getSongById, getSongsByIds } from "@/services/db";
 import {
   cancelSongCaching,
-  getActiveDownloadSongIds,
-  subscribeSongCache,
+  dequeuePendingSong,
+  getDownloadQueueState,
+  subscribeCacheQueue,
   subscribeSongCacheProgress,
 } from "@/services/songCache";
 import { Child } from "@/types";
@@ -16,9 +17,13 @@ import { Child } from "@/types";
 let progressCallback:
   | ((event: { songId: string; progress: number }) => void)
   | null = null;
-let cacheCallback:
-  | ((event: { songId: string; entry: any }) => void)
+let queueCallback:
+  | ((state: { pending: string[]; active: string | null }) => void)
   | null = null;
+let mockQueueState: { pending: string[]; active: string | null } = {
+  pending: [],
+  active: null,
+};
 
 const mockBack = jest.fn();
 jest.mock("expo-router", () => ({
@@ -47,18 +52,19 @@ jest.mock("@/services/db", () => ({
 }));
 
 jest.mock("@/services/songCache", () => ({
-  getActiveDownloadSongIds: jest.fn(),
   cancelSongCaching: jest.fn(),
+  dequeuePendingSong: jest.fn(),
+  getDownloadQueueState: jest.fn(() => mockQueueState),
+  subscribeCacheQueue: jest.fn((fn) => {
+    queueCallback = fn;
+    return () => {
+      queueCallback = null;
+    };
+  }),
   subscribeSongCacheProgress: jest.fn((fn) => {
     progressCallback = fn;
     return () => {
       progressCallback = null;
-    };
-  }),
-  subscribeSongCache: jest.fn((fn) => {
-    cacheCallback = fn;
-    return () => {
-      cacheCallback = null;
     };
   }),
 }));
@@ -72,8 +78,8 @@ const mockSongs: Child[] = [
     coverArt: "art-1",
   },
   {
-    id: "active-2",
-    title: "downloading song 2",
+    id: "pending-1",
+    title: "pending song 1",
     artist: "artist 2",
     album: "album 2",
     coverArt: "art-2",
@@ -93,15 +99,17 @@ describe("DownloadQueueScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     progressCallback = null;
-    cacheCallback = null;
+    queueCallback = null;
+    mockQueueState = { pending: [], active: null };
+    (getDownloadQueueState as jest.Mock).mockImplementation(() => mockQueueState);
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
     (getCoverArtBaseUrl as jest.Mock).mockResolvedValue(
       (id?: string | null) => (id ? `https://art/${id}` : null),
     );
   });
 
-  it("renders empty state when no active downloads", () => {
-    (getActiveDownloadSongIds as jest.Mock).mockReturnValue([]);
+  it("renders empty state when no active downloads and no pending songs", () => {
+    mockQueueState = { pending: [], active: null };
     (getSongsByIds as jest.Mock).mockReturnValue([]);
 
     let component: any;
@@ -111,6 +119,7 @@ describe("DownloadQueueScreen", () => {
 
     const texts = getAllTexts(component);
     expect(texts).toContain("download queue");
+    expect(texts).toContain("0 songs in queue");
     expect(texts).toContain("no downloads in progress");
 
     renderer.act(() => {
@@ -118,12 +127,9 @@ describe("DownloadQueueScreen", () => {
     });
   });
 
-  it("renders active downloads and updates progress live", () => {
-    (getActiveDownloadSongIds as jest.Mock).mockReturnValue([
-      "active-1",
-      "active-2",
-    ]);
-    (getSongsByIds as jest.Mock).mockReturnValue(mockSongs);
+  it("renders active download and updates progress live", () => {
+    mockQueueState = { active: "active-1", pending: [] };
+    (getSongsByIds as jest.Mock).mockReturnValue([mockSongs[0]]);
 
     let component: any;
     renderer.act(() => {
@@ -132,7 +138,7 @@ describe("DownloadQueueScreen", () => {
 
     let texts = getAllTexts(component);
     expect(texts).toContain("downloading song 1");
-    expect(texts).toContain("downloading song 2");
+    expect(texts).toContain("1 song in queue");
 
     // Send progress event for active-1
     renderer.act(() => {
@@ -147,61 +153,39 @@ describe("DownloadQueueScreen", () => {
     });
   });
 
-  it("adds newly started download when progress event arrives for unlisted ID", () => {
-    (getActiveDownloadSongIds as jest.Mock).mockReturnValue(["active-1"]);
-    (getSongsByIds as jest.Mock).mockReturnValue([mockSongs[0]]);
-    (getSongById as jest.Mock).mockReturnValue(mockSongs[1]);
+  it("renders pending downloads and instantly dequeues on remove press without alert", () => {
+    mockQueueState = { active: "active-1", pending: ["pending-1"] };
+    (getSongsByIds as jest.Mock).mockReturnValue(mockSongs);
 
     let component: any;
     renderer.act(() => {
       component = renderer.create(<DownloadQueueScreen />);
     });
 
-    let texts = getAllTexts(component);
+    const texts = getAllTexts(component);
     expect(texts).toContain("downloading song 1");
-    expect(texts).not.toContain("downloading song 2");
+    expect(texts).toContain("pending song 1");
 
-    // active-2 starts downloading
-    renderer.act(() => {
-      progressCallback?.({ songId: "active-2", progress: 0.1 });
+    // Find the remove button for the pending song
+    const removeButton = component.root.findByProps({
+      accessibilityLabel: "remove from queue",
     });
 
-    texts = getAllTexts(component);
-    expect(texts).toContain("downloading song 2");
+    renderer.act(() => {
+      removeButton.props.onPress();
+    });
+
+    // Should call dequeuePendingSong without prompting Alert
+    expect(dequeuePendingSong).toHaveBeenCalledWith("pending-1");
+    expect(Alert.alert).not.toHaveBeenCalled();
 
     renderer.act(() => {
       component.unmount();
     });
   });
 
-  it("removes song from queue when cache event fires (completed or cancelled)", () => {
-    (getActiveDownloadSongIds as jest.Mock).mockReturnValue(["active-1"]);
-    (getSongsByIds as jest.Mock).mockReturnValue([mockSongs[0]]);
-
-    let component: any;
-    renderer.act(() => {
-      component = renderer.create(<DownloadQueueScreen />);
-    });
-
-    let texts = getAllTexts(component);
-    expect(texts).toContain("downloading song 1");
-
-    // Cache event fires indicating completion
-    renderer.act(() => {
-      cacheCallback?.({ songId: "active-1", entry: {} as any });
-    });
-
-    texts = getAllTexts(component);
-    expect(texts).not.toContain("downloading song 1");
-    expect(texts).toContain("no downloads in progress");
-
-    renderer.act(() => {
-      component.unmount();
-    });
-  });
-
-  it("prompts confirmation to cancel download when pressed", () => {
-    (getActiveDownloadSongIds as jest.Mock).mockReturnValue(["active-1"]);
+  it("prompts confirmation to cancel active download when pressed", () => {
+    mockQueueState = { active: "active-1", pending: [] };
     (getSongsByIds as jest.Mock).mockReturnValue([mockSongs[0]]);
 
     let component: any;
@@ -236,4 +220,68 @@ describe("DownloadQueueScreen", () => {
       component.unmount();
     });
   });
+
+  it("updates rendered list when subscribeCacheQueue callback fires", () => {
+    mockQueueState = { active: null, pending: [] };
+    (getSongsByIds as jest.Mock).mockReturnValue([]);
+
+    let component: any;
+    renderer.act(() => {
+      component = renderer.create(<DownloadQueueScreen />);
+    });
+
+    let texts = getAllTexts(component);
+    expect(texts).toContain("no downloads in progress");
+
+    // New queue state arrives with active song
+    (getSongsByIds as jest.Mock).mockReturnValue([mockSongs[0]]);
+    renderer.act(() => {
+      queueCallback?.({ active: "active-1", pending: [] });
+    });
+
+    texts = getAllTexts(component);
+    expect(texts).toContain("downloading song 1");
+    expect(texts).not.toContain("no downloads in progress");
+
+    renderer.act(() => {
+      component.unmount();
+    });
+  });
+
+  it("displays accurate counter and breakdown for active and pending downloads", () => {
+    mockQueueState = { active: "active-1", pending: ["pending-1"] };
+    (getSongsByIds as jest.Mock).mockReturnValue(mockSongs);
+
+    let component: any;
+    renderer.act(() => {
+      component = renderer.create(<DownloadQueueScreen />);
+    });
+
+    let texts = getAllTexts(component);
+    expect(texts).toContain("2 songs in queue");
+    expect(texts).toContain("1 downloading • 1 queued");
+
+    // Queue updates to 1 song only (pending dequeued or finished)
+    renderer.act(() => {
+      queueCallback?.({ active: "active-1", pending: [] });
+    });
+
+    texts = getAllTexts(component);
+    expect(texts).toContain("1 song in queue");
+    expect(texts).not.toContain("2 songs in queue");
+
+    // All downloads completed
+    renderer.act(() => {
+      queueCallback?.({ active: null, pending: [] });
+    });
+
+    texts = getAllTexts(component);
+    expect(texts).toContain("0 songs in queue");
+    expect(texts).toContain("no downloads in progress");
+
+    renderer.act(() => {
+      component.unmount();
+    });
+  });
 });
+

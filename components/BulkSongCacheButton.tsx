@@ -1,13 +1,16 @@
-import { useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, StyleProp, ViewStyle } from "react-native";
 import { Button } from "react-native-paper";
 
 import {
-  cacheSongManually,
   cancelSongCaching,
   deleteSongFromCache,
+  dequeuePendingSong,
+  enqueueSongsForManualCache,
+  getDownloadQueueState,
+  subscribeCacheQueue,
 } from "@/services/songCache";
-import { SongCacheRow, SongCacheType, useAppTheme } from "@/types";
+import { DownloadQueueState, SongCacheRow, SongCacheType, useAppTheme } from "@/types";
 
 export interface BulkSongCacheButtonProps {
   songIds: string[];
@@ -22,15 +25,20 @@ export function BulkSongCacheButton({
 }: BulkSongCacheButtonProps) {
   const theme = useAppTheme();
 
-  const [isRunning, setIsRunning] = useState(false);
-  const [, setCurrentDownloadingId] = useState<string | null>(null);
-  const currentDownloadingIdRef = useRef<string | null>(null);
-  const stopRequestedRef = useRef(false);
+  const [queueState, setQueueState] = useState<DownloadQueueState>(() => {
+    try {
+      return getDownloadQueueState();
+    } catch {
+      return { pending: [], active: null };
+    }
+  });
 
-  const updateCurrentDownloadingId = (id: string | null) => {
-    currentDownloadingIdRef.current = id;
-    setCurrentDownloadingId(id);
-  };
+  useEffect(() => {
+    const unsubscribe = subscribeCacheQueue((state) => {
+      setQueueState(state);
+    });
+    return unsubscribe;
+  }, []);
 
   const totalCount = songIds.length;
   const manualCount = songIds.filter(
@@ -39,13 +47,22 @@ export function BulkSongCacheButton({
   const allUncached = songIds.every((id) => !cacheEntries.has(id));
   const fullyManual = totalCount > 0 && manualCount === totalCount;
 
+  const isThisButtonActive =
+    queueState.active !== null && songIds.includes(queueState.active);
+  const pendingThisButtonCount = songIds.filter((id) =>
+    queueState.pending.includes(id),
+  ).length;
+  const isInQueue = isThisButtonActive || pendingThisButtonCount > 0;
+
   if (totalCount === 0) {
     return null;
   }
 
   let label: string;
-  if (isRunning) {
+  if (isThisButtonActive) {
     label = `downloading... (${manualCount}/${totalCount})`;
+  } else if (pendingThisButtonCount > 0) {
+    label = "queued";
   } else if (fullyManual) {
     label = "available offline";
   } else if (allUncached) {
@@ -89,40 +106,18 @@ export function BulkSongCacheButton({
           text: "yes",
           style: "destructive",
           onPress: () => {
-            stopRequestedRef.current = true;
-            if (currentDownloadingIdRef.current) {
-              cancelSongCaching(currentDownloadingIdRef.current);
+            if (queueState.active && songIds.includes(queueState.active)) {
+              cancelSongCaching(queueState.active);
+            }
+            for (const id of songIds) {
+              if (queueState.pending.includes(id)) {
+                dequeuePendingSong(id);
+              }
             }
           },
         },
       ],
     );
-  };
-
-  const startBulkDownload = async () => {
-    setIsRunning(true);
-    stopRequestedRef.current = false;
-
-    const workList = songIds.filter(
-      (id) => cacheEntries.get(id)?.cacheType !== SongCacheType.Manual,
-    );
-
-    for (const songId of workList) {
-      if (stopRequestedRef.current) {
-        break;
-      }
-      updateCurrentDownloadingId(songId);
-      try {
-        await cacheSongManually(songId);
-      } catch {
-        if (stopRequestedRef.current) {
-          break;
-        }
-      }
-    }
-
-    setIsRunning(false);
-    updateCurrentDownloadingId(null);
   };
 
   const handlePress = () => {
@@ -131,15 +126,15 @@ export function BulkSongCacheButton({
       return;
     }
 
-    if (isRunning) {
+    if (isInQueue) {
       confirmStopDownloading();
       return;
     }
 
-    startBulkDownload();
+    enqueueSongsForManualCache(songIds);
   };
 
-  const icon = isRunning
+  const icon = isInQueue
     ? "download"
     : fullyManual
       ? "check-circle"

@@ -3,8 +3,8 @@ import { useState } from "react";
 import { Alert, ScrollView, View } from "react-native";
 import { Button, Surface, Switch, Text, TextInput } from "react-native-paper";
 
-import { logout } from "@/services/api";
 import { exportBackupToFile } from "@/services/backup";
+import { logout } from "@/services/session";
 import {
   getAutoCacheCount,
   getAutoCacheEnabled,

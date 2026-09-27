@@ -4,22 +4,43 @@ import { Button } from "react-native-paper";
 import renderer from "react-test-renderer";
 
 import { BulkSongCacheButton } from "@/components/BulkSongCacheButton";
-import {
-  cacheSongManually,
-  cancelSongCaching,
-  deleteSongFromCache,
-} from "@/services/songCache";
-import { SongCacheRow, SongCacheType } from "@/types";
+
+let queueCallback: ((state: any) => void) | null = null;
+let mockQueueState: { pending: string[]; active: string | null } = {
+  pending: [],
+  active: null,
+};
 
 jest.mock("@/services/songCache", () => ({
-  cacheSongManually: jest.fn(),
   cancelSongCaching: jest.fn(),
   deleteSongFromCache: jest.fn(),
+  dequeuePendingSong: jest.fn(),
+  enqueueSongsForManualCache: jest.fn(),
+  getDownloadQueueState: jest.fn(() => mockQueueState),
+  subscribeCacheQueue: jest.fn((fn) => {
+    queueCallback = fn;
+    return () => {
+      queueCallback = null;
+    };
+  }),
 }));
+
+import {
+  cancelSongCaching,
+  deleteSongFromCache,
+  dequeuePendingSong,
+  enqueueSongsForManualCache,
+  getDownloadQueueState,
+  subscribeCacheQueue,
+} from "@/services/songCache";
+import { SongCacheRow, SongCacheType } from "@/types";
 
 describe("BulkSongCacheButton", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    queueCallback = null;
+    mockQueueState = { pending: [], active: null };
+    (getDownloadQueueState as jest.Mock).mockImplementation(() => mockQueueState);
     jest.spyOn(Alert, "alert").mockImplementation(() => {});
   });
 
@@ -37,7 +58,7 @@ describe("BulkSongCacheButton", () => {
     });
   });
 
-  it("renders 'make available offline' when all songs are uncached", () => {
+  it("renders 'make available offline' when all songs are uncached and idle", () => {
     const songIds = ["song-1", "song-2", "song-3"];
     const cacheEntries = new Map<string, SongCacheRow>();
 
@@ -57,7 +78,7 @@ describe("BulkSongCacheButton", () => {
     });
   });
 
-  it("renders 'make available offline (X/Y)' when partially cached", () => {
+  it("renders 'make available offline (X/Y)' when partially cached and idle", () => {
     const songIds = ["song-1", "song-2", "song-3"];
     const cacheEntries = new Map<string, SongCacheRow>();
     cacheEntries.set("song-1", {
@@ -176,26 +197,9 @@ describe("BulkSongCacheButton", () => {
     });
   });
 
-  it("sequentially caches uncached and auto-cached songs on press", async () => {
+  it("calls enqueueSongsForManualCache when tapped while idle", async () => {
     const songIds = ["song-1", "song-2", "song-3"];
     const cacheEntries = new Map<string, SongCacheRow>();
-    // song-1 is already manual, song-2 is auto, song-3 is uncached
-    cacheEntries.set("song-1", {
-      songId: "song-1",
-      cacheType: SongCacheType.Manual,
-      filePath: "/path/1",
-      fileSizeBytes: 100,
-      addedAt: "2026-01-01",
-      lastAccessedAt: null,
-    });
-    cacheEntries.set("song-2", {
-      songId: "song-2",
-      cacheType: SongCacheType.Auto,
-      filePath: "/path/2",
-      fileSizeBytes: 200,
-      addedAt: "2026-01-01",
-      lastAccessedAt: null,
-    });
 
     let component: any;
     renderer.act(() => {
@@ -205,33 +209,24 @@ describe("BulkSongCacheButton", () => {
     });
 
     const button = component.root.findByType(Button);
-    await renderer.act(async () => {
-      await button.props.onPress();
+    renderer.act(() => {
+      button.props.onPress();
     });
 
-    // song-1 was already manual so not called; song-2 and song-3 should be cached
-    expect(cacheSongManually).not.toHaveBeenCalledWith("song-1");
-    expect(cacheSongManually).toHaveBeenCalledWith("song-2");
-    expect(cacheSongManually).toHaveBeenCalledWith("song-3");
+    expect(enqueueSongsForManualCache).toHaveBeenCalledWith(songIds);
 
     renderer.act(() => {
       component.unmount();
     });
   });
 
-  it("stops downloading when user confirms stop prompt while running", async () => {
+  it("displays downloading state and prompts stop confirmation when active", async () => {
     const songIds = ["song-1", "song-2", "song-3"];
     const cacheEntries = new Map<string, SongCacheRow>();
-
-    let resolveSong1: () => void;
-    (cacheSongManually as jest.Mock).mockImplementation((id: string) => {
-      if (id === "song-1") {
-        return new Promise<void>((resolve) => {
-          resolveSong1 = resolve;
-        });
-      }
-      return Promise.resolve();
-    });
+    mockQueueState = {
+      active: "song-1",
+      pending: ["song-2", "song-3"],
+    };
 
     let component: any;
     renderer.act(() => {
@@ -240,19 +235,10 @@ describe("BulkSongCacheButton", () => {
       );
     });
 
+    const json = JSON.stringify(component.toJSON());
+    expect(json).toContain("downloading... (0/3)");
+
     const button = component.root.findByType(Button);
-
-    // Start download (song-1 will hang until resolveSong1)
-    let runPromise: Promise<void>;
-    renderer.act(() => {
-      runPromise = button.props.onPress();
-    });
-
-    // Button should now be in downloading state
-    const jsonWhileRunning = JSON.stringify(component.toJSON());
-    expect(jsonWhileRunning).toContain("downloading... (0/3)");
-
-    // Press while running -> triggers stop confirmation alert
     renderer.act(() => {
       button.props.onPress();
     });
@@ -263,7 +249,6 @@ describe("BulkSongCacheButton", () => {
       expect.any(Array),
     );
 
-    // Confirm stop
     const alertCalls = (Alert.alert as jest.Mock).mock.calls;
     const confirmStop = alertCalls[0][2].find((b: any) => b.text === "yes");
     renderer.act(() => {
@@ -271,16 +256,31 @@ describe("BulkSongCacheButton", () => {
     });
 
     expect(cancelSongCaching).toHaveBeenCalledWith("song-1");
+    expect(dequeuePendingSong).toHaveBeenCalledWith("song-2");
+    expect(dequeuePendingSong).toHaveBeenCalledWith("song-3");
 
-    // Resolve song-1 so the loop can finish
-    await renderer.act(async () => {
-      resolveSong1();
-      await runPromise;
+    renderer.act(() => {
+      component.unmount();
+    });
+  });
+
+  it("displays 'queued' when songs are pending and none active for this button", () => {
+    const songIds = ["song-1", "song-2"];
+    const cacheEntries = new Map<string, SongCacheRow>();
+    mockQueueState = {
+      active: "other-song",
+      pending: ["song-1", "song-2"],
+    };
+
+    let component: any;
+    renderer.act(() => {
+      component = renderer.create(
+        <BulkSongCacheButton songIds={songIds} cacheEntries={cacheEntries} />,
+      );
     });
 
-    // song-2 and song-3 should never be called because stop was requested
-    expect(cacheSongManually).not.toHaveBeenCalledWith("song-2");
-    expect(cacheSongManually).not.toHaveBeenCalledWith("song-3");
+    const json = JSON.stringify(component.toJSON());
+    expect(json).toContain("queued");
 
     renderer.act(() => {
       component.unmount();

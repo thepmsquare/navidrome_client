@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 
-import { logout, notifyAuthState, subscribeAuthState } from "@/services/api";
+import { notifyAuthState, subscribeAuthState } from "@/services/api";
+import { logout } from "@/services/session";
 import { clearDatabase } from "@/services/db";
 import { resetPlayer } from "@/services/player";
 import { clearAllCachedSongs } from "@/services/songCache";

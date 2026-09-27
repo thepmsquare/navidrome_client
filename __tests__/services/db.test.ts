@@ -34,6 +34,12 @@ import {
   deleteAutoSongCacheEntries,
   getAutoCacheSongIds,
   getAutoCacheCount,
+  enqueuePendingDownload,
+  getNextPendingDownload,
+  markDownloadActive,
+  removeFromDownloadQueue,
+  getDownloadQueueState,
+  revertActiveDownloadsToPending,
 } from "@/services/db";
 import { AlbumID3, ArtistID3, Child, Playlist, SongCacheType } from "@/types";
 
@@ -748,6 +754,85 @@ describe("db service", () => {
         "SELECT COUNT(*) AS count FROM song_cache WHERE cacheType = 'auto'",
       );
       expect(count).toBe(5);
+    });
+  });
+
+  describe("download_queue", () => {
+    it("enqueuePendingDownload should insert row with pending status and timestamp", () => {
+      enqueuePendingDownload("song-123");
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "INSERT OR IGNORE INTO download_queue (songId, status, createdAt) VALUES (?, 'pending', ?)",
+        ["song-123", expect.any(String)],
+      );
+    });
+
+    it("getNextPendingDownload should query next pending song by rowid", () => {
+      mockGetFirstSync.mockReturnValue({ songId: "song-123" });
+      const nextId = getNextPendingDownload();
+      expect(mockGetFirstSync).toHaveBeenCalledWith(
+        "SELECT songId FROM download_queue WHERE status = 'pending' ORDER BY rowid ASC LIMIT 1",
+      );
+      expect(nextId).toBe("song-123");
+    });
+
+    it("getNextPendingDownload should return null when queue is empty", () => {
+      mockGetFirstSync.mockReturnValue(null);
+      const nextId = getNextPendingDownload();
+      expect(nextId).toBeNull();
+    });
+
+    it("markDownloadActive should update status to active", () => {
+      markDownloadActive("song-123");
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "UPDATE download_queue SET status = 'active' WHERE songId = ?",
+        ["song-123"],
+      );
+    });
+
+    it("removeFromDownloadQueue should delete song from queue", () => {
+      removeFromDownloadQueue("song-123");
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "DELETE FROM download_queue WHERE songId = ?",
+        ["song-123"],
+      );
+    });
+
+    it("getDownloadQueueState should partition rows into pending and active", () => {
+      mockGetAllSync.mockReturnValue([
+        { songId: "song-1", status: "active" },
+        { songId: "song-2", status: "pending" },
+        { songId: "song-3", status: "pending" },
+      ]);
+      const state = getDownloadQueueState();
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        "SELECT songId, status FROM download_queue ORDER BY rowid ASC",
+      );
+      expect(state).toEqual({
+        active: "song-1",
+        pending: ["song-2", "song-3"],
+      });
+    });
+
+    it("revertActiveDownloadsToPending should query active downloads then update to pending", () => {
+      mockGetAllSync.mockReturnValue([
+        { songId: "song-active-1" },
+        { songId: "song-active-2" },
+      ]);
+      const reverted = revertActiveDownloadsToPending();
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        "SELECT songId FROM download_queue WHERE status = 'active'",
+      );
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "UPDATE download_queue SET status = 'pending' WHERE status = 'active'",
+      );
+      expect(reverted).toEqual(["song-active-1", "song-active-2"]);
+    });
+
+    it("revertActiveDownloadsToPending should not run update if no active rows exist", () => {
+      mockGetAllSync.mockReturnValue([]);
+      const reverted = revertActiveDownloadsToPending();
+      expect(mockRunSync).not.toHaveBeenCalled();
+      expect(reverted).toEqual([]);
     });
   });
 });
