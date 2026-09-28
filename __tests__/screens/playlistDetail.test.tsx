@@ -156,4 +156,32 @@ describe("PlaylistDetailScreen", () => {
       component.unmount();
     });
   });
+
+  it("triggers refresh when pulled down", async () => {
+    (getPlaylistById as jest.Mock).mockReturnValue(mockPlaylist);
+    (getPlaylist as jest.Mock).mockResolvedValue({
+      ...mockPlaylist,
+      entry: mockSongs,
+    });
+
+    let component: any;
+    await renderer.act(async () => {
+      component = renderer.create(<PlaylistDetailScreen />);
+    });
+
+    const { RefreshControl } = require("react-native");
+    const refreshControl = component.root.findByType(RefreshControl);
+    expect(refreshControl).toBeDefined();
+    expect(refreshControl.props.refreshing).toBe(false);
+
+    await renderer.act(async () => {
+      refreshControl.props.onRefresh();
+    });
+
+    expect(getPlaylist).toHaveBeenCalledTimes(2);
+
+    renderer.act(() => {
+      component.unmount();
+    });
+  });
 });

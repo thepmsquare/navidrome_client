@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { FlatList, View } from "react-native";
+import { FlatList, RefreshControl, View } from "react-native";
 import {
   ActivityIndicator,
   Appbar,
@@ -37,6 +37,7 @@ export default function PlaylistDetailScreen() {
   );
   const [songs, setSongs] = useState<Child[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [cacheEntries, setCacheEntries] = useState<Map<string, SongCacheRow>>(() =>
     getAllSongCacheEntries(),
   );
@@ -64,6 +65,22 @@ export default function PlaylistDetailScreen() {
     });
     return unsubscribe;
   }, []);
+
+  const onRefresh = useCallback(() => {
+    if (!id) return;
+    setRefreshing(true);
+    getPlaylist(id)
+      .then((fullPlaylist) => {
+        setPlaylist(fullPlaylist);
+        setSongs(fullPlaylist.entry ?? []);
+      })
+      .catch((err) => {
+        console.error("failed to refresh playlist details:", err);
+      })
+      .finally(() => {
+        setRefreshing(false);
+      });
+  }, [id]);
 
   useEffect(() => {
     getCoverArtBaseUrl()
@@ -113,6 +130,15 @@ export default function PlaylistDetailScreen() {
         data={songs}
         keyExtractor={(item, index) => `${item.id}-${index}`}
         contentContainerStyle={playlistDetailStyles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+            progressBackgroundColor={theme.colors.surfaceContainerHighest}
+          />
+        }
         ListHeaderComponent={
           playlist ? (
             <View style={playlistDetailStyles.playlistInfoContainer}>
