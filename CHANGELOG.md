@@ -1,5 +1,9 @@
 # changelog
 
+## 2.17.0+47 (in progress)
+
+- add swipe to refresh in playlist details page.
+
 ## 2.16.1+46
 
 - techincal changes
