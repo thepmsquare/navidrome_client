@@ -50,6 +50,11 @@ import {
   getCachedSongPlaybackUri,
   subscribeSongCache,
 } from "@/services/songCache";
+import {
+  handlePlaybackStopped,
+  handleTrackEnded,
+  registerPauseExecutor,
+} from "@/services/sleepTimer";
 import { Child } from "@/types";
 
 export interface ActiveTrackInfo {
@@ -393,6 +398,9 @@ function ensureListenersInitialized(): void {
     checkAndScrobble(true).catch((err) => {
       console.error("failed track-ended scrobble check:", err);
     });
+    if (handleTrackEnded()) {
+      return;
+    }
     playNext();
   });
 
@@ -555,6 +563,8 @@ export async function playNext(): Promise<void> {
     await playTrackAtIndex(currentIndex + 1);
   } else if (currentRepeatMode === "all" && currentQueue.length > 0) {
     await playTrackAtIndex(0);
+  } else {
+    handlePlaybackStopped();
   }
 }
 
@@ -591,6 +601,8 @@ export async function pausePlayback(): Promise<void> {
   persistCurrentSession();
 }
 
+registerPauseExecutor(pausePlayback);
+
 export async function resumePlayback(): Promise<void> {
   if (currentTrack && activePlaybackTrackId !== currentTrack.id) {
     const resumePosition = lastPlaybackStatus.position;
@@ -617,6 +629,7 @@ export async function togglePlayback(): Promise<void> {
 }
 
 export async function stopPlayback(): Promise<void> {
+  handlePlaybackStopped();
   await stop();
   activePlaybackTrackId = null;
   currentTrack = null;
@@ -624,6 +637,7 @@ export async function stopPlayback(): Promise<void> {
 }
 
 export async function resetPlayer(): Promise<void> {
+  handlePlaybackStopped();
   try {
     await stop();
   } catch (error) {
