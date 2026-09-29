@@ -75,6 +75,6 @@ const styles = {
         position: 'absolute',
         top: 20,
         right: 20,
-        zIndex: 1; // Ensure it's clickable over the image
+        zIndex: 1 // Ensure it's clickable over the image
     }
 };
