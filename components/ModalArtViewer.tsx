@@ -31,7 +31,7 @@ export const ModalArtViewer = ({ isVisible, artUrl, onClose }: ModalArtViewerPro
                 <Image
                     source={{ uri: artUrl }}
                     style={styles.image}
-                    contentFit="cover"
+                    resizeMode="cover" // Fixed contentFit to resizeMode
                 />
                 {/* Close button overlay */}
                 <IconButton
@@ -49,7 +49,8 @@ export const ModalArtViewer = ({ isVisible, artUrl, onClose }: ModalArtViewerPro
 // Basic styling for modal components
 const styles = StyleSheet.create({
     overlay: {
-        ...StyleSheet.absoluteFillObject, // Using absoluteFillObject is generally fine if RN/Expo supports it globally, but I'll keep the structure as per original intent while fixing syntax errors.
+        position: 'absolute', // Fixed absoluteFillObject usage
+        top: 0, left: 0, right: 0, bottom: 0, // Ensures full coverage
         justifyContent: 'center',
         alignItems: 'center',
         zIndex: 1000, // Ensure it's above everything else
