@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { GestureResponderEvent, Pressable, View, Dimensions } from "react-native";
+import { GestureResponderEvent, Pressable, View } from "react-native";
 import {
   ActivityIndicator,
   Avatar,
@@ -113,15 +113,7 @@ export default function PlayerScreen() {
     return Math.min(Math.max(position / duration, 0), 1);
   }, [position, duration]);
 
-  const handleSeek = (event: GestureResponderEvent) => {
-    if (!duration || duration <= 0 || !progressBarWidth) return;
-    const touchX = event.nativeEvent.locationX;
-    const percentage = Math.min(Math.max(touchX / progressBarWidth, 0), 1);
-    const targetSeconds = percentage * duration;
-    seekToPosition(targetSeconds).catch((err) =>
-      console.error("failed to seek position:", err),
-    );
-  };
+  // Removed handleSeek function as it was unused
 
   // Handler for clicking the album art
   const handleArtPress = () => {
