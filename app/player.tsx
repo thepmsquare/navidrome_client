@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { GestureResponderEvent, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 import {
   ActivityIndicator,
   Avatar,
@@ -9,9 +9,11 @@ import {
   ProgressBar,
   Snackbar,
   Surface,
-  Text,
+  Text
 } from "react-native-paper";
 
+// Import the new component
+import { ModalArtViewer } from "@/components/ModalArtViewer";
 import { SleepTimerModal } from "@/components/SleepTimerModal";
 import { SongCacheButton } from "@/components/SongCacheButton";
 import { SongSaveButton } from "@/components/SongSaveButton";
@@ -20,17 +22,14 @@ import {
   cycleRepeatMode,
   playNext,
   playPrevious,
-  seekToPosition,
   setRatingCurrentTrack,
   togglePlayback,
   toggleStarCurrentTrack,
-  usePlayerState,
+  usePlayerState
 } from "@/services/player";
 import { useSleepTimer } from "@/services/sleepTimer";
 import { playerStyles } from "@/stylesheets";
 import { useAppTheme } from "@/types";
-// Import the new component
-import { ModalArtViewer } from "@/components/ModalArtViewer";
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds) || seconds < 0) return "0:00";
@@ -46,7 +45,7 @@ export default function PlayerScreen() {
   const playerState = usePlayerState();
   const sleepTimerState = useSleepTimer();
   const [sleepTimerModalVisible, setSleepTimerModalVisible] = useState(false);
-  const [progressBarWidth, setProgressBarWidth] = useState<number>(0);
+  const [, setProgressBarWidth] = useState<number>(0);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [getArtUrl, setGetArtUrl] = useState<
@@ -65,7 +64,10 @@ export default function PlayerScreen() {
     getCoverArtBaseUrl(600)
       .then((fn) => setGetArtUrl(() => fn))
       .catch((err) =>
-        console.error("failed to get cover art url helper in player screen:", err),
+        console.error(
+          "failed to get cover art url helper in player screen:",
+          err,
+        ),
       );
   }, []);
 
@@ -87,7 +89,9 @@ export default function PlayerScreen() {
   const handleToggleStar = async () => {
     try {
       const nowStarred = await toggleStarCurrentTrack();
-      showSnackbar(nowStarred ? "added to favorites" : "removed from favorites");
+      showSnackbar(
+        nowStarred ? "added to favorites" : "removed from favorites",
+      );
     } catch {
       showSnackbar("failed to update favorite");
     }
@@ -126,12 +130,12 @@ export default function PlayerScreen() {
       } else {
         // Fallback if URL helper isn't ready yet
         console.warn("getArtUrl is not available yet.");
-        setArtUrlForModal(null); 
+        setArtUrlForModal(null);
         setIsArtModalVisible(true);
       }
     } else {
       // Handle case where no art is available (e.g., show default placeholder)
-      setArtUrlForModal(null); 
+      setArtUrlForModal(null);
       setIsArtModalVisible(true); // Still open the modal, but it will show a fallback/placeholder
     }
   };
@@ -144,9 +148,7 @@ export default function PlayerScreen() {
         : "repeat-off";
 
   const repeatColor =
-    repeatMode === "off"
-      ? theme.colors.outline
-      : theme.colors.primary;
+    repeatMode === "off" ? theme.colors.outline : theme.colors.primary;
 
   const repeatLabel =
     repeatMode === "one"
@@ -173,7 +175,10 @@ export default function PlayerScreen() {
           />
           <Text
             variant="titleMedium"
-            style={[playerStyles.headerTitle, { color: theme.colors.onSurface }]}
+            style={[
+              playerStyles.headerTitle,
+              { color: theme.colors.onSurface },
+            ]}
           >
             now playing
           </Text>
@@ -189,7 +194,10 @@ export default function PlayerScreen() {
           />
           <Text
             variant="bodyLarge"
-            style={[playerStyles.emptyText, { color: theme.colors.onSurfaceVariant }]}
+            style={[
+              playerStyles.emptyText,
+              { color: theme.colors.onSurfaceVariant },
+            ]}
           >
             no track playing
           </Text>
@@ -228,7 +236,10 @@ export default function PlayerScreen() {
         />
         <Text
           variant="titleMedium"
-          style={[playerStyles.headerTitle, { color: theme.colors.onSurfaceVariant }]}
+          style={[
+            playerStyles.headerTitle,
+            { color: theme.colors.onSurfaceVariant },
+          ]}
         >
           now playing
         </Text>
@@ -242,9 +253,7 @@ export default function PlayerScreen() {
                 : theme.colors.outline
             }
             accessibilityLabel={
-              sleepTimerState.isActive
-                ? "sleep timer active"
-                : "sleep timer"
+              sleepTimerState.isActive ? "sleep timer active" : "sleep timer"
             }
             onPress={() => setSleepTimerModalVisible(true)}
           />
@@ -263,7 +272,9 @@ export default function PlayerScreen() {
       </View>
 
       {/* Large Album Artwork (Clickable Area) */}
-      <Pressable onPress={handleArtPress} style={playerStyles.artContainer}> {/* Fixed: Removed functional style callback using currentStyles */}
+      <Pressable onPress={handleArtPress} style={playerStyles.artContainer}>
+        {" "}
+        {/* Fixed: Removed functional style callback using currentStyles */}
         {artUrl ? (
           <Image
             source={{
@@ -331,9 +342,7 @@ export default function PlayerScreen() {
             icon={isStarred ? "heart" : "heart-outline"}
             size={28}
             iconColor={
-              isStarred
-                ? theme.colors.error
-                : theme.colors.onSurfaceVariant
+              isStarred ? theme.colors.error : theme.colors.onSurfaceVariant
             }
             accessibilityLabel={isStarred ? "unstar song" : "star song"}
             style={playerStyles.heartButton}
@@ -363,9 +372,7 @@ export default function PlayerScreen() {
                   icon={isFilled ? "star" : "star-outline"}
                   size={20}
                   iconColor={
-                    isFilled
-                      ? theme.colors.tertiary
-                      : theme.colors.outline
+                    isFilled ? theme.colors.tertiary : theme.colors.outline
                   }
                   accessibilityLabel={`rate ${starVal} star${starVal > 1 ? "s" : ""}`}
                   style={playerStyles.starButton}
@@ -421,13 +428,18 @@ export default function PlayerScreen() {
         </Surface>
       </View>
 
-
       {/* Song Progress and Timestamps */}
       <View style={playerStyles.progressSection}>
         <Pressable
-          onPress={() => { /* Optional: handle press on progress bar area */ }}
-          onPressIn={() => { /* Optional: visual feedback */ }}
-          onPressOut={() => { /* Optional: reset visual feedback */ }}
+          onPress={() => {
+            /* Optional: handle press on progress bar area */
+          }}
+          onPressIn={() => {
+            /* Optional: visual feedback */
+          }}
+          onPressOut={() => {
+            /* Optional: reset visual feedback */
+          }}
           onLayout={(e) => setProgressBarWidth(e.nativeEvent.layout.width)}
           style={playerStyles.progressTouchArea}
           accessibilityLabel="song progress"
@@ -436,9 +448,7 @@ export default function PlayerScreen() {
           <ProgressBar
             progress={progress}
             color={
-              isPlayingFromCache
-                ? theme.colors.tertiary
-                : theme.colors.primary
+              isPlayingFromCache ? theme.colors.tertiary : theme.colors.primary
             }
             style={[
               playerStyles.progressBar,
@@ -502,9 +512,7 @@ export default function PlayerScreen() {
           icon="skip-next"
           size={36}
           iconColor={
-            hasNext
-              ? theme.colors.onSurface
-              : theme.colors.onSurfaceDisabled
+            hasNext ? theme.colors.onSurface : theme.colors.onSurfaceDisabled
           }
           disabled={!hasNext}
           accessibilityLabel="next track"
