@@ -29,6 +29,8 @@ import {
 import { useSleepTimer } from "@/services/sleepTimer";
 import { playerStyles } from "@/stylesheets";
 import { useAppTheme } from "@/types";
+// Import the new component
+import { ModalArtViewer } from "@/components/ModalArtViewer";
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds) || seconds < 0) return "0:00";
@@ -540,82 +542,3 @@ export default function PlayerScreen() {
     </View>
   );
 }
-
-// Component for viewing art in a full-screen modal
-const ModalArtViewer = ({ isVisible, artUrl, onClose }: { 
-    isVisible: boolean; 
-    artUrl: string | null; 
-    onClose: () => void 
-}) => {
-    if (!isVisible || !artUrl) return null;
-
-    return (
-        <ModalOverlay onDismiss={onClose}>
-            <View style={[styles.modalContainer, { backgroundColor: 'black' }]}>
-                <Image
-                    source={{ uri: artUrl }}
-                    style={styles.image}
-                    contentFit="cover"
-                />
-                {/* Close button overlay */}
-                <IconButton
-                    icon="close"
-                    size={30}
-                    iconColor="#FFF"
-                    onPress={onClose}
-                    style={styles.closeButton}
-                />
-            </View>
-        </ModalOverlay>
-    );
-};
-
-// Simple Modal Overlay Component (assuming basic RN/Expo setup)
-const ModalOverlay = ({ children, onDismiss }: { 
-    children: React.ReactNode; 
-    onDismiss: () => void 
-}) => {
-    return (
-        <Pressable style={styles.overlay} onPress={onDismiss}>
-            {/* Prevent accidental clicks on the image itself if it's wrapped */}
-            <View style={styles.innerContent}>{children}</View>
-        </Pressable>
-    );
-};
-
-// Basic styling for modal components (These styles might need adjustment based on actual project stylesheets)
-const styles = {
-    overlay: {
-        ...StyleSheet.absoluteFillObject,
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 1000, // Ensure it's above everything else
-    },
-    innerContent: {
-        width: '100%',
-        height: '100%',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    modalContainer: {
-        flex: 1,
-        width: '100%',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    image: {
-        width: '100%',
-        height: '100%',
-        resizeMode: 'cover',
-    },
-    closeButton: {
-        position: 'absolute',
-        top: 20,
-        right: 20,
-        zIndex: 1; // Ensure it's clickable over the image
-    }
-};
-
-// NOTE: Since I don't have access to StyleSheet or Modal components definitions, 
-// I am assuming standard React Native/Expo usage for these helper components.
-// For this code to run perfectly, you might need to import 'StyleSheet' and potentially use a dedicated Modal component from your UI library if available.
