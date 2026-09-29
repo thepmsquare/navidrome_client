@@ -1,3 +1,14 @@
+/**
+ * @component BulkSongCacheButton
+ * @description A button component that manages bulk song caching (downloading) for a given set of songs.
+ * It handles checking current cache status, initiating downloads, and allowing removal of cached files.
+ *
+ * @param {BulkSongCacheButtonProps} props - The properties for the component.
+ * @param {string} props.sourceKey - A unique key identifying the source of the songs (e.g., 'album:123').
+ * @param {string[]} props.songIds - An array of song IDs to manage caching for.
+ * @param {Map<string, SongCacheRow>} props.cacheEntries - A map containing cache metadata for each song ID.
+ * @param {StyleProp<ViewStyle>} [props.style] - Optional style applied to the button container.
+ */
 import { useEffect, useState } from "react";
 import { Alert, StyleProp, ViewStyle } from "react-native";
 import { Button } from "react-native-paper";
@@ -201,4 +212,3 @@ export function BulkSongCacheButton({
 }
 
 export default BulkSongCacheButton;
-
