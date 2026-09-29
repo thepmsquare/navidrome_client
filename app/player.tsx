@@ -271,7 +271,7 @@ export default function PlayerScreen() {
       </View>
 
       {/* Large Album Artwork (Clickable Area) */}
-      <Pressable onPress={handleArtPress} style={({ currentStyles }) => [playerStyles.artContainer, currentStyles]}>
+      <Pressable onPress={handleArtPress} style={playerStyles.artContainer}> {/* Fixed: Removed functional style callback using currentStyles */}
         {artUrl ? (
           <Image
             source={{
