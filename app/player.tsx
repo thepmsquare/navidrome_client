@@ -126,9 +126,17 @@ export default function PlayerScreen() {
   // Handler for clicking the album art
   const handleArtPress = () => {
     if (currentTrack && currentTrack.coverArt) {
-      const url = getArtUrl(currentTrack.coverArt, 1080); // Use a high resolution for modal view
-      setArtUrlForModal(url);
-      setIsArtModalVisible(true);
+      // Check if getArtUrl is available before calling it
+      if (getArtUrl) {
+        const url = getArtUrl(currentTrack.coverArt, 1080); // Use a high resolution for modal view
+        setArtUrlForModal(url);
+        setIsArtModalVisible(true);
+      } else {
+        // Fallback if URL helper isn't ready yet
+        console.warn("getArtUrl is not available yet.");
+        setArtUrlForModal(null); 
+        setIsArtModalVisible(true);
+      }
     } else {
       // Handle case where no art is available (e.g., show default placeholder)
       setArtUrlForModal(null); 
