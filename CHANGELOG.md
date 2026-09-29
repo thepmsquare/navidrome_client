@@ -1,8 +1,9 @@
 # changelog
 
-## 2.17.0+47 (in progress)
+## 2.17.0+47
 
 - add swipe to refresh in playlist details page.
+- add sleep timer.
 
 ## 2.16.1+46
 

@@ -12,6 +12,7 @@ import {
   Text,
 } from "react-native-paper";
 
+import { SleepTimerModal } from "@/components/SleepTimerModal";
 import { SongCacheButton } from "@/components/SongCacheButton";
 import { SongSaveButton } from "@/components/SongSaveButton";
 import { getCoverArtBaseUrl } from "@/services/api";
@@ -25,6 +26,7 @@ import {
   toggleStarCurrentTrack,
   usePlayerState,
 } from "@/services/player";
+import { useSleepTimer } from "@/services/sleepTimer";
 import { playerStyles } from "@/stylesheets";
 import { useAppTheme } from "@/types";
 
@@ -40,6 +42,8 @@ export default function PlayerScreen() {
   const router = useRouter();
   const theme = useAppTheme();
   const playerState = usePlayerState();
+  const sleepTimerState = useSleepTimer();
+  const [sleepTimerModalVisible, setSleepTimerModalVisible] = useState(false);
   const [progressBarWidth, setProgressBarWidth] = useState<number>(0);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
@@ -210,17 +214,34 @@ export default function PlayerScreen() {
         >
           now playing
         </Text>
-        <IconButton
-          icon={repeatIcon}
-          size={24}
-          iconColor={repeatColor}
-          accessibilityLabel={repeatLabel}
-          onPress={() => {
-            cycleRepeatMode().catch((err) =>
-              console.error("failed to cycle repeat mode:", err),
-            );
-          }}
-        />
+        <View style={playerStyles.headerActions}>
+          <IconButton
+            icon={sleepTimerState.isActive ? "timer" : "timer-outline"}
+            size={24}
+            iconColor={
+              sleepTimerState.isActive
+                ? theme.colors.primary
+                : theme.colors.outline
+            }
+            accessibilityLabel={
+              sleepTimerState.isActive
+                ? "sleep timer active"
+                : "sleep timer"
+            }
+            onPress={() => setSleepTimerModalVisible(true)}
+          />
+          <IconButton
+            icon={repeatIcon}
+            size={24}
+            iconColor={repeatColor}
+            accessibilityLabel={repeatLabel}
+            onPress={() => {
+              cycleRepeatMode().catch((err) =>
+                console.error("failed to cycle repeat mode:", err),
+              );
+            }}
+          />
+        </View>
       </View>
 
       {/* Large Album Artwork */}
@@ -338,6 +359,19 @@ export default function PlayerScreen() {
 
           {/* Quick Utility Actions: Cache, Save & Scrobble Badge */}
           <View style={playerStyles.utilityActions}>
+            {sleepTimerState.isActive && (
+              <Text
+                variant="labelSmall"
+                style={[
+                  playerStyles.timerBadge,
+                  { color: theme.colors.primary },
+                ]}
+              >
+                {sleepTimerState.mode === "end_of_track"
+                  ? "timer: end of song"
+                  : `timer: ${Math.ceil(sleepTimerState.remainingSeconds / 60)}m`}
+              </Text>
+            )}
             {playerState.scrobbled && (
               <Text
                 variant="labelSmall"
@@ -461,6 +495,12 @@ export default function PlayerScreen() {
           }}
         />
       </View>
+
+      <SleepTimerModal
+        visible={sleepTimerModalVisible}
+        onDismiss={() => setSleepTimerModalVisible(false)}
+        onTimerSet={(msg) => showSnackbar(msg)}
+      />
 
       <Snackbar
         visible={snackbarVisible}

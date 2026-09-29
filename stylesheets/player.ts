@@ -22,6 +22,10 @@ export const playerStyles = StyleSheet.create({
   headerSpacer: {
     width: spacing.xxl,
   },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   artContainer: {
     alignItems: "center",
     justifyContent: "center",
@@ -82,6 +86,10 @@ export const playerStyles = StyleSheet.create({
   scrobbledBadge: {
     fontWeight: "600",
     opacity: 0.8,
+  },
+  timerBadge: {
+    fontWeight: "600",
+    opacity: 0.9,
   },
   cacheButtonContainer: {
     marginTop: spacing.sm,

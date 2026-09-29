@@ -63,6 +63,23 @@ jest.mock("@/components/SongSaveButton", () => ({
   SongSaveButton: "SongSaveButton",
 }));
 
+jest.mock("@/services/sleepTimer", () => ({
+  useSleepTimer: jest.fn().mockReturnValue({
+    isActive: false,
+    mode: null,
+    targetTimestamp: null,
+    remainingSeconds: 0,
+  }),
+  setDurationTimer: jest.fn(),
+  setEndOfTrackTimer: jest.fn(),
+  cancelSleepTimer: jest.fn(),
+}));
+
+jest.mock("@/components/SleepTimerModal", () => ({
+  SleepTimerModal: (props: any) =>
+    props.visible ? "SleepTimerModalVisible" : null,
+}));
+
 describe("PlayerScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -268,4 +285,96 @@ describe("PlayerScreen", () => {
     });
     expect(cycleRepeatMode).toHaveBeenCalledTimes(1);
   });
+
+  it("should open sleep timer modal when sleep timer button is pressed", async () => {
+    const { useSleepTimer } = require("@/services/sleepTimer");
+    (usePlayerState as jest.Mock).mockReturnValue({
+      currentTrack: {
+        id: "song-1",
+        title: "Neon Lights",
+        artist: "Kraftwerk",
+        album: "The Man-Machine",
+        coverArt: "art-1",
+        duration: 300,
+        starred: null,
+        userRating: 0,
+      },
+      isPlaying: true,
+      isBuffering: false,
+      position: 60,
+      duration: 300,
+      repeatMode: "off",
+      hasPrevious: false,
+      hasNext: true,
+      isPlayingFromCache: false,
+      scrobbled: false,
+    });
+    (useSleepTimer as jest.Mock).mockReturnValue({
+      isActive: false,
+      mode: null,
+      targetTimestamp: null,
+      remainingSeconds: 0,
+    });
+
+    let root: any;
+    await act(async () => {
+      root = renderer.create(<PlayerScreen />);
+    });
+
+    expect(JSON.stringify(root.toJSON())).not.toContain("SleepTimerModalVisible");
+
+    const timerBtn = root.root.findByProps({ accessibilityLabel: "sleep timer" });
+    expect(timerBtn).toBeDefined();
+
+    await act(async () => {
+      timerBtn.props.onPress();
+    });
+
+    expect(JSON.stringify(root.toJSON())).toContain("SleepTimerModalVisible");
+  });
+
+  it("should show active sleep timer badge and active button accessibility label", async () => {
+    const { useSleepTimer } = require("@/services/sleepTimer");
+    (usePlayerState as jest.Mock).mockReturnValue({
+      currentTrack: {
+        id: "song-1",
+        title: "Neon Lights",
+        artist: "Kraftwerk",
+        album: "The Man-Machine",
+        coverArt: "art-1",
+        duration: 300,
+        starred: null,
+        userRating: 0,
+      },
+      isPlaying: true,
+      isBuffering: false,
+      position: 60,
+      duration: 300,
+      repeatMode: "off",
+      hasPrevious: false,
+      hasNext: true,
+      isPlayingFromCache: false,
+      scrobbled: false,
+    });
+    (useSleepTimer as jest.Mock).mockReturnValue({
+      isActive: true,
+      mode: "duration",
+      targetTimestamp: Date.now() + 900000,
+      remainingSeconds: 900,
+    });
+
+    let root: any;
+    await act(async () => {
+      root = renderer.create(<PlayerScreen />);
+    });
+
+    const activeTimerBtn = root.root.findByProps({
+      accessibilityLabel: "sleep timer active",
+    });
+    expect(activeTimerBtn).toBeDefined();
+
+    const str = JSON.stringify(root.toJSON());
+    expect(str).toContain("timer: 15m");
+  });
 });
+
