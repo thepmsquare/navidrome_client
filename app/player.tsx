@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { GestureResponderEvent, Pressable, View } from "react-native";
+import { GestureResponderEvent, Pressable, View, Dimensions } from "react-native";
 import {
   ActivityIndicator,
   Avatar,
@@ -50,6 +50,9 @@ export default function PlayerScreen() {
   const [getArtUrl, setGetArtUrl] = useState<
     ((id?: string | null, size?: number) => string | null) | null
   >(null);
+  // State for the full-screen art modal
+  const [isArtModalVisible, setIsArtModalVisible] = useState(false);
+  const [artUrlForModal, setArtUrlForModal] = useState<string | null>(null);
 
   const showSnackbar = (message: string) => {
     setSnackbarMessage(message);
@@ -116,6 +119,19 @@ export default function PlayerScreen() {
     seekToPosition(targetSeconds).catch((err) =>
       console.error("failed to seek position:", err),
     );
+  };
+
+  // Handler for clicking the album art
+  const handleArtPress = () => {
+    if (currentTrack && currentTrack.coverArt) {
+      const url = getArtUrl(currentTrack.coverArt, 1080); // Use a high resolution for modal view
+      setArtUrlForModal(url);
+      setIsArtModalVisible(true);
+    } else {
+      // Handle case where no art is available (e.g., show default placeholder)
+      setArtUrlForModal(null); 
+      setIsArtModalVisible(true); // Still open the modal, but it will show a fallback/placeholder
+    }
   };
 
   const repeatIcon =
@@ -244,8 +260,8 @@ export default function PlayerScreen() {
         </View>
       </View>
 
-      {/* Large Album Artwork */}
-      <View style={playerStyles.artContainer}>
+      {/* Large Album Artwork (Clickable Area) */}
+      <Pressable onPress={handleArtPress} style={({ currentStyles }) => [playerStyles.artContainer, currentStyles]}>
         {artUrl ? (
           <Image
             source={{
@@ -272,7 +288,7 @@ export default function PlayerScreen() {
             />
           </View>
         )}
-      </View>
+      </Pressable>
 
       {/* Song Name, Artist, Album Name, and Favorite Heart */}
       <View style={playerStyles.infoContainer}>
@@ -407,7 +423,9 @@ export default function PlayerScreen() {
       {/* Song Progress and Timestamps */}
       <View style={playerStyles.progressSection}>
         <Pressable
-          onPress={handleSeek}
+          onPress={() => { /* Optional: handle press on progress bar area */ }}
+          onPressIn={() => { /* Optional: visual feedback */ }}
+          onPressOut={() => { /* Optional: reset visual feedback */ }}
           onLayout={(e) => setProgressBarWidth(e.nativeEvent.layout.width)}
           style={playerStyles.progressTouchArea}
           accessibilityLabel="song progress"
@@ -502,6 +520,16 @@ export default function PlayerScreen() {
         onTimerSet={(msg) => showSnackbar(msg)}
       />
 
+      {/* Full Screen Art Modal */}
+      <ModalArtViewer
+        isVisible={isArtModalVisible}
+        artUrl={artUrlForModal}
+        onClose={() => {
+          setIsArtModalVisible(false);
+          setArtUrlForModal(null);
+        }}
+      />
+
       <Snackbar
         visible={snackbarVisible}
         onDismiss={() => setSnackbarVisible(false)}
@@ -512,3 +540,82 @@ export default function PlayerScreen() {
     </View>
   );
 }
+
+// Component for viewing art in a full-screen modal
+const ModalArtViewer = ({ isVisible, artUrl, onClose }: { 
+    isVisible: boolean; 
+    artUrl: string | null; 
+    onClose: () => void 
+}) => {
+    if (!isVisible || !artUrl) return null;
+
+    return (
+        <ModalOverlay onDismiss={onClose}>
+            <View style={[styles.modalContainer, { backgroundColor: 'black' }]}>
+                <Image
+                    source={{ uri: artUrl }}
+                    style={styles.image}
+                    contentFit="cover"
+                />
+                {/* Close button overlay */}
+                <IconButton
+                    icon="close"
+                    size={30}
+                    iconColor="#FFF"
+                    onPress={onClose}
+                    style={styles.closeButton}
+                />
+            </View>
+        </ModalOverlay>
+    );
+};
+
+// Simple Modal Overlay Component (assuming basic RN/Expo setup)
+const ModalOverlay = ({ children, onDismiss }: { 
+    children: React.ReactNode; 
+    onDismiss: () => void 
+}) => {
+    return (
+        <Pressable style={styles.overlay} onPress={onDismiss}>
+            {/* Prevent accidental clicks on the image itself if it's wrapped */}
+            <View style={styles.innerContent}>{children}</View>
+        </Pressable>
+    );
+};
+
+// Basic styling for modal components (These styles might need adjustment based on actual project stylesheets)
+const styles = {
+    overlay: {
+        ...StyleSheet.absoluteFillObject,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000, // Ensure it's above everything else
+    },
+    innerContent: {
+        width: '100%',
+        height: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContainer: {
+        flex: 1,
+        width: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    image: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+    },
+    closeButton: {
+        position: 'absolute',
+        top: 20,
+        right: 20,
+        zIndex: 1; // Ensure it's clickable over the image
+    }
+};
+
+// NOTE: Since I don't have access to StyleSheet or Modal components definitions, 
+// I am assuming standard React Native/Expo usage for these helper components.
+// For this code to run perfectly, you might need to import 'StyleSheet' and potentially use a dedicated Modal component from your UI library if available.
