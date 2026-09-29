@@ -1,5 +1,10 @@
 # changelog
 
+## 2.18.0+48
+
+- experimental release.
+- add click to open album art in music player page.
+
 ## 2.17.0+47
 
 - add swipe to refresh in playlist details page.
