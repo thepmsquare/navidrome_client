@@ -1,9 +1,9 @@
 # changelog
 
-## 2.19.0+49 (in progress)
+## 2.19.0+49
 
 - move over sections from homepage to settings page.
-- add most_played albums section on homepage.
+- add most played, recently played albums and random tracks sections on homepage.
 - techincal changes
   - refactor albums page be on root instead of inside library for streamlined navigation.
 

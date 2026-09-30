@@ -3,6 +3,8 @@ import {
   getAlbumById,
   getAllAlbums,
   getMostPlayedAlbums,
+  getRecentlyPlayedAlbums,
+  getRandomSongs,
   getAllArtists,
   getAllPlaylists,
   getAllSongs,
@@ -457,6 +459,26 @@ describe("db service", () => {
       const res = getMostPlayedAlbums(10);
       expect(mockGetAllSync).toHaveBeenCalledWith(
         "SELECT * FROM albums WHERE COALESCE(playCount, 0) > 0 ORDER BY playCount DESC, name COLLATE NOCASE ASC LIMIT ?",
+        [10],
+      );
+      expect(res).toHaveLength(1);
+    });
+
+    it("getRecentlyPlayedAlbums should query albums with played not null ordered by played desc", () => {
+      mockGetAllSync.mockReturnValue([{ id: "alb-1", name: "B", played: "2023-01-01" }]);
+      const res = getRecentlyPlayedAlbums(15);
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        "SELECT * FROM albums WHERE played IS NOT NULL AND TRIM(played) != '' ORDER BY played DESC, name COLLATE NOCASE ASC LIMIT ?",
+        [15],
+      );
+      expect(res).toHaveLength(1);
+    });
+
+    it("getRandomSongs should query songs with random order", () => {
+      mockGetAllSync.mockReturnValue([{ id: "s-1", title: "Random Track" }]);
+      const res = getRandomSongs(10);
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        "SELECT * FROM songs ORDER BY RANDOM() LIMIT ?",
         [10],
       );
       expect(res).toHaveLength(1);
