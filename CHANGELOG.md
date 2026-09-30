@@ -3,6 +3,9 @@
 ## 2.19.0+49 (in progress)
 
 - move over sections from homepage to settings page.
+- add most_played albums section on homepage.
+- techincal changes
+  - refactor albums page be on root instead of inside library for streamlined navigation.
 
 ## 2.18.0+48
 

@@ -214,7 +214,7 @@ describe("SearchScreen", () => {
     });
 
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: "/(main)/library/album/[id]",
+      pathname: "/album/[id]",
       params: { id: "a1" },
     });
 

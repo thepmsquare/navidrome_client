@@ -564,6 +564,14 @@ export function getAllAlbums(): AlbumID3[] {
   );
 }
 
+export function getMostPlayedAlbums(limit: number = 20): AlbumID3[] {
+  const db = getDb();
+  return db.getAllSync<AlbumID3>(
+    "SELECT * FROM albums WHERE COALESCE(playCount, 0) > 0 ORDER BY playCount DESC, name COLLATE NOCASE ASC LIMIT ?",
+    [limit],
+  );
+}
+
 export function getAllSongs(): Child[] {
   const db = getDb();
   return db.getAllSync<Child>(

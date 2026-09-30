@@ -7,9 +7,44 @@ export const homeStyles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: spacing.md,
     paddingVertical: spacing.lg,
-    gap: spacing.lg,
+    gap: spacing.xl,
+  },
+  headerContainer: {
+    paddingHorizontal: spacing.md,
+  },
+  section: {
+    gap: spacing.sm,
+  },
+  sectionHeader: {
+    paddingHorizontal: spacing.md,
+  },
+  horizontalList: {
+    paddingHorizontal: spacing.md,
+    gap: spacing.md,
+  },
+  tile: {
+    width: 140,
+    gap: spacing.xs,
+  },
+  artwork: {
+    width: 140,
+    height: 140,
+    borderRadius: 8,
+  },
+  artworkPlaceholder: {
+    width: 140,
+    height: 140,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  tileTitle: {
+    fontWeight: "600",
+  },
+  tileSubtitle: {},
+  emptyText: {
+    paddingHorizontal: spacing.md,
   },
   sectionCard: {
     padding: spacing.md,

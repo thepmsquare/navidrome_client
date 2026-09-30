@@ -48,7 +48,7 @@ export async function exportBackupToFile(): Promise<ExportResult> {
 
         const fileUri = await StorageAccessFramework.createFileAsync(
           permissions.directoryUri,
-          "navidrome_client_backup",
+          APP_IDENTIFIER,
           "application/json",
         );
         await StorageAccessFramework.writeAsStringAsync(fileUri, jsonString);
@@ -64,7 +64,7 @@ export async function exportBackupToFile(): Promise<ExportResult> {
     if (Directory?.pickDirectoryAsync) {
       const directory = await Directory.pickDirectoryAsync();
       const file = directory.createFile(
-        "navidrome_client_backup.json",
+        `${APP_IDENTIFIER}.json`,
         "application/json",
       );
       file.write(jsonString);
