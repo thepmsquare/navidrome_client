@@ -1,8 +1,9 @@
 import React from "react";
 import renderer from "react-test-renderer";
-import { Switch, Text } from "react-native-paper";
+import { Button, Switch, Text } from "react-native-paper";
 
 import SettingsScreen from "@/app/(main)/settings";
+import * as api from "@/services/api";
 import * as db from "@/services/db";
 import * as player from "@/services/player";
 import { ANDROID_VERSION_CODE, APP_VERSION } from "@/utils/constants";
@@ -14,8 +15,34 @@ jest.mock("expo-router", () => ({
   }),
 }));
 
+jest.mock("expo-secure-store", () => ({
+  getItemAsync: jest.fn().mockImplementation((key: string) => {
+    if (key === "username") return Promise.resolve("testuser");
+    if (key === "serverUrl") return Promise.resolve("https://example.com");
+    if (key === "subsonicVersion") return Promise.resolve("1.16.1");
+    return Promise.resolve(null);
+  }),
+  setItemAsync: jest.fn().mockResolvedValue(undefined),
+  deleteItemAsync: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock("@/utils/audioOutput", () => ({
+  useAudioOutputDevice: jest.fn().mockReturnValue({
+    name: "speaker",
+    type: "speaker",
+    isHeadphones: false,
+  }),
+}));
+
 jest.mock("@/services/api", () => ({
   logout: jest.fn().mockResolvedValue(undefined),
+  client_app_sync: jest.fn().mockResolvedValue({
+    synced: true,
+    artistCount: 10,
+    albumCount: 20,
+    songCount: 100,
+    playlistCount: 5,
+  }),
 }));
 
 jest.mock("@/services/backup", () => ({
@@ -32,6 +59,12 @@ jest.mock("@/services/db", () => ({
   getAutoCacheMaxBytes: jest.fn().mockReturnValue(1073741824),
   getAutoCacheTotalSize: jest.fn().mockReturnValue(0),
   getKeepPlayingOnAppDismissed: jest.fn().mockReturnValue(false),
+  getLocalCounts: jest.fn().mockReturnValue({
+    artistCount: 10,
+    albumCount: 20,
+    songCount: 100,
+    playlistCount: 5,
+  }),
   getScrobbleMinDuration: jest.fn().mockReturnValue(240),
   getScrobbleMinPercent: jest.fn().mockReturnValue(75),
   setAutoCacheEnabled: jest.fn(),
@@ -42,7 +75,11 @@ jest.mock("@/services/db", () => ({
 }));
 
 jest.mock("@/services/player", () => ({
+  playTestSound: jest.fn().mockResolvedValue(undefined),
   updateKeepPlayingOnAppDismissed: jest.fn().mockResolvedValue(undefined),
+  usePlayerState: jest.fn().mockReturnValue({
+    isPlaying: false,
+  }),
 }));
 
 describe("SettingsScreen", () => {
@@ -50,11 +87,29 @@ describe("SettingsScreen", () => {
     jest.clearAllMocks();
   });
 
-  it("renders playback settings toggle with default false", () => {
+  it("renders connection, library, and actions sections transferred from home", async () => {
+    let tree: any;
+    await renderer.act(async () => {
+      tree = renderer.create(<SettingsScreen />);
+    });
+
+    const root = tree.root;
+    const texts = root.findAllByType(Text).map((t: any) => t.props.children);
+
+    expect(texts).toContain("connection");
+    expect(texts).toContain("username");
+    expect(texts).toContain("server");
+    expect(texts).toContain("subsonic version");
+    expect(texts).toContain("audio output");
+    expect(texts).toContain("library");
+    expect(texts).toContain("actions");
+  });
+
+  it("renders playback settings toggle with default false", async () => {
     (db.getKeepPlayingOnAppDismissed as jest.Mock).mockReturnValue(false);
 
     let tree: any;
-    renderer.act(() => {
+    await renderer.act(async () => {
       tree = renderer.create(<SettingsScreen />);
     });
 
@@ -71,7 +126,7 @@ describe("SettingsScreen", () => {
     (db.getKeepPlayingOnAppDismissed as jest.Mock).mockReturnValue(false);
 
     let tree: any;
-    renderer.act(() => {
+    await renderer.act(async () => {
       tree = renderer.create(<SettingsScreen />);
     });
 
@@ -86,9 +141,9 @@ describe("SettingsScreen", () => {
     expect(player.updateKeepPlayingOnAppDismissed).toHaveBeenCalledWith(true);
   });
 
-  it("renders version number and version code below logout button", () => {
+  it("renders version number and version code below logout button", async () => {
     let tree: any;
-    renderer.act(() => {
+    await renderer.act(async () => {
       tree = renderer.create(<SettingsScreen />);
     });
 
@@ -101,9 +156,9 @@ describe("SettingsScreen", () => {
     expect(matchingText).toBeDefined();
   });
 
-  it("renders 'automatically make available offline' without the word cache", () => {
+  it("renders 'automatically make available offline' without the word cache", async () => {
     let tree: any;
-    renderer.act(() => {
+    await renderer.act(async () => {
       tree = renderer.create(<SettingsScreen />);
     });
 
@@ -122,7 +177,7 @@ describe("SettingsScreen", () => {
     (db.getAutoCacheTotalSize as jest.Mock).mockReturnValue(15 * 1024 * 1024);
 
     let tree: any;
-    renderer.act(() => {
+    await renderer.act(async () => {
       tree = renderer.create(<SettingsScreen />);
     });
 
@@ -140,5 +195,30 @@ describe("SettingsScreen", () => {
       expect.any(Array),
       { cancelable: true },
     );
+  });
+
+  it("allows triggering sync and force sync from actions", async () => {
+    let tree: any;
+    await renderer.act(async () => {
+      tree = renderer.create(<SettingsScreen />);
+    });
+
+    const root = tree.root;
+    const buttons = root.findAllByType(Button);
+    const syncBtn = buttons.find((b: any) => b.props.children === "sync");
+    const forceSyncBtn = buttons.find((b: any) => b.props.children === "force sync");
+
+    expect(syncBtn).toBeDefined();
+    expect(forceSyncBtn).toBeDefined();
+
+    await renderer.act(async () => {
+      syncBtn.props.onPress();
+    });
+    expect(api.client_app_sync).toHaveBeenCalledWith(false);
+
+    await renderer.act(async () => {
+      forceSyncBtn.props.onPress();
+    });
+    expect(api.client_app_sync).toHaveBeenCalledWith(true);
   });
 });
