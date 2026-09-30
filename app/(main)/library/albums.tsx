@@ -177,7 +177,7 @@ export default function AlbumsScreen() {
               description={item.artist ?? undefined}
               onPress={() =>
                 router.push({
-                  pathname: "/(main)/library/album/[id]",
+                  pathname: "/album/[id]",
                   params: { id: item.id },
                 })
               }

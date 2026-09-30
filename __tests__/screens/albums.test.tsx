@@ -122,7 +122,7 @@ describe("AlbumsScreen", () => {
     });
 
     expect(mockPush).toHaveBeenCalledWith({
-      pathname: "/(main)/library/album/[id]",
+      pathname: "/album/[id]",
       params: { id: mockAlbums[0].id },
     });
 

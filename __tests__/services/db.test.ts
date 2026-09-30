@@ -2,6 +2,7 @@ import {
   clearDatabase,
   getAlbumById,
   getAllAlbums,
+  getMostPlayedAlbums,
   getAllArtists,
   getAllPlaylists,
   getAllSongs,
@@ -447,6 +448,16 @@ describe("db service", () => {
       const res = getAllAlbums();
       expect(mockGetAllSync).toHaveBeenCalledWith(
         "SELECT * FROM albums ORDER BY name COLLATE NOCASE ASC",
+      );
+      expect(res).toHaveLength(1);
+    });
+
+    it("getMostPlayedAlbums should query albums with playCount > 0 ordered by playCount desc", () => {
+      mockGetAllSync.mockReturnValue([{ id: "alb-1", name: "B", playCount: 10 }]);
+      const res = getMostPlayedAlbums(10);
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        "SELECT * FROM albums WHERE COALESCE(playCount, 0) > 0 ORDER BY playCount DESC, name COLLATE NOCASE ASC LIMIT ?",
+        [10],
       );
       expect(res).toHaveLength(1);
     });

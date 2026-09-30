@@ -36,6 +36,10 @@ jest.mock("@/components/SongCacheButton", () => ({
   SongCacheButton: "SongCacheButton",
 }));
 
+jest.mock("@/components/MiniPlayer", () => ({
+  MiniPlayer: "MiniPlayer",
+}));
+
 jest.mock("@/services/api", () => ({
   getCoverArtBaseUrl: jest.fn(),
 }));
