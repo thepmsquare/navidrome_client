@@ -19,9 +19,32 @@ export const homeStyles = StyleSheet.create({
   sectionHeader: {
     paddingHorizontal: spacing.md,
   },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingLeft: spacing.md,
+    paddingRight: spacing.xs,
+  },
+  sectionHeaderTitle: {},
   horizontalList: {
     paddingHorizontal: spacing.md,
     gap: spacing.md,
+  },
+  trackList: {
+    paddingHorizontal: spacing.xs,
+  },
+  trackArtwork: {
+    width: 48,
+    height: 48,
+    borderRadius: 6,
+  },
+  trackPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 6,
+    justifyContent: "center",
+    alignItems: "center",
   },
   tile: {
     width: 140,
