@@ -16,4 +16,33 @@ export const settingsStyles = StyleSheet.create({
     borderRadius: 16,
     gap: spacing.sm + spacing.xs,
   },
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  infoLabel: {
+    flex: 1,
+  },
+  infoValue: {
+    flex: 2,
+    textAlign: "right",
+  },
+  loadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  countsContainer: {
+    gap: spacing.sm + spacing.xs,
+  },
+  countsRow: {
+    flexDirection: "row",
+    gap: spacing.sm + spacing.xs,
+  },
+  countCard: {
+    flex: 1,
+    borderRadius: 16,
+  },
 });

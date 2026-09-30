@@ -1,5 +1,9 @@
 # changelog
 
+## 2.19.0+49 (in progress)
+
+- move over sections from homepage to settings page.
+
 ## 2.18.0+48
 
 - experimental release.
