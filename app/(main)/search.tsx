@@ -145,7 +145,7 @@ export default function SearchScreen() {
         description={description || undefined}
         onPress={() =>
           router.push({
-            pathname: "/(main)/library/album/[id]",
+            pathname: "/album/[id]",
             params: { id: item.id },
           })
         }
