@@ -572,6 +572,22 @@ export function getMostPlayedAlbums(limit: number = 20): AlbumID3[] {
   );
 }
 
+export function getRecentlyPlayedAlbums(limit: number = 20): AlbumID3[] {
+  const db = getDb();
+  return db.getAllSync<AlbumID3>(
+    "SELECT * FROM albums WHERE played IS NOT NULL AND TRIM(played) != '' ORDER BY played DESC, name COLLATE NOCASE ASC LIMIT ?",
+    [limit],
+  );
+}
+
+export function getRandomSongs(limit: number = 10): Child[] {
+  const db = getDb();
+  return db.getAllSync<Child>(
+    "SELECT * FROM songs ORDER BY RANDOM() LIMIT ?",
+    [limit],
+  );
+}
+
 export function getAllSongs(): Child[] {
   const db = getDb();
   return db.getAllSync<Child>(
