@@ -21,3 +21,10 @@ export const DEFAULT_SCROBBLE_MIN_PERCENT = 75; // 0-100
 
 // 3 days negative lyrics cache TTL (in milliseconds)
 export const LYRICS_NEGATIVE_CACHE_TTL_MS = 3 * 24 * 60 * 60 * 1000;
+
+// 30 days instrumental lyrics cache TTL (in milliseconds)
+export const LYRICS_INSTRUMENTAL_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+export const DEFAULT_LYRICS_MODE = "file_only" as const;
+
+export const LRCLIB_USER_AGENT = `${APP_SHORT_NAME}/${APP_VERSION} (${APP_SCHEME})`;

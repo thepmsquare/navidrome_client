@@ -9,7 +9,7 @@ import {
   ProgressBar,
   Snackbar,
   Surface,
-  Text
+  Text,
 } from "react-native-paper";
 
 // Import the new component
@@ -21,7 +21,9 @@ import { SongSaveButton } from "@/components/SongSaveButton";
 import { getCoverArtBaseUrl } from "@/services/api";
 import {
   getCachedLyricsSync,
+  getLyricsMode,
   resolveLyricsForSong,
+  subscribeLyricsMode,
 } from "@/services/lyrics";
 import {
   cycleRepeatMode,
@@ -30,11 +32,16 @@ import {
   setRatingCurrentTrack,
   togglePlayback,
   toggleStarCurrentTrack,
-  usePlayerState
+  usePlayerState,
 } from "@/services/player";
 import { useSleepTimer } from "@/services/sleepTimer";
 import { playerStyles } from "@/stylesheets";
-import { NormalizedLyrics, useAppTheme } from "@/types";
+import {
+  LyricsMode,
+  LyricsTrackMetadata,
+  NormalizedLyrics,
+  useAppTheme,
+} from "@/types";
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds) || seconds < 0) return "0:00";
@@ -60,12 +67,22 @@ export default function PlayerScreen() {
   const [isArtModalVisible, setIsArtModalVisible] = useState(false);
   const [artUrlForModal, setArtUrlForModal] = useState<string | null>(null);
   // Lyrics state
+  const [lyricsMode, setLyricsModeState] = useState<LyricsMode>(() =>
+    getLyricsMode(),
+  );
   const [prevSongId, setPrevSongId] = useState<string | undefined | null>(
     undefined,
   );
+  const [prevLyricsMode, setPrevLyricsMode] = useState<LyricsMode>(lyricsMode);
   const [lyricsModalVisible, setLyricsModalVisible] = useState(false);
   const [lyrics, setLyrics] = useState<NormalizedLyrics | null>(null);
   const [lyricsLoading, setLyricsLoading] = useState(false);
+
+  useEffect(() => {
+    return subscribeLyricsMode((mode) => {
+      setLyricsModeState(mode);
+    });
+  }, []);
 
   const showSnackbar = (message: string) => {
     setSnackbarMessage(message);
@@ -97,9 +114,10 @@ export default function PlayerScreen() {
 
   const songId = currentTrack?.id;
 
-  if (songId !== prevSongId) {
+  if (songId !== prevSongId || lyricsMode !== prevLyricsMode) {
     setPrevSongId(songId);
-    const cached = getCachedLyricsSync(songId);
+    setPrevLyricsMode(lyricsMode);
+    const cached = getCachedLyricsSync(songId, lyricsMode);
     setLyrics(cached);
     setLyricsLoading(Boolean(songId) && !cached);
   }
@@ -111,19 +129,60 @@ export default function PlayerScreen() {
       return;
     }
 
-    resolveLyricsForSong(songId)
+    const currentMode = lyricsMode;
+    const currentSongId = songId;
+
+    // Prefer track's own duration over playerState.duration which may be 0 initially
+    const reliableDuration =
+      typeof currentTrack?.duration === "number" && currentTrack.duration > 0
+        ? currentTrack.duration
+        : typeof duration === "number" && duration > 0
+          ? duration
+          : undefined;
+
+    const trackMeta: LyricsTrackMetadata = {
+      title: currentTrack?.title ?? "",
+      artist: currentTrack?.artist,
+      album: currentTrack?.album,
+      duration: reliableDuration,
+    };
+
+    resolveLyricsForSong(songId, trackMeta, {
+      mode: currentMode,
+      onUpgrade: (upgraded) => {
+        if (
+          !isCancelled &&
+          songId === currentSongId &&
+          lyricsMode === currentMode
+        ) {
+          setLyrics(upgraded);
+        }
+      },
+    })
       .then((res) => {
-        if (!isCancelled) {
+        if (
+          !isCancelled &&
+          songId === currentSongId &&
+          lyricsMode === currentMode
+        ) {
           setLyrics(res);
         }
       })
       .catch(() => {
-        if (!isCancelled) {
+        if (
+          !isCancelled &&
+          songId === currentSongId &&
+          lyricsMode === currentMode
+        ) {
           setLyrics(null);
         }
       })
       .finally(() => {
-        if (!isCancelled) {
+        if (
+          !isCancelled &&
+          songId === currentSongId &&
+          lyricsMode === currentMode
+        ) {
           setLyricsLoading(false);
         }
       });
@@ -131,7 +190,15 @@ export default function PlayerScreen() {
     return () => {
       isCancelled = true;
     };
-  }, [songId]);
+  }, [
+    songId,
+    lyricsMode,
+    currentTrack?.title,
+    currentTrack?.artist,
+    currentTrack?.album,
+    currentTrack?.duration,
+    duration,
+  ]);
 
   const hasLyrics = Boolean(lyrics && lyrics.lines && lyrics.lines.length > 0);
 
@@ -325,7 +392,6 @@ export default function PlayerScreen() {
 
       {/* Large Album Artwork (Clickable Area) */}
       <Pressable onPress={handleArtPress} style={playerStyles.artContainer}>
-        {" "}
         {/* Fixed: Removed functional style callback using currentStyles */}
         {artUrl ? (
           <Image

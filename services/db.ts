@@ -14,11 +14,13 @@ import {
   DownloadQueueStatus,
   LyricsCacheRow,
   LyricsCacheStatus,
+  LyricsMode,
   LyricsSource,
 } from "@/types";
 import {
   DB_NAME,
   DEFAULT_AUTO_CACHE_MAX_BYTES,
+  DEFAULT_LYRICS_MODE,
   DEFAULT_SCROBBLE_MIN_DURATION,
   DEFAULT_SCROBBLE_MIN_PERCENT,
 } from "@/utils/constants";
@@ -1364,5 +1366,17 @@ export function deleteLyricsCacheForSong(songId: string): void {
 export function clearLyricsCache(): void {
   const db = getDb();
   db.runSync("DELETE FROM lyrics_cache");
+}
+
+export function getLyricsModeSetting(): LyricsMode {
+  const val = getSyncMeta("lyrics_mode");
+  if (val === "file_first" || val === "online_first" || val === "file_only") {
+    return val;
+  }
+  return DEFAULT_LYRICS_MODE;
+}
+
+export function setLyricsModeSetting(mode: LyricsMode): void {
+  setSyncMeta("lyrics_mode", mode);
 }
 

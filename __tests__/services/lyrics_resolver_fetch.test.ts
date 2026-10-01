@@ -17,6 +17,9 @@ jest.mock("@/utils/crypto", () => ({
 jest.mock("@/services/db", () => ({
   getLyricsCacheEntrySync: jest.fn(),
   upsertLyricsCacheEntry: jest.fn(),
+  getLyricsModeSetting: jest.fn(() => "file_only"),
+  setLyricsModeSetting: jest.fn(),
+  getSongById: jest.fn(),
 }));
 
 describe("resolveLyricsForSong with real api and mocked fetch", () => {

@@ -1,11 +1,12 @@
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useState } from "react";
-import { Alert, ScrollView, View } from "react-native";
+import { Alert, Pressable, ScrollView, View } from "react-native";
 import {
   ActivityIndicator,
   Button,
   Card,
+  RadioButton,
   Surface,
   Switch,
   Text,
@@ -29,13 +30,18 @@ import {
   setScrobbleMinPercent,
 } from "@/services/db";
 import {
+  getLyricsMode,
+  setLyricsMode,
+  subscribeLyricsMode,
+} from "@/services/lyrics";
+import {
   playTestSound,
   updateKeepPlayingOnAppDismissed,
   usePlayerState,
 } from "@/services/player";
 import { clearAllAutoCachedSongs } from "@/services/songCache";
 import { settingsStyles } from "@/stylesheets";
-import { Search3Counts, useAppTheme } from "@/types";
+import { LyricsMode, Search3Counts, useAppTheme } from "@/types";
 import { useAudioOutputDevice } from "@/utils/audioOutput";
 import { ANDROID_VERSION_CODE, APP_VERSION } from "@/utils/constants";
 import { spacing } from "@/utils/spacing";
@@ -137,6 +143,19 @@ export default function SettingsScreen() {
   const [keepPlayingOnAppDismissed, setKeepPlayingOnAppDismissedState] = useState(() =>
     getKeepPlayingOnAppDismissed(),
   );
+  const [lyricsMode, setLyricsModeState] = useState<LyricsMode>(() =>
+    getLyricsMode(),
+  );
+
+  useEffect(() => {
+    return subscribeLyricsMode((mode) => {
+      setLyricsModeState(mode);
+    });
+  }, []);
+
+  function handleLyricsModeChange(mode: LyricsMode) {
+    setLyricsMode(mode);
+  }
 
   async function handleToggleKeepPlaying(nextValue: boolean) {
     setKeepPlayingOnAppDismissedState(nextValue);
@@ -652,6 +671,96 @@ export default function SettingsScreen() {
               onValueChange={handleToggleKeepPlaying}
             />
           </View>
+        </Surface>
+
+        <Surface
+          elevation={0}
+          style={[
+            settingsStyles.sectionCard,
+            { backgroundColor: theme.colors.surfaceContainerHighest },
+          ]}
+        >
+          <Text variant="titleMedium">lyrics</Text>
+          <RadioButton.Group
+            onValueChange={(val) => handleLyricsModeChange(val as LyricsMode)}
+            value={lyricsMode}
+          >
+            <Pressable
+              onPress={() => handleLyricsModeChange("file_only")}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingVertical: spacing.xs,
+              }}
+              accessibilityRole="radio"
+              accessibilityLabel="library only"
+            >
+              <View style={{ flex: 1, paddingRight: spacing.sm }}>
+                <Text variant="bodyLarge">library only</Text>
+                <Text
+                  variant="bodyMedium"
+                  style={{ color: theme.colors.onSurfaceVariant }}
+                >
+                  uses lyrics from your server. nothing is sent online.
+                </Text>
+              </View>
+              <RadioButton.Android value="file_only" />
+            </Pressable>
+
+            <Pressable
+              onPress={() => handleLyricsModeChange("file_first")}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingVertical: spacing.xs,
+              }}
+              accessibilityRole="radio"
+              accessibilityLabel="library, then online"
+            >
+              <View style={{ flex: 1, paddingRight: spacing.sm }}>
+                <Text variant="bodyLarge">library, then online</Text>
+                <Text
+                  variant="bodyMedium"
+                  style={{ color: theme.colors.onSurfaceVariant }}
+                >
+                  {"uses server lyrics, and looks online when they're missing or not synced."}
+                </Text>
+              </View>
+              <RadioButton.Android value="file_first" />
+            </Pressable>
+
+            <Pressable
+              onPress={() => handleLyricsModeChange("online_first")}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingVertical: spacing.xs,
+              }}
+              accessibilityRole="radio"
+              accessibilityLabel="online first"
+            >
+              <View style={{ flex: 1, paddingRight: spacing.sm }}>
+                <Text variant="bodyLarge">online first</Text>
+                <Text
+                  variant="bodyMedium"
+                  style={{ color: theme.colors.onSurfaceVariant }}
+                >
+                  looks online first, uses server lyrics as backup.
+                </Text>
+              </View>
+              <RadioButton.Android value="online_first" />
+            </Pressable>
+          </RadioButton.Group>
+
+          <Text
+            variant="bodySmall"
+            style={{ color: theme.colors.outline, marginTop: spacing.xs }}
+          >
+            {"online lookups send the song's title, artist, album and duration to lrclib.net."}
+          </Text>
         </Surface>
 
         <Surface
