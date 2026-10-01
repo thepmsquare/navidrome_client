@@ -9,12 +9,14 @@ import { subscribeSongCache } from "@/services/songCache";
 import { AlbumID3, Child } from "@/types";
 
 const mockBack = jest.fn();
+const mockReplace = jest.fn();
 let mockParams = { id: "album-1" };
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({
     back: mockBack,
     push: jest.fn(),
+    replace: mockReplace,
   }),
   useLocalSearchParams: () => mockParams,
   useFocusEffect: jest.fn(),
@@ -148,6 +150,39 @@ describe("AlbumDetailScreen", () => {
     });
 
     expect(playPlaylist).not.toHaveBeenCalled();
+
+    renderer.act(() => {
+      component.unmount();
+    });
+  });
+
+  it("renders bottom navigation bar with tabs and navigates when tab is pressed", () => {
+    (getAlbumById as jest.Mock).mockReturnValue(mockAlbum);
+    (getSongsByAlbumId as jest.Mock).mockReturnValue(mockSongs);
+
+    let component: any;
+    renderer.act(() => {
+      component = renderer.create(<AlbumDetailScreen />);
+    });
+
+    const { BottomNavigation } = require("react-native-paper");
+    const navBar = component.root.findByType(BottomNavigation.Bar);
+    expect(navBar).toBeDefined();
+    expect(navBar.props.navigationState.routes).toHaveLength(5);
+
+    // Press the search tab
+    renderer.act(() => {
+      navBar.props.onTabPress({ route: { key: "search" } });
+    });
+
+    expect(mockReplace).toHaveBeenCalledWith("/(main)/search");
+
+    // Press the home tab
+    renderer.act(() => {
+      navBar.props.onTabPress({ route: { key: "home" } });
+    });
+
+    expect(mockReplace).toHaveBeenCalledWith("/(main)");
 
     renderer.act(() => {
       component.unmount();

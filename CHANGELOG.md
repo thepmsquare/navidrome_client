@@ -1,8 +1,10 @@
 # changelog
 
-## 2.20.0+50 (in progress)
+## 2.20.0+50
 
 - add lyrics support.
+- techincal changes
+  - move bottom navigation in seperate component.
 
 ## 2.19.0+49
 
