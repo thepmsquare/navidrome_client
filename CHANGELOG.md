@@ -1,5 +1,9 @@
 # changelog
 
+## 2.20.0+50 (in progress)
+
+- add lyrics support.
+
 ## 2.19.0+49
 
 - move over sections from homepage to settings page.

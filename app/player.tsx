@@ -13,11 +13,16 @@ import {
 } from "react-native-paper";
 
 // Import the new component
+import { LyricsSheetModal } from "@/components/LyricsSheetModal";
 import { ModalArtViewer } from "@/components/ModalArtViewer";
 import { SleepTimerModal } from "@/components/SleepTimerModal";
 import { SongCacheButton } from "@/components/SongCacheButton";
 import { SongSaveButton } from "@/components/SongSaveButton";
 import { getCoverArtBaseUrl } from "@/services/api";
+import {
+  getCachedLyricsSync,
+  resolveLyricsForSong,
+} from "@/services/lyrics";
 import {
   cycleRepeatMode,
   playNext,
@@ -29,7 +34,7 @@ import {
 } from "@/services/player";
 import { useSleepTimer } from "@/services/sleepTimer";
 import { playerStyles } from "@/stylesheets";
-import { useAppTheme } from "@/types";
+import { NormalizedLyrics, useAppTheme } from "@/types";
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds) || seconds < 0) return "0:00";
@@ -54,6 +59,13 @@ export default function PlayerScreen() {
   // State for the full-screen art modal
   const [isArtModalVisible, setIsArtModalVisible] = useState(false);
   const [artUrlForModal, setArtUrlForModal] = useState<string | null>(null);
+  // Lyrics state
+  const [prevSongId, setPrevSongId] = useState<string | undefined | null>(
+    undefined,
+  );
+  const [lyricsModalVisible, setLyricsModalVisible] = useState(false);
+  const [lyrics, setLyrics] = useState<NormalizedLyrics | null>(null);
+  const [lyricsLoading, setLyricsLoading] = useState(false);
 
   const showSnackbar = (message: string) => {
     setSnackbarMessage(message);
@@ -82,6 +94,46 @@ export default function PlayerScreen() {
     hasNext,
     isPlayingFromCache,
   } = playerState;
+
+  const songId = currentTrack?.id;
+
+  if (songId !== prevSongId) {
+    setPrevSongId(songId);
+    const cached = getCachedLyricsSync(songId);
+    setLyrics(cached);
+    setLyricsLoading(Boolean(songId) && !cached);
+  }
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    if (!songId) {
+      return;
+    }
+
+    resolveLyricsForSong(songId)
+      .then((res) => {
+        if (!isCancelled) {
+          setLyrics(res);
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setLyrics(null);
+        }
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setLyricsLoading(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [songId]);
+
+  const hasLyrics = Boolean(lyrics && lyrics.lines && lyrics.lines.length > 0);
 
   const isStarred = !!currentTrack?.starred;
   const currentRating = currentTrack?.userRating ?? 0;
@@ -408,6 +460,15 @@ export default function PlayerScreen() {
                 ✓ scrobbled
               </Text>
             )}
+            {hasLyrics && (
+              <IconButton
+                icon="text-box-outline"
+                size={20}
+                iconColor={theme.colors.outline}
+                accessibilityLabel="lyrics"
+                onPress={() => setLyricsModalVisible(true)}
+              />
+            )}
             <SongCacheButton
               songId={currentTrack.id}
               variant="icon"
@@ -528,6 +589,15 @@ export default function PlayerScreen() {
         visible={sleepTimerModalVisible}
         onDismiss={() => setSleepTimerModalVisible(false)}
         onTimerSet={(msg) => showSnackbar(msg)}
+      />
+
+      <LyricsSheetModal
+        visible={lyricsModalVisible}
+        onDismiss={() => setLyricsModalVisible(false)}
+        lyrics={lyrics}
+        isLoading={lyricsLoading}
+        positionSeconds={position}
+        songId={currentTrack?.id}
       />
 
       {/* Full Screen Art Modal */}

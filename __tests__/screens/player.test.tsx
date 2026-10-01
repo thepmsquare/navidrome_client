@@ -13,6 +13,10 @@ import {
   toggleStarCurrentTrack,
   usePlayerState,
 } from "@/services/player";
+import {
+  getCachedLyricsSync,
+  resolveLyricsForSong,
+} from "@/services/lyrics";
 
 const mockBack = jest.fn();
 jest.mock("expo-router", () => ({
@@ -75,9 +79,20 @@ jest.mock("@/services/sleepTimer", () => ({
   cancelSleepTimer: jest.fn(),
 }));
 
+jest.mock("@/services/lyrics", () => ({
+  fetchLyricsForSong: jest.fn().mockResolvedValue(null),
+  getCachedLyricsSync: jest.fn().mockReturnValue(null),
+  resolveLyricsForSong: jest.fn().mockResolvedValue(null),
+}));
+
 jest.mock("@/components/SleepTimerModal", () => ({
   SleepTimerModal: (props: any) =>
     props.visible ? "SleepTimerModalVisible" : null,
+}));
+
+jest.mock("@/components/LyricsSheetModal", () => ({
+  LyricsSheetModal: (props: any) =>
+    props.visible ? "LyricsSheetModalVisible" : null,
 }));
 
 describe("PlayerScreen", () => {
@@ -375,6 +390,111 @@ describe("PlayerScreen", () => {
 
     const str = JSON.stringify(root.toJSON());
     expect(str).toContain("timer: 15m");
+  });
+
+  it("should not render lyrics button when song has no lyrics", async () => {
+    (usePlayerState as jest.Mock).mockReturnValue({
+      currentTrack: {
+        id: "song-no-lyrics",
+        title: "Track without lyrics",
+        artist: "Artist",
+        duration: 200,
+      },
+      isPlaying: false,
+      position: 0,
+      duration: 200,
+      repeatMode: "off",
+      hasPrevious: false,
+      hasNext: false,
+    });
+    (resolveLyricsForSong as jest.Mock).mockResolvedValue(null);
+    (getCachedLyricsSync as jest.Mock).mockReturnValue(null);
+
+    let root: any;
+    await act(async () => {
+      root = renderer.create(<PlayerScreen />);
+    });
+
+    const lyricsButtons = root.root.findAllByProps({
+      accessibilityLabel: "lyrics",
+    });
+    expect(lyricsButtons).toHaveLength(0);
+    expect(JSON.stringify(root.toJSON())).not.toContain("LyricsSheetModalVisible");
+  });
+
+  it("should render lyrics button when song has lyrics and open modal on press", async () => {
+    (usePlayerState as jest.Mock).mockReturnValue({
+      currentTrack: {
+        id: "song-with-lyrics",
+        title: "Track with lyrics",
+        artist: "Artist",
+        duration: 200,
+      },
+      isPlaying: false,
+      position: 0,
+      duration: 200,
+      repeatMode: "off",
+      hasPrevious: false,
+      hasNext: false,
+    });
+    (resolveLyricsForSong as jest.Mock).mockResolvedValue({
+      synced: true,
+      lines: [{ startMs: 500, text: "sing along" }],
+    });
+
+    let root: any;
+    await act(async () => {
+      root = renderer.create(<PlayerScreen />);
+    });
+
+    const lyricsButton = root.root.findByProps({
+      accessibilityLabel: "lyrics",
+    });
+    expect(lyricsButton).toBeDefined();
+
+    expect(JSON.stringify(root.toJSON())).not.toContain("LyricsSheetModalVisible");
+
+    await act(async () => {
+      lyricsButton.props.onPress();
+    });
+
+    expect(JSON.stringify(root.toJSON())).toContain("LyricsSheetModalVisible");
+  });
+
+  it("should render lyrics button immediately on render when getCachedLyricsSync returns lyrics", async () => {
+    (usePlayerState as jest.Mock).mockReturnValue({
+      currentTrack: {
+        id: "song-cached",
+        title: "Cached Track",
+        artist: "Artist",
+        duration: 200,
+      },
+      isPlaying: false,
+      position: 0,
+      duration: 200,
+      repeatMode: "off",
+      hasPrevious: false,
+      hasNext: false,
+    });
+    (getCachedLyricsSync as jest.Mock).mockReturnValue({
+      synced: true,
+      lines: [{ startMs: 100, text: "cached line" }],
+    });
+    (resolveLyricsForSong as jest.Mock).mockResolvedValue({
+      synced: true,
+      lines: [{ startMs: 100, text: "cached line" }],
+    });
+
+    let root: any;
+    await act(async () => {
+      root = renderer.create(<PlayerScreen />);
+    });
+
+    // The lyrics button should exist immediately on first render
+    const lyricsButton = root.root.findByProps({
+      accessibilityLabel: "lyrics",
+    });
+    expect(lyricsButton).toBeDefined();
   });
 });
 

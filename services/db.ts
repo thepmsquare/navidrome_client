@@ -12,6 +12,9 @@ import {
   DownloadQueueRow,
   DownloadQueueState,
   DownloadQueueStatus,
+  LyricsCacheRow,
+  LyricsCacheStatus,
+  LyricsSource,
 } from "@/types";
 import {
   DB_NAME,
@@ -201,6 +204,20 @@ export function initDatabase(db: SQLite.SQLiteDatabase = getDb()): void {
       sourceKey TEXT NOT NULL,
       PRIMARY KEY (songId, sourceKey)
     );
+
+    CREATE TABLE IF NOT EXISTS lyrics_cache (
+      songId TEXT NOT NULL,
+      source TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('found', 'none', 'instrumental')),
+      synced INTEGER NOT NULL DEFAULT 0,
+      lang TEXT,
+      offsetMs INTEGER,
+      linesJson TEXT,
+      fetchedAt INTEGER NOT NULL,
+      PRIMARY KEY (songId, source)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_lyrics_cache_songId ON lyrics_cache(songId);
   `);
 }
 
@@ -547,6 +564,7 @@ export function clearDatabase(): void {
     DELETE FROM pending_scrobbles;
     DELETE FROM download_queue;
     DELETE FROM download_queue_requesters;
+    DELETE FROM lyrics_cache;
   `);
 }
 
@@ -1283,5 +1301,68 @@ export function clearAllRequestersForSong(songId: string): void {
   db.runSync("DELETE FROM download_queue_requesters WHERE songId = ?", [
     songId,
   ]);
+}
+
+export function getLyricsCacheEntrySync(
+  songId: string,
+  source: LyricsSource = "server",
+): LyricsCacheRow | null {
+  const db = getDb();
+  const row = db.getFirstSync<LyricsCacheRow>(
+    "SELECT * FROM lyrics_cache WHERE songId = ? AND source = ?",
+    [songId, source],
+  );
+  return row ?? null;
+}
+
+export function upsertLyricsCacheEntry(entry: {
+  songId: string;
+  source: LyricsSource;
+  status: LyricsCacheStatus;
+  synced?: boolean | number;
+  lang?: string | null;
+  offsetMs?: number | null;
+  linesJson?: string | null;
+  fetchedAt?: number;
+}): void {
+  const db = getDb();
+  const syncedVal = entry.synced ? 1 : 0;
+  const langVal = entry.lang ?? null;
+  const offsetVal = typeof entry.offsetMs === "number" ? entry.offsetMs : null;
+  const linesVal = entry.linesJson ?? null;
+  const fetchedAtVal = entry.fetchedAt ?? Date.now();
+
+  db.runSync(
+    `INSERT INTO lyrics_cache (
+      songId, source, status, synced, lang, offsetMs, linesJson, fetchedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(songId, source) DO UPDATE SET
+      status = excluded.status,
+      synced = excluded.synced,
+      lang = excluded.lang,
+      offsetMs = excluded.offsetMs,
+      linesJson = excluded.linesJson,
+      fetchedAt = excluded.fetchedAt;`,
+    [
+      entry.songId,
+      entry.source,
+      entry.status,
+      syncedVal,
+      langVal,
+      offsetVal,
+      linesVal,
+      fetchedAtVal,
+    ],
+  );
+}
+
+export function deleteLyricsCacheForSong(songId: string): void {
+  const db = getDb();
+  db.runSync("DELETE FROM lyrics_cache WHERE songId = ?", [songId]);
+}
+
+export function clearLyricsCache(): void {
+  const db = getDb();
+  db.runSync("DELETE FROM lyrics_cache");
 }
 
