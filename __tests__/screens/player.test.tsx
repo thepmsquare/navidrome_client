@@ -79,10 +79,21 @@ jest.mock("@/services/sleepTimer", () => ({
   cancelSleepTimer: jest.fn(),
 }));
 
+let mockLyricsMode = "file_only";
+let mockModeListeners: ((mode: string) => void)[] = [];
+
 jest.mock("@/services/lyrics", () => ({
   fetchLyricsForSong: jest.fn().mockResolvedValue(null),
   getCachedLyricsSync: jest.fn().mockReturnValue(null),
+  getLyricsMode: jest.fn(() => mockLyricsMode),
   resolveLyricsForSong: jest.fn().mockResolvedValue(null),
+  subscribeLyricsMode: jest.fn((cb) => {
+    mockModeListeners.push(cb);
+    cb(mockLyricsMode);
+    return () => {
+      mockModeListeners = mockModeListeners.filter((l) => l !== cb);
+    };
+  }),
 }));
 
 jest.mock("@/components/SleepTimerModal", () => ({
@@ -97,6 +108,8 @@ jest.mock("@/components/LyricsSheetModal", () => ({
 
 describe("PlayerScreen", () => {
   beforeEach(() => {
+    mockLyricsMode = "file_only";
+    mockModeListeners = [];
     jest.clearAllMocks();
   });
 
@@ -491,6 +504,117 @@ describe("PlayerScreen", () => {
     });
 
     // The lyrics button should exist immediately on first render
+    const lyricsButton = root.root.findByProps({
+      accessibilityLabel: "lyrics",
+    });
+    expect(lyricsButton).toBeDefined();
+  });
+
+  it("should re-resolve lyrics when mode changes while player screen is open", async () => {
+    (usePlayerState as jest.Mock).mockReturnValue({
+      currentTrack: {
+        id: "song-mode-switch",
+        title: "Track Switch",
+        artist: "Artist",
+        duration: 200,
+      },
+      isPlaying: false,
+      position: 0,
+      duration: 200,
+      repeatMode: "off",
+      hasPrevious: false,
+      hasNext: false,
+    });
+    (getCachedLyricsSync as jest.Mock).mockReturnValue(null);
+    (resolveLyricsForSong as jest.Mock).mockResolvedValue(null);
+
+    let root: any;
+    await act(async () => {
+      root = renderer.create(<PlayerScreen />);
+    });
+
+    expect(resolveLyricsForSong).toHaveBeenCalledWith(
+      "song-mode-switch",
+      expect.objectContaining({ duration: 200, title: "Track Switch" }),
+      expect.objectContaining({ mode: "file_only" }),
+    );
+
+    (resolveLyricsForSong as jest.Mock).mockResolvedValue({
+      synced: true,
+      lines: [{ startMs: 500, text: "online synced" }],
+    });
+
+    // Notify mode change to online_first
+    await act(async () => {
+      mockModeListeners.forEach((l) => l("online_first"));
+    });
+
+    expect(resolveLyricsForSong).toHaveBeenCalledWith(
+      "song-mode-switch",
+      expect.objectContaining({ duration: 200, title: "Track Switch" }),
+      expect.objectContaining({ mode: "online_first" }),
+    );
+
+    const lyricsButton = root.root.findByProps({
+      accessibilityLabel: "lyrics",
+    });
+    expect(lyricsButton).toBeDefined();
+  });
+
+  it("should prevent in-flight request from previous mode from overwriting new mode result", async () => {
+    (usePlayerState as jest.Mock).mockReturnValue({
+      currentTrack: {
+        id: "song-race",
+        title: "Track Race",
+        artist: "Artist",
+        duration: 200,
+      },
+      isPlaying: false,
+      position: 0,
+      duration: 200,
+      repeatMode: "off",
+      hasPrevious: false,
+      hasNext: false,
+    });
+
+    let resolveFirstMode: any;
+    const firstPromise = new Promise((resolve) => {
+      resolveFirstMode = resolve;
+    });
+
+    let resolveSecondMode: any;
+    const secondPromise = new Promise((resolve) => {
+      resolveSecondMode = resolve;
+    });
+
+    (resolveLyricsForSong as jest.Mock)
+      .mockReturnValueOnce(firstPromise)
+      .mockReturnValueOnce(secondPromise);
+
+    let root: any;
+    await act(async () => {
+      root = renderer.create(<PlayerScreen />);
+    });
+
+    // Switch mode to online_first while first request is still in flight
+    await act(async () => {
+      mockModeListeners.forEach((l) => l("online_first"));
+    });
+
+    // Resolve second request first (with online lyrics)
+    await act(async () => {
+      resolveSecondMode({
+        synced: true,
+        lines: [{ startMs: 1000, text: "second mode result" }],
+      });
+    });
+
+    // Now resolve first mode request late with null
+    await act(async () => {
+      resolveFirstMode(null);
+    });
+
+    // The lyrics button should still be present because second mode won and first was cancelled
     const lyricsButton = root.root.findByProps({
       accessibilityLabel: "lyrics",
     });
