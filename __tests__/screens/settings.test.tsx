@@ -82,6 +82,15 @@ jest.mock("@/services/player", () => ({
   }),
 }));
 
+jest.mock("@/services/lyrics", () => ({
+  getLyricsMode: jest.fn(() => "file_only"),
+  setLyricsMode: jest.fn(),
+  subscribeLyricsMode: jest.fn((cb) => {
+    cb("file_only");
+    return jest.fn();
+  }),
+}));
+
 describe("SettingsScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -220,5 +229,36 @@ describe("SettingsScreen", () => {
       forceSyncBtn.props.onPress();
     });
     expect(api.client_app_sync).toHaveBeenCalledWith(true);
+  });
+
+  it("renders lyrics mode section with options and handles selection", async () => {
+    const { setLyricsMode } = require("@/services/lyrics");
+    let tree: any;
+    await renderer.act(async () => {
+      tree = renderer.create(<SettingsScreen />);
+    });
+
+    const root = tree.root;
+    const texts = root.findAllByType(Text).map((t: any) => t.props.children);
+
+    expect(texts).toContain("lyrics");
+    expect(texts).toContain("library only");
+    expect(texts).toContain("library, then online");
+    expect(texts).toContain("online first");
+    expect(texts).toContain(
+      "online lookups send the song's title, artist, album and duration to lrclib.net.",
+    );
+
+    // Find radio item for "online first"
+    const onlineFirstPressable = root.findByProps({
+      accessibilityLabel: "online first",
+    });
+    expect(onlineFirstPressable).toBeDefined();
+
+    await renderer.act(async () => {
+      onlineFirstPressable.props.onPress();
+    });
+
+    expect(setLyricsMode).toHaveBeenCalledWith("online_first");
   });
 });

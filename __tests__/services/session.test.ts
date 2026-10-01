@@ -2,6 +2,7 @@ import * as SecureStore from "expo-secure-store";
 
 import { notifyAuthState } from "@/services/api";
 import { clearDatabase, clearLyricsCache } from "@/services/db";
+import { resetLyricsMode } from "@/services/lyrics";
 import { resetPlayer } from "@/services/player";
 import { logout } from "@/services/session";
 import { clearAllCachedSongs } from "@/services/songCache";
@@ -21,6 +22,10 @@ jest.mock("@/services/db", () => ({
   clearLyricsCache: jest.fn(),
 }));
 
+jest.mock("@/services/lyrics", () => ({
+  resetLyricsMode: jest.fn(),
+}));
+
 jest.mock("@/services/player", () => ({
   resetPlayer: jest.fn().mockResolvedValue(undefined),
 }));
@@ -34,13 +39,14 @@ describe("session service: logout", () => {
     jest.clearAllMocks();
   });
 
-  it("should reset player, clear song cache, clear lyrics cache, clear database, delete keys, and notify auth", async () => {
+  it("should reset player, clear song cache, clear lyrics cache, clear database, reset lyrics mode, delete keys, and notify auth", async () => {
     await logout();
 
     expect(resetPlayer).toHaveBeenCalled();
     expect(clearAllCachedSongs).toHaveBeenCalled();
     expect(clearLyricsCache).toHaveBeenCalled();
     expect(clearDatabase).toHaveBeenCalled();
+    expect(resetLyricsMode).toHaveBeenCalled();
 
     const expectedKeys = [
       "subsonicVersion",

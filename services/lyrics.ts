@@ -1,15 +1,167 @@
 import { getLyricsBySongId } from "@/services/api";
 import {
   getLyricsCacheEntrySync,
+  getLyricsModeSetting,
+  getSongById,
+  setLyricsModeSetting,
   upsertLyricsCacheEntry,
 } from "@/services/db";
+import { fetchLyricsFromLrclib } from "@/services/lrclib";
 import {
+  LyricsCacheRow,
+  LyricsCacheStatus,
+  LyricsMode,
   LyricsSource,
+  LyricsTrackMetadata,
   NormalizedLyrics,
   NormalizedLyricsLine,
   StructuredLyrics,
 } from "@/types";
-import { LYRICS_NEGATIVE_CACHE_TTL_MS } from "@/utils/constants";
+import {
+  DEFAULT_LYRICS_MODE,
+  LYRICS_INSTRUMENTAL_CACHE_TTL_MS,
+  LYRICS_NEGATIVE_CACHE_TTL_MS,
+} from "@/utils/constants";
+
+let activeLyricsMode: LyricsMode | null = null;
+const lyricsModeListeners = new Set<(mode: LyricsMode) => void>();
+
+export function getLyricsMode(): LyricsMode {
+  if (!activeLyricsMode) {
+    activeLyricsMode = getLyricsModeSetting();
+  }
+  return activeLyricsMode;
+}
+
+export function setLyricsMode(mode: LyricsMode): void {
+  activeLyricsMode = mode;
+  setLyricsModeSetting(mode);
+  for (const listener of lyricsModeListeners) {
+    try {
+      listener(mode);
+    } catch (e) {
+      console.error("error in lyrics mode listener:", e);
+    }
+  }
+}
+
+export function resetLyricsMode(): void {
+  activeLyricsMode = DEFAULT_LYRICS_MODE;
+  for (const listener of lyricsModeListeners) {
+    try {
+      listener(DEFAULT_LYRICS_MODE);
+    } catch (e) {
+      console.error("error in lyrics mode listener:", e);
+    }
+  }
+}
+
+export function subscribeLyricsMode(
+  listener: (mode: LyricsMode) => void,
+): () => void {
+  lyricsModeListeners.add(listener);
+  listener(getLyricsMode());
+  return () => {
+    lyricsModeListeners.delete(listener);
+  };
+}
+
+/**
+ * Checks if lyrics have valid timestamped lines.
+ */
+export function isSyncedLyrics(
+  lyrics: NormalizedLyrics | null | undefined,
+): boolean {
+  if (!lyrics || !lyrics.lines || lyrics.lines.length === 0) return false;
+  return Boolean(
+    lyrics.synced && lyrics.lines.some((l) => typeof l.startMs === "number"),
+  );
+}
+
+/**
+ * Pure function to pick the winning lyrics according to the selected mode.
+ * - 'file_only': use only server lyrics.
+ * - 'file_first': use server lyrics; go online when server lyrics are missing OR unsynced.
+ *   If online returns synced lyrics, they win over unsynced file lyrics.
+ *   If online returns nothing or plain text, keep file lyrics.
+ *   If file lyrics are missing, use online lyrics.
+ *   A synced file lyric is never replaced by online in 'file_first'.
+ * - 'online_first': use online lyrics (synced or plain); fall back to server if online has nothing.
+ */
+export function pickLyrics(
+  mode: LyricsMode,
+  serverLyrics: NormalizedLyrics | null,
+  onlineLyrics: NormalizedLyrics | null,
+  serverStatus?: LyricsCacheStatus,
+  onlineStatus?: LyricsCacheStatus,
+): NormalizedLyrics | null {
+  if (mode === "file_only") {
+    if (serverStatus === "instrumental") return null;
+    return serverLyrics;
+  }
+
+  if (mode === "file_first") {
+    if (serverStatus === "instrumental") return null;
+
+    if (serverLyrics && isSyncedLyrics(serverLyrics)) {
+      return serverLyrics;
+    }
+
+    if (serverLyrics && !isSyncedLyrics(serverLyrics)) {
+      if (onlineLyrics && isSyncedLyrics(onlineLyrics)) {
+        return onlineLyrics;
+      }
+      return serverLyrics;
+    }
+
+    // Server lyrics are missing
+    if (onlineStatus === "instrumental") return null;
+    return onlineLyrics;
+  }
+
+  if (mode === "online_first") {
+    if (onlineStatus === "instrumental") return null;
+
+    if (onlineLyrics) {
+      return onlineLyrics;
+    }
+
+    // Fall back to server
+    if (serverStatus === "instrumental") return null;
+    return serverLyrics;
+  }
+
+  return serverLyrics;
+}
+
+/**
+ * Pure function to determine whether an online lookup is required.
+ */
+export function needsOnlineLookup(
+  mode: LyricsMode,
+  serverLyrics: NormalizedLyrics | null,
+  serverStatus?: LyricsCacheStatus,
+): boolean {
+  if (mode === "file_only") {
+    return false;
+  }
+
+  if (mode === "online_first") {
+    return true;
+  }
+
+  if (mode === "file_first") {
+    if (serverStatus === "instrumental") {
+      return false;
+    }
+    if (serverLyrics && isSyncedLyrics(serverLyrics)) {
+      return false;
+    }
+    return true;
+  }
+
+  return false;
+}
 
 /**
  * Normalizes an individual OpenSubsonic StructuredLyrics entry into a clean NormalizedLyrics object.
@@ -44,7 +196,6 @@ export function selectBestLyrics(
     return null;
   }
 
-  // Filter entries that have at least one line (even if empty string)
   const candidateEntries = entries.filter((e) => {
     const lines = e.line ?? [];
     return lines.length > 0;
@@ -54,7 +205,6 @@ export function selectBestLyrics(
     return null;
   }
 
-  // Prefer a synced entry
   const syncedEntry = candidateEntries.find((e) => Boolean(e.synced));
   const best = syncedEntry ?? candidateEntries[0];
 
@@ -62,18 +212,11 @@ export function selectBestLyrics(
 }
 
 /**
- * Synchronous accessor for cached lyrics.
- * Used during component render to eliminate delay for cached songs.
+ * Parses cached lyrics row JSON into NormalizedLyrics.
  */
-export function getCachedLyricsSync(
-  songId: string | null | undefined,
-  source: LyricsSource = "server",
+export function parseCachedRowLyrics(
+  row: LyricsCacheRow | null,
 ): NormalizedLyrics | null {
-  if (!songId || typeof songId !== "string" || songId.trim() === "") {
-    return null;
-  }
-
-  const row = getLyricsCacheEntrySync(songId, source);
   if (!row || row.status !== "found" || !row.linesJson) {
     return null;
   }
@@ -92,54 +235,58 @@ export function getCachedLyricsSync(
 }
 
 /**
- * Resolves lyrics for a song using SQLite cache and network fallback.
- * Provider-agnostic resolver.
- * - found in cache -> returns immediately
- * - none in cache & within negative TTL -> returns null without network
- * - miss or expired none -> fetches from server
- * - caches DEFINITIVE results only ('found' or 'none')
- * - network/server failures are NOT cached
+ * Synchronous accessor for cached lyrics applying the active mode.
+ * Used during component render to eliminate delay for cached songs.
  */
-export async function resolveLyricsForSong(
-  songId: string,
-  source: LyricsSource = "server",
-  options?: { now?: number; negativeTtlMs?: number },
-): Promise<NormalizedLyrics | null> {
+export function getCachedLyricsSync(
+  songId: string | null | undefined,
+  mode?: LyricsMode,
+): NormalizedLyrics | null {
   if (!songId || typeof songId !== "string" || songId.trim() === "") {
     return null;
   }
 
-  const now = options?.now ?? Date.now();
-  const negativeTtlMs =
-    options?.negativeTtlMs ?? LYRICS_NEGATIVE_CACHE_TTL_MS;
+  const activeMode = mode ?? getLyricsMode();
+  const serverRow = getLyricsCacheEntrySync(songId, "server");
+  const serverLyrics = parseCachedRowLyrics(serverRow);
+  const serverStatus = serverRow?.status;
 
-  const cachedRow = getLyricsCacheEntrySync(songId, source);
+  if (activeMode === "file_only") {
+    return serverStatus === "instrumental" ? null : serverLyrics;
+  }
+
+  const onlineRow = getLyricsCacheEntrySync(songId, "lrclib");
+  const onlineLyrics = parseCachedRowLyrics(onlineRow);
+  const onlineStatus = onlineRow?.status;
+
+  return pickLyrics(
+    activeMode,
+    serverLyrics,
+    onlineLyrics,
+    serverStatus,
+    onlineStatus,
+  );
+}
+
+async function resolveServerLyrics(
+  songId: string,
+  now: number,
+  negativeTtlMs: number,
+): Promise<{ lyrics: NormalizedLyrics | null; status: LyricsCacheStatus }> {
+  const cachedRow = getLyricsCacheEntrySync(songId, "server");
   if (cachedRow) {
     if (cachedRow.status === "found" && cachedRow.linesJson) {
-      try {
-        const lines = JSON.parse(
-          cachedRow.linesJson,
-        ) as NormalizedLyricsLine[];
-        return {
-          synced: Boolean(cachedRow.synced),
-          ...(cachedRow.lang ? { lang: cachedRow.lang } : {}),
-          ...(typeof cachedRow.offsetMs === "number"
-            ? { offsetMs: cachedRow.offsetMs }
-            : {}),
-          lines,
-        };
-      } catch {
-        // Fall through to refetch if parse failed
-      }
+      const parsed = parseCachedRowLyrics(cachedRow);
+      if (parsed) return { lyrics: parsed, status: "found" };
     } else if (cachedRow.status === "none") {
-      const isFresh = now - cachedRow.fetchedAt < negativeTtlMs;
-      if (isFresh) {
-        return null;
+      if (now - cachedRow.fetchedAt < negativeTtlMs) {
+        return { lyrics: null, status: "none" };
       }
+    } else if (cachedRow.status === "instrumental") {
+      return { lyrics: null, status: "instrumental" };
     }
   }
 
-  // Network fetch for source 'server'
   try {
     const rawLyrics = await getLyricsBySongId(songId);
     const normalized = selectBestLyrics(rawLyrics);
@@ -147,7 +294,7 @@ export async function resolveLyricsForSong(
     if (normalized && normalized.lines.length > 0) {
       upsertLyricsCacheEntry({
         songId,
-        source,
+        source: "server",
         status: "found",
         synced: normalized.synced,
         lang: normalized.lang ?? null,
@@ -155,13 +302,12 @@ export async function resolveLyricsForSong(
         linesJson: JSON.stringify(normalized.lines),
         fetchedAt: now,
       });
-      return normalized;
+      return { lyrics: normalized, status: "found" };
     }
 
-    // Definitive empty result from server (status: ok, but no lyrics found)
     upsertLyricsCacheEntry({
       songId,
-      source,
+      source: "server",
       status: "none",
       synced: 0,
       lang: null,
@@ -169,11 +315,221 @@ export async function resolveLyricsForSong(
       linesJson: null,
       fetchedAt: now,
     });
-    return null;
+    return { lyrics: null, status: "none" };
   } catch {
-    // Network or server error: do NOT cache as 'none'
+    return { lyrics: null, status: "none" };
+  }
+}
+
+async function resolveOnlineLyrics(
+  songId: string,
+  trackMeta: LyricsTrackMetadata,
+  now: number,
+  negativeTtlMs: number,
+  instrumentalTtlMs: number,
+): Promise<{ lyrics: NormalizedLyrics | null; status: LyricsCacheStatus }> {
+  const cachedRow = getLyricsCacheEntrySync(songId, "lrclib");
+  if (cachedRow) {
+    if (cachedRow.status === "found" && cachedRow.linesJson) {
+      const parsed = parseCachedRowLyrics(cachedRow);
+      if (parsed) return { lyrics: parsed, status: "found" };
+    } else if (cachedRow.status === "none") {
+      if (now - cachedRow.fetchedAt < negativeTtlMs) {
+        return { lyrics: null, status: "none" };
+      }
+    } else if (cachedRow.status === "instrumental") {
+      if (now - cachedRow.fetchedAt < instrumentalTtlMs) {
+        return { lyrics: null, status: "instrumental" };
+      }
+    }
+  }
+
+  // Duration check: if undefined, 0, or NaN, skip LRCLIB lookup entirely
+  const duration = trackMeta.duration;
+  if (typeof duration !== "number" || isNaN(duration) || duration <= 0) {
+    return { lyrics: null, status: "none" };
+  }
+
+  try {
+    const result = await fetchLyricsFromLrclib(trackMeta);
+    if (!result || result.kind === "unavailable") {
+      return { lyrics: null, status: "none" };
+    }
+
+    if (result.kind === "found") {
+      upsertLyricsCacheEntry({
+        songId,
+        source: "lrclib",
+        status: "found",
+        synced: result.lyrics.synced,
+        lang: result.lyrics.lang ?? null,
+        offsetMs: result.lyrics.offsetMs ?? null,
+        linesJson: JSON.stringify(result.lyrics.lines),
+        fetchedAt: now,
+      });
+      return { lyrics: result.lyrics, status: "found" };
+    }
+
+    if (result.kind === "instrumental") {
+      upsertLyricsCacheEntry({
+        songId,
+        source: "lrclib",
+        status: "instrumental",
+        synced: 0,
+        lang: null,
+        offsetMs: null,
+        linesJson: null,
+        fetchedAt: now,
+      });
+      return { lyrics: null, status: "instrumental" };
+    }
+
+    if (result.kind === "none") {
+      upsertLyricsCacheEntry({
+        songId,
+        source: "lrclib",
+        status: "none",
+        synced: 0,
+        lang: null,
+        offsetMs: null,
+        linesJson: null,
+        fetchedAt: now,
+      });
+      return { lyrics: null, status: "none" };
+    }
+  } catch {
+    return { lyrics: null, status: "none" };
+  }
+
+  return { lyrics: null, status: "none" };
+}
+
+/**
+ * Resolves lyrics for a song using SQLite cache, provider preferences, and network fallback.
+ * Provider-agnostic resolver.
+ */
+export async function resolveLyricsForSong(
+  songId: string,
+  trackMetaOrSource?: LyricsTrackMetadata | LyricsSource | null,
+  options?: {
+    mode?: LyricsMode;
+    now?: number;
+    negativeTtlMs?: number;
+    instrumentalTtlMs?: number;
+    onUpgrade?: (lyrics: NormalizedLyrics) => void;
+  },
+): Promise<NormalizedLyrics | null> {
+  if (!songId || typeof songId !== "string" || songId.trim() === "") {
     return null;
   }
+
+  const trackMeta =
+    typeof trackMetaOrSource === "object" && trackMetaOrSource !== null
+      ? trackMetaOrSource
+      : undefined;
+
+  const mode =
+    options?.mode ??
+    (trackMetaOrSource === "server" ? "file_only" : getLyricsMode());
+
+  const now = options?.now ?? Date.now();
+  const negativeTtlMs = options?.negativeTtlMs ?? LYRICS_NEGATIVE_CACHE_TTL_MS;
+  const instrumentalTtlMs =
+    options?.instrumentalTtlMs ?? LYRICS_INSTRUMENTAL_CACHE_TTL_MS;
+
+  const dbSong = getSongById(songId);
+  const meta: LyricsTrackMetadata = {
+    title: trackMeta?.title ?? dbSong?.title ?? "",
+    artist: trackMeta?.artist ?? dbSong?.artist ?? null,
+    album: trackMeta?.album ?? dbSong?.album ?? null,
+    duration:
+      (typeof trackMeta?.duration === "number" && trackMeta.duration > 0
+        ? trackMeta.duration
+        : null) ??
+      (typeof dbSong?.duration === "number" && dbSong.duration > 0
+        ? dbSong.duration
+        : null),
+  };
+
+  // 1. In 'file_only', never contact LRCLIB
+  if (mode === "file_only") {
+    const serverResult = await resolveServerLyrics(songId, now, negativeTtlMs);
+    return pickLyrics(
+      "file_only",
+      serverResult.lyrics,
+      null,
+      serverResult.status,
+      "none",
+    );
+  }
+
+  // 2. In 'file_first'
+  if (mode === "file_first") {
+    const serverResult = await resolveServerLyrics(songId, now, negativeTtlMs);
+
+    if (
+      !needsOnlineLookup("file_first", serverResult.lyrics, serverResult.status)
+    ) {
+      return serverResult.lyrics;
+    }
+
+    if (serverResult.lyrics && options?.onUpgrade) {
+      options.onUpgrade(serverResult.lyrics);
+    }
+
+    const onlineResult = await resolveOnlineLyrics(
+      songId,
+      meta,
+      now,
+      negativeTtlMs,
+      instrumentalTtlMs,
+    );
+
+    const picked = pickLyrics(
+      "file_first",
+      serverResult.lyrics,
+      onlineResult.lyrics,
+      serverResult.status,
+      onlineResult.status,
+    );
+
+    if (picked && options?.onUpgrade && picked !== serverResult.lyrics) {
+      options.onUpgrade(picked);
+    }
+
+    return picked;
+  }
+
+  // 3. In 'online_first'
+  if (mode === "online_first") {
+    const onlineResult = await resolveOnlineLyrics(
+      songId,
+      meta,
+      now,
+      negativeTtlMs,
+      instrumentalTtlMs,
+    );
+
+    if (onlineResult.status === "instrumental") {
+      return null;
+    }
+
+    if (onlineResult.lyrics) {
+      return onlineResult.lyrics;
+    }
+
+    // Fall back to server
+    const serverResult = await resolveServerLyrics(songId, now, negativeTtlMs);
+    return pickLyrics(
+      "online_first",
+      serverResult.lyrics,
+      onlineResult.lyrics,
+      serverResult.status,
+      onlineResult.status,
+    );
+  }
+
+  return null;
 }
 
 /**
@@ -198,15 +554,6 @@ export async function fetchLyricsForSong(
 /**
  * Computes the active lyric line index for a given playback position (in ms)
  * and optional offset (in ms) using binary search.
- *
- * Offset sign convention:
- * Positive offset (+) shifts lyrics earlier in time (effective position = positionMs + offsetMs).
- * Negative offset (-) delays lyrics.
- *
- * Rules:
- * - Returns -1 before the first timestamp.
- * - Blank lines (whitespace/empty text) are never highlighted; if the search lands on a blank line,
- *   the previous non-blank line remains highlighted.
  */
 export function getCurrentLyricsLineIndex(
   lines: NormalizedLyricsLine[],

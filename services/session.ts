@@ -2,6 +2,7 @@ import * as SecureStore from "expo-secure-store";
 
 import { notifyAuthState } from "@/services/api";
 import { clearDatabase, clearLyricsCache } from "@/services/db";
+import { resetLyricsMode } from "@/services/lyrics";
 import { resetPlayer } from "@/services/player";
 import { clearAllCachedSongs } from "@/services/songCache";
 
@@ -20,10 +21,11 @@ export async function logout(): Promise<void> {
     console.error("failed to clear song cache on logout:", error);
   }
 
-  // 3. Clear SQLite database tables and lyrics cache
+  // 3. Clear SQLite database tables, lyrics cache, and in-memory lyrics mode
   try {
     clearLyricsCache();
     clearDatabase();
+    resetLyricsMode();
   } catch (error) {
     console.error("failed to clear database on logout:", error);
   }

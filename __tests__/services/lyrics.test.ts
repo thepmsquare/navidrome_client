@@ -22,6 +22,9 @@ jest.mock("@/services/db", () => ({
   upsertLyricsCacheEntry: jest.fn(),
   deleteLyricsCacheForSong: jest.fn(),
   clearLyricsCache: jest.fn(),
+  getLyricsModeSetting: jest.fn(() => "file_only"),
+  setLyricsModeSetting: jest.fn(),
+  getSongById: jest.fn(),
 }));
 
 describe("services/lyrics", () => {

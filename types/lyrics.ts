@@ -79,3 +79,18 @@ export interface LyricsCacheRow {
   linesJson: string | null;
   fetchedAt: number;
 }
+
+export type LyricsMode = "file_only" | "file_first" | "online_first";
+
+export interface LyricsTrackMetadata {
+  title: string;
+  artist?: string | null;
+  album?: string | null;
+  duration?: number | null; // duration in seconds
+}
+
+export type OnlineLyricsProviderResult =
+  | { kind: "found"; lyrics: NormalizedLyrics }
+  | { kind: "instrumental" }
+  | { kind: "none" }
+  | { kind: "unavailable" };
