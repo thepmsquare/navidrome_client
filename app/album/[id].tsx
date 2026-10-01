@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, View } from "react-native";
 import { Appbar, Avatar, List, Surface, Text } from "react-native-paper";
 
+import { AppBottomBar, TabKey } from "@/components/AppBottomBar";
 import { BulkSongCacheButton } from "@/components/BulkSongCacheButton";
-import { MiniPlayer } from "@/components/MiniPlayer";
 import { SongCacheButton } from "@/components/SongCacheButton";
 import { getCoverArtBaseUrl } from "@/services/api";
 import { getAlbumById, getAllSongCacheEntries, getSongsByAlbumId } from "@/services/db";
@@ -13,6 +13,7 @@ import { playPlaylist } from "@/services/player";
 import { subscribeSongCache } from "@/services/songCache";
 import { albumDetailStyles } from "@/stylesheets";
 import { SongCacheRow, useAppTheme } from "@/types";
+
 
 function formatDuration(seconds?: number): string {
   if (!seconds) return "";
@@ -24,7 +25,7 @@ function formatDuration(seconds?: number): string {
 export default function AlbumDetailScreen() {
   const router = useRouter();
   const theme = useAppTheme();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
 
   const album = useMemo(() => (id ? getAlbumById(id) : null), [id]);
   const songs = useMemo(() => (id ? getSongsByAlbumId(id) : []), [id]);
@@ -187,7 +188,7 @@ export default function AlbumDetailScreen() {
         )}
       />
 
-      <MiniPlayer />
+      <AppBottomBar activeTab={(from as TabKey) ?? "library"} />
     </Surface>
   );
 }
