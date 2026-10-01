@@ -18,3 +18,6 @@ export const DEFAULT_AUTO_CACHE_MAX_BYTES =
 
 export const DEFAULT_SCROBBLE_MIN_DURATION = 240; // seconds
 export const DEFAULT_SCROBBLE_MIN_PERCENT = 75; // 0-100
+
+// 3 days negative lyrics cache TTL (in milliseconds)
+export const LYRICS_NEGATIVE_CACHE_TTL_MS = 3 * 24 * 60 * 60 * 1000;

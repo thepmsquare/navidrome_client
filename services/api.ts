@@ -21,6 +21,8 @@ import {
   ServerCredentials,
   SetRatingParams,
   StarParams,
+  StructuredLyrics,
+  subsonicGetLyricsBySongIdResponseWrapperSchema,
   subsonicGetPlaylistResponseWrapperSchema,
   subsonicGetPlaylistsResponseWrapperSchema,
   subsonicGetScanStatusResponseWrapperSchema,
@@ -694,5 +696,51 @@ export async function unstar(
   }
 
   return true;
+}
+
+export async function getLyricsBySongId(
+  id: string,
+): Promise<StructuredLyrics[]> {
+  if (!id || typeof id !== "string" || id.trim() === "") {
+    return [];
+  }
+
+  const creds = await getStoredCredentials();
+  const restBase = getRestBaseUrl(creds.serverUrl);
+  const authQuery = await buildAuthParams(creds);
+
+  const queryParams = new URLSearchParams();
+  queryParams.append("id", id);
+
+  const url = `${restBase}/getLyricsBySongId.view?${authQuery}&${queryParams.toString()}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`getLyricsBySongId failed with status ${response.status}`);
+  }
+
+  const data = await response.json();
+  const parsed =
+    subsonicGetLyricsBySongIdResponseWrapperSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new Error("invalid getLyricsBySongId response format");
+  }
+
+  const res = parsed.data["subsonic-response"];
+  if (res.status !== "ok") {
+    // If the server explicitly says error 70 (not found) or similar Subsonic error:
+    if (res.error?.code === 70) {
+      return [];
+    }
+    throw new Error(
+      res.error?.message ?? "subsonic returned non-ok status for getLyricsBySongId",
+    );
+  }
+
+  const rawList = res.lyricsList?.structuredLyrics;
+  if (!rawList) {
+    return [];
+  }
+
+  return Array.isArray(rawList) ? rawList : [rawList];
 }
 

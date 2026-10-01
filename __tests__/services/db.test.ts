@@ -66,8 +66,12 @@ import {
   getQueueRequesterCount,
   getRequestersForSource,
   clearAllRequestersForSong,
+  getLyricsCacheEntrySync,
+  upsertLyricsCacheEntry,
+  deleteLyricsCacheForSong,
+  clearLyricsCache,
 } from "@/services/db";
-import { AlbumID3, ArtistID3, Child, Playlist, SongCacheType } from "@/types";
+import { AlbumID3, ArtistID3, Child, LyricsCacheRow, Playlist, SongCacheType } from "@/types";
 
 const mockGetFirstSync = jest.fn();
 const mockGetAllSync = jest.fn();
@@ -431,6 +435,9 @@ describe("db service", () => {
       );
       expect(mockExecSync).toHaveBeenCalledWith(
         expect.stringContaining("DELETE FROM download_queue_requesters;"),
+      );
+      expect(mockExecSync).toHaveBeenCalledWith(
+        expect.stringContaining("DELETE FROM lyrics_cache;"),
       );
     });
   });
@@ -1241,6 +1248,77 @@ describe("db service", () => {
       expect(mockRunSync).toHaveBeenCalledWith(
         "DELETE FROM download_queue_requesters WHERE songId = ?",
         ["song-1"],
+      );
+    });
+  });
+
+  describe("lyrics_cache", () => {
+    it("getLyricsCacheEntrySync should return row if exists", () => {
+      const mockRow: LyricsCacheRow = {
+        songId: "song-1",
+        source: "server",
+        status: "found",
+        synced: 1,
+        lang: "eng",
+        offsetMs: 150,
+        linesJson: JSON.stringify([{ text: "hello" }]),
+        fetchedAt: 12345678,
+      };
+      mockGetFirstSync.mockReturnValue(mockRow);
+
+      const result = getLyricsCacheEntrySync("song-1", "server");
+      expect(mockGetFirstSync).toHaveBeenCalledWith(
+        "SELECT * FROM lyrics_cache WHERE songId = ? AND source = ?",
+        ["song-1", "server"],
+      );
+      expect(result).toEqual(mockRow);
+    });
+
+    it("getLyricsCacheEntrySync should return null if not found", () => {
+      mockGetFirstSync.mockReturnValue(null);
+      const result = getLyricsCacheEntrySync("song-none", "server");
+      expect(result).toBeNull();
+    });
+
+    it("upsertLyricsCacheEntry should insert or update lyrics entry", () => {
+      upsertLyricsCacheEntry({
+        songId: "song-1",
+        source: "server",
+        status: "found",
+        synced: true,
+        lang: "eng",
+        offsetMs: 200,
+        linesJson: JSON.stringify([{ text: "line 1" }]),
+        fetchedAt: 1000000,
+      });
+
+      expect(mockRunSync).toHaveBeenCalledWith(
+        expect.stringContaining("INSERT INTO lyrics_cache"),
+        [
+          "song-1",
+          "server",
+          "found",
+          1,
+          "eng",
+          200,
+          JSON.stringify([{ text: "line 1" }]),
+          1000000,
+        ],
+      );
+    });
+
+    it("deleteLyricsCacheForSong should delete rows for songId", () => {
+      deleteLyricsCacheForSong("song-1");
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "DELETE FROM lyrics_cache WHERE songId = ?",
+        ["song-1"],
+      );
+    });
+
+    it("clearLyricsCache should delete all rows from lyrics_cache", () => {
+      clearLyricsCache();
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "DELETE FROM lyrics_cache",
       );
     });
   });
