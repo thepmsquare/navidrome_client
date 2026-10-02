@@ -16,8 +16,16 @@ jest.mock("expo-router", () => ({
   useFocusEffect: jest.fn(),
 }));
 
+const playStatsListeners: (() => void)[] = [];
 jest.mock("@/services/api", () => ({
   getCoverArtBaseUrl: jest.fn().mockResolvedValue((id?: string) => `https://art/${id}`),
+  subscribePlayStats: jest.fn((listener: () => void) => {
+    playStatsListeners.push(listener);
+    return () => {
+      const idx = playStatsListeners.indexOf(listener);
+      if (idx !== -1) playStatsListeners.splice(idx, 1);
+    };
+  }),
 }));
 
 jest.mock("@/components/SongCacheButton", () => ({
@@ -241,4 +249,26 @@ describe("HomeScreen", () => {
     const texts = root.findAllByType(Text).map((t: any) => t.props.children);
     expect(texts).toContain("no tracks found");
   });
+
+  it("re-reads recently played and most played albums when playStatsRefreshed listener triggers", async () => {
+    let tree: any;
+    await renderer.act(async () => {
+      tree = renderer.create(<HomeScreen />);
+    });
+
+    const initialRecentCalls = (db.getRecentlyPlayedAlbums as jest.Mock).mock.calls.length;
+    const initialMostCalls = (db.getMostPlayedAlbums as jest.Mock).mock.calls.length;
+
+    await renderer.act(async () => {
+      playStatsListeners.forEach((listener) => listener());
+    });
+
+    expect((db.getRecentlyPlayedAlbums as jest.Mock).mock.calls.length).toBeGreaterThan(
+      initialRecentCalls,
+    );
+    expect((db.getMostPlayedAlbums as jest.Mock).mock.calls.length).toBeGreaterThan(
+      initialMostCalls,
+    );
+  });
 });
+

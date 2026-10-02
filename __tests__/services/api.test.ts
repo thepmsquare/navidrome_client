@@ -55,6 +55,13 @@ jest.mock("@/services/db", () => ({
   upsertArtistsBatch: jest.fn(),
   upsertPlaylistsBatch: jest.fn(),
   upsertSongsBatch: jest.fn(),
+  getDb: jest.fn(() => ({
+    withTransactionSync: jest.fn((cb: () => void) => cb()),
+  })),
+  getAlbumById: jest.fn(),
+  getSongById: jest.fn(),
+  updateAlbumPlayStats: jest.fn(),
+  updateSongPlayStats: jest.fn(),
 }));
 
 describe("api service", () => {
