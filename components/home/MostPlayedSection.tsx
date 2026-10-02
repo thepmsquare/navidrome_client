@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { FlatList, TouchableOpacity, View } from "react-native";
 import { Avatar, Surface, Text } from "react-native-paper";
 
-import { getCoverArtBaseUrl } from "@/services/api";
+import { getCoverArtBaseUrl, subscribePlayStats } from "@/services/api";
 import { getMostPlayedAlbums } from "@/services/db";
 import { homeStyles } from "@/stylesheets";
 import { AlbumID3, useAppTheme } from "@/types";
@@ -23,6 +23,15 @@ export function MostPlayedSection() {
       .catch((err) =>
         console.error("failed to get cover art url helper in most played section:", err),
       );
+  }, []);
+
+  useEffect(() => {
+    if (typeof subscribePlayStats === "function") {
+      const unsubscribe = subscribePlayStats(() => {
+        setAlbums(getMostPlayedAlbums(20));
+      });
+      return unsubscribe;
+    }
   }, []);
 
   useFocusEffect(

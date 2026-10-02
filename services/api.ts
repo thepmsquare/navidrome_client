@@ -1,8 +1,13 @@
 import {
   clearDatabase,
+  getAlbumById,
+  getDb,
   getLocalCounts,
+  getSongById,
   getSyncMeta,
   setSyncMeta,
+  updateAlbumPlayStats,
+  updateSongPlayStats,
   upsertAlbumsBatch,
   upsertArtistsBatch,
   upsertPlaylistsBatch,
@@ -11,9 +16,14 @@ import {
 import { resetPlayer } from "@/services/player";
 import { clearAllCachedSongs } from "@/services/songCache";
 import {
+  AlbumID3,
+  AlbumList2Type,
+  AlbumWithSongsID3,
+  GetAlbumList2Params,
   PingResponse,
   Playlist,
   PlaylistWithEntries,
+  RefreshPlayStatsResult,
   ScanStatus,
   ScrobbleParams,
   Search3Params,
@@ -22,6 +32,8 @@ import {
   SetRatingParams,
   StarParams,
   StructuredLyrics,
+  subsonicGetAlbumList2ResponseWrapperSchema,
+  subsonicGetAlbumResponseWrapperSchema,
   subsonicGetLyricsBySongIdResponseWrapperSchema,
   subsonicGetPlaylistResponseWrapperSchema,
   subsonicGetPlaylistsResponseWrapperSchema,
@@ -147,6 +159,26 @@ export function notifyAuthState(isLoggedIn: boolean): void {
   });
 }
 
+export type PlayStatsListener = () => void;
+const playStatsListeners = new Set<PlayStatsListener>();
+
+export function subscribePlayStats(listener: PlayStatsListener): () => void {
+  playStatsListeners.add(listener);
+  return () => {
+    playStatsListeners.delete(listener);
+  };
+}
+
+export function notifyPlayStatsUpdated(): void {
+  playStatsListeners.forEach((listener) => {
+    try {
+      listener();
+    } catch (e) {
+      console.error("error in play stats listener:", e);
+    }
+  });
+}
+
 export async function logout(): Promise<void> {
   // 1. Stop audio playback and reset in-memory player state
   try {
@@ -265,6 +297,21 @@ export async function client_app_sync(
 ): Promise<SyncResult> {
   const scanStatus = await getScanStatus();
 
+  let playStatsRefreshed = false;
+  if (!force) {
+    try {
+      const statsRes = await refreshPlayStats();
+      if (
+        statsRes.refreshed &&
+        (statsRes.albumsUpdated > 0 || statsRes.songsUpdated > 0)
+      ) {
+        playStatsRefreshed = true;
+      }
+    } catch (error) {
+      console.error("failed to refresh play stats during sync:", error);
+    }
+  }
+
   const storedLastScan = getSyncMeta("lastScan");
   const currentLastScan = scanStatus.lastScan ?? "";
 
@@ -277,6 +324,7 @@ export async function client_app_sync(
     const localCounts = getLocalCounts();
     return {
       synced: false,
+      playStatsRefreshed,
       artistCount: localCounts.artistCount,
       albumCount: localCounts.albumCount,
       songCount: localCounts.songCount,
@@ -367,6 +415,7 @@ export async function client_app_sync(
 
   return {
     synced: true,
+    playStatsRefreshed,
     artistCount: totalArtists,
     albumCount: totalAlbums,
     songCount: totalSongs,
@@ -434,6 +483,28 @@ export async function scrobble(params: ScrobbleParams): Promise<boolean> {
       throw err;
     }
   }
+  if (params.submission) {
+    try {
+      const song = getSongById(params.id);
+      if (song) {
+        const playedTime =
+          typeof params.time === "number" && !isNaN(params.time)
+            ? new Date(params.time).toISOString()
+            : new Date().toISOString();
+        updateSongPlayStats(song.id, playedTime, (song.playCount ?? 0) + 1);
+        if (song.albumId) {
+          const album = getAlbumById(song.albumId);
+          if (album) {
+            updateAlbumPlayStats(album.id, playedTime, (album.playCount ?? 0) + 1);
+          }
+        }
+        notifyPlayStatsUpdated();
+      }
+    } catch (e) {
+      console.error("failed to bump local play stats on scrobble:", e);
+    }
+  }
+
   return true;
 }
 
@@ -742,5 +813,332 @@ export async function getLyricsBySongId(
   }
 
   return Array.isArray(rawList) ? rawList : [rawList];
+}
+
+export type RequestTimeoutOptions = {
+  signal?: AbortSignal;
+  timeoutMs?: number;
+};
+
+export async function getAlbumList2(
+  params: GetAlbumList2Params,
+  options?: RequestTimeoutOptions,
+): Promise<AlbumID3[]>;
+export async function getAlbumList2(
+  type: AlbumList2Type,
+  size?: number,
+  offset?: number,
+  options?: RequestTimeoutOptions,
+): Promise<AlbumID3[]>;
+export async function getAlbumList2(
+  typeOrParams: AlbumList2Type | GetAlbumList2Params,
+  sizeArgOrOptions?: number | RequestTimeoutOptions,
+  offsetArg?: number,
+  optionsArg?: RequestTimeoutOptions,
+): Promise<AlbumID3[]> {
+  const options =
+    typeof sizeArgOrOptions === "object"
+      ? sizeArgOrOptions
+      : optionsArg;
+  const params: GetAlbumList2Params =
+    typeof typeOrParams === "string"
+      ? {
+          type: typeOrParams,
+          size: typeof sizeArgOrOptions === "number" ? sizeArgOrOptions : undefined,
+          offset: offsetArg,
+        }
+      : typeOrParams;
+
+  const creds = await getStoredCredentials();
+  const restBase = getRestBaseUrl(creds.serverUrl);
+  const authQuery = await buildAuthParams(creds);
+
+  const queryParams = new URLSearchParams();
+  queryParams.append("type", params.type);
+  if (params.size !== undefined) {
+    queryParams.append("size", params.size.toString());
+  }
+  if (params.offset !== undefined) {
+    queryParams.append("offset", params.offset.toString());
+  }
+  if (params.fromYear !== undefined) {
+    queryParams.append("fromYear", params.fromYear.toString());
+  }
+  if (params.toYear !== undefined) {
+    queryParams.append("toYear", params.toYear.toString());
+  }
+  if (params.genre !== undefined) {
+    queryParams.append("genre", params.genre);
+  }
+  if (params.musicFolderId !== undefined) {
+    queryParams.append("musicFolderId", params.musicFolderId);
+  }
+
+  const url = `${restBase}/getAlbumList2.view?${authQuery}&${queryParams.toString()}`;
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let signal = options?.signal;
+  if (options?.timeoutMs) {
+    const controller = new AbortController();
+    if (options.signal) {
+      options.signal.addEventListener("abort", () => controller.abort());
+    }
+    timer = setTimeout(() => {
+      controller.abort();
+    }, options.timeoutMs);
+    signal = controller.signal;
+  }
+
+  try {
+    const response = signal
+      ? await fetch(url, { signal })
+      : await fetch(url);
+    if (!response.ok) {
+      throw new Error(
+        `getAlbumList2 request failed with status ${response.status}`,
+      );
+    }
+
+    const data = await response.json();
+    const parsed = subsonicGetAlbumList2ResponseWrapperSchema.safeParse(data);
+    if (!parsed.success) {
+      throw new Error("failed to parse getAlbumList2 response");
+    }
+
+    const res = parsed.data["subsonic-response"];
+    if (res.status !== "ok") {
+      throw new Error(res.error?.message || "getAlbumList2 failed");
+    }
+
+    const rawList = res.albumList2?.album ?? res.albumList?.album;
+    if (!rawList) {
+      return [];
+    }
+
+    return Array.isArray(rawList) ? rawList : [rawList];
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}
+
+export async function getAlbum(
+  albumId: string,
+  options?: RequestTimeoutOptions,
+): Promise<AlbumWithSongsID3> {
+  if (!albumId || typeof albumId !== "string" || albumId.trim() === "") {
+    throw new Error("albumId is required");
+  }
+
+  const creds = await getStoredCredentials();
+  const restBase = getRestBaseUrl(creds.serverUrl);
+  const authQuery = await buildAuthParams(creds);
+
+  const url = `${restBase}/getAlbum.view?${authQuery}&id=${encodeURIComponent(albumId)}`;
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let signal = options?.signal;
+  if (options?.timeoutMs) {
+    const controller = new AbortController();
+    if (options.signal) {
+      options.signal.addEventListener("abort", () => controller.abort());
+    }
+    timer = setTimeout(() => {
+      controller.abort();
+    }, options.timeoutMs);
+    signal = controller.signal;
+  }
+
+  try {
+    const response = signal
+      ? await fetch(url, { signal })
+      : await fetch(url);
+    if (!response.ok) {
+      throw new Error(`getAlbum request failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    const parsed = subsonicGetAlbumResponseWrapperSchema.safeParse(data);
+    if (!parsed.success) {
+      throw new Error("failed to parse getAlbum response");
+    }
+
+    const res = parsed.data["subsonic-response"];
+    if (res.status !== "ok") {
+      throw new Error(res.error?.message || "getAlbum failed");
+    }
+
+    if (!res.album) {
+      throw new Error("album not found in response");
+    }
+
+    const rawSong = res.album.song;
+    const songList = rawSong
+      ? Array.isArray(rawSong)
+        ? rawSong
+        : [rawSong]
+      : [];
+
+    return {
+      ...res.album,
+      song: songList,
+    };
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}
+
+export async function refreshPlayStats(): Promise<RefreshPlayStatsResult> {
+  try {
+    const [recentAlbums, frequentAlbums] = await Promise.all([
+      getAlbumList2({ type: "recent", size: 30 }, { timeoutMs: 10000 }),
+      getAlbumList2({ type: "frequent", size: 30 }, { timeoutMs: 10000 }),
+    ]);
+
+    const albumMap = new Map<string, AlbumID3>();
+    for (const album of recentAlbums) {
+      if (album?.id) {
+        albumMap.set(album.id, album);
+      }
+    }
+    for (const album of frequentAlbums) {
+      if (album?.id) {
+        if (albumMap.has(album.id)) {
+          const existing = albumMap.get(album.id)!;
+          albumMap.set(album.id, {
+            ...existing,
+            ...album,
+            playCount:
+              album.playCount !== undefined && album.playCount !== null
+                ? existing.playCount !== undefined && existing.playCount !== null
+                  ? Math.max(existing.playCount, album.playCount)
+                  : album.playCount
+                : existing.playCount,
+            played:
+              album.played && existing.played
+                ? album.played > existing.played
+                  ? album.played
+                  : existing.played
+                : album.played ?? existing.played,
+          });
+        } else {
+          albumMap.set(album.id, album);
+        }
+      }
+    }
+
+    interface ChangedAlbum {
+      id: string;
+      played: string | null;
+      playCount: number | null;
+    }
+    const changedAlbums: ChangedAlbum[] = [];
+
+    for (const remoteAlbum of albumMap.values()) {
+      const localAlbum = getAlbumById(remoteAlbum.id);
+      if (!localAlbum) {
+        // Skip albums that don't exist locally
+        continue;
+      }
+
+      const remotePlayed = remoteAlbum.played ?? null;
+      const remotePlayCount = remoteAlbum.playCount ?? null;
+      const localPlayed = localAlbum.played ?? null;
+      const localPlayCount = localAlbum.playCount ?? null;
+
+      const hasChanged =
+        remotePlayed !== localPlayed || remotePlayCount !== localPlayCount;
+
+      if (hasChanged) {
+        changedAlbums.push({
+          id: remoteAlbum.id,
+          played: remotePlayed,
+          playCount: remotePlayCount,
+        });
+      }
+    }
+
+    interface ChangedSong {
+      id: string;
+      played: string | null;
+      playCount: number | null;
+    }
+    const changedSongsMap = new Map<string, ChangedSong>();
+
+    for (const changedAlbum of changedAlbums) {
+      const albumData = await getAlbum(changedAlbum.id, { timeoutMs: 10000 });
+      const remoteSongs = albumData.song ?? [];
+
+      for (const remoteSong of remoteSongs) {
+        if (!remoteSong?.id) continue;
+        const localSong = getSongById(remoteSong.id);
+        if (!localSong) {
+          // Skip songs that don't exist locally
+          continue;
+        }
+
+        const remoteSongPlayed = remoteSong.played ?? null;
+        const remoteSongPlayCount = remoteSong.playCount ?? null;
+        const localSongPlayed = localSong.played ?? null;
+        const localSongPlayCount = localSong.playCount ?? null;
+
+        const songChanged =
+          remoteSongPlayed !== localSongPlayed ||
+          remoteSongPlayCount !== localSongPlayCount;
+
+        if (songChanged) {
+          changedSongsMap.set(remoteSong.id, {
+            id: remoteSong.id,
+            played: remoteSongPlayed,
+            playCount: remoteSongPlayCount,
+          });
+        }
+      }
+    }
+
+    const db = getDb();
+    let albumsUpdated = 0;
+    let songsUpdated = 0;
+
+    db.withTransactionSync(() => {
+      for (const alb of changedAlbums) {
+        const didUpdate = updateAlbumPlayStats(
+          alb.id,
+          alb.played,
+          alb.playCount,
+        );
+        if (didUpdate) {
+          albumsUpdated++;
+        }
+      }
+
+      for (const song of changedSongsMap.values()) {
+        const didUpdate = updateSongPlayStats(
+          song.id,
+          song.played,
+          song.playCount,
+        );
+        if (didUpdate) {
+          songsUpdated++;
+        }
+      }
+    });
+
+    if (albumsUpdated > 0 || songsUpdated > 0) {
+      notifyPlayStatsUpdated();
+    }
+
+    return {
+      refreshed: true,
+      albumsUpdated,
+      songsUpdated,
+    };
+  } catch (error) {
+    console.error("failed to refresh play stats:", error);
+    return { refreshed: false };
+  }
 }
 

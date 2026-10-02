@@ -26,6 +26,7 @@ export interface Search3Counts {
 
 export interface SyncResult {
   synced: boolean;
+  playStatsRefreshed?: boolean;
   artistCount?: number;
   albumCount?: number;
   songCount?: number;
@@ -298,6 +299,66 @@ export const subsonicGetPlaylistResponseWrapperSchema = z.object({
   "subsonic-response": getPlaylistResponseSchema,
 });
 
+export type AlbumList2Type =
+  | "random"
+  | "newest"
+  | "highest"
+  | "frequent"
+  | "recent"
+  | "alphabeticalByName"
+  | "alphabeticalByArtist"
+  | "starred"
+  | "byYear"
+  | "byGenre"
+  | (string & {});
+
+export interface GetAlbumList2Params {
+  type: AlbumList2Type;
+  size?: number;
+  offset?: number;
+  fromYear?: number;
+  toYear?: number;
+  genre?: string;
+  musicFolderId?: string;
+}
+
+export const albumList2Schema = z.object({
+  album: z.union([z.array(albumID3Schema), albumID3Schema]).optional().nullable(),
+});
+
+export const getAlbumList2ResponseSchema = z.object({
+  status: z.string(),
+  version: z.string().optional(),
+  type: z.string().optional(),
+  serverVersion: z.string().optional(),
+  openSubsonic: z.boolean().optional(),
+  error: subsonicErrorSchema.optional(),
+  albumList2: albumList2Schema.optional(),
+  albumList: albumList2Schema.optional(),
+});
+
+export const subsonicGetAlbumList2ResponseWrapperSchema = z.object({
+  "subsonic-response": getAlbumList2ResponseSchema,
+});
+
+export const albumWithSongsID3Schema = albumID3Schema.extend({
+  song: z.union([z.array(childSchema), childSchema]).optional().nullable(),
+});
+
+export const getAlbumResponseSchema = z.object({
+  status: z.string(),
+  version: z.string().optional(),
+  type: z.string().optional(),
+  serverVersion: z.string().optional(),
+  openSubsonic: z.boolean().optional(),
+  error: subsonicErrorSchema.optional(),
+  album: albumWithSongsID3Schema.optional(),
+});
+
+export const subsonicGetAlbumResponseWrapperSchema = z.object({
+  "subsonic-response": getAlbumResponseSchema,
+});
+
 export type SubsonicError = z.infer<typeof subsonicErrorSchema>;
 export type PingResponse = z.infer<typeof pingResponseSchema>;
 export type SubsonicPingResponseWrapper = z.infer<
@@ -326,12 +387,39 @@ export type GetPlaylistResponse = z.infer<typeof getPlaylistResponseSchema>;
 export type SubsonicGetPlaylistResponseWrapper = z.infer<
   typeof subsonicGetPlaylistResponseWrapperSchema
 >;
+export type GetAlbumList2Response = z.infer<typeof getAlbumList2ResponseSchema>;
+export type SubsonicGetAlbumList2ResponseWrapper = z.infer<
+  typeof subsonicGetAlbumList2ResponseWrapperSchema
+>;
+export interface AlbumWithSongsID3 extends AlbumID3 {
+  song?: Child[];
+}
+export type GetAlbumResponse = z.infer<typeof getAlbumResponseSchema>;
+export type SubsonicGetAlbumResponseWrapper = z.infer<
+  typeof subsonicGetAlbumResponseWrapperSchema
+>;
+
+export interface RefreshPlayStatsSuccess {
+  refreshed: true;
+  albumsUpdated: number;
+  songsUpdated: number;
+}
+
+export interface RefreshPlayStatsFailure {
+  refreshed: false;
+}
+
+export type RefreshPlayStatsResult =
+  | RefreshPlayStatsSuccess
+  | RefreshPlayStatsFailure;
+
 export type SubsonicResponse = z.infer<typeof subsonicResponseSchema>;
 export type SubsonicResponseWrapper = z.infer<
   typeof subsonicResponseWrapperSchema
 >;
 export type SubsonicEmptyResponse = SubsonicResponse;
 export type SubsonicEmptyResponseWrapper = SubsonicResponseWrapper;
+
 
 
 
