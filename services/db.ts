@@ -664,6 +664,33 @@ export function updateSongRating(
   ]);
 }
 
+export function updateAlbumPlayStats(
+  albumId: string,
+  played: string | null,
+  playCount: number | null,
+): boolean {
+  const db = getDb();
+  const res = db.runSync(
+    "UPDATE albums SET played = ?, playCount = ? WHERE id = ?",
+    [played ?? null, playCount ?? null, albumId],
+  );
+  return res.changes > 0;
+}
+
+export function updateSongPlayStats(
+  songId: string,
+  played: string | null,
+  playCount: number | null,
+): boolean {
+  const db = getDb();
+  const res = db.runSync(
+    "UPDATE songs SET played = ?, playCount = ? WHERE id = ?",
+    [played ?? null, playCount ?? null, songId],
+  );
+  return res.changes > 0;
+}
+
+
 export function getSongsByIds(ids: string[]): Child[] {
   if (!ids || ids.length === 0) {
     return [];

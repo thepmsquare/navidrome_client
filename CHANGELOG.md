@@ -1,5 +1,10 @@
 # changelog
 
+## 2.20.1+51
+
+- techincal changes
+  - add refreshPlayStats function that syncs stats for recent and frequent album plays.
+
 ## 2.20.0+50
 
 - add lyrics support.

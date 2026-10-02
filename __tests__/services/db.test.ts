@@ -20,7 +20,9 @@ import {
   getSyncMeta,
   initDatabase,
   setSyncMeta,
+  updateAlbumPlayStats,
   updateSongCacheLastAccessed,
+  updateSongPlayStats,
   updateSongRating,
   updateSongStarred,
   upsertAlbumsBatch,
@@ -593,7 +595,66 @@ describe("db service", () => {
         [5, "track-1"],
       );
     });
+
+    it("updateAlbumPlayStats should run UPDATE albums SET played, playCount", () => {
+      mockRunSync.mockReturnValue({ changes: 1 });
+      const res = updateAlbumPlayStats("alb-1", "2026-10-02T10:00:00Z", 42);
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "UPDATE albums SET played = ?, playCount = ? WHERE id = ?",
+        ["2026-10-02T10:00:00Z", 42, "alb-1"],
+      );
+      expect(res).toBe(true);
+    });
+
+    it("updateAlbumPlayStats should return false if album does not exist", () => {
+      mockRunSync.mockReturnValue({ changes: 0 });
+      const res = updateAlbumPlayStats("alb-unknown", "2026-10-02T10:00:00Z", 42);
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "UPDATE albums SET played = ?, playCount = ? WHERE id = ?",
+        ["2026-10-02T10:00:00Z", 42, "alb-unknown"],
+      );
+      expect(res).toBe(false);
+    });
+
+    it("updateAlbumPlayStats should leave other columns untouched by only setting played and playCount", () => {
+      mockRunSync.mockReturnValue({ changes: 1 });
+      updateAlbumPlayStats("alb-1", null, null);
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "UPDATE albums SET played = ?, playCount = ? WHERE id = ?",
+        [null, null, "alb-1"],
+      );
+    });
+
+    it("updateSongPlayStats should run UPDATE songs SET played, playCount", () => {
+      mockRunSync.mockReturnValue({ changes: 1 });
+      const res = updateSongPlayStats("track-1", "2026-10-02T10:00:00Z", 15);
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "UPDATE songs SET played = ?, playCount = ? WHERE id = ?",
+        ["2026-10-02T10:00:00Z", 15, "track-1"],
+      );
+      expect(res).toBe(true);
+    });
+
+    it("updateSongPlayStats should return false if song does not exist", () => {
+      mockRunSync.mockReturnValue({ changes: 0 });
+      const res = updateSongPlayStats("track-unknown", null, 5);
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "UPDATE songs SET played = ?, playCount = ? WHERE id = ?",
+        [null, 5, "track-unknown"],
+      );
+      expect(res).toBe(false);
+    });
+
+    it("updateSongPlayStats should leave other columns untouched by only setting played and playCount", () => {
+      mockRunSync.mockReturnValue({ changes: 1 });
+      updateSongPlayStats("track-1", null, null);
+      expect(mockRunSync).toHaveBeenCalledWith(
+        "UPDATE songs SET played = ?, playCount = ? WHERE id = ?",
+        [null, null, "track-1"],
+      );
+    });
   });
+
 
   describe("song_cache helpers", () => {
     it("upsertSongCacheEntry should run INSERT OR REPLACE INTO song_cache", () => {
