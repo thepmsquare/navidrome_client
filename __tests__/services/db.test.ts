@@ -1013,6 +1013,8 @@ describe("db service", () => {
       currentIndex: 0,
       position: 42,
       repeatMode: "all",
+      shuffle: false,
+      originalQueue: undefined,
       updatedAt: "2026-09-19T00:00:00.000Z",
     };
 
@@ -1025,6 +1027,8 @@ describe("db service", () => {
           0,
           42,
           "all",
+          0,
+          null,
           "2026-09-19T00:00:00.000Z",
         ],
       );
@@ -1035,7 +1039,7 @@ describe("db service", () => {
       const result = getPlayerSession();
       expect(result).toBeNull();
       expect(mockGetFirstSync).toHaveBeenCalledWith(
-        expect.stringContaining("SELECT queueJson, currentIndex, position, repeatMode, updatedAt FROM player_session WHERE id = 1"),
+        expect.stringContaining("SELECT queueJson, currentIndex, position, repeatMode, shuffle, originalQueueJson, updatedAt FROM player_session WHERE id = 1"),
       );
     });
 
@@ -1045,11 +1049,30 @@ describe("db service", () => {
         currentIndex: 0,
         position: 42,
         repeatMode: "all",
+        shuffle: 0,
+        originalQueueJson: null,
         updatedAt: "2026-09-19T00:00:00.000Z",
       });
 
       const result = getPlayerSession();
       expect(result).toEqual(mockSession);
+    });
+
+    it("getPlayerSession should parse shuffle and originalQueue when present", () => {
+      const origQueue = [mockSession.queue[0]];
+      mockGetFirstSync.mockReturnValue({
+        queueJson: JSON.stringify(mockSession.queue),
+        currentIndex: 0,
+        position: 42,
+        repeatMode: "all",
+        shuffle: 1,
+        originalQueueJson: JSON.stringify(origQueue),
+        updatedAt: "2026-09-19T00:00:00.000Z",
+      });
+
+      const result = getPlayerSession();
+      expect(result?.shuffle).toBe(true);
+      expect(result?.originalQueue).toEqual(origQueue);
     });
 
     it("getPlayerSession should default repeatMode to off if unknown", () => {
