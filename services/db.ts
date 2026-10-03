@@ -223,19 +223,6 @@ export function initDatabase(db: SQLite.SQLiteDatabase = getDb()): void {
 
     CREATE INDEX IF NOT EXISTS idx_lyrics_cache_songId ON lyrics_cache(songId);
   `);
-
-  try {
-    const db = getDb();
-    db.execSync("ALTER TABLE player_session ADD COLUMN shuffle INTEGER NOT NULL DEFAULT 0;");
-  } catch {
-    // column already exists
-  }
-  try {
-    const db = getDb();
-    db.execSync("ALTER TABLE player_session ADD COLUMN originalQueueJson TEXT;");
-  } catch {
-    // column already exists
-  }
 }
 
 export function getSyncMeta(key: string): string | null {
