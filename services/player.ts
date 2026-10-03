@@ -75,6 +75,7 @@ export interface PlayerState {
   duration: number;
   position: number;
   repeatMode: "off" | "one" | "all";
+  shuffle: boolean;
   hasPrevious: boolean;
   hasNext: boolean;
   isPlayingFromCache: boolean;
@@ -82,11 +83,13 @@ export interface PlayerState {
 }
 
 let currentQueue: Child[] = [];
+let originalQueue: Child[] = [];
 let currentIndex = 0;
 let currentTrack: ActiveTrackInfo | null = null;
 let currentPlaybackSource: { songId: string; isFromCache: boolean } | null =
   null;
 let currentRepeatMode: "off" | "one" | "all" = "off";
+let currentShuffle = false;
 let lastPlaybackStatus: PlaybackStatus = {
   isPlaying: false,
   isBuffering: false,
@@ -117,6 +120,8 @@ function persistCurrentSession(): void {
       currentIndex,
       position: Math.floor(lastPlaybackStatus.position || 0),
       repeatMode: currentRepeatMode,
+      shuffle: currentShuffle,
+      originalQueue: originalQueue.length > 0 ? originalQueue : currentQueue,
       updatedAt: new Date().toISOString(),
     });
   } catch (err) {
@@ -129,11 +134,16 @@ export function hydratePlayerSession(): void {
     const session = getPlayerSession();
     if (session && session.queue && session.queue.length > 0) {
       currentQueue = session.queue;
+      originalQueue =
+        session.originalQueue && session.originalQueue.length > 0
+          ? session.originalQueue
+          : [...session.queue];
       currentIndex =
         session.currentIndex >= 0 && session.currentIndex < session.queue.length
           ? session.currentIndex
           : 0;
       currentRepeatMode = session.repeatMode ?? "off";
+      currentShuffle = Boolean(session.shuffle);
       const song = currentQueue[currentIndex];
       if (song) {
         let dbStarred = song.starred;
@@ -224,6 +234,7 @@ export function getPlayerState(): PlayerState {
     duration: lastPlaybackStatus.duration || currentTrack?.duration || 0,
     position: lastPlaybackStatus.position || 0,
     repeatMode: currentRepeatMode,
+    shuffle: currentShuffle,
     hasPrevious,
     hasNext,
     isPlayingFromCache,
@@ -540,6 +551,17 @@ export async function playTrackAtIndex(index: number): Promise<void> {
   }
 }
 
+function shuffleArray<T>(array: T[]): T[] {
+  const result = [...array];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const temp = result[i];
+    result[i] = result[j];
+    result[j] = temp;
+  }
+  return result;
+}
+
 export async function playPlaylist(
   songs: Child[],
   startIndex: number = 0,
@@ -547,8 +569,20 @@ export async function playPlaylist(
   if (!songs.length) return;
 
   try {
-    currentQueue = songs;
-    await playTrackAtIndex(startIndex);
+    originalQueue = [...songs];
+    const safeStartIndex =
+      startIndex >= 0 && startIndex < songs.length ? startIndex : 0;
+
+    if (currentShuffle && songs.length > 1) {
+      const selectedSong = songs[safeStartIndex];
+      const remainingSongs = songs.filter((_, idx) => idx !== safeStartIndex);
+      const shuffledRemaining = shuffleArray(remainingSongs);
+      currentQueue = [selectedSong, ...shuffledRemaining];
+      await playTrackAtIndex(0);
+    } else {
+      currentQueue = [...songs];
+      await playTrackAtIndex(safeStartIndex);
+    }
   } catch (error) {
     console.error("failed to play playlist:", error);
   }
@@ -594,6 +628,57 @@ export function getCurrentTrack(): ActiveTrackInfo | null {
 export function getCurrentRepeatMode(): "off" | "one" | "all" {
   ensureSessionHydrated();
   return currentRepeatMode;
+}
+
+export function getCurrentShuffle(): boolean {
+  ensureSessionHydrated();
+  return currentShuffle;
+}
+
+export function getOriginalQueue(): Child[] {
+  ensureSessionHydrated();
+  return originalQueue;
+}
+
+export async function toggleShuffle(): Promise<boolean> {
+  ensureSessionHydrated();
+  const nextShuffle = !currentShuffle;
+
+  if (nextShuffle) {
+    if (originalQueue.length === 0 && currentQueue.length > 0) {
+      originalQueue = [...currentQueue];
+    }
+    if (currentQueue.length > 1) {
+      const safeIndex =
+        currentIndex >= 0 && currentIndex < currentQueue.length
+          ? currentIndex
+          : 0;
+      const currentSong = currentQueue[safeIndex];
+      const remainingSongs = currentQueue.filter((_, idx) => idx !== safeIndex);
+      const shuffledRemaining = shuffleArray(remainingSongs);
+      currentQueue = [currentSong, ...shuffledRemaining];
+      currentIndex = 0;
+    }
+  } else {
+    if (originalQueue.length > 0) {
+      const currentSongId = currentTrack?.id;
+      currentQueue = [...originalQueue];
+      if (currentSongId) {
+        const foundIndex = currentQueue.findIndex((s) => s.id === currentSongId);
+        currentIndex = foundIndex >= 0 ? foundIndex : 0;
+      }
+    }
+  }
+
+  currentShuffle = nextShuffle;
+  notifyStateChanged();
+  persistCurrentSession();
+  return currentShuffle;
+}
+
+export async function setPlaybackShuffle(enabled: boolean): Promise<void> {
+  if (currentShuffle === enabled) return;
+  await toggleShuffle();
 }
 
 export async function pausePlayback(): Promise<void> {
@@ -645,10 +730,12 @@ export async function resetPlayer(): Promise<void> {
   }
   hasHydrated = true;
   currentQueue = [];
+  originalQueue = [];
   currentIndex = 0;
   currentTrack = null;
   currentPlaybackSource = null;
   currentRepeatMode = "off";
+  currentShuffle = false;
   scrobbleInFlightTrackId = null;
   scrobbledSuccessfullyTrackId = null;
   activePlaybackTrackId = null;

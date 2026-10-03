@@ -1,5 +1,9 @@
 # changelog
 
+## 2.21.0+52
+
+- add shuffle mode.
+
 ## 2.20.1+51
 
 - techincal changes
