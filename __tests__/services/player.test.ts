@@ -9,7 +9,9 @@ import {
   getCurrentIndex,
   getCurrentQueue,
   getCurrentRepeatMode,
+  getCurrentShuffle,
   getCurrentTrack,
+  getOriginalQueue,
   getPlayerState,
   getStatus,
   pausePlayback,
@@ -23,11 +25,13 @@ import {
   resumePlayback,
   seekToPosition,
   setPlaybackRepeatMode,
+  setPlaybackShuffle,
   setPlaybackVolume,
   stopPlayback,
   stopTestSound,
   subscribePlayerState,
   togglePlayback,
+  toggleShuffle,
   usePlayerState,
   hydratePlayerSession,
   setRatingCurrentTrack,
@@ -357,6 +361,27 @@ describe("player service", () => {
       expect(getCurrentQueue()).toEqual([]);
     });
 
+    it("playPlaylist when shuffle is enabled shuffles remaining tracks and starts selected song", async () => {
+      await resetPlayer();
+      await setPlaybackShuffle(true);
+
+      const song3: Child = {
+        id: "song-3",
+        title: "Song Three",
+        artist: "Artist 3",
+        album: "Album 3",
+        duration: 220,
+      };
+
+      await playPlaylist([sampleSong1, sampleSong2, song3], 2);
+
+      expect(getCurrentIndex()).toBe(0);
+      expect(getCurrentTrack()?.id).toBe("song-3");
+      expect(getCurrentQueue()[0].id).toBe("song-3");
+      expect(getOriginalQueue()).toEqual([sampleSong1, sampleSong2, song3]);
+      expect(getCurrentQueue().length).toBe(3);
+    });
+
     it("playTrackAtIndex with invalid index should return early", async () => {
       await playPlaylist([sampleSong1], 0);
       await playTrackAtIndex(5);
@@ -485,6 +510,54 @@ describe("player service", () => {
 
       await cycleRepeatMode();
       expect(getCurrentRepeatMode()).toBe("off");
+    });
+
+    it("toggleShuffle toggles shuffle on and off, preserving originalQueue and updating currentIndex", async () => {
+      await resetPlayer();
+      const song3: Child = {
+        id: "song-3",
+        title: "Song Three",
+        artist: "Artist 3",
+        album: "Album 3",
+        duration: 220,
+      };
+      await playPlaylist([sampleSong1, sampleSong2, song3], 1);
+
+      expect(getCurrentShuffle()).toBe(false);
+      expect(getCurrentTrack()?.id).toBe("song-2");
+      expect(getOriginalQueue()).toEqual([sampleSong1, sampleSong2, song3]);
+
+      const shuffledState = await toggleShuffle();
+      expect(shuffledState).toBe(true);
+      expect(getCurrentShuffle()).toBe(true);
+      expect(getPlayerState().shuffle).toBe(true);
+      expect(getCurrentQueue()[0].id).toBe("song-2");
+      expect(getCurrentIndex()).toBe(0);
+      expect(getCurrentQueue().length).toBe(3);
+      const ids = getCurrentQueue().map((s) => s.id).sort();
+      expect(ids).toEqual(["song-1", "song-2", "song-3"]);
+
+      const unShuffledState = await toggleShuffle();
+      expect(unShuffledState).toBe(false);
+      expect(getCurrentShuffle()).toBe(false);
+      expect(getPlayerState().shuffle).toBe(false);
+      expect(getCurrentQueue()).toEqual([sampleSong1, sampleSong2, song3]);
+      expect(getCurrentIndex()).toBe(1);
+      expect(getCurrentTrack()?.id).toBe("song-2");
+    });
+
+    it("setPlaybackShuffle sets shuffle explicitly", async () => {
+      await resetPlayer();
+      await playPlaylist([sampleSong1, sampleSong2], 0);
+
+      await setPlaybackShuffle(true);
+      expect(getCurrentShuffle()).toBe(true);
+
+      await setPlaybackShuffle(true);
+      expect(getCurrentShuffle()).toBe(true);
+
+      await setPlaybackShuffle(false);
+      expect(getCurrentShuffle()).toBe(false);
     });
 
     it("getStatus updates lastPlaybackStatus and returns it", async () => {
@@ -865,6 +938,36 @@ describe("player service", () => {
       const state = getPlayerState();
       expect(state.position).toBe(50);
       expect(state.isPlaying).toBe(false);
+    });
+
+    it("hydratePlayerSession should restore shuffle and originalQueue", () => {
+      (getPlayerSession as jest.Mock).mockReturnValueOnce({
+        queue: [sampleSong2, sampleSong1],
+        currentIndex: 0,
+        position: 45,
+        repeatMode: "off",
+        shuffle: true,
+        originalQueue: [sampleSong1, sampleSong2],
+        updatedAt: "2026-09-19T00:00:00.000Z",
+      });
+
+      hydratePlayerSession();
+
+      expect(getCurrentShuffle()).toBe(true);
+      expect(getPlayerState().shuffle).toBe(true);
+      expect(getCurrentQueue()).toEqual([sampleSong2, sampleSong1]);
+      expect(getOriginalQueue()).toEqual([sampleSong1, sampleSong2]);
+    });
+
+    it("resetPlayer clears shuffle and original queue", async () => {
+      await playPlaylist([sampleSong1, sampleSong2], 0);
+      await setPlaybackShuffle(true);
+      expect(getCurrentShuffle()).toBe(true);
+
+      await resetPlayer();
+      expect(getCurrentShuffle()).toBe(false);
+      expect(getOriginalQueue()).toEqual([]);
+      expect(getCurrentQueue()).toEqual([]);
     });
 
     it("resumePlayback after cold start hydration should load track and seek to saved position", async () => {

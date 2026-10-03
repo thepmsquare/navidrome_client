@@ -182,6 +182,8 @@ export function initDatabase(db: SQLite.SQLiteDatabase = getDb()): void {
       currentIndex INTEGER NOT NULL,
       position REAL NOT NULL,
       repeatMode TEXT NOT NULL,
+      shuffle INTEGER NOT NULL DEFAULT 0,
+      originalQueueJson TEXT,
       updatedAt TEXT NOT NULL
     );
 
@@ -221,6 +223,19 @@ export function initDatabase(db: SQLite.SQLiteDatabase = getDb()): void {
 
     CREATE INDEX IF NOT EXISTS idx_lyrics_cache_songId ON lyrics_cache(songId);
   `);
+
+  try {
+    const db = getDb();
+    db.execSync("ALTER TABLE player_session ADD COLUMN shuffle INTEGER NOT NULL DEFAULT 0;");
+  } catch {
+    // column already exists
+  }
+  try {
+    const db = getDb();
+    db.execSync("ALTER TABLE player_session ADD COLUMN originalQueueJson TEXT;");
+  } catch {
+    // column already exists
+  }
 }
 
 export function getSyncMeta(key: string): string | null {
@@ -1110,25 +1125,31 @@ export interface PersistedPlayerSession {
   currentIndex: number;
   position: number;
   repeatMode: "off" | "one" | "all";
+  shuffle?: boolean;
+  originalQueue?: Child[];
   updatedAt: string;
 }
 
 export function savePlayerSession(session: PersistedPlayerSession): void {
   const db = getDb();
   db.runSync(
-    `INSERT INTO player_session (id, queueJson, currentIndex, position, repeatMode, updatedAt)
-     VALUES (1, ?, ?, ?, ?, ?)
+    `INSERT INTO player_session (id, queueJson, currentIndex, position, repeatMode, shuffle, originalQueueJson, updatedAt)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        queueJson = excluded.queueJson,
        currentIndex = excluded.currentIndex,
        position = excluded.position,
        repeatMode = excluded.repeatMode,
+       shuffle = excluded.shuffle,
+       originalQueueJson = excluded.originalQueueJson,
        updatedAt = excluded.updatedAt`,
     [
       JSON.stringify(session.queue),
       session.currentIndex,
       session.position,
       session.repeatMode,
+      session.shuffle ? 1 : 0,
+      session.originalQueue ? JSON.stringify(session.originalQueue) : null,
       session.updatedAt,
     ],
   );
@@ -1141,9 +1162,11 @@ export function getPlayerSession(): PersistedPlayerSession | null {
     currentIndex: number;
     position: number;
     repeatMode: string;
+    shuffle?: number | null;
+    originalQueueJson?: string | null;
     updatedAt: string;
   }>(
-    "SELECT queueJson, currentIndex, position, repeatMode, updatedAt FROM player_session WHERE id = 1",
+    "SELECT queueJson, currentIndex, position, repeatMode, shuffle, originalQueueJson, updatedAt FROM player_session WHERE id = 1",
   );
 
   if (!row) return null;
@@ -1154,11 +1177,21 @@ export function getPlayerSession(): PersistedPlayerSession | null {
       row.repeatMode === "one" || row.repeatMode === "all"
         ? row.repeatMode
         : "off";
+    let originalQueue: Child[] | undefined = undefined;
+    if (row.originalQueueJson) {
+      try {
+        originalQueue = JSON.parse(row.originalQueueJson) as Child[];
+      } catch {
+        // fallback to undefined
+      }
+    }
     return {
       queue,
       currentIndex: row.currentIndex,
       position: row.position,
       repeatMode,
+      shuffle: Boolean(row.shuffle),
+      originalQueue,
       updatedAt: row.updatedAt,
     };
   } catch (err) {

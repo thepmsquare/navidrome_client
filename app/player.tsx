@@ -31,6 +31,7 @@ import {
   playPrevious,
   setRatingCurrentTrack,
   togglePlayback,
+  toggleShuffle,
   toggleStarCurrentTrack,
   usePlayerState,
 } from "@/services/player";
@@ -107,6 +108,7 @@ export default function PlayerScreen() {
     position,
     duration,
     repeatMode,
+    shuffle,
     hasPrevious,
     hasNext,
     isPlayingFromCache,
@@ -276,6 +278,19 @@ export default function PlayerScreen() {
         ? "repeat all"
         : "repeat off";
 
+  const shuffleIcon = shuffle ? "shuffle-variant" : "shuffle-disabled";
+  const shuffleColor = shuffle ? theme.colors.primary : theme.colors.outline;
+  const shuffleLabel = shuffle ? "shuffle on" : "shuffle off";
+
+  const handleToggleShuffle = async () => {
+    try {
+      const nowShuffle = await toggleShuffle();
+      showSnackbar(nowShuffle ? "shuffle enabled" : "shuffle disabled");
+    } catch {
+      showSnackbar("failed to toggle shuffle");
+    }
+  };
+
   if (!currentTrack) {
     return (
       <View
@@ -375,6 +390,13 @@ export default function PlayerScreen() {
               sleepTimerState.isActive ? "sleep timer active" : "sleep timer"
             }
             onPress={() => setSleepTimerModalVisible(true)}
+          />
+          <IconButton
+            icon={shuffleIcon}
+            size={24}
+            iconColor={shuffleColor}
+            accessibilityLabel={shuffleLabel}
+            onPress={handleToggleShuffle}
           />
           <IconButton
             icon={repeatIcon}

@@ -10,6 +10,7 @@ import {
   seekToPosition,
   setRatingCurrentTrack,
   togglePlayback,
+  toggleShuffle,
   toggleStarCurrentTrack,
   usePlayerState,
 } from "@/services/player";
@@ -55,6 +56,7 @@ jest.mock("@/services/player", () => ({
   playPrevious: jest.fn().mockResolvedValue(undefined),
   seekToPosition: jest.fn().mockResolvedValue(undefined),
   togglePlayback: jest.fn().mockResolvedValue(undefined),
+  toggleShuffle: jest.fn().mockResolvedValue(true),
   toggleStarCurrentTrack: jest.fn().mockResolvedValue(true),
   setRatingCurrentTrack: jest.fn().mockResolvedValue(4),
 }));
@@ -312,6 +314,89 @@ describe("PlayerScreen", () => {
       repeatBtn.props.onPress();
     });
     expect(cycleRepeatMode).toHaveBeenCalledTimes(1);
+
+    // Shuffle button
+    const shuffleBtn = root.root.findByProps({ accessibilityLabel: "shuffle off" });
+    await act(async () => {
+      shuffleBtn.props.onPress();
+    });
+    expect(toggleShuffle).toHaveBeenCalledTimes(1);
+  });
+
+  it("should render shuffle on button when shuffle is active and toggle it", async () => {
+    (toggleShuffle as jest.Mock).mockResolvedValueOnce(false);
+    (usePlayerState as jest.Mock).mockReturnValue({
+      currentTrack: {
+        id: "song-1",
+        title: "Neon Lights",
+        artist: "Kraftwerk",
+        album: "The Man-Machine",
+        coverArt: "art-1",
+        duration: 300,
+        starred: null,
+        userRating: 0,
+      },
+      isPlaying: true,
+      isBuffering: false,
+      position: 60,
+      duration: 300,
+      repeatMode: "off",
+      shuffle: true,
+      hasPrevious: true,
+      hasNext: true,
+      isPlayingFromCache: false,
+      scrobbled: false,
+    });
+
+    let root: any;
+    await act(async () => {
+      root = renderer.create(<PlayerScreen />);
+    });
+
+    const shuffleBtn = root.root.findByProps({ accessibilityLabel: "shuffle on" });
+    expect(shuffleBtn).toBeDefined();
+
+    await act(async () => {
+      shuffleBtn.props.onPress();
+    });
+    expect(toggleShuffle).toHaveBeenCalledTimes(1);
+  });
+
+  it("should handle shuffle toggle failure gracefully", async () => {
+    (toggleShuffle as jest.Mock).mockRejectedValueOnce(new Error("failed"));
+    (usePlayerState as jest.Mock).mockReturnValue({
+      currentTrack: {
+        id: "song-1",
+        title: "Neon Lights",
+        artist: "Kraftwerk",
+        album: "The Man-Machine",
+        coverArt: "art-1",
+        duration: 300,
+        starred: null,
+        userRating: 0,
+      },
+      isPlaying: true,
+      isBuffering: false,
+      position: 60,
+      duration: 300,
+      repeatMode: "off",
+      shuffle: false,
+      hasPrevious: true,
+      hasNext: true,
+      isPlayingFromCache: false,
+      scrobbled: false,
+    });
+
+    let root: any;
+    await act(async () => {
+      root = renderer.create(<PlayerScreen />);
+    });
+
+    const shuffleBtn = root.root.findByProps({ accessibilityLabel: "shuffle off" });
+    await act(async () => {
+      shuffleBtn.props.onPress();
+    });
+    expect(toggleShuffle).toHaveBeenCalledTimes(1);
   });
 
   it("should open sleep timer modal when sleep timer button is pressed", async () => {
