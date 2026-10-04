@@ -13,8 +13,9 @@ import {
   TextInput,
 } from "react-native-paper";
 
-import { client_app_sync, logout } from "@/services/api";
+import { client_app_sync } from "@/services/api";
 import { exportBackupToFile } from "@/services/backup";
+import { logout } from "@/services/session";
 import {
   getAutoCacheCount,
   getAutoCacheEnabled,

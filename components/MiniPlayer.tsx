@@ -31,11 +31,17 @@ export function MiniPlayer() {
   >(null);
 
   useEffect(() => {
+    let isMounted = true;
     getCoverArtBaseUrl()
-      .then((fn) => setGetArtUrl(() => fn))
+      .then((fn) => {
+        if (isMounted) setGetArtUrl(() => fn);
+      })
       .catch((err) =>
         console.error("failed to get cover art url helper in mini player:", err),
       );
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const {

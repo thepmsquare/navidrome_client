@@ -71,13 +71,20 @@ export default function PlayerScreen() {
   const [lyricsMode, setLyricsModeState] = useState<LyricsMode>(() =>
     getLyricsMode(),
   );
-  const [prevSongId, setPrevSongId] = useState<string | undefined | null>(
-    undefined,
-  );
-  const [prevLyricsMode, setPrevLyricsMode] = useState<LyricsMode>(lyricsMode);
   const [lyricsModalVisible, setLyricsModalVisible] = useState(false);
-  const [lyrics, setLyrics] = useState<NormalizedLyrics | null>(null);
-  const [lyricsLoading, setLyricsLoading] = useState(false);
+  const [lyrics, setLyrics] = useState<NormalizedLyrics | null>(() => {
+    const initialSongId = playerState.currentTrack?.id;
+    return initialSongId
+      ? getCachedLyricsSync(initialSongId, getLyricsMode())
+      : null;
+  });
+  const [lyricsLoading, setLyricsLoading] = useState(() => {
+    const initialSongId = playerState.currentTrack?.id;
+    return (
+      Boolean(initialSongId) &&
+      !getCachedLyricsSync(initialSongId, getLyricsMode())
+    );
+  });
 
   useEffect(() => {
     return subscribeLyricsMode((mode) => {
@@ -91,14 +98,20 @@ export default function PlayerScreen() {
   };
 
   useEffect(() => {
+    let isMounted = true;
     getCoverArtBaseUrl(600)
-      .then((fn) => setGetArtUrl(() => fn))
+      .then((fn) => {
+        if (isMounted) setGetArtUrl(() => fn);
+      })
       .catch((err) =>
         console.error(
           "failed to get cover art url helper in player screen:",
           err,
         ),
       );
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const {
@@ -116,21 +129,18 @@ export default function PlayerScreen() {
 
   const songId = currentTrack?.id;
 
-  if (songId !== prevSongId || lyricsMode !== prevLyricsMode) {
-    setPrevSongId(songId);
-    setPrevLyricsMode(lyricsMode);
-    const cached = getCachedLyricsSync(songId, lyricsMode);
-    setLyrics(cached);
-    setLyricsLoading(Boolean(songId) && !cached);
-  }
-
   useEffect(() => {
-    let isCancelled = false;
-
     if (!songId) {
+      setLyrics(null);
+      setLyricsLoading(false);
       return;
     }
 
+    const cached = getCachedLyricsSync(songId, lyricsMode);
+    setLyrics(cached);
+    setLyricsLoading(!cached);
+
+    let isCancelled = false;
     const currentMode = lyricsMode;
     const currentSongId = songId;
 
