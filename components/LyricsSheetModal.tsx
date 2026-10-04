@@ -151,12 +151,14 @@ export function LyricsSheetModal({
   const insets = useSafeAreaInsets();
   const flatListRef = useRef<FlatList<NormalizedLyricsLine>>(null);
 
+  const [prevTracking, setPrevTracking] = useState({ songId, visible });
   const [isAutoFollowPaused, setIsAutoFollowPaused] = useState<boolean>(false);
 
   // Resume auto-follow when song changes or sheet re-opens
-  useEffect(() => {
+  if (prevTracking.songId !== songId || prevTracking.visible !== visible) {
+    setPrevTracking({ songId, visible });
     setIsAutoFollowPaused(false);
-  }, [songId, visible]);
+  }
 
   // Purely derive active line index during render without cascading setState in effects
   const activeLineIndex = useMemo(() => {

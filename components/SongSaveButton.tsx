@@ -71,15 +71,21 @@ export function SongSaveButton({
 }: SongSaveButtonProps) {
   const theme = useAppTheme();
 
+  const [prevSongId, setPrevSongId] = useState(songId);
   const [isExporting, setIsExporting] = useState(() =>
     songId ? isSongExporting(songId) : false,
   );
   const [exportProgress, setExportProgress] = useState(0);
 
-  useEffect(() => {
+  // Sync export state when songId changes
+  if (prevSongId !== songId) {
+    setPrevSongId(songId);
     setIsExporting(songId ? isSongExporting(songId) : false);
     setExportProgress(0);
+  }
 
+  // Subscribe to export progress
+  useEffect(() => {
     if (!songId) return;
 
     const unsubscribe = subscribeSongExportProgress(

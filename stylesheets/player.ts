@@ -1,30 +1,16 @@
 import { StyleSheet } from "react-native";
 
-import { spacing } from "@/utils/spacing";
+import { shape, spacing } from "@/utils/spacing";
 
 export const playerStyles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingBottom: spacing.lg,
     justifyContent: "space-between",
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: spacing.sm,
-  },
-  headerTitle: {
-    fontWeight: "500",
-    letterSpacing: 0.5,
-  },
-  headerSpacer: {
-    width: spacing.xxl,
-  },
-  headerActions: {
-    flexDirection: "row",
-    alignItems: "center",
+    backgroundColor: "transparent",
   },
   artContainer: {
     alignItems: "center",
@@ -33,20 +19,20 @@ export const playerStyles = StyleSheet.create({
   },
   artwork: {
     width: "100%",
-    maxWidth: 340,
+    maxWidth: 360,
     aspectRatio: 1,
-    borderRadius: 16,
+    borderRadius: shape.large,
   },
   artworkPlaceholder: {
     width: "100%",
-    maxWidth: 340,
+    maxWidth: 360,
     aspectRatio: 1,
-    borderRadius: 16,
+    borderRadius: shape.large,
     alignItems: "center",
     justifyContent: "center",
   },
   infoContainer: {
-    marginVertical: spacing.sm + spacing.xs,
+    marginVertical: spacing.sm,
   },
   titleRow: {
     flexDirection: "row",
@@ -64,7 +50,7 @@ export const playerStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderRadius: 16,
+    borderRadius: shape.large,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     marginTop: spacing.sm,
@@ -75,8 +61,8 @@ export const playerStyles = StyleSheet.create({
   },
   starButton: {
     margin: 0,
-    width: 32,
-    height: 32,
+    width: 36,
+    height: 36,
   },
   utilityActions: {
     flexDirection: "row",
@@ -85,53 +71,29 @@ export const playerStyles = StyleSheet.create({
   },
   scrobbledBadge: {
     fontWeight: "600",
-    opacity: 0.8,
   },
   timerBadge: {
     fontWeight: "600",
-    opacity: 0.9,
-  },
-  cacheButtonContainer: {
-    marginTop: spacing.sm,
-    alignItems: "flex-start",
-  },
-  actionsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: spacing.xs,
-  },
-  cacheButton: {
-    marginLeft: -spacing.sm,
-  },
-  cacheButtonContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  cacheButtonLabel: {
-    textTransform: "lowercase",
   },
   title: {
-    fontWeight: "700",
     marginBottom: spacing.xs,
   },
   artist: {
-    fontWeight: "500",
-    marginBottom: spacing.xs / 2,
+    marginBottom: spacing.xs,
   },
   album: {
-    marginTop: spacing.xs / 2,
+    marginTop: 0,
   },
   progressSection: {
-    marginVertical: spacing.sm + spacing.xs,
+    marginVertical: spacing.sm,
   },
   progressTouchArea: {
-    paddingVertical: spacing.sm,
+    height: spacing.xxl,
     justifyContent: "center",
   },
   progressBar: {
     height: 6,
-    borderRadius: 3,
+    borderRadius: shape.extraSmall,
   },
   timeRow: {
     flexDirection: "row",

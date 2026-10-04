@@ -1,9 +1,10 @@
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, View } from "react-native";
+import { GestureResponderEvent, Pressable, View } from "react-native";
 import {
   ActivityIndicator,
+  Appbar,
   Avatar,
   IconButton,
   ProgressBar,
@@ -29,6 +30,7 @@ import {
   cycleRepeatMode,
   playNext,
   playPrevious,
+  seekToPosition,
   setRatingCurrentTrack,
   togglePlayback,
   toggleShuffle,
@@ -58,7 +60,7 @@ export default function PlayerScreen() {
   const playerState = usePlayerState();
   const sleepTimerState = useSleepTimer();
   const [sleepTimerModalVisible, setSleepTimerModalVisible] = useState(false);
-  const [, setProgressBarWidth] = useState<number>(0);
+  const [progressBarWidth, setProgressBarWidth] = useState<number>(0);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [getArtUrl, setGetArtUrl] = useState<
@@ -129,16 +131,26 @@ export default function PlayerScreen() {
 
   const songId = currentTrack?.id;
 
+  const [prevLyricsTracking, setPrevLyricsTracking] = useState({
+    songId,
+    lyricsMode,
+  });
+
+  // Sync lyrics state immediately when track or lyrics mode changes
+  if (
+    prevLyricsTracking.songId !== songId ||
+    prevLyricsTracking.lyricsMode !== lyricsMode
+  ) {
+    setPrevLyricsTracking({ songId, lyricsMode });
+    const cached = songId ? getCachedLyricsSync(songId, lyricsMode) : null;
+    setLyrics(cached);
+    setLyricsLoading(Boolean(songId && !cached));
+  }
+
   useEffect(() => {
     if (!songId) {
-      setLyrics(null);
-      setLyricsLoading(false);
       return;
     }
-
-    const cached = getCachedLyricsSync(songId, lyricsMode);
-    setLyrics(cached);
-    setLyricsLoading(!cached);
 
     let isCancelled = false;
     const currentMode = lyricsMode;
@@ -248,7 +260,15 @@ export default function PlayerScreen() {
     return Math.min(Math.max(position / duration, 0), 1);
   }, [position, duration]);
 
-  // Removed handleSeek function as it was unused
+  const handleSeek = (event: GestureResponderEvent) => {
+    if (!duration || duration <= 0 || progressBarWidth <= 0) return;
+    const touchX = event.nativeEvent.locationX;
+    const ratio = Math.max(0, Math.min(1, touchX / progressBarWidth));
+    const targetSecs = Math.round(ratio * duration);
+    seekToPosition(targetSecs).catch((err) =>
+      console.error("failed to seek position:", err),
+    );
+  };
 
   // Handler for clicking the album art
   const handleArtPress = () => {
@@ -309,25 +329,16 @@ export default function PlayerScreen() {
           { backgroundColor: theme.colors.background },
         ]}
       >
-        <View style={playerStyles.header}>
-          <IconButton
-            icon="chevron-down"
-            size={28}
-            iconColor={theme.colors.onSurface}
+        <Appbar.Header
+          statusBarHeight={0}
+          style={playerStyles.header}
+        >
+          <Appbar.BackAction
             accessibilityLabel="close player"
             onPress={() => router.back()}
           />
-          <Text
-            variant="titleMedium"
-            style={[
-              playerStyles.headerTitle,
-              { color: theme.colors.onSurface },
-            ]}
-          >
-            now playing
-          </Text>
-          <View style={playerStyles.headerSpacer} />
-        </View>
+          <Appbar.Content title="now playing" />
+        </Appbar.Header>
 
         <View style={playerStyles.emptyContainer}>
           <Avatar.Icon
@@ -337,7 +348,7 @@ export default function PlayerScreen() {
             color={theme.colors.onSurfaceVariant}
           />
           <Text
-            variant="bodyLarge"
+            variant="headlineSmall"
             style={[
               playerStyles.emptyText,
               { color: theme.colors.onSurfaceVariant },
@@ -369,58 +380,45 @@ export default function PlayerScreen() {
         { backgroundColor: theme.colors.background },
       ]}
     >
-      {/* Header with Close Icon and Title */}
-      <View style={playerStyles.header}>
-        <IconButton
-          icon="chevron-down"
-          size={28}
-          iconColor={theme.colors.onSurface}
+      {/* Header with Appbar */}
+      <Appbar.Header
+        statusBarHeight={0}
+        style={playerStyles.header}
+      >
+        <Appbar.BackAction
           accessibilityLabel="close player"
           onPress={() => router.back()}
         />
-        <Text
-          variant="titleMedium"
-          style={[
-            playerStyles.headerTitle,
-            { color: theme.colors.onSurfaceVariant },
-          ]}
-        >
-          now playing
-        </Text>
-        <View style={playerStyles.headerActions}>
-          <IconButton
-            icon={sleepTimerState.isActive ? "timer" : "timer-outline"}
-            size={24}
-            iconColor={
-              sleepTimerState.isActive
-                ? theme.colors.primary
-                : theme.colors.outline
-            }
-            accessibilityLabel={
-              sleepTimerState.isActive ? "sleep timer active" : "sleep timer"
-            }
-            onPress={() => setSleepTimerModalVisible(true)}
-          />
-          <IconButton
-            icon={shuffleIcon}
-            size={24}
-            iconColor={shuffleColor}
-            accessibilityLabel={shuffleLabel}
-            onPress={handleToggleShuffle}
-          />
-          <IconButton
-            icon={repeatIcon}
-            size={24}
-            iconColor={repeatColor}
-            accessibilityLabel={repeatLabel}
-            onPress={() => {
-              cycleRepeatMode().catch((err) =>
-                console.error("failed to cycle repeat mode:", err),
-              );
-            }}
-          />
-        </View>
-      </View>
+        <Appbar.Content title="now playing" />
+        <Appbar.Action
+          icon={sleepTimerState.isActive ? "timer" : "timer-outline"}
+          color={
+            sleepTimerState.isActive
+              ? theme.colors.primary
+              : theme.colors.onSurfaceVariant
+          }
+          accessibilityLabel={
+            sleepTimerState.isActive ? "sleep timer active" : "sleep timer"
+          }
+          onPress={() => setSleepTimerModalVisible(true)}
+        />
+        <Appbar.Action
+          icon={shuffleIcon}
+          color={shuffleColor}
+          accessibilityLabel={shuffleLabel}
+          onPress={handleToggleShuffle}
+        />
+        <Appbar.Action
+          icon={repeatIcon}
+          color={repeatColor}
+          accessibilityLabel={repeatLabel}
+          onPress={() => {
+            cycleRepeatMode().catch((err) =>
+              console.error("failed to cycle repeat mode:", err),
+            );
+          }}
+        />
+      </Appbar.Header>
 
       {/* Large Album Artwork (Clickable Area) */}
       <Pressable onPress={handleArtPress} style={playerStyles.artContainer}>
@@ -481,7 +479,10 @@ export default function PlayerScreen() {
                 variant="bodyMedium"
                 numberOfLines={1}
                 ellipsizeMode="tail"
-                style={[playerStyles.album, { color: theme.colors.outline }]}
+                style={[
+                  playerStyles.album,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
               >
                 {currentTrack.album}
               </Text>
@@ -492,7 +493,7 @@ export default function PlayerScreen() {
             icon={isStarred ? "heart" : "heart-outline"}
             size={28}
             iconColor={
-              isStarred ? theme.colors.error : theme.colors.onSurfaceVariant
+              isStarred ? theme.colors.primary : theme.colors.onSurfaceVariant
             }
             accessibilityLabel={isStarred ? "unstar song" : "star song"}
             style={playerStyles.heartButton}
@@ -505,7 +506,7 @@ export default function PlayerScreen() {
           elevation={0}
           style={[
             playerStyles.actionSurface,
-            { backgroundColor: theme.colors.surfaceContainerLow },
+            { backgroundColor: theme.colors.surfaceContainerHighest },
           ]}
         >
           {/* 5-Star Interactive Rating */}
@@ -522,10 +523,13 @@ export default function PlayerScreen() {
                   icon={isFilled ? "star" : "star-outline"}
                   size={20}
                   iconColor={
-                    isFilled ? theme.colors.tertiary : theme.colors.outline
+                    isFilled ? theme.colors.primary : theme.colors.outline
                   }
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: isFilled }}
                   accessibilityLabel={`rate ${starVal} star${starVal > 1 ? "s" : ""}`}
                   style={playerStyles.starButton}
+                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
                   onPress={() => handleSetRating(starVal)}
                 />
               );
@@ -590,24 +594,41 @@ export default function PlayerScreen() {
       {/* Song Progress and Timestamps */}
       <View style={playerStyles.progressSection}>
         <Pressable
-          onPress={() => {
-            /* Optional: handle press on progress bar area */
-          }}
-          onPressIn={() => {
-            /* Optional: visual feedback */
-          }}
-          onPressOut={() => {
-            /* Optional: reset visual feedback */
-          }}
+          onPress={handleSeek}
           onLayout={(e) => setProgressBarWidth(e.nativeEvent.layout.width)}
           style={playerStyles.progressTouchArea}
           accessibilityLabel="song progress"
           accessibilityRole="adjustable"
+          accessibilityValue={{
+            min: 0,
+            max: duration,
+            now: position,
+            text: `${formatTime(position)} of ${formatTime(duration)}`,
+          }}
+          accessibilityActions={[
+            { name: "increment", label: "seek forward 10 seconds" },
+            { name: "decrement", label: "seek backward 10 seconds" },
+          ]}
+          onAccessibilityAction={(event) => {
+            if (event.nativeEvent.actionName === "increment") {
+              const newPos = Math.min(duration, position + 10);
+              seekToPosition(newPos).catch((err) =>
+                console.error("failed to seek forward:", err),
+              );
+            } else if (event.nativeEvent.actionName === "decrement") {
+              const newPos = Math.max(0, position - 10);
+              seekToPosition(newPos).catch((err) =>
+                console.error("failed to seek backward:", err),
+              );
+            }
+          }}
         >
           <ProgressBar
             progress={progress}
             color={
-              isPlayingFromCache ? theme.colors.tertiary : theme.colors.primary
+              isPlayingFromCache
+                ? theme.colors.secondary
+                : theme.colors.tertiary
             }
             style={[
               playerStyles.progressBar,
