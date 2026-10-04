@@ -705,5 +705,76 @@ describe("PlayerScreen", () => {
     });
     expect(lyricsButton).toBeDefined();
   });
+
+  it("should allow seeking by tapping progress bar and via accessibility actions", async () => {
+    (usePlayerState as jest.Mock).mockReturnValue({
+      currentTrack: {
+        id: "song-1",
+        title: "Neon Lights",
+        artist: "Kraftwerk",
+        album: "The Man-Machine",
+        coverArt: "art-1",
+        duration: 300,
+        starred: null,
+        userRating: 0,
+      },
+      isPlaying: true,
+      isBuffering: false,
+      position: 60,
+      duration: 300,
+      repeatMode: "off",
+      hasPrevious: true,
+      hasNext: true,
+      isPlayingFromCache: false,
+      scrobbled: false,
+    });
+
+    let root: any;
+    await act(async () => {
+      root = renderer.create(<PlayerScreen />);
+    });
+
+    const progressTouch = root.root.findByProps({
+      accessibilityLabel: "song progress",
+    });
+    expect(progressTouch).toBeDefined();
+    expect(progressTouch.props.accessibilityValue).toEqual({
+      min: 0,
+      max: 300,
+      now: 60,
+      text: "1:00 of 5:00",
+    });
+
+    // Simulate onLayout to set width
+    act(() => {
+      progressTouch.props.onLayout({
+        nativeEvent: { layout: { width: 300 } },
+      });
+    });
+
+    // Tap at locationX: 150 (50% -> 150 seconds)
+    await act(async () => {
+      progressTouch.props.onPress({
+        nativeEvent: { locationX: 150 },
+      });
+    });
+    expect(seekToPosition).toHaveBeenCalledWith(150);
+
+    // Test accessibility increment
+    await act(async () => {
+      progressTouch.props.onAccessibilityAction({
+        nativeEvent: { actionName: "increment" },
+      });
+    });
+    expect(seekToPosition).toHaveBeenCalledWith(70);
+
+    // Test accessibility decrement
+    await act(async () => {
+      progressTouch.props.onAccessibilityAction({
+        nativeEvent: { actionName: "decrement" },
+      });
+    });
+    expect(seekToPosition).toHaveBeenCalledWith(50);
+  });
 });
 
