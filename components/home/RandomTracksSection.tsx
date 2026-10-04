@@ -23,14 +23,20 @@ export function RandomTracksSection() {
   );
 
   useEffect(() => {
+    let isMounted = true;
     getCoverArtBaseUrl()
-      .then((fn) => setGetArtUrl(() => fn))
+      .then((fn) => {
+        if (isMounted) setGetArtUrl(() => fn);
+      })
       .catch((err) =>
         console.error(
           "failed to get cover art url helper in random tracks section:",
           err,
         ),
       );
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useFocusEffect(

@@ -18,11 +18,17 @@ export function MostPlayedSection() {
   >(null);
 
   useEffect(() => {
+    let isMounted = true;
     getCoverArtBaseUrl()
-      .then((fn) => setGetArtUrl(() => fn))
+      .then((fn) => {
+        if (isMounted) setGetArtUrl(() => fn);
+      })
       .catch((err) =>
         console.error("failed to get cover art url helper in most played section:", err),
       );
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
