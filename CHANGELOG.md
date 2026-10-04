@@ -1,5 +1,10 @@
 # changelog
 
+## 2.21.2+54
+
+- techincal changes
+  - remove circular imports, add checks for mounts.
+
 ## 2.21.1+53
 
 - bug fixes in shuffle mode.

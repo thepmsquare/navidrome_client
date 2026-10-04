@@ -71,19 +71,15 @@ export function SongSaveButton({
 }: SongSaveButtonProps) {
   const theme = useAppTheme();
 
-  const [prevSongId, setPrevSongId] = useState<string | undefined | null>(undefined);
   const [isExporting, setIsExporting] = useState(() =>
     songId ? isSongExporting(songId) : false,
   );
   const [exportProgress, setExportProgress] = useState(0);
 
-  if (songId !== prevSongId) {
-    setPrevSongId(songId);
+  useEffect(() => {
     setIsExporting(songId ? isSongExporting(songId) : false);
     setExportProgress(0);
-  }
 
-  useEffect(() => {
     if (!songId) return;
 
     const unsubscribe = subscribeSongExportProgress(

@@ -1,8 +1,9 @@
 import * as SecureStore from "expo-secure-store";
 
-import { logout, notifyAuthState, subscribeAuthState } from "@/services/api";
-import { clearDatabase } from "@/services/db";
+import { notifyAuthState, subscribeAuthState } from "@/services/api";
+import { clearDatabase, clearLyricsCache } from "@/services/db";
 import { resetPlayer } from "@/services/player";
+import { logout } from "@/services/session";
 import { clearAllCachedSongs } from "@/services/songCache";
 
 jest.mock("expo-secure-store", () => ({
@@ -11,8 +12,13 @@ jest.mock("expo-secure-store", () => ({
   deleteItemAsync: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock("@/services/lyrics", () => ({
+  resetLyricsMode: jest.fn(),
+}));
+
 jest.mock("@/services/db", () => ({
   clearDatabase: jest.fn(),
+  clearLyricsCache: jest.fn(),
   getLocalCounts: jest.fn(),
   getSyncMeta: jest.fn(),
   setSyncMeta: jest.fn(),

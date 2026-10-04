@@ -34,8 +34,11 @@ jest.mock("@/utils/audioOutput", () => ({
   }),
 }));
 
-jest.mock("@/services/api", () => ({
+jest.mock("@/services/session", () => ({
   logout: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock("@/services/api", () => ({
   client_app_sync: jest.fn().mockResolvedValue({
     synced: true,
     artistCount: 10,

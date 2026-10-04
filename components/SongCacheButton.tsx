@@ -91,18 +91,20 @@ export function SongCacheButton({
 }: SongCacheButtonProps) {
   const theme = useAppTheme();
 
-  const [prevSongId, setPrevSongId] = useState<string | undefined | null>(undefined);
-  const [cacheEntry, setCacheEntry] = useState<SongCacheRow | null>(
-    initialEntry ?? null,
+  const [cacheEntry, setCacheEntry] = useState<SongCacheRow | null>(() =>
+    initialEntry !== undefined
+      ? initialEntry
+      : songId
+        ? getSongCacheEntry(songId)
+        : null,
   );
   const [isCaching, setIsCaching] = useState(() =>
     songId ? (isSongCaching?.(songId) ?? false) : false,
   );
   const [cachingProgress, setCachingProgress] = useState(0);
 
-  // Sync cache state when songId changes or on initial load
-  if (songId !== prevSongId) {
-    setPrevSongId(songId);
+  // Sync cache state when songId or initialEntry changes and subscribe to updates
+  useEffect(() => {
     setCacheEntry(
       initialEntry !== undefined
         ? initialEntry
@@ -112,10 +114,7 @@ export function SongCacheButton({
     );
     setIsCaching(songId ? (isSongCaching?.(songId) ?? false) : false);
     setCachingProgress(0);
-  }
 
-  // Subscribe to cache updates and progress broadcast across the app
-  useEffect(() => {
     if (!songId) return;
 
     const unsubscribeCache = subscribeSongCache(({ songId: updatedId, entry }) => {
@@ -139,7 +138,7 @@ export function SongCacheButton({
       unsubscribeCache();
       unsubscribeProgress();
     };
-  }, [songId]);
+  }, [songId, initialEntry]);
 
   if (!songId) {
     return null;

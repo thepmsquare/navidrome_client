@@ -29,15 +29,21 @@ export function useAudioOutputDevice(): AudioOutputDeviceInfo {
   });
 
   useEffect(() => {
+    let isMounted = true;
     get_current_default_audio_output_device()
-      .then(setDevice)
+      .then((d) => {
+        if (isMounted) setDevice(d);
+      })
       .catch((err) => console.error("failed to get audio output device:", err));
 
     const unsubscribe = addAudioOutputChangeListener((newDevice) => {
-      setDevice(newDevice);
+      if (isMounted) setDevice(newDevice);
     });
 
-    return unsubscribe;
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   return device;
