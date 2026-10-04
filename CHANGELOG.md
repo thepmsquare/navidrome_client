@@ -1,5 +1,9 @@
 # changelog
 
+## 2.22.0+55 (in progress)
+
+- music player page redesign (in progress)
+
 ## 2.21.2+54
 
 - techincal changes
