@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
@@ -298,8 +299,13 @@ export default function PlayerScreen() {
         ? "repeat"
         : "repeat-off";
 
-  const repeatColor =
-    repeatMode === "off" ? theme.colors.outline : theme.colors.primary;
+  const isRepeatActive = repeatMode !== "off";
+  const repeatContainerColor = isRepeatActive
+    ? theme.colors.primaryContainer
+    : theme.colors.surfaceContainerHighest;
+  const repeatColor = isRepeatActive
+    ? theme.colors.onPrimaryContainer
+    : theme.colors.outline;
 
   const repeatLabel =
     repeatMode === "one"
@@ -308,16 +314,57 @@ export default function PlayerScreen() {
         ? "repeat all"
         : "repeat off";
 
-  const shuffleIcon = shuffle ? "shuffle-variant" : "shuffle-disabled";
-  const shuffleColor = shuffle ? theme.colors.primary : theme.colors.outline;
+  const shuffleIcon = "shuffle-variant";
+  const shuffleContainerColor = shuffle
+    ? theme.colors.primaryContainer
+    : theme.colors.surfaceContainerHighest;
+  const shuffleColor = shuffle
+    ? theme.colors.onPrimaryContainer
+    : theme.colors.outline;
   const shuffleLabel = shuffle ? "shuffle on" : "shuffle off";
 
   const handleToggleShuffle = async () => {
     try {
-      const nowShuffle = await toggleShuffle();
-      showSnackbar(nowShuffle ? "shuffle enabled" : "shuffle disabled");
+      Haptics.selectionAsync().catch(() => {});
+      await toggleShuffle();
     } catch {
       showSnackbar("failed to toggle shuffle");
+    }
+  };
+
+  const handleCycleRepeat = async () => {
+    try {
+      Haptics.selectionAsync().catch(() => {});
+      await cycleRepeatMode();
+    } catch (err) {
+      console.error("failed to cycle repeat mode:", err);
+    }
+  };
+
+  const handleTogglePlayback = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      await togglePlayback();
+    } catch (err) {
+      console.error("failed to toggle playback:", err);
+    }
+  };
+
+  const handlePlayPrevious = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      await playPrevious();
+    } catch (err) {
+      console.error("failed to play previous track:", err);
+    }
+  };
+
+  const handlePlayNext = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      await playNext();
+    } catch (err) {
+      console.error("failed to play next track:", err);
     }
   };
 
@@ -401,22 +448,6 @@ export default function PlayerScreen() {
             sleepTimerState.isActive ? "sleep timer active" : "sleep timer"
           }
           onPress={() => setSleepTimerModalVisible(true)}
-        />
-        <Appbar.Action
-          icon={shuffleIcon}
-          color={shuffleColor}
-          accessibilityLabel={shuffleLabel}
-          onPress={handleToggleShuffle}
-        />
-        <Appbar.Action
-          icon={repeatIcon}
-          color={repeatColor}
-          accessibilityLabel={repeatLabel}
-          onPress={() => {
-            cycleRepeatMode().catch((err) =>
-              console.error("failed to cycle repeat mode:", err),
-            );
-          }}
         />
       </Appbar.Header>
 
@@ -652,57 +683,98 @@ export default function PlayerScreen() {
         </View>
       </View>
 
-      {/* Playback Controls */}
-      <View style={playerStyles.controlsRow}>
-        <IconButton
-          icon="skip-previous"
-          size={36}
-          iconColor={
-            hasPrevious
-              ? theme.colors.onSurface
-              : theme.colors.onSurfaceDisabled
-          }
-          disabled={!hasPrevious}
-          accessibilityLabel="previous track"
-          onPress={() => {
-            playPrevious().catch((err) =>
-              console.error("failed to play previous track:", err),
-            );
-          }}
-        />
-
-        {isBuffering ? (
-          <ActivityIndicator size={48} color={theme.colors.primary} />
-        ) : (
+      {/* Playback Controls Surface */}
+      <Surface
+        elevation={0}
+        style={[
+          playerStyles.controlsSurface,
+          { backgroundColor: theme.colors.surfaceContainer },
+        ]}
+      >
+        <View style={playerStyles.controlsRow}>
           <IconButton
-            icon={isPlaying ? "pause-circle" : "play-circle"}
-            size={64}
-            iconColor={theme.colors.primary}
-            style={playerStyles.playButton}
-            accessibilityLabel={isPlaying ? "pause" : "play"}
-            onPress={() => {
-              togglePlayback().catch((err) =>
-                console.error("failed to toggle playback:", err),
-              );
-            }}
+            mode="contained"
+            icon={shuffleIcon}
+            size={22}
+            containerColor={shuffleContainerColor}
+            iconColor={shuffleColor}
+            style={playerStyles.secondaryControlButton}
+            accessibilityLabel={shuffleLabel}
+            onPress={handleToggleShuffle}
           />
-        )}
 
-        <IconButton
-          icon="skip-next"
-          size={36}
-          iconColor={
-            hasNext ? theme.colors.onSurface : theme.colors.onSurfaceDisabled
-          }
-          disabled={!hasNext}
-          accessibilityLabel="next track"
-          onPress={() => {
-            playNext().catch((err) =>
-              console.error("failed to play next track:", err),
-            );
-          }}
-        />
-      </View>
+          <IconButton
+            mode="contained"
+            icon="skip-previous"
+            size={26}
+            containerColor={
+              hasPrevious
+                ? theme.colors.surfaceContainerHighest
+                : theme.colors.surfaceContainerLow
+            }
+            iconColor={
+              hasPrevious
+                ? theme.colors.onSurface
+                : theme.colors.onSurfaceDisabled
+            }
+            disabled={!hasPrevious}
+            style={playerStyles.skipButton}
+            accessibilityLabel="previous track"
+            onPress={handlePlayPrevious}
+          />
+
+          {isBuffering ? (
+            <View
+              style={[
+                playerStyles.playButtonContainer,
+                { backgroundColor: theme.colors.primary },
+              ]}
+            >
+              <ActivityIndicator size={28} color={theme.colors.onPrimary} />
+            </View>
+          ) : (
+            <IconButton
+              mode="contained"
+              icon={isPlaying ? "pause" : "play"}
+              size={32}
+              containerColor={theme.colors.primary}
+              iconColor={theme.colors.onPrimary}
+              style={playerStyles.playButton}
+              accessibilityLabel={isPlaying ? "pause" : "play"}
+              onPress={handleTogglePlayback}
+            />
+          )}
+
+          <IconButton
+            mode="contained"
+            icon="skip-next"
+            size={26}
+            containerColor={
+              hasNext
+                ? theme.colors.surfaceContainerHighest
+                : theme.colors.surfaceContainerLow
+            }
+            iconColor={
+              hasNext ? theme.colors.onSurface : theme.colors.onSurfaceDisabled
+            }
+            disabled={!hasNext}
+            style={playerStyles.skipButton}
+            accessibilityLabel="next track"
+            onPress={handlePlayNext}
+          />
+
+          <IconButton
+            mode="contained"
+            icon={repeatIcon}
+            size={22}
+            containerColor={repeatContainerColor}
+            iconColor={repeatColor}
+            style={playerStyles.secondaryControlButton}
+            accessibilityLabel={repeatLabel}
+            onPress={handleCycleRepeat}
+          />
+        </View>
+      </Surface>
 
       <SleepTimerModal
         visible={sleepTimerModalVisible}
