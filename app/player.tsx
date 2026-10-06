@@ -2,11 +2,17 @@ import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { GestureResponderEvent, Pressable, View } from "react-native";
+import {
+  GestureResponderEvent,
+  Pressable,
+  ScrollView,
+  View,
+} from "react-native";
 import {
   ActivityIndicator,
   Appbar,
   Avatar,
+  Chip,
   IconButton,
   ProgressBar,
   Snackbar,
@@ -376,10 +382,7 @@ export default function PlayerScreen() {
           { backgroundColor: theme.colors.background },
         ]}
       >
-        <Appbar.Header
-          statusBarHeight={0}
-          style={playerStyles.header}
-        >
+        <Appbar.Header statusBarHeight={0} style={playerStyles.header}>
           <Appbar.BackAction
             accessibilityLabel="close player"
             onPress={() => router.back()}
@@ -428,10 +431,7 @@ export default function PlayerScreen() {
       ]}
     >
       {/* Header with Appbar */}
-      <Appbar.Header
-        statusBarHeight={0}
-        style={playerStyles.header}
-      >
+      <Appbar.Header statusBarHeight={0} style={playerStyles.header}>
         <Appbar.BackAction
           accessibilityLabel="close player"
           onPress={() => router.back()}
@@ -532,17 +532,20 @@ export default function PlayerScreen() {
           />
         </View>
 
-        {/* Tonal Utility Surface: 5-Star Rating + Quick Actions */}
-        <Surface
-          elevation={0}
-          style={[
-            playerStyles.actionSurface,
-            { backgroundColor: theme.colors.surfaceContainerHighest },
-          ]}
+        {/* Horizontally Scrollable Utility Chips */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={playerStyles.chipsScrollView}
+          contentContainerStyle={playerStyles.chipsScrollContent}
         >
-          {/* 5-Star Interactive Rating */}
-          <View
-            style={playerStyles.ratingContainer}
+          {/* 5-Star Interactive Rating Pill */}
+          <Surface
+            elevation={0}
+            style={[
+              playerStyles.chipRatingSurface,
+              { backgroundColor: theme.colors.surfaceContainerHighest },
+            ]}
             accessibilityRole="radiogroup"
             accessibilityLabel="song rating"
           >
@@ -552,74 +555,94 @@ export default function PlayerScreen() {
                 <IconButton
                   key={starVal}
                   icon={isFilled ? "star" : "star-outline"}
-                  size={20}
+                  size={16}
                   iconColor={
                     isFilled ? theme.colors.primary : theme.colors.outline
                   }
                   accessibilityRole="radio"
                   accessibilityState={{ checked: isFilled }}
                   accessibilityLabel={`rate ${starVal} star${starVal > 1 ? "s" : ""}`}
-                  style={playerStyles.starButton}
-                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                  style={playerStyles.starChipButton}
                   onPress={() => handleSetRating(starVal)}
                 />
               );
             })}
-          </View>
+          </Surface>
 
-          {/* Quick Utility Actions: Cache, Save & Scrobble Badge */}
-          <View style={playerStyles.utilityActions}>
-            {sleepTimerState.isActive && (
-              <Text
-                variant="labelSmall"
-                style={[
-                  playerStyles.timerBadge,
-                  { color: theme.colors.primary },
-                ]}
-              >
-                {sleepTimerState.mode === "end_of_track"
-                  ? "timer: end of song"
-                  : `timer: ${Math.ceil(sleepTimerState.remainingSeconds / 60)}m`}
-              </Text>
-            )}
-            {playerState.scrobbled && (
-              <Text
-                variant="labelSmall"
-                style={[
-                  playerStyles.scrobbledBadge,
-                  { color: theme.colors.primary },
-                ]}
-              >
-                ✓ scrobbled
-              </Text>
-            )}
-            {hasLyrics && (
-              <IconButton
-                icon="text-box-outline"
-                size={20}
-                iconColor={theme.colors.outline}
-                accessibilityLabel="lyrics"
-                onPress={() => setLyricsModalVisible(true)}
-              />
-            )}
-            <SongCacheButton
-              songId={currentTrack.id}
-              variant="icon"
-              iconSize={20}
-            />
-            <SongSaveButton
-              songId={currentTrack.id}
-              variant="icon"
-              iconSize={20}
-              onSaveSuccess={(fileName) => {
-                showSnackbar(`saved "${fileName}" to files`);
+          {/* Active Sleep Timer Chip */}
+          {sleepTimerState.isActive && (
+            <Chip
+              mode="flat"
+              icon="timer-outline"
+              style={[
+                playerStyles.controlChip,
+                { backgroundColor: theme.colors.secondaryContainer },
+              ]}
+              textStyle={{
+                color: theme.colors.onSecondaryContainer,
+                fontSize: 12,
               }}
-              onSaveError={() => {
-                showSnackbar("failed to save to files");
+              onPress={() => setSleepTimerModalVisible(true)}
+            >
+              {sleepTimerState.mode === "end_of_track"
+                ? "timer: end of song"
+                : `timer: ${Math.ceil(sleepTimerState.remainingSeconds / 60)}m`}
+            </Chip>
+          )}
+
+          {/* Scrobbled Chip */}
+          {playerState.scrobbled && (
+            <Chip
+              mode="flat"
+              icon="check"
+              style={[
+                playerStyles.controlChip,
+                { backgroundColor: theme.colors.secondaryContainer },
+              ]}
+              textStyle={{
+                color: theme.colors.onSecondaryContainer,
+                fontSize: 12,
               }}
-            />
-          </View>
-        </Surface>
+            >
+              scrobbled
+            </Chip>
+          )}
+
+          {/* Lyrics Chip */}
+          {hasLyrics && (
+            <Chip
+              mode="flat"
+              icon="text-box-outline"
+              accessibilityLabel="lyrics"
+              style={[
+                playerStyles.controlChip,
+                { backgroundColor: theme.colors.surfaceContainerHighest },
+              ]}
+              textStyle={{
+                color: theme.colors.onSurfaceVariant,
+                fontSize: 12,
+              }}
+              onPress={() => setLyricsModalVisible(true)}
+            >
+              lyrics
+            </Chip>
+          )}
+
+          {/* Cache / Download Chip */}
+          <SongCacheButton songId={currentTrack.id} variant="chip" />
+
+          {/* Save to Files Chip */}
+          <SongSaveButton
+            songId={currentTrack.id}
+            variant="chip"
+            onSaveSuccess={(fileName) => {
+              showSnackbar(`saved "${fileName}" to files`);
+            }}
+            onSaveError={() => {
+              showSnackbar("failed to save to files");
+            }}
+          />
+        </ScrollView>
       </View>
 
       {/* Song Progress and Timestamps */}
