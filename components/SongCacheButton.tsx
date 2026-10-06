@@ -9,7 +9,7 @@ import {
   TextStyle,
   ViewStyle,
 } from "react-native";
-import { Button, IconButton } from "react-native-paper";
+import { Button, Chip, IconButton } from "react-native-paper";
 
 import { CircularProgressRing } from "@/components/CircularProgressRing";
 import {
@@ -35,10 +35,10 @@ export interface SongCacheButtonProps {
    */
   mini?: boolean;
   /**
-   * Display style: "button" shows icon + text, "icon" shows compact icon only.
+   * Display style: "button" shows icon + text, "icon" shows compact icon only, "chip" renders a Material Chip.
    * Defaults to "button" unless mini is true or showText is explicitly set to false.
    */
-  variant?: "button" | "icon";
+  variant?: "button" | "icon" | "chip";
   /**
    * Toggle: if false, displays icon only.
    */
@@ -122,13 +122,15 @@ export function SongCacheButton({
   useEffect(() => {
     if (!songId) return;
 
-    const unsubscribeCache = subscribeSongCache(({ songId: updatedId, entry }) => {
-      if (updatedId === songId) {
-        setCacheEntry(entry);
-        setIsCaching(false);
-        setCachingProgress(0);
-      }
-    });
+    const unsubscribeCache = subscribeSongCache(
+      ({ songId: updatedId, entry }) => {
+        if (updatedId === songId) {
+          setCacheEntry(entry);
+          setIsCaching(false);
+          setCachingProgress(0);
+        }
+      },
+    );
 
     const unsubscribeProgress = subscribeSongCacheProgress(
       ({ songId: progressId, progress }) => {
@@ -317,6 +319,64 @@ export function SongCacheButton({
     );
   }
 
+  if (variant === "chip") {
+    const isCached = isManual || isAuto;
+    const chipText = isCaching
+      ? cachingProgress < 0
+        ? "downloading..."
+        : `downloading... ${progressPercent}%`
+      : isManual
+        ? "available offline"
+        : isAuto
+          ? "temporarily available offline"
+          : "make available offline";
+
+    return (
+      <Chip
+        mode="flat"
+        icon={
+          isCaching
+            ? () => (
+                <CircularProgressRing
+                  progress={cachingProgress}
+                  size={16}
+                  strokeWidth={2}
+                  color={theme.colors.tertiary}
+                  trackColor={theme.colors.surfaceContainerHighest}
+                  showPercentage={false}
+                />
+              )
+            : cacheIcon
+        }
+        selected={isCached}
+        showSelectedOverlay={false}
+        onPress={handlePress}
+        style={[
+          styles.chip,
+          {
+            backgroundColor: isCached
+              ? theme.colors.secondaryContainer
+              : theme.colors.surfaceContainerHighest,
+          },
+          style,
+        ]}
+        textStyle={[
+          styles.label,
+          {
+            color: isCached
+              ? theme.colors.onSecondaryContainer
+              : theme.colors.onSurfaceVariant,
+          },
+          labelStyle,
+        ]}
+        accessibilityLabel={cacheText}
+        hitSlop={hitSlop}
+      >
+        {chipText}
+      </Chip>
+    );
+  }
+
   return (
     <Button
       mode={mode}
@@ -355,6 +415,10 @@ export function SongCacheButton({
 const styles = StyleSheet.create({
   button: {
     marginLeft: -8,
+  },
+  chip: {
+    height: 32,
+    borderRadius: 9999,
   },
   content: {
     flexDirection: "row",
