@@ -9,7 +9,7 @@ import {
   TextStyle,
   ViewStyle,
 } from "react-native";
-import { Button, IconButton } from "react-native-paper";
+import { Button, Chip, IconButton } from "react-native-paper";
 
 import { CircularProgressRing } from "@/components/CircularProgressRing";
 import {
@@ -27,10 +27,10 @@ export interface SongSaveButtonProps {
    */
   mini?: boolean;
   /**
-   * Display style: "button" shows icon + text, "icon" shows compact icon only.
+   * Display style: "button" shows icon + text, "icon" shows compact icon only, "chip" renders a Material Chip.
    * Defaults to "button" unless mini is true or showText is explicitly set to false.
    */
-  variant?: "button" | "icon";
+  variant?: "button" | "icon" | "chip";
   /**
    * Toggle: if false, displays icon only.
    */
@@ -221,6 +221,49 @@ export function SongSaveButton({
     );
   }
 
+  if (variant === "chip") {
+    const chipText = isExporting
+      ? exportProgress > 0
+        ? `saving... ${progressPercent}%`
+        : "saving..."
+      : "save to files";
+
+    return (
+      <Chip
+        mode="flat"
+        icon={
+          isExporting
+            ? () => (
+                <CircularProgressRing
+                  progress={exportProgress}
+                  size={16}
+                  strokeWidth={2}
+                  color={theme.colors.tertiary}
+                  trackColor={theme.colors.surfaceContainerHighest}
+                  showPercentage={false}
+                />
+              )
+            : "folder-download-outline"
+        }
+        onPress={handlePress}
+        style={[
+          styles.chip,
+          { backgroundColor: theme.colors.surfaceContainerHighest },
+          style,
+        ]}
+        textStyle={[
+          styles.label,
+          { color: theme.colors.onSurfaceVariant },
+          labelStyle,
+        ]}
+        accessibilityLabel={saveText}
+        hitSlop={hitSlop}
+      >
+        {chipText}
+      </Chip>
+    );
+  }
+
   return (
     <Button
       mode={mode}
@@ -259,6 +302,10 @@ export function SongSaveButton({
 const styles = StyleSheet.create({
   button: {
     marginLeft: -8,
+  },
+  chip: {
+    height: 32,
+    borderRadius: 9999,
   },
   content: {
     flexDirection: "row",

@@ -75,6 +75,31 @@ export const playerStyles = StyleSheet.create({
   timerBadge: {
     fontWeight: "600",
   },
+  chipsScrollView: {
+    marginTop: spacing.sm,
+  },
+  chipsScrollContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  controlChip: {
+    height: 32,
+    borderRadius: shape.full,
+  },
+  chipRatingSurface: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: shape.full,
+    height: 32,
+    paddingHorizontal: spacing.xs,
+  },
+  starChipButton: {
+    margin: 0,
+    width: 24,
+    height: 24,
+  },
   title: {
     marginBottom: spacing.xs,
   },
