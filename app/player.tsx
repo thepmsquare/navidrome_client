@@ -12,8 +12,10 @@ import {
   ActivityIndicator,
   Appbar,
   Avatar,
+  Button,
   Chip,
   IconButton,
+  Menu,
   ProgressBar,
   Snackbar,
   Surface,
@@ -67,6 +69,7 @@ export default function PlayerScreen() {
   const playerState = usePlayerState();
   const sleepTimerState = useSleepTimer();
   const [sleepTimerModalVisible, setSleepTimerModalVisible] = useState(false);
+  const [ratingMenuVisible, setRatingMenuVisible] = useState(false);
   const [progressBarWidth, setProgressBarWidth] = useState<number>(0);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
@@ -539,35 +542,99 @@ export default function PlayerScreen() {
           style={playerStyles.chipsScrollView}
           contentContainerStyle={playerStyles.chipsScrollContent}
         >
-          {/* 5-Star Interactive Rating Pill */}
-          <Surface
-            elevation={0}
-            style={[
-              playerStyles.chipRatingSurface,
-              { backgroundColor: theme.colors.surfaceContainerHighest },
+          {/* Rating Chip + Contextual Popover Menu */}
+          <Menu
+            visible={ratingMenuVisible}
+            onDismiss={() => setRatingMenuVisible(false)}
+            anchor={
+              <Chip
+                mode="flat"
+                icon={currentRating > 0 ? "star" : "star-outline"}
+                style={[
+                  playerStyles.controlChip,
+                  {
+                    backgroundColor:
+                      currentRating > 0
+                        ? theme.colors.secondaryContainer
+                        : theme.colors.surfaceContainerHighest,
+                  },
+                ]}
+                textStyle={{
+                  color:
+                    currentRating > 0
+                      ? theme.colors.onSecondaryContainer
+                      : theme.colors.onSurfaceVariant,
+                  fontSize: 12,
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  currentRating > 0
+                    ? `rating: ${currentRating} stars`
+                    : "rate song"
+                }
+                onPress={() => setRatingMenuVisible(true)}
+              >
+                {currentRating > 0 ? `${currentRating}` : "rate"}
+              </Chip>
+            }
+            contentStyle={[
+              playerStyles.ratingMenuContent,
+              { backgroundColor: theme.colors.surfaceContainerHigh },
             ]}
-            accessibilityRole="radiogroup"
-            accessibilityLabel="song rating"
           >
-            {[1, 2, 3, 4, 5].map((starVal) => {
-              const isFilled = currentRating >= starVal;
-              return (
-                <IconButton
-                  key={starVal}
-                  icon={isFilled ? "star" : "star-outline"}
-                  size={16}
-                  iconColor={
-                    isFilled ? theme.colors.primary : theme.colors.outline
-                  }
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: isFilled }}
-                  accessibilityLabel={`rate ${starVal} star${starVal > 1 ? "s" : ""}`}
-                  style={playerStyles.starChipButton}
-                  onPress={() => handleSetRating(starVal)}
-                />
-              );
-            })}
-          </Surface>
+            <Text
+              variant="labelMedium"
+              style={[
+                playerStyles.ratingMenuTitle,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
+            >
+              {currentRating > 0
+                ? `rating: ${currentRating} / 5`
+                : "rate this song"}
+            </Text>
+            <View
+              style={playerStyles.ratingMenuStarsRow}
+              accessibilityRole="radiogroup"
+              accessibilityLabel="song rating"
+            >
+              {[1, 2, 3, 4, 5].map((starVal) => {
+                const isFilled = currentRating >= starVal;
+                return (
+                  <IconButton
+                    key={starVal}
+                    icon={isFilled ? "star" : "star-outline"}
+                    size={28}
+                    iconColor={
+                      isFilled ? theme.colors.primary : theme.colors.outline
+                    }
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: isFilled }}
+                    accessibilityLabel={`rate ${starVal} star${starVal > 1 ? "s" : ""}`}
+                    style={playerStyles.ratingMenuStarButton}
+                    onPress={async () => {
+                      setRatingMenuVisible(false);
+                      await handleSetRating(starVal);
+                    }}
+                  />
+                );
+              })}
+            </View>
+            {currentRating > 0 && (
+              <Button
+                mode="text"
+                compact
+                textColor={theme.colors.error}
+                style={playerStyles.ratingMenuClearButton}
+                onPress={async () => {
+                  setRatingMenuVisible(false);
+                  await handleSetRating(currentRating);
+                }}
+              >
+                remove rating
+              </Button>
+            )}
+          </Menu>
 
           {/* Active Sleep Timer Chip */}
           {sleepTimerState.isActive && (
