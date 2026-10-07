@@ -100,6 +100,29 @@ export const playerStyles = StyleSheet.create({
     width: 24,
     height: 24,
   },
+  ratingMenuContent: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: shape.large,
+    alignItems: "center",
+  },
+  ratingMenuTitle: {
+    marginBottom: spacing.xs,
+    textAlign: "center",
+  },
+  ratingMenuStarsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ratingMenuStarButton: {
+    margin: 2,
+    width: 40,
+    height: 40,
+  },
+  ratingMenuClearButton: {
+    marginTop: spacing.xs,
+  },
   title: {
     marginBottom: spacing.xs,
   },
