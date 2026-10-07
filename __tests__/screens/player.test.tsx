@@ -33,9 +33,18 @@ jest.mock("react-native-safe-area-context", () => ({
 
 jest.mock("react-native-paper", () => {
   const actual = jest.requireActual("react-native-paper");
+  const React = require("react");
+  const { View } = require("react-native");
+  const MockMenu = ({ visible, children, anchor }: any) => {
+    return React.createElement(View, null, anchor, visible ? children : children);
+  };
+  MockMenu.Item = ({ title, onPress }: any) => {
+    return React.createElement(View, { testID: `menu-item-${title}`, onPress, title }, null);
+  };
   return {
     ...actual,
     Snackbar: ({ children, visible }: any) => (visible ? children : null),
+    Menu: MockMenu,
   };
 });
 
@@ -247,6 +256,15 @@ describe("PlayerScreen", () => {
     let root: any;
     await act(async () => {
       root = renderer.create(<PlayerScreen />);
+    });
+
+    const ratingChip = root.root.findByProps({
+      accessibilityLabel: "rating: 2 stars",
+    });
+    expect(ratingChip).toBeDefined();
+
+    await act(async () => {
+      ratingChip.props.onPress();
     });
 
     const star4 = root.root.findByProps({ accessibilityLabel: "rate 4 stars" });
