@@ -1,8 +1,8 @@
 # changelog
 
-## 2.22.0+55 (in progress)
+## 2.22.0+55
 
-- music player page redesign (in progress)
+- music player page redesign.
 - move over sync stats to sync page.
 - techincal changes
   - bug fixes and redesign library syncing.
