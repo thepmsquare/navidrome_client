@@ -252,14 +252,7 @@ export default function PlayerScreen() {
 
   const handleSetRating = async (ratingVal: number) => {
     try {
-      const resultingRating = await setRatingCurrentTrack(ratingVal);
-      if (resultingRating === 0) {
-        showSnackbar("rating removed");
-      } else {
-        showSnackbar(
-          `rated ${resultingRating} star${resultingRating > 1 ? "s" : ""}`,
-        );
-      }
+      await setRatingCurrentTrack(ratingVal);
     } catch {
       showSnackbar("failed to update rating");
     }
@@ -440,18 +433,6 @@ export default function PlayerScreen() {
           onPress={() => router.back()}
         />
         <Appbar.Content title="now playing" />
-        <Appbar.Action
-          icon={sleepTimerState.isActive ? "timer" : "timer-outline"}
-          color={
-            sleepTimerState.isActive
-              ? theme.colors.primary
-              : theme.colors.onSurfaceVariant
-          }
-          accessibilityLabel={
-            sleepTimerState.isActive ? "sleep timer active" : "sleep timer"
-          }
-          onPress={() => setSleepTimerModalVisible(true)}
-        />
       </Appbar.Header>
 
       {/* Large Album Artwork (Clickable Area) */}
@@ -636,26 +617,35 @@ export default function PlayerScreen() {
             )}
           </Menu>
 
-          {/* Active Sleep Timer Chip */}
-          {sleepTimerState.isActive && (
-            <Chip
-              mode="flat"
-              icon="timer-outline"
-              style={[
-                playerStyles.controlChip,
-                { backgroundColor: theme.colors.secondaryContainer },
-              ]}
-              textStyle={{
-                color: theme.colors.onSecondaryContainer,
-                fontSize: 12,
-              }}
-              onPress={() => setSleepTimerModalVisible(true)}
-            >
-              {sleepTimerState.mode === "end_of_track"
+          {/* Sleep Timer Chip */}
+          <Chip
+            mode="flat"
+            icon={sleepTimerState.isActive ? "timer" : "timer-outline"}
+            accessibilityLabel={
+              sleepTimerState.isActive ? "sleep timer active" : "sleep timer"
+            }
+            style={[
+              playerStyles.controlChip,
+              {
+                backgroundColor: sleepTimerState.isActive
+                  ? theme.colors.secondaryContainer
+                  : theme.colors.surfaceContainerHighest,
+              },
+            ]}
+            textStyle={{
+              color: sleepTimerState.isActive
+                ? theme.colors.onSecondaryContainer
+                : theme.colors.onSurfaceVariant,
+              fontSize: 12,
+            }}
+            onPress={() => setSleepTimerModalVisible(true)}
+          >
+            {sleepTimerState.isActive
+              ? sleepTimerState.mode === "end_of_track"
                 ? "timer: end of song"
-                : `timer: ${Math.ceil(sleepTimerState.remainingSeconds / 60)}m`}
-            </Chip>
-          )}
+                : `timer: ${Math.ceil(sleepTimerState.remainingSeconds / 60)}m`
+              : "sleep timer"}
+          </Chip>
 
           {/* Scrobbled Chip */}
           {playerState.scrobbled && (
@@ -869,7 +859,11 @@ export default function PlayerScreen() {
       <SleepTimerModal
         visible={sleepTimerModalVisible}
         onDismiss={() => setSleepTimerModalVisible(false)}
-        onTimerSet={(msg) => showSnackbar(msg)}
+        onTimerSet={(msg) => {
+          if (msg.includes("valid")) {
+            showSnackbar(msg);
+          }
+        }}
       />
 
       <LyricsSheetModal
