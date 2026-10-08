@@ -19,9 +19,23 @@ jest.mock("@/components/MiniPlayer", () => ({
   MiniPlayer: "MiniPlayer",
 }));
 
+jest.mock("@/services/api", () => ({
+  isSyncInProgress: jest.fn().mockReturnValue(false),
+  subscribeSyncState: jest.fn().mockReturnValue(jest.fn()),
+  subscribeAuthState: jest.fn().mockReturnValue(jest.fn()),
+}));
+
+jest.mock("@/services/db", () => ({
+  getSyncMeta: jest.fn().mockReturnValue("2026-10-07T12:00:00.000Z"),
+}));
+
 describe("AppBottomBar", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    const { isSyncInProgress } = require("@/services/api");
+    const { getSyncMeta } = require("@/services/db");
+    (isSyncInProgress as jest.Mock).mockReturnValue(false);
+    (getSyncMeta as jest.Mock).mockReturnValue("2026-10-07T12:00:00.000Z");
   });
 
   it("renders with 5 tabs and mini player by default", () => {
@@ -92,5 +106,19 @@ describe("AppBottomBar", () => {
       navBar.props.onTabPress({ route: { key: "settings" } });
     });
     expect(mockReplace).toHaveBeenCalledWith("/(main)/settings");
+  });
+
+  it("hides completely during initial sync", () => {
+    const { isSyncInProgress } = require("@/services/api");
+    const { getSyncMeta } = require("@/services/db");
+    (isSyncInProgress as jest.Mock).mockReturnValue(true);
+    (getSyncMeta as jest.Mock).mockReturnValue(null);
+
+    let component: any;
+    renderer.act(() => {
+      component = renderer.create(<AppBottomBar />);
+    });
+
+    expect(component.toJSON()).toBeNull();
   });
 });

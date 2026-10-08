@@ -53,12 +53,24 @@ export function MostPlayedSection() {
       </Text>
 
       {albums.length === 0 ? (
-        <Text
-          variant="bodyMedium"
-          style={[{ color: theme.colors.onSurfaceVariant }, homeStyles.emptyText]}
+        <View
+          style={[
+            homeStyles.emptyCard,
+            { backgroundColor: theme.colors.surfaceContainerHighest },
+          ]}
         >
-          no played albums yet
-        </Text>
+          <Avatar.Icon
+            size={40}
+            icon="album"
+            style={{ backgroundColor: theme.colors.surfaceContainerHigh }}
+          />
+          <Text
+            variant="bodyMedium"
+            style={{ color: theme.colors.onSurfaceVariant, textAlign: "center" }}
+          >
+            no played albums yet
+          </Text>
+        </View>
       ) : (
         <FlatList
           horizontal

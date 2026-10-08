@@ -58,12 +58,24 @@ export function RecentlyPlayedSection() {
       </Text>
 
       {albums.length === 0 ? (
-        <Text
-          variant="bodyMedium"
-          style={[{ color: theme.colors.onSurfaceVariant }, homeStyles.emptyText]}
+        <View
+          style={[
+            homeStyles.emptyCard,
+            { backgroundColor: theme.colors.surfaceContainerHighest },
+          ]}
         >
-          no recently played albums
-        </Text>
+          <Avatar.Icon
+            size={40}
+            icon="history"
+            style={{ backgroundColor: theme.colors.surfaceContainerHigh }}
+          />
+          <Text
+            variant="bodyMedium"
+            style={{ color: theme.colors.onSurfaceVariant, textAlign: "center" }}
+          >
+            no recently played albums
+          </Text>
+        </View>
       ) : (
         <FlatList
           horizontal

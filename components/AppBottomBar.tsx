@@ -1,11 +1,24 @@
 import { useRouter } from "expo-router";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { BottomNavigation, Icon } from "react-native-paper";
 import { EdgeInsets, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { MiniPlayer } from "@/components/MiniPlayer";
+import {
+  subscribeAuthState,
+  subscribeSyncState,
+} from "@/services/api";
+import { getSyncMeta } from "@/services/db";
 import { useAppTheme } from "@/types";
+
+function checkHasSyncedOnce(): boolean {
+  try {
+    return !!getSyncMeta("lastSyncedAt");
+  } catch {
+    return false;
+  }
+}
 
 export type TabKey = "home" | "library" | "search" | "sync" | "settings";
 
@@ -83,6 +96,29 @@ export function AppBottomBar({
     return idx >= 0 ? idx : 1;
   }, [activeTab]);
 
+  const [hasSyncedOnce, setHasSyncedOnce] = useState(() => checkHasSyncedOnce());
+
+  useEffect(() => {
+    const unsubAuth = subscribeAuthState((isLoggedIn) => {
+      if (!isLoggedIn) {
+        setHasSyncedOnce(false);
+      } else {
+        setHasSyncedOnce(checkHasSyncedOnce());
+      }
+    });
+
+    const unsubSync = subscribeSyncState((syncing) => {
+      if (!syncing && checkHasSyncedOnce()) {
+        setHasSyncedOnce(true);
+      }
+    });
+
+    return () => {
+      unsubAuth();
+      unsubSync();
+    };
+  }, []);
+
   const standaloneNavState = useMemo(
     () => ({
       index: activeIndex,
@@ -90,6 +126,10 @@ export function AppBottomBar({
     }),
     [activeIndex],
   );
+
+  if (!hasSyncedOnce) {
+    return null;
+  }
 
   return (
     <View style={{ backgroundColor: theme.colors.background }}>

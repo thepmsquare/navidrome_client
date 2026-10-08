@@ -3,9 +3,7 @@ import * as SecureStore from "expo-secure-store";
 import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, View } from "react-native";
 import {
-  ActivityIndicator,
   Button,
-  Card,
   RadioButton,
   Surface,
   Switch,
@@ -13,7 +11,6 @@ import {
   TextInput,
 } from "react-native-paper";
 
-import { client_app_sync } from "@/services/api";
 import { exportBackupToFile } from "@/services/backup";
 import { logout } from "@/services/session";
 import {
@@ -22,7 +19,6 @@ import {
   getAutoCacheMaxBytes,
   getAutoCacheTotalSize,
   getKeepPlayingOnAppDismissed,
-  getLocalCounts,
   getScrobbleMinDuration,
   getScrobbleMinPercent,
   setAutoCacheEnabled,
@@ -42,7 +38,7 @@ import {
 } from "@/services/player";
 import { clearAllAutoCachedSongs } from "@/services/songCache";
 import { settingsStyles } from "@/stylesheets";
-import { LyricsMode, Search3Counts, useAppTheme } from "@/types";
+import { LyricsMode, useAppTheme } from "@/types";
 import { useAudioOutputDevice } from "@/utils/audioOutput";
 import { ANDROID_VERSION_CODE, APP_VERSION } from "@/utils/constants";
 import { spacing } from "@/utils/spacing";
@@ -69,42 +65,6 @@ export default function SettingsScreen() {
   const [subsonicVersion, setSubsonicVersion] = useState<string | null>(null);
   const [serverUrl, setServerUrl] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
-  const [counts, setCounts] = useState<Search3Counts | null>(null);
-  const [loadingCounts, setLoadingCounts] = useState<boolean>(true);
-  const [syncStatusText, setSyncStatusText] = useState<string | null>(null);
-
-  async function performSync(force: boolean = false) {
-    try {
-      setLoadingCounts(true);
-      const initialCounts = getLocalCounts();
-      setCounts(initialCounts);
-
-      const syncResult = await client_app_sync(force);
-      if (syncResult.synced) {
-        setSyncStatusText("synced: true (fresh sync from server)");
-        setCounts({
-          artistCount: syncResult.artistCount ?? 0,
-          albumCount: syncResult.albumCount ?? 0,
-          songCount: syncResult.songCount ?? 0,
-          playlistCount: syncResult.playlistCount ?? 0,
-        });
-      } else {
-        setSyncStatusText("synced: false (loaded from cache)");
-        setCounts({
-          artistCount: syncResult.artistCount ?? initialCounts.artistCount,
-          albumCount: syncResult.albumCount ?? initialCounts.albumCount,
-          songCount: syncResult.songCount ?? initialCounts.songCount,
-          playlistCount:
-            syncResult.playlistCount ?? initialCounts.playlistCount,
-        });
-      }
-    } catch (error) {
-      console.error("failed to sync library:", error);
-      setSyncStatusText("sync failed");
-    } finally {
-      setLoadingCounts(false);
-    }
-  }
 
   useEffect(() => {
     async function loadData() {
@@ -114,8 +74,6 @@ export default function SettingsScreen() {
       setSubsonicVersion(version);
       setServerUrl(url);
       setUsername(user);
-
-      await performSync(false);
     }
 
     loadData();
@@ -394,113 +352,6 @@ export default function SettingsScreen() {
             { backgroundColor: theme.colors.surfaceContainerHighest },
           ]}
         >
-          <Text variant="titleMedium">library</Text>
-          {syncStatusText && (
-            <Text
-              variant="bodySmall"
-              style={{ color: theme.colors.onSurfaceVariant }}
-            >
-              {syncStatusText}
-            </Text>
-          )}
-          {loadingCounts ? (
-            <View style={settingsStyles.loadingRow}>
-              <ActivityIndicator size="small" />
-              <Text variant="bodySmall">syncing library...</Text>
-            </View>
-          ) : (
-            <View style={settingsStyles.countsContainer}>
-              <View style={settingsStyles.countsRow}>
-                <Card
-                  mode="contained"
-                  style={[
-                    settingsStyles.countCard,
-                    { backgroundColor: theme.colors.surfaceContainer },
-                  ]}
-                >
-                  <Card.Content>
-                    <Text variant="headlineSmall">
-                      {counts?.artistCount ?? 0}
-                    </Text>
-                    <Text
-                      variant="bodyMedium"
-                      style={{ color: theme.colors.onSurfaceVariant }}
-                    >
-                      artists
-                    </Text>
-                  </Card.Content>
-                </Card>
-                <Card
-                  mode="contained"
-                  style={[
-                    settingsStyles.countCard,
-                    { backgroundColor: theme.colors.surfaceContainer },
-                  ]}
-                >
-                  <Card.Content>
-                    <Text variant="headlineSmall">
-                      {counts?.albumCount ?? 0}
-                    </Text>
-                    <Text
-                      variant="bodyMedium"
-                      style={{ color: theme.colors.onSurfaceVariant }}
-                    >
-                      albums
-                    </Text>
-                  </Card.Content>
-                </Card>
-              </View>
-              <View style={settingsStyles.countsRow}>
-                <Card
-                  mode="contained"
-                  style={[
-                    settingsStyles.countCard,
-                    { backgroundColor: theme.colors.surfaceContainer },
-                  ]}
-                >
-                  <Card.Content>
-                    <Text variant="headlineSmall">
-                      {counts?.songCount ?? 0}
-                    </Text>
-                    <Text
-                      variant="bodyMedium"
-                      style={{ color: theme.colors.onSurfaceVariant }}
-                    >
-                      songs
-                    </Text>
-                  </Card.Content>
-                </Card>
-                <Card
-                  mode="contained"
-                  style={[
-                    settingsStyles.countCard,
-                    { backgroundColor: theme.colors.surfaceContainer },
-                  ]}
-                >
-                  <Card.Content>
-                    <Text variant="headlineSmall">
-                      {counts?.playlistCount ?? 0}
-                    </Text>
-                    <Text
-                      variant="bodyMedium"
-                      style={{ color: theme.colors.onSurfaceVariant }}
-                    >
-                      playlists
-                    </Text>
-                  </Card.Content>
-                </Card>
-              </View>
-            </View>
-          )}
-        </Surface>
-
-        <Surface
-          elevation={0}
-          style={[
-            settingsStyles.sectionCard,
-            { backgroundColor: theme.colors.surfaceContainerHighest },
-          ]}
-        >
           <Text variant="titleMedium">actions</Text>
           <Button
             mode="contained-tonal"
@@ -509,20 +360,6 @@ export default function SettingsScreen() {
             disabled={isPlaying}
           >
             play test sound {isPlaying && "(disabled while music is playing)"}
-          </Button>
-          <Button
-            mode="outlined"
-            onPress={() => performSync(false)}
-            disabled={loadingCounts}
-          >
-            sync
-          </Button>
-          <Button
-            mode="outlined"
-            onPress={() => performSync(true)}
-            disabled={loadingCounts}
-          >
-            force sync
           </Button>
         </Surface>
 
