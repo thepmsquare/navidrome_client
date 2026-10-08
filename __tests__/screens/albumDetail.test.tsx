@@ -44,12 +44,16 @@ jest.mock("@/components/MiniPlayer", () => ({
 
 jest.mock("@/services/api", () => ({
   getCoverArtBaseUrl: jest.fn(),
+  isSyncInProgress: jest.fn().mockReturnValue(false),
+  subscribeSyncState: jest.fn().mockReturnValue(jest.fn()),
+  subscribeAuthState: jest.fn().mockReturnValue(jest.fn()),
 }));
 
 jest.mock("@/services/db", () => ({
   getAlbumById: jest.fn(),
   getSongsByAlbumId: jest.fn(),
   getAllSongCacheEntries: jest.fn(() => new Map()),
+  getSyncMeta: jest.fn().mockReturnValue("2026-10-07T12:00:00.000Z"),
 }));
 
 jest.mock("@/services/songCache", () => ({

@@ -156,6 +156,32 @@ export function notifyAuthState(isLoggedIn: boolean): void {
   });
 }
 
+export type SyncStateListener = (isSyncing: boolean) => void;
+const syncStateListeners = new Set<SyncStateListener>();
+let _isSyncing = false;
+
+export function isSyncInProgress(): boolean {
+  return _isSyncing;
+}
+
+export function subscribeSyncState(listener: SyncStateListener): () => void {
+  syncStateListeners.add(listener);
+  return () => {
+    syncStateListeners.delete(listener);
+  };
+}
+
+function notifySyncState(isSyncing: boolean): void {
+  _isSyncing = isSyncing;
+  syncStateListeners.forEach((listener) => {
+    try {
+      listener(isSyncing);
+    } catch (e) {
+      console.error("error in sync state listener:", e);
+    }
+  });
+}
+
 export type PlayStatsListener = () => void;
 const playStatsListeners = new Set<PlayStatsListener>();
 
@@ -254,135 +280,154 @@ export async function getScanStatus(): Promise<ScanStatus> {
 export async function client_app_sync(
   force: boolean = false,
 ): Promise<SyncResult> {
-  const scanStatus = await getScanStatus();
-
-  let playStatsRefreshed = false;
-  if (!force) {
-    try {
-      const statsRes = await refreshPlayStats();
-      if (
-        statsRes.refreshed &&
-        (statsRes.albumsUpdated > 0 || statsRes.songsUpdated > 0)
-      ) {
-        playStatsRefreshed = true;
-      }
-    } catch (error) {
-      console.error("failed to refresh play stats during sync:", error);
-    }
-  }
-
-  const storedLastScan = getSyncMeta("lastScan");
-  const currentLastScan = scanStatus.lastScan ?? "";
-
-  if (
-    !force &&
-    storedLastScan &&
-    currentLastScan &&
-    storedLastScan === currentLastScan
-  ) {
+  if (_isSyncing) {
+    // a sync is already running — return current local counts optimistically
     const localCounts = getLocalCounts();
     return {
       synced: false,
-      playStatsRefreshed,
       artistCount: localCounts.artistCount,
       albumCount: localCounts.albumCount,
       songCount: localCounts.songCount,
       playlistCount: localCounts.playlistCount,
-      lastScan: storedLastScan,
       lastSyncedAt: getSyncMeta("lastSyncedAt") ?? undefined,
     };
   }
 
-  const batchSize = 500;
-  let artistOffset = 0;
-  let albumOffset = 0;
-  let songOffset = 0;
-
-  let totalArtists = 0;
-  let totalAlbums = 0;
-  let totalSongs = 0;
-
-  let fetchArtists = true;
-  let fetchAlbums = true;
-  let fetchSongs = true;
-
-  while (fetchArtists || fetchAlbums || fetchSongs) {
-    const res = await search3({
-      query: "",
-      artistCount: fetchArtists ? batchSize : 0,
-      artistOffset,
-      albumCount: fetchAlbums ? batchSize : 0,
-      albumOffset,
-      songCount: fetchSongs ? batchSize : 0,
-      songOffset,
-    });
-
-    const artists = res.artist || [];
-    const albums = res.album || [];
-    const songs = res.song || [];
-
-    if (fetchArtists) {
-      if (artists.length > 0) {
-        upsertArtistsBatch(artists);
-        totalArtists += artists.length;
-        artistOffset += artists.length;
-      }
-      if (artists.length < batchSize) {
-        fetchArtists = false;
-      }
-    }
-
-    if (fetchAlbums) {
-      if (albums.length > 0) {
-        upsertAlbumsBatch(albums);
-        totalAlbums += albums.length;
-        albumOffset += albums.length;
-      }
-      if (albums.length < batchSize) {
-        fetchAlbums = false;
-      }
-    }
-
-    if (fetchSongs) {
-      if (songs.length > 0) {
-        upsertSongsBatch(songs);
-        totalSongs += songs.length;
-        songOffset += songs.length;
-      }
-      if (songs.length < batchSize) {
-        fetchSongs = false;
-      }
-    }
-  }
-
-  let totalPlaylists = 0;
+  notifySyncState(true);
   try {
-    const playlists = await getPlaylists();
-    if (playlists.length > 0) {
-      upsertPlaylistsBatch(playlists);
-      totalPlaylists = playlists.length;
+    const scanStatus = await getScanStatus();
+
+    let playStatsRefreshed = false;
+    if (!force) {
+      try {
+        const statsRes = await refreshPlayStats();
+        if (
+          statsRes.refreshed &&
+          (statsRes.albumsUpdated > 0 || statsRes.songsUpdated > 0)
+        ) {
+          playStatsRefreshed = true;
+        }
+      } catch (error) {
+        console.error("failed to refresh play stats during sync:", error);
+      }
     }
-  } catch (error) {
-    console.error("failed to sync playlists:", error);
-  }
 
-  const now = new Date().toISOString();
-  if (currentLastScan) {
-    setSyncMeta("lastScan", currentLastScan);
-  }
-  setSyncMeta("lastSyncedAt", now);
+    const storedLastScan = getSyncMeta("lastScan");
+    const currentLastScan = scanStatus.lastScan ?? "";
 
-  return {
-    synced: true,
-    playStatsRefreshed,
-    artistCount: totalArtists,
-    albumCount: totalAlbums,
-    songCount: totalSongs,
-    playlistCount: totalPlaylists,
-    lastScan: currentLastScan,
-    lastSyncedAt: now,
-  };
+    if (
+      !force &&
+      storedLastScan &&
+      currentLastScan &&
+      storedLastScan === currentLastScan
+    ) {
+      const localCounts = getLocalCounts();
+      return {
+        synced: false,
+        playStatsRefreshed,
+        artistCount: localCounts.artistCount,
+        albumCount: localCounts.albumCount,
+        songCount: localCounts.songCount,
+        playlistCount: localCounts.playlistCount,
+        lastScan: storedLastScan,
+        lastSyncedAt: getSyncMeta("lastSyncedAt") ?? undefined,
+      };
+    }
+
+    const batchSize = 500;
+    let artistOffset = 0;
+    let albumOffset = 0;
+    let songOffset = 0;
+
+    let totalArtists = 0;
+    let totalAlbums = 0;
+    let totalSongs = 0;
+
+    let fetchArtists = true;
+    let fetchAlbums = true;
+    let fetchSongs = true;
+
+    while (fetchArtists || fetchAlbums || fetchSongs) {
+      const res = await search3({
+        query: "",
+        artistCount: fetchArtists ? batchSize : 0,
+        artistOffset,
+        albumCount: fetchAlbums ? batchSize : 0,
+        albumOffset,
+        songCount: fetchSongs ? batchSize : 0,
+        songOffset,
+      });
+
+      const artists = res.artist || [];
+      const albums = res.album || [];
+      const songs = res.song || [];
+
+      if (fetchArtists) {
+        if (artists.length > 0) {
+          upsertArtistsBatch(artists);
+          totalArtists += artists.length;
+          artistOffset += artists.length;
+        }
+        if (artists.length < batchSize) {
+          fetchArtists = false;
+        }
+      }
+
+      if (fetchAlbums) {
+        if (albums.length > 0) {
+          upsertAlbumsBatch(albums);
+          totalAlbums += albums.length;
+          albumOffset += albums.length;
+        }
+        if (albums.length < batchSize) {
+          fetchAlbums = false;
+        }
+      }
+
+      if (fetchSongs) {
+        if (songs.length > 0) {
+          upsertSongsBatch(songs);
+          totalSongs += songs.length;
+          songOffset += songs.length;
+        }
+        if (songs.length < batchSize) {
+          fetchSongs = false;
+        }
+      }
+    }
+
+    let totalPlaylists = 0;
+    try {
+      const playlists = await getPlaylists();
+      if (playlists.length > 0) {
+        upsertPlaylistsBatch(playlists);
+        totalPlaylists = playlists.length;
+      }
+    } catch (error) {
+      console.error("failed to sync playlists:", error);
+    }
+
+    const now = new Date().toISOString();
+    if (currentLastScan) {
+      setSyncMeta("lastScan", currentLastScan);
+    }
+    setSyncMeta("lastSyncedAt", now);
+
+    return {
+      synced: true,
+      playStatsRefreshed,
+      artistCount: totalArtists,
+      albumCount: totalAlbums,
+      songCount: totalSongs,
+      playlistCount: totalPlaylists,
+      lastScan: currentLastScan,
+      lastSyncedAt: now,
+    };
+  } finally {
+    notifySyncState(false);
+  }
 }
+
 
 export async function getCoverArtBaseUrl(defaultSize: number = 300): Promise<
   (id?: string | null, size?: number) => string | null
