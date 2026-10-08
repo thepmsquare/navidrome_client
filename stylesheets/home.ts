@@ -69,6 +69,13 @@ export const homeStyles = StyleSheet.create({
   emptyText: {
     paddingHorizontal: spacing.md,
   },
+  emptyCard: {
+    marginHorizontal: spacing.md,
+    borderRadius: 16,
+    padding: spacing.lg,
+    alignItems: "center",
+    gap: spacing.sm,
+  },
   sectionCard: {
     padding: spacing.md,
     borderRadius: 16,

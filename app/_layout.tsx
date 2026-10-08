@@ -61,7 +61,7 @@ export default function RootLayout() {
     if (!isLoggedIn && !isAuthRoute) {
       router.replace("/connect");
     } else if (isLoggedIn && isAuthRoute) {
-      router.replace("/");
+      router.replace({ pathname: "/sync", params: { initial: "true" } });
     }
   }, [isLoggedIn, isLoading, segments, router]);
 

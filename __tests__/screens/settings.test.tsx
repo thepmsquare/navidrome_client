@@ -99,7 +99,7 @@ describe("SettingsScreen", () => {
     jest.clearAllMocks();
   });
 
-  it("renders connection, library, and actions sections transferred from home", async () => {
+  it("renders connection and actions sections", async () => {
     let tree: any;
     await renderer.act(async () => {
       tree = renderer.create(<SettingsScreen />);
@@ -113,7 +113,7 @@ describe("SettingsScreen", () => {
     expect(texts).toContain("server");
     expect(texts).toContain("subsonic version");
     expect(texts).toContain("audio output");
-    expect(texts).toContain("library");
+    expect(texts).not.toContain("library");
     expect(texts).toContain("actions");
   });
 
@@ -209,7 +209,7 @@ describe("SettingsScreen", () => {
     );
   });
 
-  it("allows triggering sync and force sync from actions", async () => {
+  it("does not render sync and force sync in settings (moved to sync screen)", async () => {
     let tree: any;
     await renderer.act(async () => {
       tree = renderer.create(<SettingsScreen />);
@@ -220,18 +220,8 @@ describe("SettingsScreen", () => {
     const syncBtn = buttons.find((b: any) => b.props.children === "sync");
     const forceSyncBtn = buttons.find((b: any) => b.props.children === "force sync");
 
-    expect(syncBtn).toBeDefined();
-    expect(forceSyncBtn).toBeDefined();
-
-    await renderer.act(async () => {
-      syncBtn.props.onPress();
-    });
-    expect(api.client_app_sync).toHaveBeenCalledWith(false);
-
-    await renderer.act(async () => {
-      forceSyncBtn.props.onPress();
-    });
-    expect(api.client_app_sync).toHaveBeenCalledWith(true);
+    expect(syncBtn).toBeUndefined();
+    expect(forceSyncBtn).toBeUndefined();
   });
 
   it("renders lyrics mode section with options and handles selection", async () => {

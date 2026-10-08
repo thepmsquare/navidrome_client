@@ -3,6 +3,9 @@
 ## 2.22.0+55 (in progress)
 
 - music player page redesign (in progress)
+- move over sync stats to sync page.
+- techincal changes
+  - bug fixes and redesign library syncing.
 
 ## 2.21.2+54
 

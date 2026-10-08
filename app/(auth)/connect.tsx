@@ -104,7 +104,7 @@ export default function ConnectScreen() {
       await SecureStore.setItemAsync("username", username);
       await SecureStore.setItemAsync("password", password);
       notifyAuthState(true);
-      router.replace("/");
+      router.replace({ pathname: "/sync", params: { initial: "true" } });
     } catch (error: any) {
       Alert.alert("login failed", error.message || "could not login");
     } finally {
@@ -154,7 +154,7 @@ export default function ConnectScreen() {
       }
 
       notifyAuthState(true);
-      router.replace("/");
+      router.replace({ pathname: "/sync", params: { initial: "true" } });
     } catch (error: any) {
       Alert.alert(
         "import failed",
@@ -186,7 +186,7 @@ export default function ConnectScreen() {
       await SecureStore.setItemAsync("password", demoPass);
 
       notifyAuthState(true);
-      router.replace("/");
+      router.replace({ pathname: "/sync", params: { initial: "true" } });
     } catch (error: any) {
       Alert.alert(
         "demo login failed",

@@ -35,6 +35,9 @@ jest.mock("@/services/api", () => ({
     albumsUpdated: 0,
     songsUpdated: 0,
   }),
+  isSyncInProgress: jest.fn().mockReturnValue(false),
+  subscribeSyncState: jest.fn().mockReturnValue(jest.fn()),
+  client_app_sync: jest.fn().mockResolvedValue({ synced: true }),
 }));
 
 describe("MainLayout auto play-stats refresh", () => {

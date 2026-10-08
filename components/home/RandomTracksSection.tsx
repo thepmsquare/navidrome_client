@@ -82,12 +82,24 @@ export function RandomTracksSection() {
       </View>
 
       {tracks.length === 0 ? (
-        <Text
-          variant="bodyMedium"
-          style={[{ color: theme.colors.onSurfaceVariant }, homeStyles.emptyText]}
+        <View
+          style={[
+            homeStyles.emptyCard,
+            { backgroundColor: theme.colors.surfaceContainerHighest },
+          ]}
         >
-          no tracks found
-        </Text>
+          <Avatar.Icon
+            size={40}
+            icon="music-note"
+            style={{ backgroundColor: theme.colors.surfaceContainerHigh }}
+          />
+          <Text
+            variant="bodyMedium"
+            style={{ color: theme.colors.onSurfaceVariant, textAlign: "center" }}
+          >
+            no tracks found
+          </Text>
+        </View>
       ) : (
         <View style={homeStyles.trackList}>
           {tracks.map((item, index) => {
