@@ -17,6 +17,14 @@ import { ConnectProgress } from "@/components/ConnectProgress";
 
 import { login, notifyAuthState, ping } from "@/services/api";
 import { pickProfileFile } from "@/services/backup";
+import {
+  setAutoCacheEnabled,
+  setAutoCacheMaxBytes,
+  setScrobbleMinDuration,
+  setScrobbleMinPercent,
+} from "@/services/db";
+import { setLyricsMode } from "@/services/lyrics";
+import { updateKeepPlayingOnAppDismissed } from "@/services/player";
 import { connectStyles } from "@/stylesheets";
 import { ConnectStage, useAppTheme } from "@/types";
 import { APP_SHORT_NAME, APP_SUBTITLE } from "@/utils/constants";
@@ -138,6 +146,38 @@ export default function ConnectScreen() {
 
       await SecureStore.setItemAsync("username", profile.username);
       await SecureStore.setItemAsync("password", profile.password);
+
+      if (profile.settings) {
+        if (profile.settings.auto_cache_enabled !== undefined) {
+          setAutoCacheEnabled(profile.settings.auto_cache_enabled);
+        }
+        if (profile.settings.auto_cache_max_bytes !== undefined) {
+          setAutoCacheMaxBytes(profile.settings.auto_cache_max_bytes);
+        }
+        if (profile.settings.scrobble_min_duration !== undefined) {
+          setScrobbleMinDuration(profile.settings.scrobble_min_duration);
+        }
+        if (profile.settings.scrobble_min_percent !== undefined) {
+          setScrobbleMinPercent(profile.settings.scrobble_min_percent);
+        }
+        if (profile.settings.keep_playing_on_app_dismissed !== undefined) {
+          await updateKeepPlayingOnAppDismissed(
+            profile.settings.keep_playing_on_app_dismissed,
+          );
+        }
+        if (profile.settings.lyrics_mode !== undefined) {
+          setLyricsMode(profile.settings.lyrics_mode);
+        }
+      }
+
+      if (
+        profile.settings?.keep_playing_on_app_dismissed === undefined &&
+        profile.stop_playback_on_task_removed !== undefined
+      ) {
+        await updateKeepPlayingOnAppDismissed(
+          !profile.stop_playback_on_task_removed,
+        );
+      }
 
       if (profile.stop_playback_on_task_removed !== undefined) {
         await SecureStore.setItemAsync(
