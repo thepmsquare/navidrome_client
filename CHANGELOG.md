@@ -1,5 +1,10 @@
 # changelog
 
+## 2.22.1+56
+
+- techincal changes
+  - sync newly added settings to be exported during export, import profile.
+
 ## 2.22.0+55
 
 - music player page redesign.

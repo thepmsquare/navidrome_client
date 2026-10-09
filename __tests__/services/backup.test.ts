@@ -17,6 +17,18 @@ jest.mock("expo-secure-store", () => ({
   getItemAsync: jest.fn(),
 }));
 
+jest.mock("@/services/db", () => ({
+  getAutoCacheEnabled: jest.fn().mockReturnValue(true),
+  getAutoCacheMaxBytes: jest.fn().mockReturnValue(1073741824),
+  getScrobbleMinDuration: jest.fn().mockReturnValue(240),
+  getScrobbleMinPercent: jest.fn().mockReturnValue(75),
+  getKeepPlayingOnAppDismissed: jest.fn().mockReturnValue(false),
+}));
+
+jest.mock("@/services/lyrics", () => ({
+  getLyricsMode: jest.fn().mockReturnValue("file_only"),
+}));
+
 jest.mock("expo-document-picker", () => ({
   getDocumentAsync: jest.fn(),
 }));
@@ -63,6 +75,12 @@ describe("backup service", () => {
           if (key === "serverUrl") return "https://music.example.com";
           if (key === "username") return "actual username";
           if (key === "password") return "actual_password";
+          if (key === "stop_playback_on_task_removed") return "true";
+          if (key === "home_sections")
+            return JSON.stringify([
+              { id: "most_played", visible: true },
+              { id: "random_tracks", visible: false },
+            ]);
           return null;
         },
       );
@@ -74,6 +92,19 @@ describe("backup service", () => {
         server_url: "https://music.example.com",
         username: "actual username",
         password: "actual_password",
+        settings: {
+          auto_cache_enabled: true,
+          auto_cache_max_bytes: 1073741824,
+          scrobble_min_duration: 240,
+          scrobble_min_percent: 75,
+          keep_playing_on_app_dismissed: false,
+          lyrics_mode: "file_only",
+        },
+        stop_playback_on_task_removed: true,
+        home_sections: [
+          { id: "most_played", visible: true },
+          { id: "random_tracks", visible: false },
+        ],
         export_date: expect.stringMatching(
           /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}$/,
         ),
@@ -83,7 +114,7 @@ describe("backup service", () => {
       expect(backup.version).toBe(1);
     });
 
-    it("should default missing credentials to empty strings", async () => {
+    it("should default missing credentials to empty strings and fallback home sections", async () => {
       (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null);
 
       const backup = await createBackupData();
@@ -91,6 +122,20 @@ describe("backup service", () => {
       expect(backup.server_url).toBe("");
       expect(backup.username).toBe("");
       expect(backup.password).toBe("");
+      expect(backup.stop_playback_on_task_removed).toBe(true);
+      expect(backup.home_sections).toEqual([
+        { id: "most_played", visible: true },
+        { id: "random_tracks", visible: true },
+        { id: "recently_played", visible: true },
+      ]);
+      expect(backup.settings).toEqual({
+        auto_cache_enabled: true,
+        auto_cache_max_bytes: 1073741824,
+        scrobble_min_duration: 240,
+        scrobble_min_percent: 75,
+        keep_playing_on_app_dismissed: false,
+        lyrics_mode: "file_only",
+      });
     });
   });
 
@@ -232,6 +277,36 @@ describe("backup service", () => {
         visible: true,
       });
       expect(parsed.version).toBe(1);
+    });
+
+    it("should successfully parse profile JSON containing settings", () => {
+      const sampleJson = JSON.stringify({
+        app_identifier: "navidrome_client_backup",
+        server_url: "https://songs.thepmsquare.com",
+        username: "thepmsquare",
+        password: "password123",
+        settings: {
+          auto_cache_enabled: true,
+          auto_cache_max_bytes: 2147483648,
+          scrobble_min_duration: 120,
+          scrobble_min_percent: 60,
+          keep_playing_on_app_dismissed: true,
+          lyrics_mode: "online_first",
+        },
+        export_date: "2026-10-09T03:30:00.000000",
+        version: 1,
+      });
+
+      const parsed = parseProfileData(sampleJson);
+
+      expect(parsed.settings).toEqual({
+        auto_cache_enabled: true,
+        auto_cache_max_bytes: 2147483648,
+        scrobble_min_duration: 120,
+        scrobble_min_percent: 60,
+        keep_playing_on_app_dismissed: true,
+        lyrics_mode: "online_first",
+      });
     });
 
     it("should throw on invalid JSON", () => {
