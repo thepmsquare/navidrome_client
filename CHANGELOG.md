@@ -1,7 +1,8 @@
 # changelog
 
-## 2.23.0+58 (in progress)
+## 2.23.0+58
 
+- add random albums, newly added albums and recently released albums sections on homepage.
 - techincal changes
   - ui tweaks.
 
