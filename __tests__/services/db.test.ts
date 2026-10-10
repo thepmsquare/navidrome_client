@@ -4,6 +4,7 @@ import {
   getAllAlbums,
   getMostPlayedAlbums,
   getRecentlyPlayedAlbums,
+  getNewlyAddedReleases,
   getRandomSongs,
   getAllArtists,
   getAllPlaylists,
@@ -478,6 +479,16 @@ describe("db service", () => {
       const res = getRecentlyPlayedAlbums(15);
       expect(mockGetAllSync).toHaveBeenCalledWith(
         "SELECT * FROM albums WHERE played IS NOT NULL AND TRIM(played) != '' ORDER BY played DESC, name COLLATE NOCASE ASC LIMIT ?",
+        [15],
+      );
+      expect(res).toHaveLength(1);
+    });
+
+    it("getNewlyAddedReleases should query albums with created not null ordered by created desc", () => {
+      mockGetAllSync.mockReturnValue([{ id: "alb-1", name: "B", created: "2023-01-01" }]);
+      const res = getNewlyAddedReleases(15);
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        "SELECT * FROM albums WHERE created IS NOT NULL AND TRIM(created) != '' ORDER BY created DESC, name COLLATE NOCASE ASC LIMIT ?",
         [15],
       );
       expect(res).toHaveLength(1);

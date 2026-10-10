@@ -17,6 +17,7 @@ jest.mock("expo-router", () => ({
 }));
 
 const playStatsListeners: (() => void)[] = [];
+const syncStateListeners: ((isSyncing: boolean) => void)[] = [];
 jest.mock("@/services/api", () => ({
   getCoverArtBaseUrl: jest.fn().mockResolvedValue((id?: string) => `https://art/${id}`),
   subscribePlayStats: jest.fn((listener: () => void) => {
@@ -24,6 +25,13 @@ jest.mock("@/services/api", () => ({
     return () => {
       const idx = playStatsListeners.indexOf(listener);
       if (idx !== -1) playStatsListeners.splice(idx, 1);
+    };
+  }),
+  subscribeSyncState: jest.fn((listener: (isSyncing: boolean) => void) => {
+    syncStateListeners.push(listener);
+    return () => {
+      const idx = syncStateListeners.indexOf(listener);
+      if (idx !== -1) syncStateListeners.splice(idx, 1);
     };
   }),
 }));
@@ -43,6 +51,9 @@ jest.mock("@/services/songCache", () => ({
 jest.mock("@/services/db", () => ({
   getMostPlayedAlbums: jest.fn(),
   getRecentlyPlayedAlbums: jest.fn(),
+  getNewlyAddedReleases: jest.fn(),
+  getRandomAlbums: jest.fn().mockReturnValue([]),
+  getRecentlyReleasedAlbums: jest.fn().mockReturnValue([]),
   getRandomSongs: jest.fn(),
   getAllSongCacheEntries: jest.fn().mockReturnValue(new Map()),
 }));
@@ -74,6 +85,16 @@ const mockRecentAlbums = [
   },
 ];
 
+const mockNewlyAddedReleases = [
+  {
+    id: "alb-4",
+    name: "Wish You Were Here",
+    artist: "Pink Floyd",
+    coverArt: "art-4",
+    created: "2023-11-01T12:00:00Z",
+  },
+];
+
 const mockRandomTracks = [
   {
     id: "song-1",
@@ -96,6 +117,9 @@ describe("HomeScreen", () => {
     jest.clearAllMocks();
     (db.getMostPlayedAlbums as jest.Mock).mockReturnValue(mockAlbums);
     (db.getRecentlyPlayedAlbums as jest.Mock).mockReturnValue(mockRecentAlbums);
+    (db.getNewlyAddedReleases as jest.Mock).mockReturnValue(mockNewlyAddedReleases);
+    (db.getRandomAlbums as jest.Mock).mockReturnValue([]);
+    (db.getRecentlyReleasedAlbums as jest.Mock).mockReturnValue([]);
     (db.getRandomSongs as jest.Mock).mockReturnValue(mockRandomTracks);
   });
 
@@ -110,6 +134,9 @@ describe("HomeScreen", () => {
     expect(texts).toContain("home");
     expect(texts).toContain("most played");
     expect(texts).toContain("recently played");
+    expect(texts).toContain("random albums");
+    expect(texts).toContain("newly added releases");
+    expect(texts).toContain("recently released");
     expect(texts).toContain("random tracks");
   });
 
@@ -135,8 +162,8 @@ describe("HomeScreen", () => {
 
     const root = tree.root;
     const touchables = root.findAllByType(TouchableOpacity);
-    // 2 from most played + 1 from recently played = 3 touchable tiles
-    expect(touchables.length).toBe(3);
+    // 2 from most played + 1 from recently played + 1 from newly added releases = 4 touchable tiles
+    expect(touchables.length).toBe(4);
 
     await renderer.act(async () => {
       touchables[0].props.onPress();
@@ -170,9 +197,32 @@ describe("HomeScreen", () => {
     });
   });
 
-  it("renders empty message when no played albums or recently played albums are available", async () => {
+  it("renders newly added release album and navigates when pressed", async () => {
+    let tree: any;
+    await renderer.act(async () => {
+      tree = renderer.create(<HomeScreen />);
+    });
+
+    const root = tree.root;
+    const texts = root.findAllByType(Text).map((t: any) => t.props.children);
+    expect(texts).toContain("Wish You Were Here");
+    expect(texts).toContain("Pink Floyd");
+
+    const touchables = root.findAllByType(TouchableOpacity);
+    await renderer.act(async () => {
+      touchables[3].props.onPress();
+    });
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/album/[id]",
+      params: { id: "alb-4" },
+    });
+  });
+
+  it("renders empty message when no played albums, recently played albums, or newly added releases are available", async () => {
     (db.getMostPlayedAlbums as jest.Mock).mockReturnValue([]);
     (db.getRecentlyPlayedAlbums as jest.Mock).mockReturnValue([]);
+    (db.getNewlyAddedReleases as jest.Mock).mockReturnValue([]);
 
     let tree: any;
     await renderer.act(async () => {
@@ -183,6 +233,7 @@ describe("HomeScreen", () => {
     const texts = root.findAllByType(Text).map((t: any) => t.props.children);
     expect(texts).toContain("no played albums yet");
     expect(texts).toContain("no recently played albums");
+    expect(texts).toContain("no newly added releases");
   });
 
   it("renders random tracks and plays playlist when track is pressed", async () => {
@@ -213,7 +264,7 @@ describe("HomeScreen", () => {
 
     const root = tree.root;
     const { IconButton } = require("react-native-paper");
-    const refreshBtn = root.findByProps({ icon: "refresh" });
+    const refreshBtn = root.findByProps({ accessibilityLabel: "refresh random tracks" });
     expect(refreshBtn).toBeDefined();
 
     const refreshedTracks = [
@@ -250,7 +301,7 @@ describe("HomeScreen", () => {
     expect(texts).toContain("no tracks found");
   });
 
-  it("re-reads recently played and most played albums when playStatsRefreshed listener triggers", async () => {
+  it("re-reads recently played, most played, and newly added albums when playStatsRefreshed or syncState listener triggers", async () => {
     let tree: any;
     await renderer.act(async () => {
       tree = renderer.create(<HomeScreen />);
@@ -258,6 +309,7 @@ describe("HomeScreen", () => {
 
     const initialRecentCalls = (db.getRecentlyPlayedAlbums as jest.Mock).mock.calls.length;
     const initialMostCalls = (db.getMostPlayedAlbums as jest.Mock).mock.calls.length;
+    const initialNewlyAddedCalls = (db.getNewlyAddedReleases as jest.Mock).mock.calls.length;
 
     await renderer.act(async () => {
       playStatsListeners.forEach((listener) => listener());
@@ -269,6 +321,18 @@ describe("HomeScreen", () => {
     expect((db.getMostPlayedAlbums as jest.Mock).mock.calls.length).toBeGreaterThan(
       initialMostCalls,
     );
+    expect((db.getNewlyAddedReleases as jest.Mock).mock.calls.length).toBeGreaterThan(
+      initialNewlyAddedCalls,
+    );
+
+    const callsBeforeSync = (db.getNewlyAddedReleases as jest.Mock).mock.calls.length;
+    await renderer.act(async () => {
+      syncStateListeners.forEach((listener) => listener(false));
+    });
+    expect((db.getNewlyAddedReleases as jest.Mock).mock.calls.length).toBeGreaterThan(
+      callsBeforeSync,
+    );
   });
+
 });
 

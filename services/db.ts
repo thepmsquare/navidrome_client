@@ -94,6 +94,7 @@ export function initDatabase(db: SQLite.SQLiteDatabase = getDb()): void {
     CREATE INDEX IF NOT EXISTS idx_albums_artist ON albums(artist);
     CREATE INDEX IF NOT EXISTS idx_albums_year ON albums(year);
     CREATE INDEX IF NOT EXISTS idx_albums_sortName ON albums(sortName);
+    CREATE INDEX IF NOT EXISTS idx_albums_created ON albums(created);
 
     CREATE TABLE IF NOT EXISTS songs (
       id TEXT PRIMARY KEY,
@@ -598,6 +599,30 @@ export function getRecentlyPlayedAlbums(limit: number = 20): AlbumID3[] {
   const db = getDb();
   return db.getAllSync<AlbumID3>(
     "SELECT * FROM albums WHERE played IS NOT NULL AND TRIM(played) != '' ORDER BY played DESC, name COLLATE NOCASE ASC LIMIT ?",
+    [limit],
+  );
+}
+
+export function getNewlyAddedReleases(limit: number = 20): AlbumID3[] {
+  const db = getDb();
+  return db.getAllSync<AlbumID3>(
+    "SELECT * FROM albums WHERE created IS NOT NULL AND TRIM(created) != '' ORDER BY created DESC, name COLLATE NOCASE ASC LIMIT ?",
+    [limit],
+  );
+}
+
+export function getRandomAlbums(limit: number = 20): AlbumID3[] {
+  const db = getDb();
+  return db.getAllSync<AlbumID3>(
+    "SELECT * FROM albums ORDER BY RANDOM() LIMIT ?",
+    [limit],
+  );
+}
+
+export function getRecentlyReleasedAlbums(limit: number = 20): AlbumID3[] {
+  const db = getDb();
+  return db.getAllSync<AlbumID3>(
+    "SELECT * FROM albums WHERE COALESCE(json_extract(releaseDate, '$.year'), year, 0) > 0 ORDER BY COALESCE(json_extract(releaseDate, '$.year'), year, 0) DESC, COALESCE(json_extract(releaseDate, '$.month'), 0) DESC, COALESCE(json_extract(releaseDate, '$.day'), 0) DESC, name COLLATE NOCASE ASC LIMIT ?",
     [limit],
   );
 }
