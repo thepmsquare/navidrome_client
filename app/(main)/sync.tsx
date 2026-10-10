@@ -32,7 +32,11 @@ export default function SyncScreen() {
   );
 
   const [phase, setPhase] = useState<SyncPhase>(() =>
-    isSyncInProgress() ? "syncing" : isFirstSync && !hasSyncedOnce ? "syncing" : "idle",
+    isSyncInProgress()
+      ? "syncing"
+      : isFirstSync && !hasSyncedOnce
+        ? "syncing"
+        : "idle",
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -60,7 +64,7 @@ export default function SyncScreen() {
 
   const spin = spinAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
+    outputRange: ["360deg", "0deg"],
   });
 
   // subscribe to external sync state
@@ -203,9 +207,7 @@ export default function SyncScreen() {
             }
             size={56}
             color={
-              phase === "error"
-                ? theme.colors.error
-                : theme.colors.primary
+              phase === "error" ? theme.colors.error : theme.colors.primary
             }
           />
         </Animated.View>
@@ -215,7 +217,10 @@ export default function SyncScreen() {
           <Text variant="headlineSmall">{headingText}</Text>
           <Text
             variant="bodyMedium"
-            style={{ color: theme.colors.onSurfaceVariant, textAlign: "center" }}
+            style={{
+              color: theme.colors.onSurfaceVariant,
+              textAlign: "center",
+            }}
           >
             {subTitleText}
           </Text>
@@ -244,16 +249,8 @@ export default function SyncScreen() {
             label="artists"
             value={counts.artistCount}
           />
-          <CountRow
-            icon="album"
-            label="albums"
-            value={counts.albumCount}
-          />
-          <CountRow
-            icon="music-note"
-            label="songs"
-            value={counts.songCount}
-          />
+          <CountRow icon="album" label="albums" value={counts.albumCount} />
+          <CountRow icon="music-note" label="songs" value={counts.songCount} />
           <CountRow
             icon="playlist-music"
             label="playlists"
@@ -314,9 +311,14 @@ function CountRow({
         alignItems: "center",
       }}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+      <View
+        style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}
+      >
         <Icon source={icon} size={18} color={theme.colors.onSurfaceVariant} />
-        <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+        <Text
+          variant="bodyMedium"
+          style={{ color: theme.colors.onSurfaceVariant }}
+        >
           {label}
         </Text>
       </View>

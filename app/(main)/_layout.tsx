@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, AppState, type AppStateStatus } from "react-native";
+import { Animated, AppState, Easing, type AppStateStatus } from "react-native";
 import { Icon } from "react-native-paper";
 
 import { AppBottomBar } from "@/components/AppBottomBar";
@@ -123,7 +123,7 @@ function SyncTabIcon({
 
   const rotate = spinAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
+    outputRange: ["360deg", "0deg"],
   });
 
   return (
