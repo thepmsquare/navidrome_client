@@ -127,6 +127,9 @@ describe("backup service", () => {
         { id: "most_played", visible: true },
         { id: "random_tracks", visible: true },
         { id: "recently_played", visible: true },
+        { id: "random_albums", visible: true },
+        { id: "newly_added_releases", visible: true },
+        { id: "recently_released", visible: true },
       ]);
       expect(backup.settings).toEqual({
         auto_cache_enabled: true,
