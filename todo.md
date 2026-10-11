@@ -136,6 +136,10 @@ upgrading users from previous versions require automated data migration and clea
   - **context**: [`services/backup.ts`](file:///d:/code/navidrome_client/services/backup.ts) writes server passwords in plaintext to exported json files.
   - **task**: add optional passphrase-based encryption or clear security disclosures during export to avoid unencrypted credentials residing on public storage.
 
+- [ ] **android foreground service for background downloads & sync**
+  - **context**: bulk song caching ([`services/songCache.ts`](file:///d:/code/navidrome_client/services/songCache.ts)) and library sync ([`app/(main)/sync.tsx`](file:///d:/code/navidrome_client/app/%28main%29/sync.tsx)) currently run in the javascript runtime. if the user navigates away, locks the screen, or the app process is suspended by the os, downloads fail or stall unpredictably.
+  - **task**: attach bulk downloads and library sync to a standard android foreground service (or workmanager) with an ongoing system notification displaying real-time progress, song counts, and a cancel action to guarantee task survival in the background.
+
 ---
 
 ## 7. play store ci/cd & automated deployment
