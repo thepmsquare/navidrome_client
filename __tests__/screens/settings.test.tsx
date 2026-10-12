@@ -6,7 +6,7 @@ import SettingsScreen from "@/app/(main)/settings";
 import * as api from "@/services/api";
 import * as db from "@/services/db";
 import * as player from "@/services/player";
-import { ANDROID_VERSION_CODE, APP_VERSION } from "@/utils/constants";
+import { APP_VERSION, APP_VERSION_CODE } from "@/utils/constants";
 
 const mockReplace = jest.fn();
 jest.mock("expo-router", () => ({
@@ -161,7 +161,7 @@ describe("SettingsScreen", () => {
 
     const root = tree.root;
     const texts = root.findAllByType(Text);
-    const expectedVersionString = `version ${APP_VERSION} (${ANDROID_VERSION_CODE})`;
+    const expectedVersionString = `version ${APP_VERSION} (${APP_VERSION_CODE})`;
     const matchingText = texts.find(
       (t: any) => t.props.children === expectedVersionString,
     );

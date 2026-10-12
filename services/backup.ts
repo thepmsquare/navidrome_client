@@ -14,7 +14,11 @@ import {
 } from "@/services/db";
 import { getLyricsMode } from "@/services/lyrics";
 import { BackupData, BackupSettings, HomeSectionConfig } from "@/types";
-import { APP_IDENTIFIER, BACKUP_VERSION } from "@/utils/constants";
+import {
+  APP_IDENTIFIER_FOR_PROFILE_EXPORT,
+  BACKUP_VERSION,
+  FILE_NAME_FOR_PROFILE_EXPORT,
+} from "@/utils/constants";
 
 export interface ExportResult {
   success: boolean;
@@ -59,7 +63,7 @@ export async function createBackupData(): Promise<BackupData> {
   }
 
   return {
-    app_identifier: APP_IDENTIFIER,
+    app_identifier: APP_IDENTIFIER_FOR_PROFILE_EXPORT,
     server_url: serverUrl ?? "",
     username: username ?? "",
     password: password ?? "",
@@ -93,7 +97,7 @@ export async function exportBackupToFile(): Promise<ExportResult> {
 
         const fileUri = await StorageAccessFramework.createFileAsync(
           permissions.directoryUri,
-          APP_IDENTIFIER,
+          FILE_NAME_FOR_PROFILE_EXPORT,
           "application/json",
         );
         await StorageAccessFramework.writeAsStringAsync(fileUri, jsonString);
@@ -109,7 +113,7 @@ export async function exportBackupToFile(): Promise<ExportResult> {
     if (Directory?.pickDirectoryAsync) {
       const directory = await Directory.pickDirectoryAsync();
       const file = directory.createFile(
-        `${APP_IDENTIFIER}.json`,
+        `${FILE_NAME_FOR_PROFILE_EXPORT}.json`,
         "application/json",
       );
       file.write(jsonString);
@@ -145,7 +149,7 @@ export function parseProfileData(jsonString: string): BackupData {
     throw new Error("invalid profile format");
   }
 
-  if (data.app_identifier !== APP_IDENTIFIER) {
+  if (data.app_identifier !== APP_IDENTIFIER_FOR_PROFILE_EXPORT) {
     throw new Error("invalid backup file identifier");
   }
 

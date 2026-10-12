@@ -40,7 +40,7 @@ import { clearAllAutoCachedSongs } from "@/services/songCache";
 import { settingsStyles } from "@/stylesheets";
 import { LyricsMode, useAppTheme } from "@/types";
 import { useAudioOutputDevice } from "@/utils/audioOutput";
-import { ANDROID_VERSION_CODE, APP_VERSION } from "@/utils/constants";
+import { APP_VERSION, APP_VERSION_CODE } from "@/utils/constants";
 import { spacing } from "@/utils/spacing";
 
 function formatSize(bytes: number): string {
@@ -629,7 +629,7 @@ export default function SettingsScreen() {
             color: theme.colors.outline,
           }}
         >
-          {`version ${APP_VERSION} (${ANDROID_VERSION_CODE})`}
+          {`version ${APP_VERSION} (${APP_VERSION_CODE})`}
         </Text>
       </ScrollView>
     </Surface>
