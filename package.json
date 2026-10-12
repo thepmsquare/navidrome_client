@@ -2,6 +2,8 @@
   "name": "navidrome_client",
   "main": "expo-router/entry",
   "version": "2.23.0",
+  "versionCode": 58,
+  "repository": "https://github.com/thepmsquare/navidrome_client",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",

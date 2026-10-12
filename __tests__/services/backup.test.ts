@@ -11,7 +11,7 @@ import {
   parseProfileData,
   pickProfileFile,
 } from "@/services/backup";
-import { APP_IDENTIFIER, BACKUP_VERSION } from "@/utils/constants";
+import { APP_IDENTIFIER_FOR_PROFILE_EXPORT, BACKUP_VERSION } from "@/utils/constants";
 
 jest.mock("expo-secure-store", () => ({
   getItemAsync: jest.fn(),
@@ -88,7 +88,7 @@ describe("backup service", () => {
       const backup = await createBackupData();
 
       expect(backup).toEqual({
-        app_identifier: APP_IDENTIFIER,
+        app_identifier: APP_IDENTIFIER_FOR_PROFILE_EXPORT,
         server_url: "https://music.example.com",
         username: "actual username",
         password: "actual_password",
