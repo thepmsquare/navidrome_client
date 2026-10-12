@@ -9,6 +9,8 @@
     "android": "expo run:android",
     "android:release": "expo run:android --variant release",
     "lint": "expo lint",
+    "lint:changelog": "node scripts/validate_changelog.js",
+    "release:internal": "node scripts/release_internal.js",
     "test": "jest"
   },
   "dependencies": {

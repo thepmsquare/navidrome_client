@@ -34,5 +34,8 @@ jobs:
       - name: run linter
         run: npm run lint
 
+      - name: validate changelog
+        run: npm run lint:changelog
+
       - name: run automated tests
         run: npm test -- --ci
