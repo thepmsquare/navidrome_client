@@ -47,10 +47,10 @@ jobs:
           const fs = require('fs');
           const { execSync } = require('child_process');
 
-          // 1. Read constants
-          const constants = JSON.parse(fs.readFileSync('utils/constants.json', 'utf8'));
-          const appVersion = constants.APP_VERSION;
-          const versionCode = parseInt(constants.ANDROID_VERSION_CODE, 10);
+          // 1. Read constants from package.json
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const appVersion = pkg.version;
+          const versionCode = parseInt(pkg.versionCode, 10);
 
           console.log(`Configured version: ${appVersion} (code: ${versionCode})`);
 

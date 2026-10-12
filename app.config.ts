@@ -1,14 +1,14 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
-import appConstants from './utils/constants.json';
+import packageJson from './package.json';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: appConstants.APP_SHORT_NAME,
-  slug: appConstants.APP_SLUG,
-  version: appConstants.APP_VERSION,
+  name: 'navidrome client',
+  slug: 'navidrome_client',
+  version: packageJson.version,
   orientation: 'portrait',
   icon: './assets/branding/icon.png',
-  scheme: appConstants.APP_SCHEME,
+  scheme: 'navidromeclient',
   userInterfaceStyle: 'automatic',
   platforms: ['android'],
   android: {
@@ -18,8 +18,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       monochromeImage: './assets/branding/foreground_layer_black.png',
     },
     predictiveBackGestureEnabled: false,
-    package: appConstants.PACKAGE_NAME,
-    versionCode: appConstants.ANDROID_VERSION_CODE,
+    package: 'com.thepmsquare.navidrome_client',
+    versionCode: packageJson.versionCode,
     permissions: [
       'android.permission.INTERNET',
       'android.permission.WAKE_LOCK',
