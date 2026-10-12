@@ -1,0 +1,991 @@
+[
+  {
+    "heading": "2.24.0+59",
+    "version": "2.24.0",
+    "versionCode": 59,
+    "notes": [
+      {
+        "text": "add ui to display changelog in app",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.23.0+58",
+    "version": "2.23.0",
+    "versionCode": 58,
+    "notes": [
+      {
+        "text": "add random albums, newly added albums and recently released albums sections on homepage.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.22.2+57",
+    "version": "2.22.2",
+    "versionCode": 57,
+    "notes": [
+      {
+        "text": "stabilise import / export profile functionality.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.22.1+56",
+    "version": "2.22.1",
+    "versionCode": 56,
+    "notes": [
+      {
+        "text": "fixes in import / export profile functionality.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.22.0+55",
+    "version": "2.22.0",
+    "versionCode": 55,
+    "notes": [
+      {
+        "text": "music player page redesign.",
+        "level": 0
+      },
+      {
+        "text": "move over sync stats to sync page.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.21.2+54",
+    "version": "2.21.2",
+    "versionCode": 54,
+    "notes": [
+      {
+        "text": "improve app stability.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.21.1+53",
+    "version": "2.21.1",
+    "versionCode": 53,
+    "notes": [
+      {
+        "text": "bug fixes in shuffle mode.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.21.0+52",
+    "version": "2.21.0",
+    "versionCode": 52,
+    "notes": [
+      {
+        "text": "add shuffle mode.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.20.1+51",
+    "version": "2.20.1",
+    "versionCode": 51,
+    "notes": [
+      {
+        "text": "make home screen sections update more frequently.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.20.0+50",
+    "version": "2.20.0",
+    "versionCode": 50,
+    "notes": [
+      {
+        "text": "add lyrics support.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.19.0+49",
+    "version": "2.19.0",
+    "versionCode": 49,
+    "notes": [
+      {
+        "text": "move over sections from homepage to settings page.",
+        "level": 0
+      },
+      {
+        "text": "add most played, recently played albums and random tracks sections on homepage.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.18.0+48",
+    "version": "2.18.0",
+    "versionCode": 48,
+    "notes": [
+      {
+        "text": "experimental release.",
+        "level": 0
+      },
+      {
+        "text": "add click to open album art in music player page.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.17.0+47",
+    "version": "2.17.0",
+    "versionCode": 47,
+    "notes": [
+      {
+        "text": "add swipe to refresh in playlist details page.",
+        "level": 0
+      },
+      {
+        "text": "add sleep timer.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.16.1+46",
+    "version": "2.16.1",
+    "versionCode": 46,
+    "notes": [
+      {
+        "text": "bug fixes in bulk download.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.16.0+45",
+    "version": "2.16.0",
+    "versionCode": 45,
+    "notes": [
+      {
+        "text": "add search and sort options in library -> albums, library -> artists, library -> playlists.",
+        "level": 0
+      },
+      {
+        "text": "add \"save to files\" option for songs in music player page.",
+        "level": 0
+      },
+      {
+        "text": "add option to star songs and set ratings in music player page.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.15.2+44",
+    "version": "2.15.2",
+    "versionCode": 44,
+    "notes": [
+      {
+        "text": "display app version number on settings page.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.15.1+43",
+    "version": "2.15.1",
+    "versionCode": 43,
+    "notes": [
+      {
+        "text": "add offline scrobble queue.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.15.0+42",
+    "version": "2.15.0",
+    "versionCode": 42,
+    "notes": [
+      {
+        "text": "add setting to continue playback when app is discarded. (default: false)",
+        "level": 0
+      },
+      {
+        "text": "fix repeat all mode not working.",
+        "level": 0
+      },
+      {
+        "text": "tapping on notification now opens the app.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.14.1+41",
+    "version": "2.14.1",
+    "versionCode": 41,
+    "notes": [
+      {
+        "text": "bug fixes in scrobble.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.14.0+40",
+    "version": "2.14.0",
+    "versionCode": 40,
+    "notes": [
+      {
+        "text": "implement universal search page.",
+        "level": 0
+      },
+      {
+        "text": "add fuzzy search.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.13.0+39",
+    "version": "2.13.0",
+    "versionCode": 39,
+    "notes": [
+      {
+        "text": "add play icon on album and playlist details page.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.12.0+38",
+    "version": "2.12.0",
+    "versionCode": 38,
+    "notes": [
+      {
+        "text": "add visual indicators in album and playlist details page per song if available offline.",
+        "level": 0
+      },
+      {
+        "text": "playlists and albums now have option to bulk \"make available offline\" (incomplete).",
+        "level": 0
+      },
+      {
+        "text": "new download queue screen (incomplete).",
+        "level": 0
+      },
+      {
+        "text": "add settings for scrobble section.",
+        "level": 0
+      },
+      {
+        "text": "update scrobble logic.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.11.0+37",
+    "version": "2.11.0",
+    "versionCode": 37,
+    "notes": [
+      {
+        "text": "ui tweaks on all pages.",
+        "level": 0
+      },
+      {
+        "text": "bug fixes in logout functionality.",
+        "level": 0
+      },
+      {
+        "text": "implement auto caching songs.",
+        "level": 0
+      },
+      {
+        "text": "add settings to set limit or stop auto caching.",
+        "level": 0
+      },
+      {
+        "text": "add new section in library to list \"available offline songs\".",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.10.0+36",
+    "version": "2.10.0",
+    "versionCode": 36,
+    "notes": [
+      {
+        "text": "update ui for connect screen stage 2.",
+        "level": 0
+      },
+      {
+        "text": "add \"new to navidrome?\" section on connect screen.",
+        "level": 0
+      },
+      {
+        "text": "add learn more page.",
+        "level": 0
+      },
+      {
+        "text": "add demo mode.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.9.0+35",
+    "version": "2.9.0",
+    "versionCode": 35,
+    "notes": [
+      {
+        "text": "update ui for connect screen.",
+        "level": 0
+      },
+      {
+        "text": "add import profile functionality on connect screen.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.8.0+34",
+    "version": "2.8.0",
+    "versionCode": 34,
+    "notes": [
+      {
+        "text": "move logout to settings page.",
+        "level": 0
+      },
+      {
+        "text": "add export button in settings page.",
+        "level": 0
+      },
+      {
+        "text": "manually cache songs on music player page (and remove from cache).",
+        "level": 0
+      },
+      {
+        "text": "playing songs from cache and steam will have different colors in the music players.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.7.0+33",
+    "version": "2.7.0",
+    "versionCode": 33,
+    "notes": [
+      {
+        "text": "add unit test cases.",
+        "level": 0
+      },
+      {
+        "text": "add in app player.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.6.1+32",
+    "version": "2.6.1",
+    "versionCode": 32,
+    "notes": [
+      {
+        "text": "add loading bar before opening library sub screens.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.6.0+31",
+    "version": "2.6.0",
+    "versionCode": 31,
+    "notes": [
+      {
+        "text": "add in app mini player.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.5.0+30",
+    "version": "2.5.0",
+    "versionCode": 30,
+    "notes": [
+      {
+        "text": "bug fixes in audio-playback module.",
+        "level": 0
+      },
+      {
+        "text": "add utils for repeat modes.",
+        "level": 0
+      },
+      {
+        "text": "add AudioPlaybackService that enables audio to play for more than 3 mins in the background.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.4.0+29",
+    "version": "2.4.0",
+    "versionCode": 29,
+    "notes": [
+      {
+        "text": "add util for getPlaylists and getPlaylistDetails.",
+        "level": 0
+      },
+      {
+        "text": "add db table for playlists.",
+        "level": 0
+      },
+      {
+        "text": "add playlists button, list playlists page and playlist details page in library.",
+        "level": 0
+      },
+      {
+        "text": "navigation bug fix for home screen.",
+        "level": 0
+      },
+      {
+        "text": "add native audio playback module.",
+        "level": 0
+      },
+      {
+        "text": "remove expo-audio dependency.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.3.0+28",
+    "version": "2.3.0",
+    "versionCode": 28,
+    "notes": [
+      {
+        "text": "add album details page in library.",
+        "level": 0
+      },
+      {
+        "text": "add test sound button on homepage.",
+        "level": 0
+      },
+      {
+        "text": "add util and display for active default audio device on homepage.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.2.0+27",
+    "version": "2.2.0",
+    "versionCode": 27,
+    "notes": [
+      {
+        "text": "start adding playback queue for songs.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.1.0+26",
+    "version": "2.1.0",
+    "versionCode": 26,
+    "notes": [
+      {
+        "text": "add scrobble util and integrate it to song play.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "2.0.0+25",
+    "version": "2.0.0",
+    "versionCode": 25,
+    "notes": [
+      {
+        "text": "complete app reset.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.3.2+24",
+    "version": "1.3.2",
+    "versionCode": 24,
+    "notes": [
+      {
+        "text": "remove extra sentry logs.",
+        "level": 0
+      },
+      {
+        "text": "improve checks for no internet.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.3.1+23",
+    "version": "1.3.1",
+    "versionCode": 23,
+    "notes": [
+      {
+        "text": "remove alternative server urls from connect page and add them to settings.",
+        "level": 0
+      },
+      {
+        "text": "add test option to server urls in settings page.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.3.0+22",
+    "version": "1.3.0",
+    "versionCode": 22,
+    "notes": [
+      {
+        "text": "add option for alternative server urls for fall back",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.2.0+21",
+    "version": "1.2.0",
+    "versionCode": 21,
+    "notes": [
+      {
+        "text": "add support for random albums, newly added releases, recently released sections to homepage.",
+        "level": 0
+      },
+      {
+        "text": "add font selector.",
+        "level": 0
+      },
+      {
+        "text": "improve app crash and bug reporting.",
+        "level": 0
+      },
+      {
+        "text": "add sleep timer feature in music player page.",
+        "level": 0
+      },
+      {
+        "text": "add help page.",
+        "level": 0
+      },
+      {
+        "text": "update behavior of next and previous buttons on repeat 1 track mode.",
+        "level": 0
+      },
+      {
+        "text": "connect page:",
+        "level": 0
+      },
+      {
+        "text": "clear icon in server url re-adds https prefix.",
+        "level": 1
+      },
+      {
+        "text": "update layout and spacing.",
+        "level": 1
+      },
+      {
+        "text": "add autofill support for password managers.",
+        "level": 1
+      }
+    ]
+  },
+  {
+    "heading": "1.1.0+20",
+    "version": "1.1.0",
+    "versionCode": 20,
+    "notes": [
+      {
+        "text": "swipe up on music player page to see current song queue.",
+        "level": 0
+      },
+      {
+        "text": "redesign library page.",
+        "level": 0
+      },
+      {
+        "text": "bug fix: album art on music player page now correctly matches the current song.",
+        "level": 0
+      },
+      {
+        "text": "integrate material 3 expressive navigation bar, buttons, sliders, pull-to-refresh, and loading indicators.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.0.0+19",
+    "version": "1.0.0",
+    "versionCode": 19,
+    "notes": [
+      {
+        "text": "bug fix: fix issue when tapping play twice on an track, player would skip the song.",
+        "level": 0
+      },
+      {
+        "text": "bug fix: mini player now in sync with current playing song.",
+        "level": 0
+      },
+      {
+        "text": "redesign homepage for offline mode.",
+        "level": 0
+      },
+      {
+        "text": "bug fix: offline / no internet banner UI fixes.",
+        "level": 0
+      },
+      {
+        "text": "bug fix: no internet now does not auto toggle offline mode.",
+        "level": 0
+      },
+      {
+        "text": "redesign sync page for offline mode.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.0.0+18",
+    "version": "1.0.0",
+    "versionCode": 18,
+    "notes": [
+      {
+        "text": "add option to quick view lyrics if available.",
+        "level": 0
+      },
+      {
+        "text": "rename download songs to save offline across the app.",
+        "level": 0
+      },
+      {
+        "text": "add actual \"download song\" option in music player page to save songs in file system.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.0.0+17",
+    "version": "1.0.0",
+    "versionCode": 17,
+    "notes": [
+      {
+        "text": "update whats new widget to show previous release notes.",
+        "level": 0
+      },
+      {
+        "text": "add close icon on lyrics page.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.0.0+16",
+    "version": "1.0.0",
+    "versionCode": 16,
+    "notes": [
+      {
+        "text": "fix bug that autoplays music on startup.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.0.0+15",
+    "version": "1.0.0",
+    "versionCode": 15,
+    "notes": [
+      {
+        "text": "fix logout functionality.",
+        "level": 0
+      },
+      {
+        "text": "save lyrics offline on saving songs offline.",
+        "level": 0
+      },
+      {
+        "text": "add custom multi-tap detection for media buttons (earphone double/triple taps).",
+        "level": 0
+      },
+      {
+        "text": "no internet and offline mode are now separate states.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.0.0+14",
+    "version": "1.0.0",
+    "versionCode": 14,
+    "notes": [
+      {
+        "text": "add list of songs being played on other devices in the sync page. (experimental).",
+        "level": 0
+      },
+      {
+        "text": "add support to reorder and hide sections in home page.",
+        "level": 0
+      },
+      {
+        "text": "implement fuzzy search across the app.",
+        "level": 0
+      },
+      {
+        "text": "add recently played albums section to the homepage.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.0.0+13",
+    "version": "1.0.0",
+    "versionCode": 13,
+    "notes": [
+      {
+        "text": "add padding bottom to settings page.",
+        "level": 0
+      },
+      {
+        "text": "simplify settings by moving common options into submenus (offline saves and advanced).",
+        "level": 0
+      },
+      {
+        "text": "update default: 'stop playback on task removal' is now on by default.",
+        "level": 0
+      },
+      {
+        "text": "make the version number in settings page clickable to show changelog.",
+        "level": 0
+      },
+      {
+        "text": "add a placeholder sync page to explore cross-device playback synchronization.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.0.0+12",
+    "version": "1.0.0",
+    "versionCode": 12,
+    "notes": [
+      {
+        "text": "minor improvement in animation in player and mini player again.",
+        "level": 0
+      },
+      {
+        "text": "remove artist navigation through chips on all places expect music player.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.0.0+11",
+    "version": "1.0.0",
+    "versionCode": 11,
+    "notes": [
+      {
+        "text": "bug fix: stop music play on log out.",
+        "level": 0
+      },
+      {
+        "text": "cache network images and other performance tweaks.",
+        "level": 0
+      },
+      {
+        "text": "remove offline mode from profile exports.",
+        "level": 0
+      },
+      {
+        "text": "add auto-save offline played songs with configurable storage cap and lru eviction (both on by default).",
+        "level": 0
+      },
+      {
+        "text": "bug fix: prevent playback from stopping on unlock after a song transition while locked.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.0.0+10",
+    "version": "1.0.0",
+    "versionCode": 10,
+    "notes": [
+      {
+        "text": "minor improvement in animation in player and mini player.",
+        "level": 0
+      },
+      {
+        "text": "add links for artist and albums in multiple places.",
+        "level": 0
+      },
+      {
+        "text": "add play button in artists page.",
+        "level": 0
+      },
+      {
+        "text": "fix padding of play button in album and playlists page.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.0.0+9",
+    "version": "1.0.0",
+    "versionCode": 9,
+    "notes": [
+      {
+        "text": "add lyrics page and integrate lrclib.",
+        "level": 0
+      },
+      {
+        "text": "add artists page in library.",
+        "level": 0
+      },
+      {
+        "text": "add demo mode for google play review.",
+        "level": 0
+      },
+      {
+        "text": "integrate sentry for error tracking and performance monitoring.",
+        "level": 0
+      },
+      {
+        "text": "update button placement in player page.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.0.0+8",
+    "version": "1.0.0",
+    "versionCode": 8,
+    "notes": [
+      {
+        "text": "add universal search tab.",
+        "level": 0
+      },
+      {
+        "text": "fix navigation issues within application.",
+        "level": 0
+      },
+      {
+        "text": "add like and rating options in media player.",
+        "level": 0
+      },
+      {
+        "text": "start doing swipe gestures on player page.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.0.0+7",
+    "version": "1.0.0",
+    "versionCode": 7,
+    "notes": [
+      {
+        "text": "add import / export server config.",
+        "level": 0
+      },
+      {
+        "text": "add version number in settings",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.0.0+6",
+    "version": "1.0.0",
+    "versionCode": 6,
+    "notes": [
+      {
+        "text": "update icons.",
+        "level": 0
+      },
+      {
+        "text": "update connect screen.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.0.0+5",
+    "version": "1.0.0",
+    "versionCode": 5,
+    "notes": [
+      {
+        "text": "add song queue screen.",
+        "level": 0
+      },
+      {
+        "text": "add shuffle and repeat functionality.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.0.0+4",
+    "version": "1.0.0",
+    "versionCode": 4,
+    "notes": [
+      {
+        "text": "add controls to miniplayer.",
+        "level": 0
+      },
+      {
+        "text": "make media player page sizing dynamic.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.0.0+3",
+    "version": "1.0.0",
+    "versionCode": 3,
+    "notes": [
+      {
+        "text": "add settings toggle to stop playback on discarding bg task.",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.0.0+2",
+    "version": "1.0.0",
+    "versionCode": 2,
+    "notes": [
+      {
+        "text": "add sorting options",
+        "level": 0
+      }
+    ]
+  },
+  {
+    "heading": "1.0.0+1",
+    "version": "1.0.0",
+    "versionCode": 1,
+    "notes": [
+      {
+        "text": "initial project commit",
+        "level": 0
+      }
+    ]
+  }
+]

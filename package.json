@@ -1,17 +1,20 @@
 {
   "name": "navidrome_client",
   "main": "expo-router/entry",
-  "version": "2.23.0",
-  "versionCode": 58,
+  "version": "2.24.0",
+  "versionCode": 59,
   "repository": "https://github.com/thepmsquare/navidrome_client",
   "scripts": {
     "start": "expo start",
+    "prestart": "node scripts/validate_changelog.js",
     "android": "expo run:android",
+    "preandroid": "node scripts/validate_changelog.js",
     "android:release": "expo run:android --variant release",
     "lint": "expo lint",
     "lint:changelog": "node scripts/validate_changelog.js",
     "release:internal": "node scripts/release_internal.js",
-    "test": "jest"
+    "test": "jest",
+    "pretest": "node scripts/validate_changelog.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

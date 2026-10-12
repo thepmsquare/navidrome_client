@@ -26,6 +26,8 @@ function validateChangelog(filePath) {
   let currentH3 = null;
   let h3Seen = [];
   let userNotesBuffer = '';
+  let currentSectionNotes = [];
+  const sections = [];
   let sectionIndex = 0;
 
   function checkUserNotesLength(h2Title, notesText) {
@@ -51,6 +53,21 @@ function validateChangelog(filePath) {
     if (currentH3 === H3_USER) {
       checkUserNotesLength(currentH2, userNotesBuffer);
     }
+
+    const heading = currentH2.replace(/^##\s+/, '');
+    let version = heading;
+    let versionCode = null;
+    if (heading !== 'unreleased') {
+      const parts = heading.split('+');
+      version = parts[0];
+      versionCode = parseInt(parts[1], 10);
+    }
+    sections.push({
+      heading,
+      version,
+      versionCode,
+      notes: [...currentSectionNotes],
+    });
   }
 
   for (let i = 1; i < lines.length; i++) {
@@ -115,6 +132,7 @@ function validateChangelog(filePath) {
         currentH3 = null;
         h3Seen = [];
         userNotesBuffer = '';
+        currentSectionNotes = [];
       } else {
         errors.push(`line ${lineNum}: unexpected heading "${trimmed}"`);
       }
@@ -130,6 +148,13 @@ function validateChangelog(filePath) {
 
       if (currentH3 === H3_USER) {
         userNotesBuffer += (userNotesBuffer ? '\n' : '') + trimmed;
+        const indentMatch = line.match(/^(\s*)-\s+(.*)$/);
+        if (indentMatch) {
+          const indentSpaces = indentMatch[1].length;
+          const level = Math.floor(indentSpaces / 2);
+          const text = indentMatch[2].trim();
+          currentSectionNotes.push({ text, level });
+        }
       }
     }
   }
@@ -143,7 +168,9 @@ function validateChangelog(filePath) {
     process.exit(1);
   }
 
-  console.log(`changelog validated successfully (${sectionIndex} releases verified).`);
+  const outputPath = path.resolve(__dirname, '../assets/changelog.json');
+  fs.writeFileSync(outputPath, JSON.stringify(sections, null, 2) + '\n');
+  console.log(`changelog validated successfully (${sectionIndex} releases verified, exported to assets/changelog.json).`);
 }
 
 const changelogPath = path.resolve(__dirname, '../CHANGELOG.md');
