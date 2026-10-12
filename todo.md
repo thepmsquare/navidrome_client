@@ -87,10 +87,10 @@ upgrading users from previous versions require automated data migration and clea
   - **context**: home page sections are currently statically mapped in [`components/home/index.ts`](./components/home/index.ts).
   - **task**: add a settings screen to reorder home sections via drag-and-drop and toggle visibility on/off, persisted to local preferences.
 
-- [ ] **in-app changelog dialogs**
+- [x] **in-app changelog dialogs**
   - **task**: 
-    - **settings access**: make the version number in settings clickable to show the full changelog modal.
-    - **first-launch post-update**: detect version code increase on launch and display a "what's new" changelog modal automatically once.
+    - [x] **settings access**: make the version number in settings clickable to show the full changelog modal with current version open and previous versions in closed accordions ([`components/ChangelogModal.tsx`](./components/ChangelogModal.tsx)).
+    - [x] **first-launch post-update**: detect version code increase on launch and display a "what's new" changelog modal automatically once ([`app/_layout.tsx`](./app/_layout.tsx)).
 
 - [ ] **continuous ui/ux iteration**
   - **task**: ongoing refinement of tactile feedback, padding consistency, dark mode contrast, accessibility labels, and touch targets across all screens.
