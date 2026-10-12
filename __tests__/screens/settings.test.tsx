@@ -163,7 +163,9 @@ describe("SettingsScreen", () => {
     const texts = root.findAllByType(Text);
     const expectedVersionString = `version ${APP_VERSION} (${APP_VERSION_CODE})`;
     const matchingText = texts.find(
-      (t: any) => t.props.children === expectedVersionString,
+      (t: any) =>
+        typeof t.props.children === "string" &&
+        t.props.children.includes(expectedVersionString),
     );
     expect(matchingText).toBeDefined();
   });

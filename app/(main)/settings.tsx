@@ -37,6 +37,7 @@ import {
   usePlayerState,
 } from "@/services/player";
 import { clearAllAutoCachedSongs } from "@/services/songCache";
+import { ChangelogModal } from "@/components/ChangelogModal";
 import { settingsStyles } from "@/stylesheets";
 import { LyricsMode, useAppTheme } from "@/types";
 import { useAudioOutputDevice } from "@/utils/audioOutput";
@@ -65,6 +66,7 @@ export default function SettingsScreen() {
   const [subsonicVersion, setSubsonicVersion] = useState<string | null>(null);
   const [serverUrl, setServerUrl] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
+  const [changelogVisible, setChangelogVisible] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -622,15 +624,26 @@ export default function SettingsScreen() {
           </Button>
         </Surface>
 
-        <Text
-          variant="bodySmall"
+        <Button
+          mode="outlined"
+          icon="history"
+          onPress={() => setChangelogVisible(true)}
+          accessibilityLabel={`view changelog, version ${APP_VERSION} (${APP_VERSION_CODE})`}
           style={{
-            textAlign: "center",
-            color: theme.colors.outline,
+            alignSelf: "center",
+            borderRadius: 20,
+            borderColor: theme.colors.outlineVariant,
+            marginTop: spacing.xs,
           }}
+          textColor={theme.colors.onSurfaceVariant}
         >
-          {`version ${APP_VERSION} (${APP_VERSION_CODE})`}
-        </Text>
+          {`version ${APP_VERSION} (${APP_VERSION_CODE}) • changelog`}
+        </Button>
+
+        <ChangelogModal
+          visible={changelogVisible}
+          onDismiss={() => setChangelogVisible(false)}
+        />
       </ScrollView>
     </Surface>
   );

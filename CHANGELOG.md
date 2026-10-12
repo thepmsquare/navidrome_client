@@ -1,5 +1,18 @@
 # changelog
 
+## 2.24.0+59
+
+### user release notes
+
+- add ui to display changelog in app
+
+### internal notes
+
+- remove constants.json, changes to make constants have SSOT.
+- update changelog format.
+- add scripts to validate changelog, and perform validations before internal releases.
+- update ci cd to trigger on git tags instead of flag from changelog.
+
 ## 2.23.0+58
 
 ### user release notes

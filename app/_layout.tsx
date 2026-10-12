@@ -10,14 +10,17 @@ import {
 } from "react-native-paper";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
+import { ChangelogModal } from "@/components/ChangelogModal";
 import { subscribeAuthState } from "@/services/api";
 import { resumePendingDownloadsAfterRestart } from "@/services/songCache";
 import { layoutStyles } from "@/stylesheets";
+import { APP_VERSION_CODE } from "@/utils/constants";
 import { useMaterial3Theme } from "@pchmn/expo-material3-theme";
 
 export default function RootLayout() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
 
   const router = useRouter();
   const segments = useSegments();
@@ -37,7 +40,30 @@ export default function RootLayout() {
       setIsLoading(false);
     }
 
+    async function checkVersionCodeUpdate() {
+      try {
+        const lastSeen = await SecureStore.getItemAsync("last_seen_version_code");
+        const serverUrl = await SecureStore.getItemAsync("serverUrl");
+        if (lastSeen !== null) {
+          const prevCode = parseInt(lastSeen, 10);
+          if (!isNaN(prevCode) && APP_VERSION_CODE > prevCode) {
+            setShowWhatsNew(true);
+          }
+        } else if (serverUrl) {
+          // Existing logged-in user updating to a newer build
+          setShowWhatsNew(true);
+        }
+        await SecureStore.setItemAsync(
+          "last_seen_version_code",
+          String(APP_VERSION_CODE),
+        );
+      } catch (e) {
+        console.error("failed to check version code update:", e);
+      }
+    }
+
     checkToken();
+    checkVersionCodeUpdate();
 
     try {
       resumePendingDownloadsAfterRestart();
@@ -102,6 +128,11 @@ export default function RootLayout() {
               />
             </Stack>
           )}
+          <ChangelogModal
+            visible={showWhatsNew}
+            onDismiss={() => setShowWhatsNew(false)}
+            title="what's new"
+          />
         </SafeAreaView>
       </PaperProvider>
     </SafeAreaProvider>
