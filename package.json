@@ -5,9 +5,9 @@
   "versionCode": 59,
   "repository": "https://github.com/thepmsquare/navidrome_client",
   "scripts": {
-    "start": "expo start",
+    "start": "node scripts/dev.js start",
     "prestart": "node scripts/validate_changelog.js",
-    "android": "expo run:android",
+    "android": "node scripts/dev.js run:android",
     "preandroid": "node scripts/validate_changelog.js",
     "android:release": "expo run:android --variant release",
     "lint": "expo lint",
