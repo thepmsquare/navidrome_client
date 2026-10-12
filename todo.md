@@ -9,11 +9,11 @@ technical checklist and roadmap for the v2.0 production release and future itera
 upgrading users from previous versions require automated data migration and cleanup to prevent session resets and orphaned disk usage.
 
 - [ ] **credentials & session auto-migration**
-  - **context**: legacy builds stored credentials in android `SharedPreferences` (`flutter.server_url`, `flutter.username`, `flutter.password`). v2 uses [`expo-secure-store`](file:///d:/code/navidrome_client/services/backup.ts#L36-L38).
+  - **context**: legacy builds stored credentials in android `SharedPreferences` (`flutter.server_url`, `flutter.username`, `flutter.password`). v2 uses [`expo-secure-store`](./services/backup.ts).
   - **task**: create a one-time startup routine that checks for legacy shared preferences, imports credentials into secure store, and marks migration complete to avoid forcing users to re-login.
   
 - [ ] **orphaned cache & media cleanup**
-  - **context**: legacy downloaded files were saved in `<app_dir>/app_flutter/offline/{tracks,covers,lyrics,meta}`. v2 stores cache under [`Paths.document + "/manual-cache"`](file:///d:/code/navidrome_client/services/songCache.ts#L250) and `"/auto-cache"`.
+  - **context**: legacy downloaded files were saved in `<app_dir>/app_flutter/offline/{tracks,covers,lyrics,meta}`. v2 stores cache under [`Paths.document + "/manual-cache"`](./services/songCache.ts) and `"/auto-cache"`.
   - **task**: detect legacy `app_flutter/offline` directories on app launch and provide an automated or prompt-based cleanup to reclaim disk space.
 
 - [ ] **settings migration & safe fallbacks**
@@ -21,7 +21,7 @@ upgrading users from previous versions require automated data migration and clea
   - **task**: ensure legacy settings keys are imported into sqlite on first run and all missing keys gracefully fall back to default values.
 
 - [x] **profile backup/export compatibility**
-  - verified: backup json schema (`navidrome_client_backup`) parses correctly with full backward compatibility in [`parseProfileData`](file:///d:/code/navidrome_client/services/backup.ts#L136-L205).
+  - verified: backup json schema (`navidrome_client_backup`) parses correctly with full backward compatibility in [`parseProfileData`](./services/backup.ts).
 
 ---
 
@@ -32,7 +32,7 @@ upgrading users from previous versions require automated data migration and clea
   - **task**: update native audio playback module to pre-buffer the upcoming `MediaItem` into exoplayer's native playlist sequence to eliminate track gaps.
 
 - [ ] **playback queue management & ui**
-  - **context**: currently only a download queue exists in [`app/(main)/library/queue.tsx`](file:///d:/code/navidrome_client/app/%28main%29/library/queue.tsx).
+  - **context**: currently only a download queue exists in [`app/(main)/library/queue.tsx`](./app/(main)/library/queue.tsx).
   - **task**: create a dedicated "now playing / up next" queue screen with support for:
     - viewing queued songs and current track index
     - drag-and-drop queue reordering
@@ -40,25 +40,25 @@ upgrading users from previous versions require automated data migration and clea
     - clearing remaining queue
 
 - [ ] **dynamic queue operations in player service**
-  - **task**: expose queue mutation methods in [`services/player.ts`](file:///d:/code/navidrome_client/services/player.ts):
+  - **task**: expose queue mutation methods in [`services/player.ts`](./services/player.ts):
     - `playNext(song)`: insert track immediately after the active track.
     - `addToQueue(song)`: append track to the end of the current queue.
     - `removeFromQueue(index)`: remove specific track without stopping active playback.
     - `clearQueue()`: empty all upcoming tracks.
 
 - [ ] **scrubber / interactive seek bar**
-  - **context**: playback progress bar only supports tap-to-seek without dragging or preview ([`app/player.tsx`](file:///d:/code/navidrome_client/app/player.tsx#L270-L289)).
+  - **context**: playback progress bar only supports tap-to-seek without dragging or preview ([`app/player.tsx`](./app/player.tsx)).
   - **task**: implement a draggable slider in `app/player.tsx` with live scrub timestamp preview and smooth timeline scrubbing.
 
 - [x] **bulk offline song caching**
-  - verified: bulk downloading of albums and playlists with progress and cancellation via [`components/BulkSongCacheButton.tsx`](file:///d:/code/navidrome_client/components/BulkSongCacheButton.tsx).
+  - verified: bulk downloading of albums and playlists with progress and cancellation via [`components/BulkSongCacheButton.tsx`](./components/BulkSongCacheButton.tsx).
 
 ---
 
 ## 3. library, playlists & navigation
 
 - [ ] **artist details page (`app/(main)/library/artist/[id].tsx`)**
-  - **context**: [`app/(main)/library/artists.tsx`](file:///d:/code/navidrome_client/app/%28main%29/library/artists.tsx) displays artists from local sqlite, but list items are unclickable and have no destination page.
+  - **context**: [`app/(main)/library/artists.tsx`](./app/(main)/library/artists.tsx) displays artists from local sqlite, but list items are unclickable and have no destination page.
   - **task**: 
     - implement `artist/[id].tsx` screen displaying artist biography, artwork, albums list, and top songs.
     - wire navigation `onPress` in `app/(main)/library/artists.tsx`.
@@ -71,11 +71,11 @@ upgrading users from previous versions require automated data migration and clea
     - remove songs from a playlist or delete playlist.
 
 - [ ] **playlist details local caching**
-  - **context**: [`app/(main)/library/playlist/[id].tsx`](file:///d:/code/navidrome_client/app/%28main%29/library/playlist/%5Bid%5D.tsx) currently fetches playlist songs from the network on every view open.
+  - **context**: [`app/(main)/library/playlist/[id].tsx`](./app/(main)/library/playlist/[id].tsx) currently fetches playlist songs from the network on every view open.
   - **task**: persist playlist songs into local sqlite during sync and cache on demand so playlist details open instantly and can be browsed offline.
 
 - [ ] **artist and album deep links across the app**
-  - **task**: audit all views displaying artist or album text ([`app/player.tsx`](file:///d:/code/navidrome_client/app/player.tsx), track list items, mini-player, queue):
+  - **task**: audit all views displaying artist or album text ([`app/player.tsx`](./app/player.tsx), track list items, mini-player, queue):
     - make artist name clickable &rarr; routes directly to `/library/artist/[id]`.
     - make album name clickable &rarr; routes directly to `/library/album/[id]`.
 
@@ -84,7 +84,7 @@ upgrading users from previous versions require automated data migration and clea
 ## 4. settings, home customization & changelog
 
 - [ ] **reorderable and hideable home page sections**
-  - **context**: home page sections are currently statically mapped in [`components/home/index.ts`](file:///d:/code/navidrome_client/components/home/index.ts).
+  - **context**: home page sections are currently statically mapped in [`components/home/index.ts`](./components/home/index.ts).
   - **task**: add a settings screen to reorder home sections via drag-and-drop and toggle visibility on/off, persisted to local preferences.
 
 - [ ] **in-app changelog dialogs**
@@ -101,7 +101,7 @@ upgrading users from previous versions require automated data migration and clea
 
 - [ ] **alternate / fallback server urls (pre-v2 requirement)**
   - **context**: users running split-dns or separate local and external domain setups require automated fallback.
-  - **task**: add primary and secondary fallback server urls in settings and [`services/api.ts`](file:///d:/code/navidrome_client/services/api.ts) with ping verification and automatic failover on network timeouts.
+  - **task**: add primary and secondary fallback server urls in settings and [`services/api.ts`](./services/api.ts) with ping verification and automatic failover on network timeouts.
 
 - [ ] **graceful offline error feedback**
   - **context**: cached songs play locally and library metadata is stored in sqlite. offline playback operates without network dependency.
@@ -114,30 +114,30 @@ upgrading users from previous versions require automated data migration and clea
 ## 6. architectural stability, database & code health
 
 - [ ] **sqlite schema versioning & migration runner**
-  - **context**: [`services/db.ts`](file:///d:/code/navidrome_client/services/db.ts) initializes tables strictly using `CREATE TABLE IF NOT EXISTS` without schema version tracking. subsequent schema updates (new columns or modified tables) will fail to apply to existing databases on upgraded devices, causing runtime sql errors.
+  - **context**: [`services/db.ts`](./services/db.ts) initializes tables strictly using `CREATE TABLE IF NOT EXISTS` without schema version tracking. subsequent schema updates (new columns or modified tables) will fail to apply to existing databases on upgraded devices, causing runtime sql errors.
   - **task**: implement a versioned migration runner utilizing `PRAGMA user_version` to apply incremental `ALTER TABLE` and schema migration scripts reliably across app updates.
 
 - [ ] **audit and eliminate silent exception swallowing**
-  - **context**: more than 40 instances of empty `catch { }` blocks exist across services ([`services/player.ts`](file:///d:/code/navidrome_client/services/player.ts), [`services/songCache.ts`](file:///d:/code/navidrome_client/services/songCache.ts), [`services/lyrics.ts`](file:///d:/code/navidrome_client/services/lyrics.ts)), preventing errors in downloads, caching, and playback from being diagnosed.
+  - **context**: more than 40 instances of empty `catch { }` blocks exist across services ([`services/player.ts`](./services/player.ts), [`services/songCache.ts`](./services/songCache.ts), [`services/lyrics.ts`](./services/lyrics.ts)), preventing errors in downloads, caching, and playback from being diagnosed.
   - **task**: audit all catch blocks; replace bare empty catches with structured error logging and sentry breadcrumb capture where appropriate.
 
 - [ ] **js and native audio state synchronization**
-  - **context**: [`services/player.ts`](file:///d:/code/navidrome_client/services/player.ts) relies on 17 mutable module-level `let` variables. because the android native foreground service and the react native javascript activity have distinct lifecycles, activity recreation can leave js state desynchronized from native playback.
+  - **context**: [`services/player.ts`](./services/player.ts) relies on 17 mutable module-level `let` variables. because the android native foreground service and the react native javascript activity have distinct lifecycles, activity recreation can leave js state desynchronized from native playback.
   - **task**: ensure the native audio module is queried as the authoritative source of truth on app launch and activity resume, synchronizing the active track and status into js state.
 
 - [ ] **decomposition of monolithic service and screen files**
   - **context**: core files have grown into large single-file monoliths:
-    - [`services/db.ts`](file:///d:/code/navidrome_client/services/db.ts) (~1,200 lines): combines schema, library queries, caching, sessions, and scrobbling.
-    - [`services/player.ts`](file:///d:/code/navidrome_client/services/player.ts) (~950 lines): tightly couples audio control, queue mutation, scrobbling, auto-cache triggers, and app state listeners.
-    - [`app/player.tsx`](file:///d:/code/navidrome_client/app/player.tsx) (~900 lines): houses complex modals, lyrics sheets, rating menus, and art viewers in one view.
+    - [`services/db.ts`](./services/db.ts) (~1,200 lines): combines schema, library queries, caching, sessions, and scrobbling.
+    - [`services/player.ts`](./services/player.ts) (~950 lines): tightly couples audio control, queue mutation, scrobbling, auto-cache triggers, and app state listeners.
+    - [`app/player.tsx`](./app/player.tsx) (~900 lines): houses complex modals, lyrics sheets, rating menus, and art viewers in one view.
   - **task**: split database operations into domain-focused repository modules and extract player sub-components into dedicated modules.
 
 - [ ] **backup profile credentials protection**
-  - **context**: [`services/backup.ts`](file:///d:/code/navidrome_client/services/backup.ts) writes server passwords in plaintext to exported json files.
+  - **context**: [`services/backup.ts`](./services/backup.ts) writes server passwords in plaintext to exported json files.
   - **task**: add optional passphrase-based encryption or clear security disclosures during export to avoid unencrypted credentials residing on public storage.
 
 - [ ] **android foreground service for background downloads & sync**
-  - **context**: bulk song caching ([`services/songCache.ts`](file:///d:/code/navidrome_client/services/songCache.ts)) and library sync ([`app/(main)/sync.tsx`](file:///d:/code/navidrome_client/app/%28main%29/sync.tsx)) currently run in the javascript runtime. if the user navigates away, locks the screen, or the app process is suspended by the os, downloads fail or stall unpredictably.
+  - **context**: bulk song caching ([`services/songCache.ts`](./services/songCache.ts)) and library sync ([`app/(main)/sync.tsx`](./app/(main)/sync.tsx)) currently run in the javascript runtime. if the user navigates away, locks the screen, or the app process is suspended by the os, downloads fail or stall unpredictably.
   - **task**: attach bulk downloads and library sync to a standard android foreground service (or workmanager) with an ongoing system notification displaying real-time progress, song counts, and a cancel action to guarantee task survival in the background.
 
 ---
@@ -145,7 +145,22 @@ upgrading users from previous versions require automated data migration and clea
 ## 7. play store ci/cd & automated deployment
 
 - [x] **internal testing track automation**
-  - workflow: [.github/workflows/release-internal.yml](file:///d:/code/navidrome_client/.github/workflows/release-internal.yml) with fastlane `upload_internal`.
+  - workflow: [.github/workflows/release-internal.yml](.github/workflows/release-internal.yml) with fastlane `upload_internal`.
+
+- [ ] **build pipeline optimization (ci & compilation speed)**
+  - **context**: android release builds in github actions currently take 20+ minutes to compile and assemble from scratch. this is primarily driven by:
+    - sequential execution of both `./gradlew bundleRelease` (aab) and `assembleRelease` (apk), running r8/proguard, hermes compilation, c++ ndk builds, and resource packaging twice.
+    - absence of persistent gradle build caching and ccache across runner instances.
+    - `--no-daemon` execution without gradle configuration caching or multi-worker parallelism flags.
+  - **task**: optimize build speed and align with standard tooling:
+    - generate universal apk directly from `app-release.aab` using `bundletool` instead of running `assembleRelease` separately (saving ~8-12 minutes).
+    - adopt `gradle/actions/setup-gradle@v4` with read/write caching for gradle build and configuration cache.
+    - configure `android/gradle.properties` build flags (`org.gradle.parallel=true`, `org.gradle.caching=true`, `org.gradle.jvmargs=-Xmx4g`).
+    - evaluate standard cloud builds via eas build (expo application services) with prebuilt worker images and remote caching.
+
+- [ ] **separate development build variant (side-by-side install)**
+  - **context**: developing locally with default package `com.thepmsquare.navidrome_client` conflicts with the play store release signature, requiring uninstallation that wipes local cache and saved music.
+  - **task**: configure `app.config.ts` to assign `com.thepmsquare.navidrome_client.dev` and name `navidrome (dev)` during development so the play store app and dev build coexist on the same device without data loss.
 
 - [ ] **closed testing track automation**
   - create `.github/workflows/release-closed.yml` and fastlane lane `upload_closed` for alpha/beta test groups.
