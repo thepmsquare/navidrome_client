@@ -4,7 +4,7 @@
 
 ### user release notes
 
-- add ui to display changelog in app
+- add ui to display changelog in app.
 
 ### internal notes
 
@@ -12,6 +12,7 @@
 - update changelog format.
 - add scripts to validate changelog, and perform validations before internal releases.
 - update ci cd to trigger on git tags instead of flag from changelog.
+- add script to have separate app for development environment (co-exist with app from releases).
 
 ## 2.23.0+58
 

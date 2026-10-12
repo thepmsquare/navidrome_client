@@ -1,24 +1,30 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
 import packageJson from './package.json';
 
+const isDev = process.env.APP_VARIANT === 'development';
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'navidrome client',
+  name: isDev ? 'navidrome client (dev)' : 'navidrome client',
   slug: 'navidrome_client',
   version: packageJson.version,
   orientation: 'portrait',
-  icon: './assets/branding/icon.png',
-  scheme: 'navidromeclient',
+  icon: isDev ? './assets/branding/icon_dev.png' : './assets/branding/icon.png',
+  scheme: isDev ? 'navidromeclient-dev' : 'navidromeclient',
   userInterfaceStyle: 'automatic',
   platforms: ['android'],
   android: {
     adaptiveIcon: {
       backgroundColor: '#000000',
-      foregroundImage: './assets/branding/foreground_layer_colored.png',
+      foregroundImage: isDev
+        ? './assets/branding/foreground_layer_colored_dev.png'
+        : './assets/branding/foreground_layer_colored.png',
       monochromeImage: './assets/branding/foreground_layer_black.png',
     },
     predictiveBackGestureEnabled: false,
-    package: 'com.thepmsquare.navidrome_client',
+    package: isDev
+      ? 'com.thepmsquare.navidrome_client.dev'
+      : 'com.thepmsquare.navidrome_client',
     versionCode: packageJson.versionCode,
     permissions: [
       'android.permission.INTERNET',
@@ -33,7 +39,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-splash-screen',
       {
-        image: './assets/branding/icon.png',
+        image: isDev
+          ? './assets/branding/icon_dev.png'
+          : './assets/branding/icon.png',
         imageWidth: 200,
         resizeMode: 'contain',
         backgroundColor: '#000000',
