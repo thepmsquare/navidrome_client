@@ -2,8 +2,8 @@ name: Release to Internal Track
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 concurrency:
@@ -51,8 +51,19 @@ jobs:
           const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
           const appVersion = pkg.version;
           const versionCode = parseInt(pkg.versionCode, 10);
+          const expectedTag = `v${appVersion}+${versionCode}`;
 
           console.log(`Configured version: ${appVersion} (code: ${versionCode})`);
+
+          // Validate tag if triggered by tag push
+          if (process.env.GITHUB_REF_TYPE === 'tag') {
+            const actualTag = process.env.GITHUB_REF_NAME;
+            if (actualTag !== expectedTag) {
+              console.error(`Pushed tag "${actualTag}" does not match package.json "${expectedTag}". Skipping release.`);
+              fs.appendFileSync(process.env.GITHUB_OUTPUT, 'should_release=false\n');
+              process.exit(1);
+            }
+          }
 
           // 2. Read changelog
           const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
@@ -70,18 +81,26 @@ jobs:
 
           console.log(`Top changelog heading: ${heading}`);
 
-          if (heading.toLowerCase().includes('(in progress)')) {
-            console.log("Top section contains '(in progress)'. Skipping build and release.");
+          if (heading.toLowerCase().includes('unreleased') || heading.toLowerCase().includes('(in progress)')) {
+            console.log("Top section is unreleased. Skipping build and release.");
             fs.appendFileSync(process.env.GITHUB_OUTPUT, 'should_release=false\n');
             process.exit(0);
           }
 
-          // Extract bullet points (strip heading, preserve bullet lines)
-          const rawNotes = lines.slice(1).join('\n').trim();
+          // Extract user release notes
+          let rawNotes = '';
+          const userNotesMatch = topSection.match(/### user release notes\n([\s\S]*?)(?=\n### |$)/);
+          if (userNotesMatch) {
+            rawNotes = userNotesMatch[1].trim();
+          } else {
+            rawNotes = lines.slice(1).join('\n').trim();
+          }
+
           const MAX_LEN = 500;
+          const BUFFER = 10;
           const suffix = '...\n+more';
           const notes = rawNotes.length > MAX_LEN
-            ? rawNotes.slice(0, MAX_LEN - suffix.length - 10) + suffix
+            ? rawNotes.slice(0, MAX_LEN - suffix.length - BUFFER) + suffix
             : rawNotes;
           console.log('Extracted release notes:\n' + notes);
 
