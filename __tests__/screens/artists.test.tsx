@@ -7,11 +7,14 @@ import { getAllArtists, searchArtists } from "@/services/db";
 import { ArtistID3 } from "@/types";
 
 const mockBack = jest.fn();
+const mockPush = jest.fn();
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({
     back: mockBack,
+    push: mockPush,
   }),
+  useFocusEffect: jest.fn(),
 }));
 
 jest.mock("react-native-safe-area-context", () => ({

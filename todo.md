@@ -57,11 +57,11 @@ upgrading users from previous versions require automated data migration and clea
 
 ## 3. library, playlists & navigation
 
-- [ ] **artist details page (`app/(main)/library/artist/[id].tsx`)**
-  - **context**: [`app/(main)/library/artists.tsx`](./app/(main)/library/artists.tsx) displays artists from local sqlite, but list items are unclickable and have no destination page.
+- [x] **artist details page (`app/(main)/library/artist/[id].tsx`)**
+  - **context**: [`app/(main)/library/artists.tsx`](./app/(main)/library/artists.tsx) displays artists from local sqlite, with list items navigating to the destination page.
   - **task**: 
-    - implement `artist/[id].tsx` screen displaying artist biography, artwork, albums list, and top songs.
-    - wire navigation `onPress` in `app/(main)/library/artists.tsx`.
+    - implemented `artist/[id].tsx` screen displaying artist biography, artwork, albums list, and songs.
+    - wired navigation `onPress` in `app/(main)/library/artists.tsx` and `app/(main)/search.tsx`.
 
 - [ ] **playlist management & mutations**
   - **task**: add full playlist crud and modification controls connected to subsonic endpoints:
