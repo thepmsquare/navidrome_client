@@ -1,11 +1,22 @@
 [
   {
+    "heading": "unreleased",
+    "version": "unreleased",
+    "versionCode": null,
+    "notes": [
+      {
+        "text": "add ui for library > artists > details.",
+        "level": 0
+      }
+    ]
+  },
+  {
     "heading": "2.24.0+59",
     "version": "2.24.0",
     "versionCode": 59,
     "notes": [
       {
-        "text": "add ui to display changelog in app",
+        "text": "add ui to display changelog in app.",
         "level": 0
       }
     ]

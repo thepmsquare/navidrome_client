@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, View } from "react-native";
 import {
   Appbar,
@@ -38,7 +38,7 @@ const SORT_OPTIONS: SortOption[] = [
 
 export default function ArtistsScreen() {
   const router = useRouter();
-  const [artists] = useState<ArtistID3[]>(() => getAllArtists());
+  const [artists, setArtists] = useState<ArtistID3[]>(() => getAllArtists());
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
@@ -46,6 +46,12 @@ export default function ArtistsScreen() {
   const [getArtUrl, setGetArtUrl] = useState<
     ((id?: string | null) => string | null) | null
   >(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      setArtists(getAllArtists());
+    }, []),
+  );
 
   useEffect(() => {
     getCoverArtBaseUrl()
@@ -166,6 +172,12 @@ export default function ArtistsScreen() {
                 item.albumCount !== undefined && item.albumCount !== null
                   ? `${item.albumCount} ${item.albumCount === 1 ? "album" : "albums"}`
                   : undefined
+              }
+              onPress={() =>
+                router.push({
+                  pathname: "/artist/[id]",
+                  params: { id: item.id },
+                })
               }
               left={(props) =>
                 artUrl ? (

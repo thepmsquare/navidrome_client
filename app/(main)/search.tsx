@@ -183,7 +183,12 @@ export default function SearchScreen() {
             ? `${item.albumCount} ${item.albumCount === 1 ? "album" : "albums"}`
             : undefined
         }
-        onPress={() => setSearchQuery(item.name)}
+        onPress={() =>
+          router.push({
+            pathname: "/artist/[id]",
+            params: { id: item.id },
+          })
+        }
         left={(props) =>
           artUrl ? (
             <Image

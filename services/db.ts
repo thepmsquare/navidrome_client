@@ -654,6 +654,53 @@ export function getPlaylistById(id: string): Playlist | null {
   return db.getFirstSync<Playlist>("SELECT * FROM playlists WHERE id = ?", [id]);
 }
 
+export function getArtistById(id: string): ArtistID3 | null {
+  const db = getDb();
+  return db.getFirstSync<ArtistID3>("SELECT * FROM artists WHERE id = ?", [id]);
+}
+
+export function getAlbumsByArtistId(
+  artistId: string,
+  artistName?: string,
+): AlbumID3[] {
+  const db = getDb();
+  if (artistName) {
+    return db.getAllSync<AlbumID3>(
+      "SELECT * FROM albums WHERE artistId = ? OR (artistId IS NULL AND artist = ? COLLATE NOCASE) ORDER BY COALESCE(year, 0) DESC, name COLLATE NOCASE ASC",
+      [artistId, artistName],
+    );
+  }
+  return db.getAllSync<AlbumID3>(
+    "SELECT * FROM albums WHERE artistId = ? ORDER BY COALESCE(year, 0) DESC, name COLLATE NOCASE ASC",
+    [artistId],
+  );
+}
+
+export function getSongsByArtistId(
+  artistId: string,
+  artistName?: string,
+): Child[] {
+  const db = getDb();
+  if (artistName) {
+    return db.getAllSync<Child>(
+      "SELECT * FROM songs WHERE artistId = ? OR (artistId IS NULL AND artist = ? COLLATE NOCASE) ORDER BY COALESCE(playCount, 0) DESC, title COLLATE NOCASE ASC",
+      [artistId, artistName],
+    );
+  }
+  return db.getAllSync<Child>(
+    "SELECT * FROM songs WHERE artistId = ? ORDER BY COALESCE(playCount, 0) DESC, title COLLATE NOCASE ASC",
+    [artistId],
+  );
+}
+
+export function updateArtistStarred(
+  artistId: string,
+  starred: string | null,
+): void {
+  const db = getDb();
+  db.runSync("UPDATE artists SET starred = ? WHERE id = ?", [starred, artistId]);
+}
+
 export function getAlbumById(id: string): AlbumID3 | null {
   const db = getDb();
   return db.getFirstSync<AlbumID3>("SELECT * FROM albums WHERE id = ?", [id]);

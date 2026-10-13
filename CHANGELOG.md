@@ -1,5 +1,15 @@
 # changelog
 
+## unreleased
+
+### user release notes
+
+- add ui for library > artists > details.
+
+### internal notes
+
+- after tapping on artist name on search page navigates to artist details page.
+
 ## 2.24.0+59
 
 ### user release notes

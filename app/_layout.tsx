@@ -119,6 +119,7 @@ export default function RootLayout() {
               <Stack.Screen name="(main)" />
               <Stack.Screen name="(auth)" />
               <Stack.Screen name="album/[id]" />
+              <Stack.Screen name="artist/[id]" />
               <Stack.Screen
                 name="player"
                 options={{

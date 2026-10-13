@@ -115,6 +115,15 @@ export default function AlbumDetailScreen() {
                     albumDetailStyles.artistName,
                     { color: theme.colors.onSurfaceVariant },
                   ]}
+                  onPress={
+                    album.artistId
+                      ? () =>
+                          router.push({
+                            pathname: "/artist/[id]",
+                            params: { id: album.artistId! },
+                          })
+                      : undefined
+                  }
                 >
                   {album.artist}
                 </Text>

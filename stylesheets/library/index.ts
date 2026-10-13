@@ -1,5 +1,6 @@
 export * from "./albumDetail";
 export * from "./albums";
+export * from "./artistDetail";
 export * from "./artists";
 export * from "./main";
 export * from "./playlistDetail";
