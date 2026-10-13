@@ -16,6 +16,7 @@ import {
   AlbumID3,
   AlbumList2Type,
   AlbumWithSongsID3,
+  ArtistInfo,
   GetAlbumList2Params,
   PingResponse,
   Playlist,
@@ -31,6 +32,7 @@ import {
   StructuredLyrics,
   subsonicGetAlbumList2ResponseWrapperSchema,
   subsonicGetAlbumResponseWrapperSchema,
+  subsonicGetArtistInfoResponseWrapperSchema,
   subsonicGetLyricsBySongIdResponseWrapperSchema,
   subsonicGetPlaylistResponseWrapperSchema,
   subsonicGetPlaylistsResponseWrapperSchema,
@@ -1143,6 +1145,70 @@ export async function refreshPlayStats(): Promise<RefreshPlayStatsResult> {
   } catch (error) {
     console.error("failed to refresh play stats:", error);
     return { refreshed: false };
+  }
+}
+
+export async function getArtistInfo(
+  artistId: string,
+  options?: RequestTimeoutOptions,
+): Promise<ArtistInfo | null> {
+  if (!artistId || typeof artistId !== "string" || artistId.trim() === "") {
+    return null;
+  }
+
+  const creds = await getStoredCredentials();
+  const restBase = getRestBaseUrl(creds.serverUrl);
+  const authQuery = await buildAuthParams(creds);
+
+  const url = `${restBase}/getArtistInfo2.view?${authQuery}&id=${encodeURIComponent(artistId)}`;
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let signal = options?.signal;
+  if (options?.timeoutMs) {
+    const controller = new AbortController();
+    if (options.signal) {
+      options.signal.addEventListener("abort", () => controller.abort());
+    }
+    timer = setTimeout(() => {
+      controller.abort();
+    }, options.timeoutMs);
+    signal = controller.signal;
+  }
+
+  try {
+    const response = signal ? await fetch(url, { signal }) : await fetch(url);
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    const parsed = subsonicGetArtistInfoResponseWrapperSchema.safeParse(data);
+    if (!parsed.success) {
+      return null;
+    }
+
+    const res = parsed.data["subsonic-response"];
+    if (res.status !== "ok") {
+      return null;
+    }
+
+    const info = res.artistInfo2 ?? res.artistInfo;
+    if (!info) return null;
+
+    let similar = info.similarArtist;
+    if (similar && !Array.isArray(similar)) {
+      similar = [similar];
+    }
+
+    return {
+      ...info,
+      similarArtist: similar,
+    };
+  } catch (e) {
+    console.warn("failed to fetch artist info:", e);
+    return null;
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 

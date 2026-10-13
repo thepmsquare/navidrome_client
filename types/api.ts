@@ -420,6 +420,45 @@ export type SubsonicResponseWrapper = z.infer<
 export type SubsonicEmptyResponse = SubsonicResponse;
 export type SubsonicEmptyResponseWrapper = SubsonicResponseWrapper;
 
+export const similarArtistSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  albumCount: z.number().optional().nullable(),
+  coverArt: z.string().optional().nullable(),
+  artistImageUrl: z.string().optional().nullable(),
+});
 
+export const artistInfoSchema = z.object({
+  biography: z.string().optional().nullable(),
+  musicBrainzId: z.string().optional().nullable(),
+  lastFmUrl: z.string().optional().nullable(),
+  smallImageUrl: z.string().optional().nullable(),
+  mediumImageUrl: z.string().optional().nullable(),
+  largeImageUrl: z.string().optional().nullable(),
+  similarArtist: z
+    .union([z.array(similarArtistSchema), similarArtistSchema])
+    .optional()
+    .nullable(),
+});
 
+export const getArtistInfoResponseSchema = z.object({
+  status: z.string(),
+  version: z.string().optional(),
+  type: z.string().optional(),
+  serverVersion: z.string().optional(),
+  openSubsonic: z.boolean().optional(),
+  error: subsonicErrorSchema.optional(),
+  artistInfo: artistInfoSchema.optional(),
+  artistInfo2: artistInfoSchema.optional(),
+});
 
+export const subsonicGetArtistInfoResponseWrapperSchema = z.object({
+  "subsonic-response": getArtistInfoResponseSchema,
+});
+
+export type SimilarArtist = z.infer<typeof similarArtistSchema>;
+export type ArtistInfo = z.infer<typeof artistInfoSchema>;
+export type GetArtistInfoResponse = z.infer<typeof getArtistInfoResponseSchema>;
+export type SubsonicGetArtistInfoResponseWrapper = z.infer<
+  typeof subsonicGetArtistInfoResponseWrapperSchema
+>;
