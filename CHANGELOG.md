@@ -9,6 +9,7 @@
 ### internal notes
 
 - after tapping on artist name on search page navigates to artist details page.
+- add filter option in searchbar inside artists page to hide empty artist entries.
 
 ## 2.24.0+59
 

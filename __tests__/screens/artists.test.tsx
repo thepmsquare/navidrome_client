@@ -33,6 +33,8 @@ jest.mock("react-native-paper", () => {
   };
   return {
     ...actual,
+    Portal: ({ children }: any) => children,
+    Modal: ({ visible, children }: any) => (visible ? children : null),
     Menu: MockMenu,
   };
 });
@@ -69,6 +71,15 @@ const mockArtists: ArtistID3[] = [
     sortName: "beatles, the",
     coverArt: "art-2",
   },
+  {
+    id: "artist-3",
+    name: "empty artist",
+    albumCount: 0,
+    starred: null,
+    userRating: null,
+    sortName: "empty artist",
+    coverArt: null,
+  },
 ];
 
 describe("ArtistsScreen", () => {
@@ -81,7 +92,7 @@ describe("ArtistsScreen", () => {
     (searchArtists as jest.Mock).mockReturnValue([]);
   });
 
-  it("renders all artists initially sorted by name asc", async () => {
+  it("renders all artists initially sorted by name asc, hiding artists with 0 albums by default", async () => {
     let component: any;
     await renderer.act(async () => {
       component = renderer.create(<ArtistsScreen />);
@@ -89,10 +100,61 @@ describe("ArtistsScreen", () => {
 
     const { List } = require("react-native-paper");
     const listItems = component.root.findAllByType(List.Item);
+    // Only pink floyd and the beatles should be rendered; empty artist is hidden by default
     expect(listItems.length).toBe(2);
-    // "pink floyd" before "the beatles" in asc
     expect(listItems[0].props.title).toBe("pink floyd");
     expect(listItems[1].props.title).toBe("the beatles");
+
+    renderer.act(() => {
+      component.unmount();
+    });
+  });
+
+  it("opens filter modal from searchbar and toggles 0-album artists visibility", async () => {
+    let component: any;
+    await renderer.act(async () => {
+      component = renderer.create(<ArtistsScreen />);
+    });
+
+    const { ArtistsFilterModal } = require("@/components/ArtistsFilterModal");
+    const { List, IconButton } = require("react-native-paper");
+
+    let filterModal = component.root.findByType(ArtistsFilterModal);
+    expect(filterModal.props.visible).toBe(false);
+    expect(filterModal.props.hideEmptyArtists).toBe(true);
+
+    // Find and press the filter icon in the searchbar
+    const iconButtons = component.root.findAllByType(IconButton);
+    const filterBtn = iconButtons.find(
+      (btn: any) => btn.props.accessibilityLabel === "filter artists",
+    );
+    expect(filterBtn).toBeDefined();
+
+    renderer.act(() => {
+      filterBtn.props.onPress();
+    });
+
+    filterModal = component.root.findByType(ArtistsFilterModal);
+    expect(filterModal.props.visible).toBe(true);
+
+    // Toggle filter to show artists with 0 albums
+    renderer.act(() => {
+      filterModal.props.onToggleHideEmptyArtists(false);
+    });
+
+    let listItems = component.root.findAllByType(List.Item);
+    expect(listItems.length).toBe(3);
+    const titles = listItems.map((item: any) => item.props.title);
+    expect(titles).toContain("empty artist");
+
+    // Toggle filter back to hide 0-album artists
+    renderer.act(() => {
+      filterModal.props.onToggleHideEmptyArtists(true);
+    });
+
+    listItems = component.root.findAllByType(List.Item);
+    expect(listItems.length).toBe(2);
+    expect(listItems.map((item: any) => item.props.title)).not.toContain("empty artist");
 
     renderer.act(() => {
       component.unmount();

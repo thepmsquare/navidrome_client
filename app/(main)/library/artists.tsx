@@ -14,6 +14,7 @@ import {
   Text,
 } from "react-native-paper";
 
+import { ArtistsFilterModal } from "@/components/ArtistsFilterModal";
 import { getCoverArtBaseUrl } from "@/services/api";
 import { getAllArtists, searchArtists } from "@/services/db";
 import { artistsStyles } from "@/stylesheets";
@@ -43,6 +44,8 @@ export default function ArtistsScreen() {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [menuVisible, setMenuVisible] = useState(false);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [hideEmptyArtists, setHideEmptyArtists] = useState(true);
   const [getArtUrl, setGetArtUrl] = useState<
     ((id?: string | null) => string | null) | null
   >(null);
@@ -66,9 +69,14 @@ export default function ArtistsScreen() {
 
     if (searchQuery.trim()) {
       result = searchArtists(searchQuery, 1000);
-      if (sortKey === "name" && sortOrder === "asc") {
-        return result;
-      }
+    }
+
+    if (hideEmptyArtists) {
+      result = result.filter((artist) => (artist.albumCount ?? 0) > 0);
+    }
+
+    if (searchQuery.trim() && sortKey === "name" && sortOrder === "asc") {
+      return result;
     }
 
     return [...result].sort((a, b) => {
@@ -89,7 +97,7 @@ export default function ArtistsScreen() {
 
       return sortOrder === "asc" ? comparison : -comparison;
     });
-  }, [artists, searchQuery, sortKey, sortOrder]);
+  }, [artists, hideEmptyArtists, searchQuery, sortKey, sortOrder]);
 
   const currentSortLabel =
     SORT_OPTIONS.find((opt) => opt.key === sortKey)?.label ?? "name";
@@ -109,6 +117,14 @@ export default function ArtistsScreen() {
         onChangeText={setSearchQuery}
         value={searchQuery}
         style={artistsStyles.searchbar}
+        right={(props) => (
+          <IconButton
+            {...props}
+            icon="filter-variant"
+            accessibilityLabel="filter artists"
+            onPress={() => setFilterModalVisible(true)}
+          />
+        )}
       />
 
       <View style={artistsStyles.sortRow}>
@@ -195,6 +211,13 @@ export default function ArtistsScreen() {
             />
           );
         }}
+      />
+
+      <ArtistsFilterModal
+        visible={filterModalVisible}
+        onDismiss={() => setFilterModalVisible(false)}
+        hideEmptyArtists={hideEmptyArtists}
+        onToggleHideEmptyArtists={setHideEmptyArtists}
       />
     </Surface>
   );
