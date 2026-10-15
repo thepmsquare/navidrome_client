@@ -1,11 +1,15 @@
 [
   {
-    "heading": "unreleased",
-    "version": "unreleased",
-    "versionCode": null,
+    "heading": "2.25.0+60",
+    "version": "2.25.0",
+    "versionCode": 60,
     "notes": [
       {
         "text": "add ui for library > artists > details.",
+        "level": 0
+      },
+      {
+        "text": "add pull to refresh feature in home page.",
         "level": 0
       }
     ]
