@@ -5,7 +5,7 @@ import { View } from "react-native";
 import { Avatar, IconButton, List, Surface, Text } from "react-native-paper";
 
 import { SongCacheButton } from "@/components/SongCacheButton";
-import { getCoverArtBaseUrl } from "@/services/api";
+import { getCoverArtBaseUrl, subscribeSyncState } from "@/services/api";
 import { getAllSongCacheEntries, getRandomSongs } from "@/services/db";
 import { playPlaylist } from "@/services/player";
 import { subscribeSongCache } from "@/services/songCache";
@@ -61,6 +61,17 @@ export function RandomTracksSection() {
     return () => {
       unsubscribe();
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof subscribeSyncState === "function") {
+      const unsubscribe = subscribeSyncState((isSyncing) => {
+        if (!isSyncing) {
+          setTracks(getRandomSongs(10));
+        }
+      });
+      return unsubscribe;
+    }
   }, []);
 
   const handleRefresh = useCallback(() => {

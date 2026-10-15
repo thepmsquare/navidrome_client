@@ -1,10 +1,11 @@
 # changelog
 
-## unreleased
+## 2.25.0+60
 
 ### user release notes
 
 - add ui for library > artists > details.
+- add pull to refresh feature in home page.
 
 ### internal notes
 

@@ -18,7 +18,9 @@ jest.mock("expo-router", () => ({
 
 const playStatsListeners: (() => void)[] = [];
 const syncStateListeners: ((isSyncing: boolean) => void)[] = [];
+const mockClientAppSync = jest.fn().mockResolvedValue({ synced: true });
 jest.mock("@/services/api", () => ({
+  client_app_sync: (...args: any[]) => mockClientAppSync(...args),
   getCoverArtBaseUrl: jest.fn().mockResolvedValue((id?: string) => `https://art/${id}`),
   subscribePlayStats: jest.fn((listener: () => void) => {
     playStatsListeners.push(listener);
@@ -334,5 +336,49 @@ describe("HomeScreen", () => {
     );
   });
 
+  it("renders RefreshControl and triggers client_app_sync when pulled down", async () => {
+    let tree: any;
+    await renderer.act(async () => {
+      tree = renderer.create(<HomeScreen />);
+    });
+
+    const { RefreshControl } = require("react-native");
+    const refreshControl = tree.root.findByType(RefreshControl);
+    expect(refreshControl).toBeDefined();
+    expect(refreshControl.props.refreshing).toBe(false);
+
+    await renderer.act(async () => {
+      refreshControl.props.onRefresh();
+    });
+
+    expect(mockClientAppSync).toHaveBeenCalledWith(false);
+  });
+
+  it("handles error during pull to refresh gracefully", async () => {
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockClientAppSync.mockRejectedValueOnce(new Error("network error"));
+
+    let tree: any;
+    await renderer.act(async () => {
+      tree = renderer.create(<HomeScreen />);
+    });
+
+    const { RefreshControl } = require("react-native");
+    const refreshControl = tree.root.findByType(RefreshControl);
+
+    await renderer.act(async () => {
+      refreshControl.props.onRefresh();
+    });
+
+    expect(mockClientAppSync).toHaveBeenCalledWith(false);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "failed to refresh home:",
+      expect.any(Error),
+    );
+    expect(refreshControl.props.refreshing).toBe(false);
+
+    consoleErrorSpy.mockRestore();
+  });
 });
+
 
