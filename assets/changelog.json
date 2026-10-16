@@ -1,5 +1,16 @@
 [
   {
+    "heading": "unreleased",
+    "version": "unreleased",
+    "versionCode": null,
+    "notes": [
+      {
+        "text": "add navigation from music player to artist / albums page.",
+        "level": 0
+      }
+    ]
+  },
+  {
     "heading": "2.25.0+60",
     "version": "2.25.0",
     "versionCode": 60,

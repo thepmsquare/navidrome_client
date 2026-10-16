@@ -701,6 +701,32 @@ export function updateArtistStarred(
   db.runSync("UPDATE artists SET starred = ? WHERE id = ?", [starred, artistId]);
 }
 
+export function getArtistByName(name: string): ArtistID3 | null {
+  const db = getDb();
+  return db.getFirstSync<ArtistID3>(
+    "SELECT * FROM artists WHERE name = ? COLLATE NOCASE LIMIT 1",
+    [name],
+  );
+}
+
+export function getAlbumByName(
+  name: string,
+  artistIdOrName?: string,
+): AlbumID3 | null {
+  const db = getDb();
+  if (artistIdOrName) {
+    const matched = db.getFirstSync<AlbumID3>(
+      "SELECT * FROM albums WHERE name = ? COLLATE NOCASE AND (artistId = ? OR artist = ? COLLATE NOCASE) LIMIT 1",
+      [name, artistIdOrName, artistIdOrName],
+    );
+    if (matched) return matched;
+  }
+  return db.getFirstSync<AlbumID3>(
+    "SELECT * FROM albums WHERE name = ? COLLATE NOCASE LIMIT 1",
+    [name],
+  );
+}
+
 export function getAlbumById(id: string): AlbumID3 | null {
   const db = getDb();
   return db.getFirstSync<AlbumID3>("SELECT * FROM albums WHERE id = ?", [id]);
