@@ -126,8 +126,19 @@ export const playerStyles = StyleSheet.create({
   title: {
     marginBottom: spacing.xs,
   },
-  artist: {
+  metadataPressable: {
+    alignSelf: "flex-start",
+    borderRadius: shape.small,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
+    marginLeft: -spacing.xs,
+    maxWidth: "100%",
+  },
+  artistPressable: {
     marginBottom: spacing.xs,
+  },
+  artist: {
+    marginBottom: 0,
   },
   album: {
     marginTop: 0,

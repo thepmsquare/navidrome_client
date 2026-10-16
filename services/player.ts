@@ -61,7 +61,9 @@ export interface ActiveTrackInfo {
   id: string;
   title: string;
   artist?: string | null;
+  artistId?: string | null;
   album?: string | null;
+  albumId?: string | null;
   coverArt?: string | null;
   duration?: number | null;
   starred?: string | null;
@@ -148,11 +150,15 @@ export function hydratePlayerSession(): void {
       if (song) {
         let dbStarred = song.starred;
         let dbRating = song.userRating;
+        let artistId = song.artistId;
+        let albumId = song.albumId;
         try {
           const dbSong = getSongById(song.id);
           if (dbSong) {
             dbStarred = dbSong.starred ?? song.starred;
             dbRating = dbSong.userRating ?? song.userRating;
+            artistId = dbSong.artistId ?? song.artistId;
+            albumId = dbSong.albumId ?? song.albumId;
           }
         } catch {
           // ignore
@@ -161,7 +167,9 @@ export function hydratePlayerSession(): void {
           id: song.id,
           title: song.title,
           artist: song.artist,
+          artistId,
           album: song.album,
+          albumId,
           coverArt: song.coverArt,
           duration: song.duration,
           starred: dbStarred,
@@ -482,11 +490,16 @@ export async function playTrackAtIndex(index: number): Promise<void> {
 
   let dbStarred = song.starred;
   let dbRating = song.userRating;
+  let artistId = song.artistId;
+  let albumId = song.albumId;
+
   try {
     const dbSong = getSongById(song.id);
     if (dbSong) {
       dbStarred = dbSong.starred ?? song.starred;
       dbRating = dbSong.userRating ?? song.userRating;
+      artistId = dbSong.artistId ?? song.artistId;
+      albumId = dbSong.albumId ?? song.albumId;
     }
   } catch {
     // ignore
@@ -496,7 +509,9 @@ export async function playTrackAtIndex(index: number): Promise<void> {
     id: song.id,
     title: song.title,
     artist: song.artist,
+    artistId,
     album: song.album,
+    albumId,
     coverArt: song.coverArt,
     duration: song.duration,
     starred: dbStarred,

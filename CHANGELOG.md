@@ -1,5 +1,13 @@
 # changelog
 
+## unreleased
+
+### user release notes
+
+- add navigation from music player to artist / albums page.
+
+### internal notes
+
 ## 2.25.0+60
 
 ### user release notes
