@@ -29,6 +29,7 @@ import { SleepTimerModal } from "@/components/SleepTimerModal";
 import { SongCacheButton } from "@/components/SongCacheButton";
 import { SongSaveButton } from "@/components/SongSaveButton";
 import { getCoverArtBaseUrl } from "@/services/api";
+import { getAlbumByName, getArtistByName, getSongById } from "@/services/db";
 import {
   getCachedLyricsSync,
   getLyricsMode,
@@ -54,6 +55,7 @@ import {
   NormalizedLyrics,
   useAppTheme,
 } from "@/types";
+import { spacing } from "@/utils/spacing";
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds) || seconds < 0) return "0:00";
@@ -370,6 +372,59 @@ export default function PlayerScreen() {
     }
   };
 
+  const resolvedArtistId = useMemo(() => {
+    if (!currentTrack) return null;
+    if (currentTrack.artistId) return currentTrack.artistId;
+    try {
+      const dbSong = getSongById(currentTrack.id);
+      if (dbSong?.artistId) return dbSong.artistId;
+    } catch {}
+    if (currentTrack.artist) {
+      try {
+        const art = getArtistByName(currentTrack.artist);
+        if (art?.id) return art.id;
+      } catch {}
+    }
+    return null;
+  }, [currentTrack]);
+
+  const resolvedAlbumId = useMemo(() => {
+    if (!currentTrack) return null;
+    if (currentTrack.albumId) return currentTrack.albumId;
+    try {
+      const dbSong = getSongById(currentTrack.id);
+      if (dbSong?.albumId) return dbSong.albumId;
+    } catch {}
+    if (currentTrack.album) {
+      try {
+        const alb = getAlbumByName(
+          currentTrack.album,
+          currentTrack.artistId ?? currentTrack.artist ?? undefined,
+        );
+        if (alb?.id) return alb.id;
+      } catch {}
+    }
+    return null;
+  }, [currentTrack]);
+
+  const handleArtistPress = () => {
+    if (!resolvedArtistId) return;
+    Haptics.selectionAsync().catch(() => {});
+    router.push({
+      pathname: "/artist/[id]",
+      params: { id: resolvedArtistId },
+    });
+  };
+
+  const handleAlbumPress = () => {
+    if (!resolvedAlbumId) return;
+    Haptics.selectionAsync().catch(() => {});
+    router.push({
+      pathname: "/album/[id]",
+      params: { id: resolvedAlbumId },
+    });
+  };
+
   if (!currentTrack) {
     return (
       <View
@@ -478,29 +533,83 @@ export default function PlayerScreen() {
             >
               {currentTrack.title || "unknown track"}
             </Text>
-            <Text
-              variant="titleMedium"
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              style={[
-                playerStyles.artist,
-                { color: theme.colors.onSurfaceVariant },
+            <Pressable
+              onPress={handleArtistPress}
+              disabled={!resolvedArtistId}
+              hitSlop={{
+                top: spacing.sm,
+                bottom: spacing.sm,
+                left: spacing.sm,
+                right: spacing.md,
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`artist: ${currentTrack.artist || "unknown artist"}`}
+              accessibilityHint="navigates to artist details"
+              accessibilityState={{ disabled: !resolvedArtistId }}
+              android_ripple={{
+                color: theme.colors.onSurfaceVariant + "1F",
+                borderless: false,
+              }}
+              style={({ pressed }) => [
+                playerStyles.metadataPressable,
+                playerStyles.artistPressable,
+                pressed &&
+                  resolvedArtistId && {
+                    backgroundColor: theme.colors.onSurfaceVariant + "14",
+                  },
               ]}
             >
-              {currentTrack.artist || "unknown artist"}
-            </Text>
-            {currentTrack.album ? (
               <Text
-                variant="bodyMedium"
+                variant="titleMedium"
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 style={[
-                  playerStyles.album,
+                  playerStyles.artist,
                   { color: theme.colors.onSurfaceVariant },
                 ]}
               >
-                {currentTrack.album}
+                {currentTrack.artist || "unknown artist"}
               </Text>
+            </Pressable>
+
+            {currentTrack.album ? (
+              <Pressable
+                onPress={handleAlbumPress}
+                disabled={!resolvedAlbumId}
+                hitSlop={{
+                  top: spacing.sm,
+                  bottom: spacing.sm,
+                  left: spacing.sm,
+                  right: spacing.md,
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`album: ${currentTrack.album}`}
+                accessibilityHint="navigates to album details"
+                accessibilityState={{ disabled: !resolvedAlbumId }}
+                android_ripple={{
+                  color: theme.colors.onSurfaceVariant + "1F",
+                  borderless: false,
+                }}
+                style={({ pressed }) => [
+                  playerStyles.metadataPressable,
+                  pressed &&
+                    resolvedAlbumId && {
+                      backgroundColor: theme.colors.onSurfaceVariant + "14",
+                    },
+                ]}
+              >
+                <Text
+                  variant="bodyMedium"
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={[
+                    playerStyles.album,
+                    { color: theme.colors.onSurfaceVariant },
+                  ]}
+                >
+                  {currentTrack.album}
+                </Text>
+              </Pressable>
             ) : null}
           </View>
 

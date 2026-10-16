@@ -20,10 +20,11 @@ import {
 } from "@/services/lyrics";
 
 const mockBack = jest.fn();
+const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
   useRouter: () => ({
     back: mockBack,
-    push: jest.fn(),
+    push: mockPush,
   }),
 }));
 
@@ -793,6 +794,154 @@ describe("PlayerScreen", () => {
       });
     });
     expect(seekToPosition).toHaveBeenCalledWith(50);
+  });
+
+  it("should navigate to artist details when artist pressable is tapped", async () => {
+    (usePlayerState as jest.Mock).mockReturnValue({
+      currentTrack: {
+        id: "song-1",
+        title: "Neon Lights",
+        artist: "Kraftwerk",
+        artistId: "artist-1",
+        album: "The Man-Machine",
+        albumId: "album-1",
+        coverArt: "art-1",
+        duration: 300,
+        starred: null,
+        userRating: 0,
+      },
+      isPlaying: false,
+      isBuffering: false,
+      position: 60,
+      duration: 300,
+      repeatMode: "off",
+      hasPrevious: true,
+      hasNext: true,
+      isPlayingFromCache: false,
+      scrobbled: false,
+    });
+
+    let root: any;
+    await act(async () => {
+      root = renderer.create(<PlayerScreen />);
+    });
+
+    const artistPressable = root.root.findByProps({
+      accessibilityLabel: "artist: Kraftwerk",
+    });
+    expect(artistPressable).toBeDefined();
+    expect(artistPressable.props.accessibilityRole).toBe("button");
+    expect(artistPressable.props.accessibilityHint).toBe(
+      "navigates to artist details",
+    );
+    expect(artistPressable.props.accessibilityState).toEqual({
+      disabled: false,
+    });
+
+    await act(async () => {
+      artistPressable.props.onPress();
+    });
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/artist/[id]",
+      params: { id: "artist-1" },
+    });
+  });
+
+  it("should navigate to album details when album pressable is tapped", async () => {
+    (usePlayerState as jest.Mock).mockReturnValue({
+      currentTrack: {
+        id: "song-1",
+        title: "Neon Lights",
+        artist: "Kraftwerk",
+        artistId: "artist-1",
+        album: "The Man-Machine",
+        albumId: "album-1",
+        coverArt: "art-1",
+        duration: 300,
+        starred: null,
+        userRating: 0,
+      },
+      isPlaying: false,
+      isBuffering: false,
+      position: 60,
+      duration: 300,
+      repeatMode: "off",
+      hasPrevious: true,
+      hasNext: true,
+      isPlayingFromCache: false,
+      scrobbled: false,
+    });
+
+    let root: any;
+    await act(async () => {
+      root = renderer.create(<PlayerScreen />);
+    });
+
+    const albumPressable = root.root.findByProps({
+      accessibilityLabel: "album: The Man-Machine",
+    });
+    expect(albumPressable).toBeDefined();
+    expect(albumPressable.props.accessibilityRole).toBe("button");
+    expect(albumPressable.props.accessibilityHint).toBe(
+      "navigates to album details",
+    );
+    expect(albumPressable.props.accessibilityState).toEqual({
+      disabled: false,
+    });
+
+    await act(async () => {
+      albumPressable.props.onPress();
+    });
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/album/[id]",
+      params: { id: "album-1" },
+    });
+  });
+
+  it("should disable pressable and prevent navigation when id cannot be resolved", async () => {
+    (usePlayerState as jest.Mock).mockReturnValue({
+      currentTrack: {
+        id: "song-unknown",
+        title: "Mystery Song",
+        artist: null,
+        artistId: null,
+        album: null,
+        albumId: null,
+        coverArt: null,
+        duration: 200,
+        starred: null,
+        userRating: 0,
+      },
+      isPlaying: false,
+      isBuffering: false,
+      position: 0,
+      duration: 200,
+      repeatMode: "off",
+      hasPrevious: false,
+      hasNext: false,
+      isPlayingFromCache: false,
+      scrobbled: false,
+    });
+
+    let root: any;
+    await act(async () => {
+      root = renderer.create(<PlayerScreen />);
+    });
+
+    const artistPressable = root.root.findByProps({
+      accessibilityLabel: "artist: unknown artist",
+    });
+    expect(artistPressable).toBeDefined();
+    expect(artistPressable.props.disabled).toBe(true);
+    expect(artistPressable.props.accessibilityState).toEqual({ disabled: true });
+
+    await act(async () => {
+      artistPressable.props.onPress();
+    });
+
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });
 
