@@ -42,6 +42,7 @@ import {
   subsonicSearch3ResponseWrapperSchema,
   SyncResult,
   UnstarParams,
+  ServerUrlItem,
 } from "@/types";
 import { APP_FULL_NAME } from "@/utils/constants";
 import { createAuthToken, generateSalt } from "@/utils/crypto";
@@ -114,6 +115,58 @@ export async function ping(serverUrl: string): Promise<PingResponse> {
   }
 
   return res;
+}
+
+export interface PingServerResult {
+  candidate: ServerUrlItem;
+  latencyMs: number;
+  version: string;
+}
+
+export async function pingFastestServer(
+  candidates: ServerUrlItem[],
+): Promise<PingServerResult> {
+  if (candidates.length === 0) {
+    throw new Error("no server urls provided");
+  }
+
+  if (candidates.length === 1) {
+    const candidate = candidates[0];
+    const start = Date.now();
+    const res = await ping(candidate.url);
+    return {
+      candidate,
+      latencyMs: Date.now() - start,
+      version: res.version,
+    };
+  }
+
+  const pingResults = await Promise.allSettled(
+    candidates.map(async (candidate) => {
+      const start = Date.now();
+      const res = await ping(candidate.url);
+      return {
+        candidate,
+        latencyMs: Date.now() - start,
+        version: res.version,
+      };
+    }),
+  );
+
+  const successful = pingResults
+    .filter(
+      (
+        r,
+      ): r is PromiseFulfilledResult<PingServerResult> => r.status === "fulfilled",
+    )
+    .map((r) => r.value)
+    .sort((a, b) => a.latencyMs - b.latencyMs);
+
+  if (successful.length === 0) {
+    throw new Error("could not connect to any of the specified server urls");
+  }
+
+  return successful[0];
 }
 
 export async function login(credentials: ServerCredentials) {

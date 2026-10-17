@@ -1,3 +1,4 @@
+import { ServerUrlItem } from "./auth";
 import { LyricsMode } from "./lyrics";
 
 export interface HomeSectionConfig {
@@ -17,6 +18,8 @@ export interface BackupSettings {
 export interface BackupData {
   app_identifier: string;
   server_url: string;
+  alternative_server_urls?: string[];
+  server_urls?: ServerUrlItem[];
   username: string;
   password: string;
   settings?: BackupSettings;

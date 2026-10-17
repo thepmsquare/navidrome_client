@@ -42,6 +42,7 @@ export function ConnectProgress({
       if (animation) {
         animation.stop();
       }
+      pulseAnim.setValue(1);
     };
   }, [loading, pulseAnim]);
 

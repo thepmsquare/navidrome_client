@@ -61,4 +61,14 @@ export const connectStyles = StyleSheet.create({
   serverInfoText: {
     flex: 1,
   },
+  alternativeUrlsContainer: {
+    gap: spacing.sm,
+  },
+  addAlternativeButton: {
+    alignSelf: "flex-start",
+    marginTop: -spacing.xs,
+  },
+  serverInfoContainer: {
+    gap: spacing.xs / 2,
+  },
 });
