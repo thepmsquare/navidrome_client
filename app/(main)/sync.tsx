@@ -1,3 +1,4 @@
+import * as SecureStore from "expo-secure-store";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Animated, Easing, ScrollView, View } from "react-native";
@@ -18,6 +19,26 @@ export default function SyncScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ initial?: string }>();
   const theme = useAppTheme();
+
+  const [activeServerInfo, setActiveServerInfo] = useState<{
+    url: string;
+    label: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    async function loadActiveServer() {
+      try {
+        const url = await SecureStore.getItemAsync("serverUrl");
+        const label = await SecureStore.getItemAsync("serverUrlLabel");
+        if (url) {
+          setActiveServerInfo({ url, label: label || "server url" });
+        }
+      } catch {
+        // ignore
+      }
+    }
+    loadActiveServer();
+  }, []);
 
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(
     () => getSyncMeta("lastSyncedAt") ?? null,
@@ -224,6 +245,38 @@ export default function SyncScreen() {
           >
             {subTitleText}
           </Text>
+
+          {activeServerInfo && (
+            <Surface
+              elevation={0}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: spacing.xs,
+                paddingHorizontal: spacing.sm,
+                paddingVertical: spacing.xs / 2,
+                borderRadius: 12,
+                backgroundColor: theme.colors.surfaceContainerHighest,
+                marginTop: spacing.xs,
+              }}
+            >
+              <Icon
+                source="server"
+                size={14}
+                color={theme.colors.onSurfaceVariant}
+              />
+              <Text
+                variant="labelSmall"
+                style={{ color: theme.colors.onSurfaceVariant }}
+                numberOfLines={1}
+                ellipsizeMode="middle"
+              >
+                {activeServerInfo.label
+                  ? `${activeServerInfo.label} (${activeServerInfo.url})`
+                  : activeServerInfo.url}
+              </Text>
+            </Surface>
+          )}
         </View>
 
         {/* progress bar while syncing */}

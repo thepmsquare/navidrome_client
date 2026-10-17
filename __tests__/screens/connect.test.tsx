@@ -32,11 +32,23 @@ jest.mock("expo-clipboard", () => ({
   getStringAsync: jest.fn().mockResolvedValue(""),
 }));
 
-jest.mock("@/services/api", () => ({
-  ping: jest.fn().mockResolvedValue({ version: "1.16.1" }),
-  login: jest.fn().mockResolvedValue(undefined),
-  notifyAuthState: jest.fn(),
-}));
+jest.mock("@/services/api", () => {
+  const pingMock = jest.fn().mockResolvedValue({ version: "1.16.1" });
+  return {
+    ping: pingMock,
+    pingFastestServer: jest.fn().mockImplementation(async (candidates: any[]) => {
+      const candidate = candidates[0];
+      const res = await pingMock(candidate.url);
+      return {
+        candidate,
+        latencyMs: 10,
+        version: res.version,
+      };
+    }),
+    login: jest.fn().mockResolvedValue(undefined),
+    notifyAuthState: jest.fn(),
+  };
+});
 
 jest.mock("@/services/backup", () => ({
   pickProfileFile: jest.fn(),

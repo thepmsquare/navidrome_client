@@ -99,9 +99,16 @@ upgrading users from previous versions require automated data migration and clea
 
 ## 5. network resilience & offline experience (pre-v2)
 
-- [ ] **alternate / fallback server urls (pre-v2 requirement)**
+- [/] **alternate / fallback server urls (pre-v2 requirement)**
   - **context**: users running split-dns or separate local and external domain setups require automated fallback.
-  - **task**: add primary and secondary fallback server urls in settings and [`services/api.ts`](./services/api.ts) with ping verification and automatic failover on network timeouts.
+  - **status**: partially complete.
+    - [x] connect screen progressive disclosure ui (add up to 4 alternative urls, hidden until non-empty).
+    - [x] unified parallel ping engine (`pingFastestServer`) with latency measurement across all candidate urls.
+    - [x] winner selection on connect, demo login, and profile import, displayed on stage 2 and sync screen with original `label (url)`.
+    - [x] profile backup export and restore compatibility for `server_urls`.
+    - [ ] auto fallback / failover logic on transport network failures (pending).
+    - [ ] settings screen ui to view, add, reorder, test ping, and manually switch active server url (pending).
+    - [ ] backward compatibility / upgrade migration: existing users will have `serverUrl` in `SecureStore` but no `serverUrls` or `serverUrlLabel`. need a lightweight one-time startup check to backfill `serverUrls = [{ url, label: "server url" }]` and `serverUrlLabel = "server url"` to ensure future auto-failover and settings screens work seamlessly without requiring a re-login.
 
 - [ ] **graceful offline error feedback**
   - **context**: cached songs play locally and library metadata is stored in sqlite. offline playback operates without network dependency.

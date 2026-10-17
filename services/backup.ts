@@ -13,7 +13,12 @@ import {
   getScrobbleMinPercent,
 } from "@/services/db";
 import { getLyricsMode } from "@/services/lyrics";
-import { BackupData, BackupSettings, HomeSectionConfig } from "@/types";
+import {
+  BackupData,
+  BackupSettings,
+  HomeSectionConfig,
+  ServerUrlItem,
+} from "@/types";
 import {
   APP_IDENTIFIER_FOR_PROFILE_EXPORT,
   BACKUP_VERSION,
@@ -62,9 +67,23 @@ export async function createBackupData(): Promise<BackupData> {
     }));
   }
 
+  const serverUrlsStr = await SecureStore.getItemAsync("serverUrls");
+  let serverUrls: ServerUrlItem[] | undefined;
+  if (serverUrlsStr) {
+    try {
+      const parsed = JSON.parse(serverUrlsStr);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        serverUrls = parsed;
+      }
+    } catch {
+      // ignore json error
+    }
+  }
+
   return {
     app_identifier: APP_IDENTIFIER_FOR_PROFILE_EXPORT,
     server_url: serverUrl ?? "",
+    ...(serverUrls ? { server_urls: serverUrls } : {}),
     username: username ?? "",
     password: password ?? "",
     settings: {
@@ -193,9 +212,26 @@ export function parseProfileData(jsonString: string): BackupData {
     };
   }
 
+  let server_urls: ServerUrlItem[] | undefined;
+  if (Array.isArray(data.server_urls) && data.server_urls.length > 0) {
+    server_urls = data.server_urls;
+  } else if (
+    Array.isArray(data.alternative_server_urls) &&
+    data.alternative_server_urls.length > 0
+  ) {
+    server_urls = [
+      { url: server_url, label: "server url" },
+      ...data.alternative_server_urls.map((alt: string, i: number) => ({
+        url: alt,
+        label: `alternative url ${i + 1}`,
+      })),
+    ];
+  }
+
   return {
     app_identifier: data.app_identifier,
     server_url,
+    ...(server_urls ? { server_urls } : {}),
     username,
     password,
     settings,
