@@ -5,8 +5,12 @@
 ### user release notes
 
 - add navigation from music player to artist / albums page.
+- add alternative urls inputs on connect screen.
 
 ### internal notes
+
+- show connected url on stage 2 of connect screen and sync screen.
+- add pingFastestServer function to select fastest server from all available urls, also acts as a check if atleast any 1 is connected.
 
 ## 2.25.0+60
 

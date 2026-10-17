@@ -15,7 +15,7 @@ import {
 
 import { ConnectProgress } from "@/components/ConnectProgress";
 
-import { login, notifyAuthState, ping } from "@/services/api";
+import { login, notifyAuthState, ping, pingFastestServer } from "@/services/api";
 import { pickProfileFile } from "@/services/backup";
 import {
   setAutoCacheEnabled,
@@ -26,13 +26,27 @@ import {
 import { setLyricsMode } from "@/services/lyrics";
 import { updateKeepPlayingOnAppDismissed } from "@/services/player";
 import { connectStyles } from "@/stylesheets";
-import { ConnectStage, useAppTheme } from "@/types";
+import { ConnectStage, ServerUrlItem, useAppTheme } from "@/types";
 import { APP_SHORT_NAME, APP_SUBTITLE } from "@/utils/constants";
+
+const MAX_ALTERNATIVE_URLS = 4;
+
+function isNonEmptyUrl(url: string): boolean {
+  const trimmed = url.trim();
+  return trimmed !== "" && trimmed !== "https://" && trimmed !== "http://";
+}
 
 export default function ConnectScreen() {
   const router = useRouter();
   const theme = useAppTheme();
   const [serverUrl, setServerUrl] = useState("https://");
+  const [alternativeUrls, setAlternativeUrls] = useState<string[]>([]);
+  const [activeServerUrl, setActiveServerUrl] = useState<string>("");
+  const [activeServerLabel, setActiveServerLabel] =
+    useState<string>("server url");
+  const [configuredAlternativeUrls, setConfiguredAlternativeUrls] = useState<
+    string[]
+  >([]);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [demoLoading, setDemoLoading] = useState(false);
@@ -44,9 +58,33 @@ export default function ConnectScreen() {
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
 
+  const hasValidPrimaryUrl = isNonEmptyUrl(serverUrl);
+  const hasValidAlternativeUrl = alternativeUrls.some(isNonEmptyUrl);
+  const canAddAlternativeUrl =
+    alternativeUrls.length < MAX_ALTERNATIVE_URLS &&
+    hasValidPrimaryUrl &&
+    alternativeUrls.every(isNonEmptyUrl);
+
   function showSnackbar(message: string) {
     setSnackbarMessage(message);
     setSnackbarVisible(true);
+  }
+
+  function handleAddAlternativeUrl() {
+    if (!canAddAlternativeUrl) return;
+    setAlternativeUrls((prev) => [...prev, "https://"]);
+  }
+
+  function handleRemoveAlternativeUrl(index: number) {
+    setAlternativeUrls((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function handleUpdateAlternativeUrl(index: number, text: string) {
+    setAlternativeUrls((prev) => {
+      const updated = [...prev];
+      updated[index] = text;
+      return updated;
+    });
   }
 
   async function handlePaste() {
@@ -73,21 +111,62 @@ export default function ConnectScreen() {
   }
 
   async function handlePing() {
-    let targetUrl = serverUrl.trim();
-    if (!targetUrl || targetUrl === "https://" || targetUrl === "http://") {
-      Alert.alert("error", "please fill in all fields");
+    let primaryTarget = serverUrl.trim();
+    if (!/^https?:\/\//i.test(primaryTarget) && primaryTarget !== "") {
+      primaryTarget = `https://${primaryTarget}`;
+      setServerUrl(primaryTarget);
+    }
+
+    const candidateUrls: ServerUrlItem[] = [];
+    if (
+      primaryTarget &&
+      primaryTarget !== "https://" &&
+      primaryTarget !== "http://"
+    ) {
+      candidateUrls.push({ url: primaryTarget, label: "server url" });
+    }
+
+    alternativeUrls.forEach((alt, index) => {
+      let trimmed = alt.trim();
+      if (!trimmed || trimmed === "https://" || trimmed === "http://") return;
+      if (!/^https?:\/\//i.test(trimmed)) {
+        trimmed = `https://${trimmed}`;
+      }
+      if (!candidateUrls.some((c) => c.url === trimmed)) {
+        candidateUrls.push({
+          url: trimmed,
+          label: `alternative url ${index + 1}`,
+        });
+      }
+    });
+
+    if (candidateUrls.length === 0) {
+      Alert.alert("error", "please enter a valid server url");
       return;
     }
-    if (!/^https?:\/\//i.test(targetUrl)) {
-      targetUrl = `https://${targetUrl}`;
-      setServerUrl(targetUrl);
-    }
+
     setLoading(true);
 
     try {
-      let pingResponse = await ping(targetUrl);
-      await SecureStore.setItemAsync("subsonicVersion", pingResponse.version);
-      await SecureStore.setItemAsync("serverUrl", targetUrl);
+      const winner = await pingFastestServer(candidateUrls);
+      const chosenUrl = winner.candidate.url;
+      const chosenLabel = winner.candidate.label ?? "server url";
+
+      await SecureStore.setItemAsync("subsonicVersion", winner.version);
+      await SecureStore.setItemAsync("serverUrl", chosenUrl);
+      await SecureStore.setItemAsync("serverUrlLabel", chosenLabel);
+      await SecureStore.setItemAsync(
+        "serverUrls",
+        JSON.stringify(candidateUrls),
+      );
+
+      setActiveServerUrl(chosenUrl);
+      setActiveServerLabel(chosenLabel);
+      setConfiguredAlternativeUrls(
+        candidateUrls
+          .map((c) => c.url)
+          .filter((u) => u !== chosenUrl),
+      );
       setConnectStage("login");
     } catch (error: any) {
       Alert.alert("ping failed", error.message || "could not ping");
@@ -103,9 +182,11 @@ export default function ConnectScreen() {
     }
     setLoading(true);
 
+    const loginUrl = activeServerUrl || serverUrl;
+
     try {
       await login({
-        serverUrl,
+        serverUrl: loginUrl,
         username,
         password,
       });
@@ -132,14 +213,45 @@ export default function ConnectScreen() {
         targetUrl = `https://${targetUrl}`;
       }
 
+      let candidateUrls: ServerUrlItem[] = [];
+      if (
+        Array.isArray(profile.server_urls) &&
+        profile.server_urls.length > 0
+      ) {
+        candidateUrls = profile.server_urls;
+      } else if (
+        Array.isArray(profile.alternative_server_urls) &&
+        profile.alternative_server_urls.length > 0
+      ) {
+        candidateUrls = [
+          { url: targetUrl, label: "server url" },
+          ...profile.alternative_server_urls.map((alt, i) => ({
+            url: /^https?:\/\//i.test(alt.trim())
+              ? alt.trim()
+              : `https://${alt.trim()}`,
+            label: `alternative url ${i + 1}`,
+          })),
+        ];
+      } else {
+        candidateUrls = [{ url: targetUrl, label: "server url" }];
+      }
+
       setImporting(true);
 
-      const pingResponse = await ping(targetUrl);
-      await SecureStore.setItemAsync("subsonicVersion", pingResponse.version);
-      await SecureStore.setItemAsync("serverUrl", targetUrl);
+      const winner = await pingFastestServer(candidateUrls);
+      await SecureStore.setItemAsync("subsonicVersion", winner.version);
+      await SecureStore.setItemAsync("serverUrl", winner.candidate.url);
+      await SecureStore.setItemAsync(
+        "serverUrlLabel",
+        winner.candidate.label ?? "server url",
+      );
+      await SecureStore.setItemAsync(
+        "serverUrls",
+        JSON.stringify(candidateUrls),
+      );
 
       await login({
-        serverUrl: targetUrl,
+        serverUrl: winner.candidate.url,
         username: profile.username,
         password: profile.password,
       });
@@ -212,12 +324,23 @@ export default function ConnectScreen() {
     const demoPass = "demo";
 
     try {
-      const pingResponse = await ping(demoUrl);
-      await SecureStore.setItemAsync("subsonicVersion", pingResponse.version);
-      await SecureStore.setItemAsync("serverUrl", demoUrl);
+      const demoCandidates: ServerUrlItem[] = [
+        { url: demoUrl, label: "server url" },
+      ];
+      const winner = await pingFastestServer(demoCandidates);
+      await SecureStore.setItemAsync("subsonicVersion", winner.version);
+      await SecureStore.setItemAsync("serverUrl", winner.candidate.url);
+      await SecureStore.setItemAsync(
+        "serverUrlLabel",
+        winner.candidate.label ?? "server url",
+      );
+      await SecureStore.setItemAsync(
+        "serverUrls",
+        JSON.stringify(demoCandidates),
+      );
 
       await login({
-        serverUrl: demoUrl,
+        serverUrl: winner.candidate.url,
         username: demoUser,
         password: demoPass,
       });
@@ -253,9 +376,7 @@ export default function ConnectScreen() {
     loading ||
     importing ||
     demoLoading ||
-    !serverUrl.trim() ||
-    serverUrl.trim() === "https://" ||
-    serverUrl.trim() === "http://";
+    (!hasValidPrimaryUrl && !hasValidAlternativeUrl);
 
   return (
     <Surface style={connectStyles.page}>
@@ -337,6 +458,47 @@ export default function ConnectScreen() {
                   )
                 }
               />
+
+              {alternativeUrls.map((altUrl, index) => (
+                <TextInput
+                  key={`alt-url-${index}`}
+                  mode="outlined"
+                  label={`alternative url ${index + 1}`}
+                  value={altUrl}
+                  onChangeText={(text) => handleUpdateAlternativeUrl(index, text)}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="url"
+                  textContentType="URL"
+                  keyboardType="url"
+                  returnKeyType="go"
+                  onSubmitEditing={handlePing}
+                  left={<TextInput.Icon icon="server-network" />}
+                  right={
+                    <TextInput.Icon
+                      icon="trash-can-outline"
+                      onPress={() => handleRemoveAlternativeUrl(index)}
+                      accessibilityLabel="remove alternative url"
+                    />
+                  }
+                />
+              ))}
+
+              {canAddAlternativeUrl && (
+                <Button
+                  mode="text"
+                  icon="plus"
+                  compact
+                  style={connectStyles.addAlternativeButton}
+                  onPress={handleAddAlternativeUrl}
+                  disabled={loading || importing || demoLoading}
+                >
+                  {alternativeUrls.length === 0
+                    ? "add alternative url"
+                    : "add another alternative url"}
+                </Button>
+              )}
+
               <Button
                 mode="contained"
                 onPress={handlePing}
@@ -357,23 +519,40 @@ export default function ConnectScreen() {
             </>
           ) : (
             <>
-              <View style={connectStyles.serverInfoRow}>
-                <Icon
-                  source="server"
-                  size={18}
-                  color={theme.colors.onSurfaceVariant}
-                />
-                <Text
-                  variant="bodySmall"
-                  numberOfLines={1}
-                  ellipsizeMode="middle"
-                  style={[
-                    connectStyles.serverInfoText,
-                    { color: theme.colors.onSurfaceVariant },
-                  ]}
-                >
-                  {serverUrl}
-                </Text>
+              <View style={connectStyles.serverInfoContainer}>
+                <View style={connectStyles.serverInfoRow}>
+                  <Icon
+                    source="server"
+                    size={18}
+                    color={theme.colors.onSurfaceVariant}
+                  />
+                  <Text
+                    variant="bodySmall"
+                    numberOfLines={1}
+                    ellipsizeMode="middle"
+                    style={[
+                      connectStyles.serverInfoText,
+                      { color: theme.colors.onSurfaceVariant },
+                    ]}
+                  >
+                    {activeServerLabel
+                      ? `${activeServerLabel} (${activeServerUrl || serverUrl})`
+                      : activeServerUrl || serverUrl}
+                  </Text>
+                </View>
+                {configuredAlternativeUrls.length > 0 && (
+                  <Text
+                    variant="labelSmall"
+                    style={{
+                      color: theme.colors.onSurfaceVariant,
+                      paddingLeft: 26,
+                    }}
+                  >
+                    {configuredAlternativeUrls.length === 1
+                      ? "+ 1 alternative url configured"
+                      : `+ ${configuredAlternativeUrls.length} alternative urls configured`}
+                  </Text>
+                )}
               </View>
 
               <TextInput
