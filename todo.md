@@ -53,6 +53,22 @@ upgrading users from previous versions require automated data migration and clea
 - [x] **bulk offline song caching**
   - verified: bulk downloading of albums and playlists with progress and cancellation via [`components/BulkSongCacheButton.tsx`](./components/BulkSongCacheButton.tsx).
 
+- [ ] **resumable playback / mini player state after notification dismissal**
+  - **context**: tapping the close icon on the android media notification stops the native playback service. when returning to the app, the mini player remains visible, but tapping play fails to resume playback.
+  - **task**: audit player state lifecycle when the notification is closed by the user. either make the player resumable (re-instantiating the audio session from current track state upon play), or automatically dismiss/hide the mini player when playback is closed.
+
+- [ ] **audio focus ducking & transient loss recovery (high priority)**
+  - **context**: while `setHandleAudioBecomingNoisy(true)` handles headphone disconnections, transient audio focus losses (such as turn-by-turn navigation prompts, incoming alarms/notifications, and phone calls) require explicit ducking and pause/resume logic in the native playback service.
+  - **task**: audit audio focus transient vs exclusive loss in `AudioPlaybackService.kt`. duck audio volume during transient loss and cleanly pause and resume upon phone call completion.
+
+- [ ] **sleep timer gradual volume fade-out (low priority)**
+  - **context**: [`services/sleepTimer.ts`](./services/sleepTimer.ts) pauses playback abruptly when the timer expires, which can startle a sleeping user.
+  - **task**: smoothly ramp audio volume down over the final 30–60 seconds prior to triggering the pause executor.
+
+- [ ] **playback speed / rate controls (low priority)**
+  - **context**: listeners of audiobooks, podcasts, or lecture tracks on navidrome currently lack playback speed options.
+  - **task**: expose variable playback speed options (0.75x, 1.0x, 1.25x, 1.5x, 2.0x) in the player controls using exoplayer's `setPlaybackSpeed()`.
+
 ---
 
 ## 3. library, playlists & navigation
@@ -79,6 +95,26 @@ upgrading users from previous versions require automated data migration and clea
     - make artist name clickable &rarr; routes directly to `/library/artist/[id]`.
     - make album name clickable &rarr; routes directly to `/library/album/[id]`.
 
+- [ ] **offline filter in search (`app/(main)/search.tsx`)**
+  - **context**: search queries songs, albums, and artists in local sqlite, but lacks a quick filter for content available offline.
+  - **task**: add an "available offline" filter chip/toggle on the search screen to filter results strictly to cached media.
+
+- [ ] **pending scrobbles screen**
+  - **context**: offline plays are queued in sqlite via [`services/scrobbleQueue.ts`](./services/scrobbleQueue.ts) until an internet connection is restored.
+  - **task**: create a dedicated screen in library/settings to view pending scrobbles, display attempt counts and sync status, and allow manual sync triggering or individual deletion.
+
+- [ ] **starred / favorites screen (`app/(main)/library/starred.tsx`) (medium priority)**
+  - **context**: star/unstar api operations exist, but there is no dedicated destination in the library tab to browse all favorited songs, albums, or artists in one place.
+  - **task**: create `app/(main)/library/starred.tsx` with tabs/filters for starred songs, albums, and artists, integrated with subsonic `getStarred` and local sqlite.
+
+- [ ] **pull-to-refresh on library screens (medium priority)**
+  - **context**: browsing screens ([`app/(main)/library/songs.tsx`](./app/(main)/library/songs.tsx), [`albums.tsx`](./app/(main)/library/albums.tsx), [`artists.tsx`](./app/(main)/library/artists.tsx), [`playlists.tsx`](./app/(main)/library/playlists.tsx)) currently require opening the dedicated sync page to refresh.
+  - **task**: add pull-to-refresh support across library list screens to trigger a local sqlite re-query or background delta sync.
+
+- [ ] **recent search history (low priority)**
+  - **context**: [`app/(main)/search.tsx`](./app/(main)/search.tsx) displays an empty view when the search query is blank.
+  - **task**: store recent search terms in sqlite and display them as tappable chips with a "clear recent searches" option when the search bar is active.
+
 ---
 
 ## 4. settings, home customization & changelog
@@ -92,8 +128,15 @@ upgrading users from previous versions require automated data migration and clea
     - [x] **settings access**: make the version number in settings clickable to show the full changelog modal with current version open and previous versions in closed accordions ([`components/ChangelogModal.tsx`](./components/ChangelogModal.tsx)).
     - [x] **first-launch post-update**: detect version code increase on launch and display a "what's new" changelog modal automatically once ([`app/_layout.tsx`](./app/_layout.tsx)).
 
-- [ ] **continuous ui/ux iteration**
-  - **task**: ongoing refinement of tactile feedback, padding consistency, dark mode contrast, accessibility labels, and touch targets across all screens.
+- [ ] **continuous ui/ux & interaction refinements**
+  - **task**: ongoing refinement of tactile haptic feedback on actions, spacing and typography consistency across device sizes, dark mode contrast, smooth route animations, and accessible touch targets.
+
+- [ ] **app performance & render optimization**
+  - **context**: large music libraries (thousands of songs/albums) can experience frame drops during fast scrolling, view transitions, or image loading spikes.
+  - **task**:
+    - profile and optimize list rendering across library and search screens (`getItemLayout`, window size tuning, row memoization).
+    - optimize memory footprint and image cache pre-warming with `expo-image`.
+    - minimize redundant react re-renders triggered by high-frequency player state and download progress updates.
 
 ---
 
@@ -115,6 +158,30 @@ upgrading users from previous versions require automated data migration and clea
   - **task**:
     - show non-blocking snackbars when an action requires internet (e.g. streaming an uncached song or triggering manual library sync while disconnected).
     - ensure no intrusive blocking modal or unwanted global state flips occur during transient connection drops.
+
+- [ ] **offline user experience & state transitions (when app goes offline)**
+  - **context**: when network drops (subways, flights, dead zones), the app needs a cohesive, predictable lifecycle based on what the user is currently doing:
+    - **mid-stream playback interruption**: if an uncached stream drops mid-song, gracefully pause with a clear inline retry indicator or offer to skip to the next available cached song in queue, rather than failing silently or crashing exoplayer.
+    - **library browsing & affordances**: visually differentiate cached vs uncached content while disconnected (e.g. dimming uncached rows or providing a quick one-tap toggle to filter to offline-only media).
+    - **offline mutation queueing**: queue user actions taken offline (starring, ratings, scrobbles, playlist additions) in local sqlite and automatically replay them when connection is restored.
+    - **download queue pausing & auto-resume**: pause in-flight downloads cleanly on connection drop without corrupting active cache files, and resume automatically when network connectivity is re-established.
+    - **reconnection auto-recovery**: smoothly reconnect, ping fallback urls if needed, and flush pending scrobbles/mutations in the background without ui stutters or interrupting active audio playback.
+
+- [ ] **persist album art for offline cached songs**
+  - **context**: when songs are cached for offline playback via [`services/songCache.ts`](./services/songCache.ts), the audio stream is saved to disk, but album artwork is not explicitly stored in permanent offline storage for expo-image, causing missing covers offline.
+  - **task**: explicitly download and persist album cover art alongside cached songs to ensure artwork is always available offline.
+
+- [ ] **storage breakdown & cache management screen (medium priority)**
+  - **context**: users can toggle auto-cache limits in settings, but there is no screen showing how much disk space is consumed by manual downloads, auto-cache, album art, or database data, nor any way to delete cached albums/artists without logging out.
+  - **task**: add a dedicated storage management view in settings or library showing disk usage breakdown by artist/album, sorted by size, with bulk prune/delete actions.
+
+- [ ] **download over wi-fi only toggle (low priority)**
+  - **context**: bulk caching large playlists or discographies over cellular data can unintentionally drain user data allowances.
+  - **task**: add a setting (`"download only on wi-fi"`) that pauses queued offline caching when connected via cellular networks.
+
+- [ ] **incremental / delta library sync**
+  - **context**: [`client_app_sync()`](./services/api.ts) currently pulls the entire library during sync operations, which can be slow on large collections.
+  - **task**: verify and implement delta synchronization using subsonic `getScanStatus` / server scan timestamps to fetch only modified albums and tracks since the last sync.
 
 ---
 
