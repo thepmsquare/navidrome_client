@@ -1,11 +1,12 @@
 import React from "react";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import { IconButton } from "react-native-paper";
 import renderer from "react-test-renderer";
 
 import DownloadQueueScreen from "@/app/(main)/library/queue";
 import { getCoverArtBaseUrl } from "@/services/api";
 import { getDownloadQueueState, getSongById, getSongsByIds } from "@/services/db";
+import { isNotificationPermissionGranted } from "@/services/permissions";
 import {
   cancelSongCaching,
   dequeuePendingSong,
@@ -25,7 +26,7 @@ jest.mock("expo-router", () => ({
     back: mockBack,
     push: jest.fn(),
   }),
-  useFocusEffect: jest.fn(),
+  useFocusEffect: (cb: any) => require("react").useEffect(cb, []),
 }));
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -61,6 +62,10 @@ jest.mock("@/services/songCache", () => ({
       progressCallback = null;
     };
   }),
+}));
+
+jest.mock("@/services/permissions", () => ({
+  isNotificationPermissionGranted: jest.fn().mockResolvedValue(true),
 }));
 
 const mockSongs: Child[] = [
@@ -275,6 +280,43 @@ describe("DownloadQueueScreen", () => {
     renderer.act(() => {
       component.unmount();
     });
+  });
+
+  it("renders notifications disabled banner on android api >= 33 when permission is denied", async () => {
+    const originalOS = Platform.OS;
+    const originalVersionDesc = Object.getOwnPropertyDescriptor(
+      Platform,
+      "Version",
+    );
+    Platform.OS = "android";
+    Object.defineProperty(Platform, "Version", {
+      value: 33,
+      configurable: true,
+      writable: true,
+    });
+    (isNotificationPermissionGranted as any).mockResolvedValue(false);
+
+    let component: any;
+    await renderer.act(async () => {
+      component = renderer.create(<DownloadQueueScreen />);
+    });
+    await renderer.act(async () => {
+      await Promise.resolve();
+    });
+
+    const texts = getAllTexts(component);
+    expect(texts).toContain(
+      "notifications are disabled. progress won't appear in your system drawer.",
+    );
+
+    renderer.act(() => {
+      component.unmount();
+    });
+
+    Platform.OS = originalOS;
+    if (originalVersionDesc) {
+      Object.defineProperty(Platform, "Version", originalVersionDesc);
+    }
   });
 });
 

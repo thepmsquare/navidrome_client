@@ -11,6 +11,8 @@
 
 - show connected url on stage 2 of connect screen and sync screen.
 - add pingFastestServer function to select fastest server from all available urls, also acts as a check if atleast any 1 is connected.
+- updates to android specific activity states.
+- new permission ask on download for notifications.
 
 ## 2.25.0+60
 
