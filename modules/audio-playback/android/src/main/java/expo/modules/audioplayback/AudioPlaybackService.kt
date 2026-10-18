@@ -4,7 +4,8 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.app.Service
+import androidx.media3.session.MediaSessionService
+import androidx.media3.session.MediaNotification
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -49,7 +50,19 @@ import java.security.MessageDigest
 import kotlin.math.min
 
 @OptIn(UnstableApi::class)
-class AudioPlaybackService : Service() {
+class AudioPlaybackService : MediaSessionService() {
+
+  override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
+    return mediaSession
+  }
+
+  override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
+    if (startInForegroundRequired && !isForegroundServiceStarted) {
+      startAsForegroundService()
+    } else {
+      updateNotification()
+    }
+  }
 
   interface PlaybackEventListener {
     fun onPlaybackStateChanged(status: Map<String, Any?>)
@@ -148,11 +161,12 @@ class AudioPlaybackService : Service() {
     setupReceiver()
   }
 
-  override fun onBind(intent: Intent?): IBinder {
-    return binder
+  override fun onBind(intent: Intent?): IBinder? {
+    return super.onBind(intent) ?: binder
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    super.onStartCommand(intent, flags, startId)
     when (intent?.action) {
       ACTION_PREV -> handlePrevious()
       ACTION_NEXT -> handleNext()
@@ -371,6 +385,7 @@ class AudioPlaybackService : Service() {
     player = exoPlayer
     forwardingPlayer = customPlayer
     mediaSession = session
+    addSession(session)
     notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
 
     updateSessionCustomLayout()
@@ -882,7 +897,10 @@ class AudioPlaybackService : Service() {
   private fun releasePlayer() {
     try {
       stopForegroundService()
-      mediaSession?.release()
+      mediaSession?.let {
+        removeSession(it)
+        it.release()
+      }
       mediaSession = null
       player?.release()
       player = null

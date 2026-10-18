@@ -1,12 +1,13 @@
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, FlatList, Pressable, StyleSheet, View } from "react-native";
+import { Alert, FlatList, Platform, Pressable, StyleSheet, View } from "react-native";
 import { Appbar, Avatar, IconButton, List, Surface, Text } from "react-native-paper";
 
 import { CircularProgressRing } from "@/components/CircularProgressRing";
 import { getCoverArtBaseUrl } from "@/services/api";
 import { getDownloadQueueState, getSongById, getSongsByIds } from "@/services/db";
+import { isNotificationPermissionGranted } from "@/services/permissions";
 import {
   cancelSongCaching,
   dequeuePendingSong,
@@ -97,7 +98,32 @@ export default function DownloadQueueScreen() {
     }
   }, [refreshSongs]);
 
-  useFocusEffect(refreshQueue);
+  const [notificationsDisabled, setNotificationsDisabled] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshQueue();
+      let active = true;
+      const check = async () => {
+        if (
+          Platform.OS === "android" &&
+          typeof Platform.Version === "number" &&
+          Platform.Version >= 33
+        ) {
+          const granted = await isNotificationPermissionGranted();
+          if (active) {
+            setNotificationsDisabled(!granted);
+          }
+        } else if (active) {
+          setNotificationsDisabled(false);
+        }
+      };
+      void check();
+      return () => {
+        active = false;
+      };
+    }, [refreshQueue]),
+  );
 
   useEffect(() => {
     getCoverArtBaseUrl()
@@ -181,6 +207,34 @@ export default function DownloadQueueScreen() {
         />
         <Appbar.Content title="download queue" />
       </Appbar.Header>
+
+      {notificationsDisabled ? (
+        <Surface
+          style={[
+            styles.bannerContainer,
+            { backgroundColor: theme.colors.surfaceVariant },
+          ]}
+          elevation={0}
+        >
+          <View style={styles.bannerRow}>
+            <IconButton
+              icon="bell-off-outline"
+              size={20}
+              iconColor={theme.colors.error}
+              style={styles.bannerIcon}
+            />
+            <Text
+              variant="bodySmall"
+              style={[
+                styles.bannerText,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
+            >
+              {"notifications are disabled. progress won't appear in your system drawer."}
+            </Text>
+          </View>
+        </Surface>
+      ) : null}
 
       {totalCount > 0 ? (
         <View style={styles.counterContainer} testID="download-queue-counter">
@@ -309,5 +363,26 @@ const styles = StyleSheet.create({
   },
   counterText: {
     fontWeight: "600",
+  },
+  bannerContainer: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  bannerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  bannerIcon: {
+    margin: 0,
+    marginRight: 4,
+  },
+  bannerText: {
+    flex: 1,
+    lineHeight: 18,
   },
 });

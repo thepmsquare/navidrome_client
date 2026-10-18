@@ -21,6 +21,7 @@ import {
   subscribeCacheQueue,
   tryStartNextDownload,
 } from "@/services/songCache";
+import { requestDownloadNotificationPermission } from "@/services/permissions";
 import {
   addQueueRequester,
   enqueuePendingDownload,
@@ -163,6 +164,7 @@ export function BulkSongCacheButton({
   };
 
   const handleStart = () => {
+    void requestDownloadNotificationPermission();
     const toEnqueue = songIds.filter(
       (id) => cacheEntries.get(id)?.cacheType !== SongCacheType.Manual,
     );

@@ -26,6 +26,7 @@ import {
   subscribeSongCache,
   subscribeSongCacheProgress,
 } from "@/services/songCache";
+import { requestDownloadNotificationPermission } from "@/services/permissions";
 import { SongCacheRow, SongCacheType, useAppTheme } from "@/types";
 
 export interface SongCacheButtonProps {
@@ -221,6 +222,8 @@ export function SongCacheButton({
       confirmCancelDownload();
       return;
     }
+
+    void requestDownloadNotificationPermission();
 
     try {
       setIsCaching(true);
