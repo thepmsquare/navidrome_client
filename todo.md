@@ -91,9 +91,11 @@ upgrading users from previous versions require automated data migration and clea
   - **task**: persist playlist songs into local sqlite during sync and cache on demand so playlist details open instantly and can be browsed offline.
 
 - [ ] **artist and album deep links across the app**
-  - **task**: audit all views displaying artist or album text ([`app/player.tsx`](./app/player.tsx), track list items, mini-player, queue):
-    - make artist name clickable &rarr; routes directly to `/library/artist/[id]`.
-    - make album name clickable &rarr; routes directly to `/library/album/[id]`.
+  - **context**: [`app/player.tsx`](./app/player.tsx) has deep links to artist and album pages, but other app surfaces display static text.
+  - **task**:
+    - [ ] **audit & surface mapping**: identify and document all views and components where artist or album names are displayed (e.g. [`components/MiniPlayer.tsx`](./components/MiniPlayer.tsx), [`app/(main)/library/songs.tsx`](./app/(main)/library/songs.tsx), [`app/album/[id].tsx`](./app/album/[id].tsx), [`app/(main)/library/albums.tsx`](./app/(main)/library/albums.tsx), [`app/(main)/library/queue.tsx`](./app/(main)/library/queue.tsx), search results, home sections). define touch target bounds and navigation targets (`/library/artist/[id]` and `/library/album/[id]`).
+    - [ ] **mini-player deep linking**: make artist text in [`components/MiniPlayer.tsx`](./components/MiniPlayer.tsx) navigate to artist detail without conflicting with main player expansion.
+    - [ ] **song & list rows deep linking**: wire pressable artist and album labels across song rows and album list cards.
 
 - [ ] **offline filter in search (`app/(main)/search.tsx`)**
   - **context**: search queries songs, albums, and artists in local sqlite, but lacks a quick filter for content available offline.
