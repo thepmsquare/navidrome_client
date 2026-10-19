@@ -153,7 +153,7 @@ upgrading users from previous versions require automated data migration and clea
     - [x] profile backup export and restore compatibility for `server_urls`.
     - [ ] auto fallback / failover logic on transport network failures (pending).
     - [ ] settings screen ui to view, add, reorder, test ping, and manually switch active server url (pending).
-    - [ ] backward compatibility / upgrade migration: existing users will have `serverUrl` in `SecureStore` but no `serverUrls` or `serverUrlLabel`. need a lightweight one-time startup check to backfill `serverUrls = [{ url, label: "server url" }]` and `serverUrlLabel = "server url"` to ensure future auto-failover and settings screens work seamlessly without requiring a re-login.
+    - [x] backward compatibility / upgrade migration: automated startup routine in [`app/_layout.tsx`](./app/_layout.tsx) backfills `serverUrls = [{ url, label: "server url" }]` and `serverUrlLabel = "server url"` for existing users who already have `serverUrl` in `SecureStore`.
 
 - [ ] **graceful offline error feedback**
   - **context**: cached songs play locally and library metadata is stored in sqlite. offline playback operates without network dependency.
