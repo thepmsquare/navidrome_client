@@ -12,6 +12,7 @@
     "android:release": "expo run:android --variant release",
     "lint": "expo lint",
     "lint:changelog": "node scripts/validate_changelog.js",
+    "postinstall": "node scripts/validate_changelog.js",
     "release:internal": "node scripts/release_internal.js",
     "test": "jest",
     "pretest": "node scripts/validate_changelog.js"
