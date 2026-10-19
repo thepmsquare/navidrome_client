@@ -29,15 +29,31 @@ export default function RootLayout() {
 
   useEffect(() => {
     async function checkToken() {
-      const serverUrl = await SecureStore.getItemAsync("serverUrl");
-      const subsonicVersion = await SecureStore.getItemAsync("subsonicVersion");
-      const username = await SecureStore.getItemAsync("username");
-      const password = await SecureStore.getItemAsync("password");
+      try {
+        const serverUrl = await SecureStore.getItemAsync("serverUrl");
+        const subsonicVersion = await SecureStore.getItemAsync("subsonicVersion");
+        const username = await SecureStore.getItemAsync("username");
+        const password = await SecureStore.getItemAsync("password");
 
-      setIsLoggedIn(
-        !!serverUrl && !!subsonicVersion && !!username && !!password,
-      );
-      setIsLoading(false);
+        const loggedIn =
+          !!serverUrl && !!subsonicVersion && !!username && !!password;
+        setIsLoggedIn(loggedIn);
+
+        if (loggedIn && serverUrl) {
+          const serverUrls = await SecureStore.getItemAsync("serverUrls");
+          if (!serverUrls) {
+            await SecureStore.setItemAsync(
+              "serverUrls",
+              JSON.stringify([{ url: serverUrl, label: "server url" }]),
+            );
+            await SecureStore.setItemAsync("serverUrlLabel", "server url");
+          }
+        }
+      } catch (e) {
+        console.error("failed to check token:", e);
+      } finally {
+        setIsLoading(false);
+      }
     }
 
     async function checkVersionCodeUpdate() {
