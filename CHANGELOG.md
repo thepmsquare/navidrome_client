@@ -1,6 +1,6 @@
 # changelog
 
-## unreleased
+## 2.26.0+61
 
 ### user release notes
 
@@ -13,6 +13,8 @@
 - add pingFastestServer function to select fastest server from all available urls, also acts as a check if atleast any 1 is connected.
 - updates to android specific activity states.
 - new permission ask on download for notifications.
+- untrack changelog.json asset.
+- migration for serverUrls in secure storage.
 
 ## 2.25.0+60
 

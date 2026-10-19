@@ -14,8 +14,7 @@ import {
 } from "react-native-paper";
 
 import { ConnectProgress } from "@/components/ConnectProgress";
-
-import { login, notifyAuthState, ping, pingFastestServer } from "@/services/api";
+import { login, notifyAuthState, pingFastestServer } from "@/services/api";
 import { pickProfileFile } from "@/services/backup";
 import {
   setAutoCacheEnabled,
@@ -163,9 +162,7 @@ export default function ConnectScreen() {
       setActiveServerUrl(chosenUrl);
       setActiveServerLabel(chosenLabel);
       setConfiguredAlternativeUrls(
-        candidateUrls
-          .map((c) => c.url)
-          .filter((u) => u !== chosenUrl),
+        candidateUrls.map((c) => c.url).filter((u) => u !== chosenUrl),
       );
       setConnectStage("login");
     } catch (error: any) {
@@ -465,7 +462,9 @@ export default function ConnectScreen() {
                   mode="outlined"
                   label={`alternative url ${index + 1}`}
                   value={altUrl}
-                  onChangeText={(text) => handleUpdateAlternativeUrl(index, text)}
+                  onChangeText={(text) =>
+                    handleUpdateAlternativeUrl(index, text)
+                  }
                   autoCapitalize="none"
                   autoCorrect={false}
                   autoComplete="url"
