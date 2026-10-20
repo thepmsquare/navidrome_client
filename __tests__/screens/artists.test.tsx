@@ -2,7 +2,7 @@ import React from "react";
 import renderer from "react-test-renderer";
 
 import ArtistsScreen from "@/app/(main)/library/artists";
-import { getCoverArtBaseUrl } from "@/services/api";
+import { client_app_sync, getCoverArtBaseUrl } from "@/services/api";
 import { getAllArtists, searchArtists } from "@/services/db";
 import { ArtistID3 } from "@/types";
 
@@ -44,6 +44,7 @@ jest.mock("expo-image", () => ({
 }));
 
 jest.mock("@/services/api", () => ({
+  client_app_sync: jest.fn().mockResolvedValue({}),
   getCoverArtBaseUrl: jest.fn(),
 }));
 
@@ -244,6 +245,30 @@ describe("ArtistsScreen", () => {
       (t: any) => t.props.children === "no artists found",
     );
     expect(emptyText).toBeDefined();
+
+    renderer.act(() => {
+      component.unmount();
+    });
+  });
+
+  it("triggers refresh when pulled down", async () => {
+    (getAllArtists as jest.Mock).mockReturnValue(mockArtists);
+
+    let component: any;
+    await renderer.act(async () => {
+      component = renderer.create(<ArtistsScreen />);
+    });
+
+    const { RefreshControl } = require("react-native");
+    const refreshControl = component.root.findByType(RefreshControl);
+    expect(refreshControl).toBeDefined();
+    expect(refreshControl.props.refreshing).toBe(false);
+
+    await renderer.act(async () => {
+      refreshControl.props.onRefresh();
+    });
+
+    expect(client_app_sync).toHaveBeenCalledWith(false);
 
     renderer.act(() => {
       component.unmount();

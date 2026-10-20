@@ -176,4 +176,22 @@ describe("SyncScreen", () => {
 
     expect(mockReplace).toHaveBeenCalledWith("/");
   });
+
+  it("triggers sync when pulled down", async () => {
+    let tree: any;
+    await act(async () => {
+      tree = renderer.create(<SyncScreen />);
+    });
+
+    const { RefreshControl } = require("react-native");
+    const refreshControl = tree.root.findByType(RefreshControl);
+    expect(refreshControl).toBeDefined();
+    expect(refreshControl.props.refreshing).toBe(false);
+
+    await act(async () => {
+      refreshControl.props.onRefresh();
+    });
+
+    expect(api.client_app_sync).toHaveBeenCalledWith(false);
+  });
 });

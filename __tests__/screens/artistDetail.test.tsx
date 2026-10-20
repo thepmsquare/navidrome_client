@@ -184,4 +184,27 @@ describe("ArtistDetailScreen", () => {
     );
     expect(emptyTexts.length).toBeGreaterThan(0);
   });
+
+  it("triggers refresh when pulled down", async () => {
+    (getArtistById as jest.Mock).mockReturnValue(mockArtist);
+    (getArtistInfo as jest.Mock).mockResolvedValue({
+      biography: "English rock band",
+    });
+
+    let tree: renderer.ReactTestRenderer | null = null;
+    await renderer.act(async () => {
+      tree = renderer.create(<ArtistDetailScreen />);
+    });
+
+    const { RefreshControl } = require("react-native");
+    const refreshControl = tree!.root.findByType(RefreshControl);
+    expect(refreshControl).toBeDefined();
+    expect(refreshControl.props.refreshing).toBe(false);
+
+    await renderer.act(async () => {
+      refreshControl.props.onRefresh();
+    });
+
+    expect(getArtistInfo).toHaveBeenCalled();
+  });
 });

@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, ScrollView, TouchableOpacity, View } from "react-native";
+import { FlatList, RefreshControl, ScrollView, TouchableOpacity, View } from "react-native";
 import {
   Appbar,
   Avatar,
@@ -57,6 +57,7 @@ export default function ArtistDetailScreen() {
   const [artistInfo, setArtistInfo] = useState<ArtistInfo | null>(null);
   const [isBioExpanded, setIsBioExpanded] = useState(false);
   const [isStarring, setIsStarring] = useState(false);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
   const [cacheEntries, setCacheEntries] = useState<Map<string, SongCacheRow>>(
     () => getAllSongCacheEntries(),
@@ -115,6 +116,22 @@ export default function ArtistDetailScreen() {
           console.warn("failed to fetch artist info from api:", err),
         );
     }
+  }, [id]);
+
+  const onRefresh = useCallback(() => {
+    if (!id) return;
+    setRefreshing(true);
+    setArtist(getArtistById(id));
+    getArtistInfo(id)
+      .then((info) => {
+        if (info) setArtistInfo(info);
+      })
+      .catch((err) => {
+        console.warn("failed to refresh artist info:", err);
+      })
+      .finally(() => {
+        setRefreshing(false);
+      });
   }, [id]);
 
   const handleToggleStar = async () => {
@@ -196,6 +213,15 @@ export default function ArtistDetailScreen() {
         data={songs}
         keyExtractor={(item) => item.id}
         contentContainerStyle={artistDetailStyles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+            progressBackgroundColor={theme.colors.surfaceContainerHighest}
+          />
+        }
         ListHeaderComponent={
           <View>
             <View style={artistDetailStyles.headerInfoContainer}>

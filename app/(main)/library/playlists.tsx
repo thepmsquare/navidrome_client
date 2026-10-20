@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
-import { FlatList, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { FlatList, RefreshControl, View } from "react-native";
 import {
   Appbar,
   Avatar,
@@ -14,10 +14,10 @@ import {
   Text,
 } from "react-native-paper";
 
-import { getCoverArtBaseUrl } from "@/services/api";
-import { getAllPlaylists, searchPlaylists } from "@/services/db";
+import { getCoverArtBaseUrl, getPlaylists } from "@/services/api";
+import { getAllPlaylists, searchPlaylists, upsertPlaylistsBatch } from "@/services/db";
 import { playlistsStyles } from "@/stylesheets";
-import { Playlist } from "@/types";
+import { Playlist, useAppTheme } from "@/types";
 
 type SortKey =
   | "name"
@@ -47,7 +47,9 @@ const SORT_OPTIONS: SortOption[] = [
 
 export default function PlaylistsScreen() {
   const router = useRouter();
-  const [playlists] = useState<Playlist[]>(() => getAllPlaylists());
+  const theme = useAppTheme();
+  const [playlists, setPlaylists] = useState<Playlist[]>(() => getAllPlaylists());
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
@@ -55,6 +57,23 @@ export default function PlaylistsScreen() {
   const [getArtUrl, setGetArtUrl] = useState<
     ((id?: string | null) => string | null) | null
   >(null);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    getPlaylists()
+      .then((serverPlaylists) => {
+        if (serverPlaylists && serverPlaylists.length > 0) {
+          upsertPlaylistsBatch(serverPlaylists);
+        }
+        setPlaylists(getAllPlaylists());
+      })
+      .catch((err) => {
+        console.error("failed to refresh playlists:", err);
+      })
+      .finally(() => {
+        setRefreshing(false);
+      });
+  }, []);
 
   useEffect(() => {
     getCoverArtBaseUrl()
@@ -157,6 +176,15 @@ export default function PlaylistsScreen() {
         data={processedPlaylists}
         keyExtractor={(item) => item.id}
         contentContainerStyle={playlistsStyles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+            progressBackgroundColor={theme.colors.surfaceContainerHighest}
+          />
+        }
         ListEmptyComponent={
           <View style={playlistsStyles.emptyContainer}>
             <Text variant="bodyLarge">no playlists found</Text>

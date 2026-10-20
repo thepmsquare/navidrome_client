@@ -62,10 +62,10 @@ export function RandomAlbumsSection() {
           random albums
         </Text>
         <IconButton
-          icon="refresh"
+          icon="shuffle-variant"
           size={20}
           onPress={handleRefresh}
-          accessibilityLabel="refresh random albums"
+          accessibilityLabel="shuffle random albums"
         />
       </View>
 

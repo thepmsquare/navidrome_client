@@ -133,4 +133,28 @@ describe("AvailableOfflineScreen", () => {
       component.unmount();
     });
   });
+
+  it("triggers refresh when pulled down", async () => {
+    (getCachedSongs as jest.Mock).mockReturnValue(mockSongs);
+
+    let component: any;
+    await renderer.act(async () => {
+      component = renderer.create(<AvailableOfflineScreen />);
+    });
+
+    const { RefreshControl } = require("react-native");
+    const refreshControl = component.root.findByType(RefreshControl);
+    expect(refreshControl).toBeDefined();
+    expect(refreshControl.props.refreshing).toBe(false);
+
+    await renderer.act(async () => {
+      refreshControl.props.onRefresh();
+    });
+
+    expect(getCachedSongs).toHaveBeenCalled();
+
+    renderer.act(() => {
+      component.unmount();
+    });
+  });
 });

@@ -2,8 +2,14 @@ import React from "react";
 import renderer from "react-test-renderer";
 
 import AlbumDetailScreen from "@/app/(main)/library/album/[id]";
-import { getCoverArtBaseUrl } from "@/services/api";
-import { getAlbumById, getAllSongCacheEntries, getSongsByAlbumId } from "@/services/db";
+import { getAlbum, getCoverArtBaseUrl } from "@/services/api";
+import {
+  getAlbumById,
+  getAllSongCacheEntries,
+  getSongsByAlbumId,
+  upsertAlbumsBatch,
+  upsertSongsBatch,
+} from "@/services/db";
 import { playPlaylist } from "@/services/player";
 import { subscribeSongCache } from "@/services/songCache";
 import { AlbumID3, Child } from "@/types";
@@ -43,6 +49,7 @@ jest.mock("@/components/MiniPlayer", () => ({
 }));
 
 jest.mock("@/services/api", () => ({
+  getAlbum: jest.fn(),
   getCoverArtBaseUrl: jest.fn(),
   isSyncInProgress: jest.fn().mockReturnValue(false),
   subscribeSyncState: jest.fn().mockReturnValue(jest.fn()),
@@ -54,6 +61,8 @@ jest.mock("@/services/db", () => ({
   getSongsByAlbumId: jest.fn(),
   getAllSongCacheEntries: jest.fn(() => new Map()),
   getSyncMeta: jest.fn().mockReturnValue("2026-10-07T12:00:00.000Z"),
+  upsertAlbumsBatch: jest.fn(),
+  upsertSongsBatch: jest.fn(),
 }));
 
 jest.mock("@/services/songCache", () => ({
@@ -187,6 +196,36 @@ describe("AlbumDetailScreen", () => {
     });
 
     expect(mockReplace).toHaveBeenCalledWith("/(main)");
+
+    renderer.act(() => {
+      component.unmount();
+    });
+  });
+
+  it("triggers refresh when pulled down", async () => {
+    (getAlbumById as jest.Mock).mockReturnValue(mockAlbum);
+    (getSongsByAlbumId as jest.Mock).mockReturnValue(mockSongs);
+    (getAlbum as jest.Mock).mockResolvedValue({
+      ...mockAlbum,
+      song: mockSongs,
+    });
+
+    let component: any;
+    await renderer.act(async () => {
+      component = renderer.create(<AlbumDetailScreen />);
+    });
+
+    const { RefreshControl } = require("react-native");
+    const refreshControl = component.root.findByType(RefreshControl);
+    expect(refreshControl).toBeDefined();
+    expect(refreshControl.props.refreshing).toBe(false);
+
+    await renderer.act(async () => {
+      refreshControl.props.onRefresh();
+    });
+
+    expect(getAlbum).toHaveBeenCalledWith("album-1");
+    expect(upsertSongsBatch).toHaveBeenCalledWith(mockSongs);
 
     renderer.act(() => {
       component.unmount();

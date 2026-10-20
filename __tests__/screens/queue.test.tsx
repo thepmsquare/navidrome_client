@@ -318,5 +318,32 @@ describe("DownloadQueueScreen", () => {
       Object.defineProperty(Platform, "Version", originalVersionDesc);
     }
   });
+
+  it("triggers refresh when pulled down", async () => {
+    (getDownloadQueueState as jest.Mock).mockReturnValue({
+      active: null,
+      pending: [],
+    });
+
+    let component: any;
+    await renderer.act(async () => {
+      component = renderer.create(<DownloadQueueScreen />);
+    });
+
+    const { RefreshControl } = require("react-native");
+    const refreshControl = component.root.findByType(RefreshControl);
+    expect(refreshControl).toBeDefined();
+    expect(refreshControl.props.refreshing).toBe(false);
+
+    await renderer.act(async () => {
+      refreshControl.props.onRefresh();
+    });
+
+    expect(getDownloadQueueState).toHaveBeenCalled();
+
+    renderer.act(() => {
+      component.unmount();
+    });
+  });
 });
 

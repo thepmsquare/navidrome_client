@@ -258,7 +258,7 @@ describe("HomeScreen", () => {
     expect(mockPlayPlaylist).toHaveBeenCalledWith(mockRandomTracks, 0);
   });
 
-  it("refreshes random tracks when refresh button is pressed", async () => {
+  it("refreshes random tracks when shuffle button is pressed", async () => {
     let tree: any;
     await renderer.act(async () => {
       tree = renderer.create(<HomeScreen />);
@@ -266,7 +266,7 @@ describe("HomeScreen", () => {
 
     const root = tree.root;
     const { IconButton } = require("react-native-paper");
-    const refreshBtn = root.findByProps({ accessibilityLabel: "refresh random tracks" });
+    const refreshBtn = root.findByProps({ accessibilityLabel: "shuffle random tracks" });
     expect(refreshBtn).toBeDefined();
 
     const refreshedTracks = [

@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, View } from "react-native";
+import { FlatList, RefreshControl, View } from "react-native";
 import {
   Appbar,
   Avatar,
@@ -15,11 +15,11 @@ import {
 } from "react-native-paper";
 
 import { SongCacheButton } from "@/components/SongCacheButton";
-import { getCoverArtBaseUrl } from "@/services/api";
+import { client_app_sync, getCoverArtBaseUrl } from "@/services/api";
 import { getAllSongCacheEntries, getAllSongs, searchSongs } from "@/services/db";
 import { playPlaylist } from "@/services/player";
 import { songsStyles } from "@/stylesheets";
-import { Child, SongCacheRow } from "@/types";
+import { Child, SongCacheRow, useAppTheme } from "@/types";
 
 type SortKey =
   | "title"
@@ -55,7 +55,9 @@ const SORT_OPTIONS: SortOption[] = [
 
 export default function SongsScreen() {
   const router = useRouter();
-  const [songs] = useState<Child[]>(() => getAllSongs());
+  const theme = useAppTheme();
+  const [songs, setSongs] = useState<Child[]>(() => getAllSongs());
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("title");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
@@ -69,9 +71,22 @@ export default function SongsScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      setSongs(getAllSongs());
       setCacheEntries(getAllSongCacheEntries());
     }, []),
   );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    client_app_sync(false)
+      .catch((err) => {
+        console.error("failed to refresh songs:", err);
+      })
+      .finally(() => {
+        setSongs(getAllSongs());
+        setRefreshing(false);
+      });
+  }, []);
 
   useEffect(() => {
     getCoverArtBaseUrl()
@@ -172,6 +187,15 @@ export default function SongsScreen() {
         data={processedSongs}
         keyExtractor={(item) => item.id}
         contentContainerStyle={songsStyles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+            progressBackgroundColor={theme.colors.surfaceContainerHighest}
+          />
+        }
         ListEmptyComponent={
           <View style={songsStyles.emptyContainer}>
             <Text variant="bodyLarge">no songs found</Text>

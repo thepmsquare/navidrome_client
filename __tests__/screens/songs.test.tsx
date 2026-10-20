@@ -2,7 +2,7 @@ import React from "react";
 import renderer from "react-test-renderer";
 
 import SongsScreen from "@/app/(main)/library/songs";
-import { getCoverArtBaseUrl } from "@/services/api";
+import { client_app_sync, getCoverArtBaseUrl } from "@/services/api";
 import {
   getAllSongCacheEntries,
   getAllSongs,
@@ -34,6 +34,7 @@ jest.mock("@/components/SongCacheButton", () => ({
 }));
 
 jest.mock("@/services/api", () => ({
+  client_app_sync: jest.fn().mockResolvedValue({}),
   getCoverArtBaseUrl: jest.fn(),
 }));
 
@@ -135,6 +136,30 @@ describe("SongsScreen", () => {
     });
 
     expect(playPlaylist).toHaveBeenCalledWith(mockSongs, 0);
+
+    renderer.act(() => {
+      component.unmount();
+    });
+  });
+
+  it("triggers refresh when pulled down", async () => {
+    (getAllSongs as jest.Mock).mockReturnValue(mockSongs);
+
+    let component: any;
+    await renderer.act(async () => {
+      component = renderer.create(<SongsScreen />);
+    });
+
+    const { RefreshControl } = require("react-native");
+    const refreshControl = component.root.findByType(RefreshControl);
+    expect(refreshControl).toBeDefined();
+    expect(refreshControl.props.refreshing).toBe(false);
+
+    await renderer.act(async () => {
+      refreshControl.props.onRefresh();
+    });
+
+    expect(client_app_sync).toHaveBeenCalledWith(false);
 
     renderer.act(() => {
       component.unmount();

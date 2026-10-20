@@ -1,7 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Animated, Easing, ScrollView, View } from "react-native";
+import { Animated, Easing, RefreshControl, ScrollView, View } from "react-native";
 import { Button, Icon, ProgressBar, Surface, Text } from "react-native-paper";
 
 import {
@@ -205,6 +205,10 @@ export default function SyncScreen() {
     }
   }
 
+  const onPullRefresh = useCallback(() => {
+    runSync(false);
+  }, [runSync]);
+
   return (
     <Surface style={{ flex: 1 }}>
       <ScrollView
@@ -215,6 +219,15 @@ export default function SyncScreen() {
           padding: spacing.xl,
           gap: spacing.xl,
         }}
+        refreshControl={
+          <RefreshControl
+            refreshing={phase === "syncing"}
+            onRefresh={onPullRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+            progressBackgroundColor={theme.colors.surfaceContainerHighest}
+          />
+        }
       >
         {/* icon */}
         <Animated.View style={{ transform: [{ rotate: spin }] }}>

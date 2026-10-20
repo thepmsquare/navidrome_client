@@ -1,5 +1,14 @@
 # changelog
 
+## 2.27.0+62
+
+### user release notes
+
+- add pull to refresh on the following screens: home (updated logic), library (all nested screens), sync
+- change the icon on home screen for random albums and random tracks sections to shuffle.
+
+### internal notes
+
 ## 2.26.0+61
 
 ### user release notes
