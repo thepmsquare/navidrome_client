@@ -108,9 +108,14 @@ upgrading users from previous versions require automated data migration and clea
   - **context**: star/unstar api operations exist, but there is no dedicated destination in the library tab to browse all favorited songs, albums, or artists in one place.
   - **task**: create `app/(main)/library/starred.tsx` with tabs/filters for starred songs, albums, and artists, integrated with subsonic `getStarred` and local sqlite.
 
-- [ ] **pull-to-refresh on library screens (medium priority)**
-  - **context**: browsing screens ([`app/(main)/library/songs.tsx`](<./app/(main)/library/songs.tsx>), [`albums.tsx`](<./app/(main)/library/albums.tsx>), [`artists.tsx`](<./app/(main)/library/artists.tsx>), [`playlists.tsx`](<./app/(main)/library/playlists.tsx>)) currently require opening the dedicated sync page to refresh.
-  - **task**: add pull-to-refresh support across library list screens to trigger a local sqlite re-query or background delta sync.
+- [x] **pull-to-refresh across screens**
+  - **task**:
+    - added `RefreshControl` across detail screens ([`app/album/[id].tsx`](./app/album/[id].tsx), [`app/artist/[id].tsx`](./app/artist/[id].tsx)), library collection screens ([`app/(main)/library/songs.tsx`](<./app/(main)/library/songs.tsx>), [`albums.tsx`](<./app/(main)/library/albums.tsx>), [`artists.tsx`](<./app/(main)/library/artists.tsx>), [`playlists.tsx`](<./app/(main)/library/playlists.tsx>)), and utility screens ([`offline.tsx`](<./app/(main)/library/offline.tsx>), [`queue.tsx`](<./app/(main)/library/queue.tsx>), [`sync.tsx`](<./app/(main)/sync.tsx>)).
+    - updated home random sections iconography from `refresh` to `shuffle-variant` to distinguish local reshuffling from network sync.
+
+- [ ] **audit & placement of cache button (make available offline)**
+  - **context**: [`components/SongCacheButton.tsx`](./components/SongCacheButton.tsx) and [`components/BulkSongCacheButton.tsx`](./components/BulkSongCacheButton.tsx) allow saving songs and collections offline.
+  - **task**: identify and document all places and surfaces across the app where the cache button (make available offline button) should be displayed (e.g. song list items, album details, playlist details, artist details, now playing full player, search results).
 
 - [ ] **recent search history (low priority)**
   - **context**: [`app/(main)/search.tsx`](<./app/(main)/search.tsx>) displays an empty view when the search query is blank.
