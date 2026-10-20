@@ -11,7 +11,6 @@ upgrading users from previous versions require automated data migration and clea
 - [ ] **credentials & session auto-migration**
   - **context**: legacy builds stored credentials in android `SharedPreferences` (`flutter.server_url`, `flutter.username`, `flutter.password`). v2 uses [`expo-secure-store`](./services/backup.ts).
   - **task**: create a one-time startup routine that checks for legacy shared preferences, imports credentials into secure store, and marks migration complete to avoid forcing users to re-login.
-  
 - [ ] **orphaned cache & media cleanup**
   - **context**: legacy downloaded files were saved in `<app_dir>/app_flutter/offline/{tracks,covers,lyrics,meta}`. v2 stores cache under [`Paths.document + "/manual-cache"`](./services/songCache.ts) and `"/auto-cache"`.
   - **task**: detect legacy `app_flutter/offline` directories on app launch and provide an automated or prompt-based cleanup to reclaim disk space.
@@ -32,7 +31,7 @@ upgrading users from previous versions require automated data migration and clea
   - **task**: update native audio playback module to pre-buffer the upcoming `MediaItem` into exoplayer's native playlist sequence to eliminate track gaps.
 
 - [ ] **playback queue management & ui**
-  - **context**: currently only a download queue exists in [`app/(main)/library/queue.tsx`](./app/(main)/library/queue.tsx).
+  - **context**: currently only a download queue exists in [`app/(main)/library/queue.tsx`](<./app/(main)/library/queue.tsx>).
   - **task**: create a dedicated "now playing / up next" queue screen with support for:
     - viewing queued songs and current track index
     - drag-and-drop queue reordering
@@ -74,8 +73,8 @@ upgrading users from previous versions require automated data migration and clea
 ## 3. library, playlists & navigation
 
 - [x] **artist details page (`app/(main)/library/artist/[id].tsx`)**
-  - **context**: [`app/(main)/library/artists.tsx`](./app/(main)/library/artists.tsx) displays artists from local sqlite, with list items navigating to the destination page.
-  - **task**: 
+  - **context**: [`app/(main)/library/artists.tsx`](<./app/(main)/library/artists.tsx>) displays artists from local sqlite, with list items navigating to the destination page.
+  - **task**:
     - implemented `artist/[id].tsx` screen displaying artist biography, artwork, albums list, and songs.
     - wired navigation `onPress` in `app/(main)/library/artists.tsx` and `app/(main)/search.tsx`.
 
@@ -87,13 +86,13 @@ upgrading users from previous versions require automated data migration and clea
     - remove songs from a playlist or delete playlist.
 
 - [ ] **playlist details local caching**
-  - **context**: [`app/(main)/library/playlist/[id].tsx`](./app/(main)/library/playlist/[id].tsx) currently fetches playlist songs from the network on every view open.
+  - **context**: [`app/(main)/library/playlist/[id].tsx`](<./app/(main)/library/playlist/[id].tsx>) currently fetches playlist songs from the network on every view open.
   - **task**: persist playlist songs into local sqlite during sync and cache on demand so playlist details open instantly and can be browsed offline.
 
 - [ ] **artist and album deep links across the app**
   - **context**: [`app/player.tsx`](./app/player.tsx) has deep links to artist and album pages, but other app surfaces display static text.
   - **task**:
-    - [ ] **audit & surface mapping**: identify and document all views and components where artist or album names are displayed (e.g. [`components/MiniPlayer.tsx`](./components/MiniPlayer.tsx), [`app/(main)/library/songs.tsx`](./app/(main)/library/songs.tsx), [`app/album/[id].tsx`](./app/album/[id].tsx), [`app/(main)/library/albums.tsx`](./app/(main)/library/albums.tsx), [`app/(main)/library/queue.tsx`](./app/(main)/library/queue.tsx), search results, home sections). define touch target bounds and navigation targets (`/library/artist/[id]` and `/library/album/[id]`).
+    - [ ] **audit & surface mapping**: identify and document all views and components where artist or album names are displayed (e.g. [`components/MiniPlayer.tsx`](./components/MiniPlayer.tsx), [`app/(main)/library/songs.tsx`](<./app/(main)/library/songs.tsx>), [`app/album/[id].tsx`](./app/album/[id].tsx), [`app/(main)/library/albums.tsx`](<./app/(main)/library/albums.tsx>), [`app/(main)/library/queue.tsx`](<./app/(main)/library/queue.tsx>), search results, home sections). define touch target bounds and navigation targets (`/library/artist/[id]` and `/library/album/[id]`). Consider album art as a potential clickable surface as well for albums.
     - [ ] **mini-player deep linking**: make artist text in [`components/MiniPlayer.tsx`](./components/MiniPlayer.tsx) navigate to artist detail without conflicting with main player expansion.
     - [ ] **song & list rows deep linking**: wire pressable artist and album labels across song rows and album list cards.
 
@@ -110,11 +109,11 @@ upgrading users from previous versions require automated data migration and clea
   - **task**: create `app/(main)/library/starred.tsx` with tabs/filters for starred songs, albums, and artists, integrated with subsonic `getStarred` and local sqlite.
 
 - [ ] **pull-to-refresh on library screens (medium priority)**
-  - **context**: browsing screens ([`app/(main)/library/songs.tsx`](./app/(main)/library/songs.tsx), [`albums.tsx`](./app/(main)/library/albums.tsx), [`artists.tsx`](./app/(main)/library/artists.tsx), [`playlists.tsx`](./app/(main)/library/playlists.tsx)) currently require opening the dedicated sync page to refresh.
+  - **context**: browsing screens ([`app/(main)/library/songs.tsx`](<./app/(main)/library/songs.tsx>), [`albums.tsx`](<./app/(main)/library/albums.tsx>), [`artists.tsx`](<./app/(main)/library/artists.tsx>), [`playlists.tsx`](<./app/(main)/library/playlists.tsx>)) currently require opening the dedicated sync page to refresh.
   - **task**: add pull-to-refresh support across library list screens to trigger a local sqlite re-query or background delta sync.
 
 - [ ] **recent search history (low priority)**
-  - **context**: [`app/(main)/search.tsx`](./app/(main)/search.tsx) displays an empty view when the search query is blank.
+  - **context**: [`app/(main)/search.tsx`](<./app/(main)/search.tsx>) displays an empty view when the search query is blank.
   - **task**: store recent search terms in sqlite and display them as tappable chips with a "clear recent searches" option when the search bar is active.
 
 ---
@@ -126,7 +125,7 @@ upgrading users from previous versions require automated data migration and clea
   - **task**: add a settings screen to reorder home sections via drag-and-drop and toggle visibility on/off, persisted to local preferences.
 
 - [x] **in-app changelog dialogs**
-  - **task**: 
+  - **task**:
     - [x] **settings access**: make the version number in settings clickable to show the full changelog modal with current version open and previous versions in closed accordions ([`components/ChangelogModal.tsx`](./components/ChangelogModal.tsx)).
     - [x] **first-launch post-update**: detect version code increase on launch and display a "what's new" changelog modal automatically once ([`app/_layout.tsx`](./app/_layout.tsx)).
 
@@ -213,7 +212,7 @@ upgrading users from previous versions require automated data migration and clea
   - **task**: add optional passphrase-based encryption or clear security disclosures during export to avoid unencrypted credentials residing on public storage.
 
 - [ ] **android foreground service for background downloads & sync**
-  - **context**: bulk song caching ([`services/songCache.ts`](./services/songCache.ts)) and library sync ([`app/(main)/sync.tsx`](./app/(main)/sync.tsx)) currently run in the javascript runtime. if the user navigates away, locks the screen, or the app process is suspended by the os, downloads fail or stall unpredictably.
+  - **context**: bulk song caching ([`services/songCache.ts`](./services/songCache.ts)) and library sync ([`app/(main)/sync.tsx`](<./app/(main)/sync.tsx>)) currently run in the javascript runtime. if the user navigates away, locks the screen, or the app process is suspended by the os, downloads fail or stall unpredictably.
   - **task**: attach bulk downloads and library sync to a standard android foreground service (or workmanager) with an ongoing system notification displaying real-time progress, song counts, and a cancel action to guarantee task survival in the background.
 
 ---
