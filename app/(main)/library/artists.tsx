@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, View } from "react-native";
+import { FlatList, RefreshControl, View } from "react-native";
 import {
   Appbar,
   Avatar,
@@ -15,10 +15,10 @@ import {
 } from "react-native-paper";
 
 import { ArtistsFilterModal } from "@/components/ArtistsFilterModal";
-import { getCoverArtBaseUrl } from "@/services/api";
+import { client_app_sync, getCoverArtBaseUrl } from "@/services/api";
 import { getAllArtists, searchArtists } from "@/services/db";
 import { artistsStyles } from "@/stylesheets";
-import { ArtistID3 } from "@/types";
+import { ArtistID3, useAppTheme } from "@/types";
 
 type SortKey = "name" | "albumCount" | "starred" | "userRating" | "sortName";
 
@@ -39,7 +39,9 @@ const SORT_OPTIONS: SortOption[] = [
 
 export default function ArtistsScreen() {
   const router = useRouter();
+  const theme = useAppTheme();
   const [artists, setArtists] = useState<ArtistID3[]>(() => getAllArtists());
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
@@ -55,6 +57,18 @@ export default function ArtistsScreen() {
       setArtists(getAllArtists());
     }, []),
   );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    client_app_sync(false)
+      .catch((err) => {
+        console.error("failed to refresh artists:", err);
+      })
+      .finally(() => {
+        setArtists(getAllArtists());
+        setRefreshing(false);
+      });
+  }, []);
 
   useEffect(() => {
     getCoverArtBaseUrl()
@@ -168,6 +182,15 @@ export default function ArtistsScreen() {
         data={processedArtists}
         keyExtractor={(item) => item.id}
         contentContainerStyle={artistsStyles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+            progressBackgroundColor={theme.colors.surfaceContainerHighest}
+          />
+        }
         ListEmptyComponent={
           <View style={artistsStyles.emptyContainer}>
             <Text variant="bodyLarge">no artists found</Text>

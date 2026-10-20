@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
-import { FlatList, View } from "react-native";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { FlatList, RefreshControl, View } from "react-native";
 import {
   Appbar,
   Avatar,
@@ -14,10 +14,10 @@ import {
   Text,
 } from "react-native-paper";
 
-import { getCoverArtBaseUrl } from "@/services/api";
+import { client_app_sync, getCoverArtBaseUrl } from "@/services/api";
 import { getAllAlbums, searchAlbums } from "@/services/db";
 import { albumsStyles } from "@/stylesheets";
-import { AlbumID3 } from "@/types";
+import { AlbumID3, useAppTheme } from "@/types";
 
 type SortKey =
   | "name"
@@ -55,7 +55,9 @@ const SORT_OPTIONS: SortOption[] = [
 
 export default function AlbumsScreen() {
   const router = useRouter();
-  const [albums] = useState<AlbumID3[]>(() => getAllAlbums());
+  const theme = useAppTheme();
+  const [albums, setAlbums] = useState<AlbumID3[]>(() => getAllAlbums());
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
@@ -63,6 +65,24 @@ export default function AlbumsScreen() {
   const [getArtUrl, setGetArtUrl] = useState<
     ((id?: string | null) => string | null) | null
   >(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      setAlbums(getAllAlbums());
+    }, []),
+  );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    client_app_sync(false)
+      .catch((err) => {
+        console.error("failed to refresh albums:", err);
+      })
+      .finally(() => {
+        setAlbums(getAllAlbums());
+        setRefreshing(false);
+      });
+  }, []);
 
   useEffect(() => {
     getCoverArtBaseUrl()
@@ -163,6 +183,15 @@ export default function AlbumsScreen() {
         data={processedAlbums}
         keyExtractor={(item) => item.id}
         contentContainerStyle={albumsStyles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+            progressBackgroundColor={theme.colors.surfaceContainerHighest}
+          />
+        }
         ListEmptyComponent={
           <View style={albumsStyles.emptyContainer}>
             <Text variant="bodyLarge">no albums found</Text>

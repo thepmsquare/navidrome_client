@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, FlatList, Platform, Pressable, StyleSheet, View } from "react-native";
+import { Alert, FlatList, Platform, Pressable, RefreshControl, StyleSheet, View } from "react-native";
 import { Appbar, Avatar, IconButton, List, Surface, Text } from "react-native-paper";
 
 import { CircularProgressRing } from "@/components/CircularProgressRing";
@@ -25,6 +25,7 @@ interface QueueItem {
 export default function DownloadQueueScreen() {
   const router = useRouter();
   const theme = useAppTheme();
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
   const [queueState, setQueueState] = useState<DownloadQueueState>(() => {
     try {
@@ -97,6 +98,15 @@ export default function DownloadQueueScreen() {
       // Ignore
     }
   }, [refreshSongs]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    try {
+      refreshQueue();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshQueue]);
 
   const [notificationsDisabled, setNotificationsDisabled] = useState(false);
 
@@ -261,6 +271,15 @@ export default function DownloadQueueScreen() {
         data={queueItems}
         keyExtractor={(item) => item.song.id}
         contentContainerStyle={songsStyles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+            progressBackgroundColor={theme.colors.surfaceContainerHighest}
+          />
+        }
         ListEmptyComponent={
           <View style={songsStyles.emptyContainer}>
             <Text variant="bodyLarge">no downloads in progress</Text>
