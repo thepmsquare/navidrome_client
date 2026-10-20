@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { FlatList, View } from "react-native";
+import { FlatList, RefreshControl, View } from "react-native";
 import { Appbar, Avatar, List, Surface, Text } from "react-native-paper";
 
 import { SongCacheButton } from "@/components/SongCacheButton";
@@ -9,11 +9,13 @@ import { getCoverArtBaseUrl } from "@/services/api";
 import { getAllSongCacheEntries, getCachedSongs } from "@/services/db";
 import { playPlaylist } from "@/services/player";
 import { songsStyles } from "@/stylesheets";
-import { Child, SongCacheRow } from "@/types";
+import { Child, SongCacheRow, useAppTheme } from "@/types";
 
 export default function AvailableOfflineScreen() {
   const router = useRouter();
+  const theme = useAppTheme();
   const [songs, setSongs] = useState<Child[]>(() => getCachedSongs());
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [cacheEntries, setCacheEntries] = useState<Map<string, SongCacheRow>>(() =>
     getAllSongCacheEntries?.() ?? new Map(),
   );
@@ -27,6 +29,15 @@ export default function AvailableOfflineScreen() {
   }, []);
 
   useFocusEffect(refreshSongsAndCache);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    try {
+      refreshSongsAndCache();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshSongsAndCache]);
 
   useEffect(() => {
     getCoverArtBaseUrl()
@@ -50,6 +61,15 @@ export default function AvailableOfflineScreen() {
         data={songs}
         keyExtractor={(item) => item.id}
         contentContainerStyle={songsStyles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+            progressBackgroundColor={theme.colors.surfaceContainerHighest}
+          />
+        }
         ListEmptyComponent={
           <View style={songsStyles.emptyContainer}>
             <Text variant="bodyLarge">no songs available offline</Text>

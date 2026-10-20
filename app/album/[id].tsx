@@ -1,14 +1,20 @@
 import { Image } from "expo-image";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, View } from "react-native";
+import { FlatList, RefreshControl, View } from "react-native";
 import { Appbar, Avatar, List, Surface, Text } from "react-native-paper";
 
 import { AppBottomBar, TabKey } from "@/components/AppBottomBar";
 import { BulkSongCacheButton } from "@/components/BulkSongCacheButton";
 import { SongCacheButton } from "@/components/SongCacheButton";
-import { getCoverArtBaseUrl } from "@/services/api";
-import { getAlbumById, getAllSongCacheEntries, getSongsByAlbumId } from "@/services/db";
+import { getAlbum, getCoverArtBaseUrl } from "@/services/api";
+import {
+  getAlbumById,
+  getAllSongCacheEntries,
+  getSongsByAlbumId,
+  upsertAlbumsBatch,
+  upsertSongsBatch,
+} from "@/services/db";
 import { playPlaylist } from "@/services/player";
 import { subscribeSongCache } from "@/services/songCache";
 import { albumDetailStyles } from "@/stylesheets";
@@ -27,8 +33,16 @@ export default function AlbumDetailScreen() {
   const theme = useAppTheme();
   const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
 
-  const album = useMemo(() => (id ? getAlbumById(id) : null), [id]);
-  const songs = useMemo(() => (id ? getSongsByAlbumId(id) : []), [id]);
+  const [refreshKey, setRefreshKey] = useState<number>(0);
+  const album = useMemo(() => {
+    void refreshKey;
+    return id ? getAlbumById(id) : null;
+  }, [id, refreshKey]);
+  const songs = useMemo(() => {
+    void refreshKey;
+    return id ? getSongsByAlbumId(id) : [];
+  }, [id, refreshKey]);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [cacheEntries, setCacheEntries] = useState<Map<string, SongCacheRow>>(() =>
     getAllSongCacheEntries(),
   );
@@ -36,9 +50,31 @@ export default function AlbumDetailScreen() {
     ((artId?: string | null) => string | null) | null
   >(null);
 
+  const onRefresh = useCallback(() => {
+    if (!id) return;
+    setRefreshing(true);
+    getAlbum(id)
+      .then((albumWithSongs) => {
+        if (albumWithSongs) {
+          upsertAlbumsBatch([albumWithSongs]);
+          if (albumWithSongs.song && albumWithSongs.song.length > 0) {
+            upsertSongsBatch(albumWithSongs.song);
+          }
+        }
+        setRefreshKey((k) => k + 1);
+      })
+      .catch((err) => {
+        console.error("failed to refresh album details:", err);
+      })
+      .finally(() => {
+        setRefreshing(false);
+      });
+  }, [id]);
+
   useFocusEffect(
     useCallback(() => {
       setCacheEntries(getAllSongCacheEntries());
+      setRefreshKey((k) => k + 1);
     }, []),
   );
 
@@ -91,6 +127,15 @@ export default function AlbumDetailScreen() {
         data={songs}
         keyExtractor={(item) => item.id}
         contentContainerStyle={albumDetailStyles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+            tintColor={theme.colors.primary}
+            progressBackgroundColor={theme.colors.surfaceContainerHighest}
+          />
+        }
         ListHeaderComponent={
           album ? (
             <View style={albumDetailStyles.albumInfoContainer}>

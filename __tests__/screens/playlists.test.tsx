@@ -2,8 +2,8 @@ import React from "react";
 import renderer from "react-test-renderer";
 
 import PlaylistsScreen from "@/app/(main)/library/playlists";
-import { getCoverArtBaseUrl } from "@/services/api";
-import { getAllPlaylists, searchPlaylists } from "@/services/db";
+import { getCoverArtBaseUrl, getPlaylists } from "@/services/api";
+import { getAllPlaylists, searchPlaylists, upsertPlaylistsBatch } from "@/services/db";
 import { Playlist } from "@/types";
 
 const mockBack = jest.fn();
@@ -42,11 +42,13 @@ jest.mock("expo-image", () => ({
 
 jest.mock("@/services/api", () => ({
   getCoverArtBaseUrl: jest.fn(),
+  getPlaylists: jest.fn(),
 }));
 
 jest.mock("@/services/db", () => ({
   getAllPlaylists: jest.fn(),
   searchPlaylists: jest.fn(),
+  upsertPlaylistsBatch: jest.fn(),
 }));
 
 const mockPlaylists: Playlist[] = [
@@ -213,6 +215,32 @@ describe("PlaylistsScreen", () => {
       (t: any) => t.props.children === "no playlists found",
     );
     expect(emptyText).toBeDefined();
+
+    renderer.act(() => {
+      component.unmount();
+    });
+  });
+
+  it("triggers refresh when pulled down", async () => {
+    (getAllPlaylists as jest.Mock).mockReturnValue(mockPlaylists);
+    (getPlaylists as jest.Mock).mockResolvedValue(mockPlaylists);
+
+    let component: any;
+    await renderer.act(async () => {
+      component = renderer.create(<PlaylistsScreen />);
+    });
+
+    const { RefreshControl } = require("react-native");
+    const refreshControl = component.root.findByType(RefreshControl);
+    expect(refreshControl).toBeDefined();
+    expect(refreshControl.props.refreshing).toBe(false);
+
+    await renderer.act(async () => {
+      refreshControl.props.onRefresh();
+    });
+
+    expect(getPlaylists).toHaveBeenCalled();
+    expect(upsertPlaylistsBatch).toHaveBeenCalledWith(mockPlaylists);
 
     renderer.act(() => {
       component.unmount();
