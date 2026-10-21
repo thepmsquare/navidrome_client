@@ -223,6 +223,14 @@ export function initDatabase(db: SQLite.SQLiteDatabase = getDb()): void {
     );
 
     CREATE INDEX IF NOT EXISTS idx_lyrics_cache_songId ON lyrics_cache(songId);
+
+    CREATE TABLE IF NOT EXISTS recent_searches (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      query TEXT NOT NULL UNIQUE COLLATE NOCASE,
+      timestamp INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_recent_searches_timestamp ON recent_searches(timestamp DESC);
   `);
 }
 
@@ -1523,5 +1531,42 @@ export function getLyricsModeSetting(): LyricsMode {
 
 export function setLyricsModeSetting(mode: LyricsMode): void {
   setSyncMeta("lyrics_mode", mode);
+}
+
+export function getRecentSearches(limit: number = 20): string[] {
+  const db = getDb();
+  const rows = db.getAllSync<{ query: string }>(
+    "SELECT query FROM recent_searches ORDER BY timestamp DESC LIMIT ?",
+    [limit],
+  );
+  return rows.map((r) => r.query);
+}
+
+export function addRecentSearch(query: string): void {
+  const trimmed = query.trim();
+  if (!trimmed) return;
+
+  const db = getDb();
+  db.runSync(
+    `INSERT INTO recent_searches (query, timestamp) VALUES (?, ?)
+     ON CONFLICT(query) DO UPDATE SET timestamp = excluded.timestamp, query = excluded.query`,
+    [trimmed, Date.now()],
+  );
+
+  db.runSync(
+    `DELETE FROM recent_searches WHERE id NOT IN (
+       SELECT id FROM recent_searches ORDER BY timestamp DESC LIMIT 50
+     )`,
+  );
+}
+
+export function removeRecentSearch(query: string): void {
+  const db = getDb();
+  db.runSync("DELETE FROM recent_searches WHERE query = ?", [query]);
+}
+
+export function clearRecentSearches(): void {
+  const db = getDb();
+  db.runSync("DELETE FROM recent_searches");
 }
 

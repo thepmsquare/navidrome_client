@@ -1,5 +1,13 @@
 # changelog
 
+## 2.28.0+63
+
+### user release notes
+
+- add recent searches to search page.
+
+### internal notes
+
 ## 2.27.0+62
 
 ### user release notes

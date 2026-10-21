@@ -117,7 +117,7 @@ upgrading users from previous versions require automated data migration and clea
   - **context**: [`components/SongCacheButton.tsx`](./components/SongCacheButton.tsx) and [`components/BulkSongCacheButton.tsx`](./components/BulkSongCacheButton.tsx) allow saving songs and collections offline.
   - **task**: identify and document all places and surfaces across the app where the cache button (make available offline button) should be displayed (e.g. song list items, album details, playlist details, artist details, now playing full player, search results).
 
-- [ ] **recent search history (low priority)**
+- [x] **recent search history (low priority)**
   - **context**: [`app/(main)/search.tsx`](<./app/(main)/search.tsx>) displays an empty view when the search query is blank.
   - **task**: store recent search terms in sqlite and display them as tappable chips with a "clear recent searches" option when the search bar is active.
 
