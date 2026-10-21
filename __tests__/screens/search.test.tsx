@@ -4,7 +4,11 @@ import renderer from "react-test-renderer";
 import SearchScreen from "@/app/(main)/search";
 import { getCoverArtBaseUrl } from "@/services/api";
 import {
+  addRecentSearch,
+  clearRecentSearches,
   getAllSongCacheEntries,
+  getRecentSearches,
+  removeRecentSearch,
   searchAlbums,
   searchArtists,
   searchPlaylists,
@@ -45,6 +49,10 @@ jest.mock("@/services/db", () => ({
   searchArtists: jest.fn(),
   searchPlaylists: jest.fn(),
   getAllSongCacheEntries: jest.fn(() => new Map()),
+  getRecentSearches: jest.fn(() => []),
+  addRecentSearch: jest.fn(),
+  removeRecentSearch: jest.fn(),
+  clearRecentSearches: jest.fn(),
 }));
 
 jest.mock("@/services/player", () => ({
@@ -295,4 +303,179 @@ describe("SearchScreen", () => {
       component.unmount();
     });
   });
+
+  it("renders recent search chips and clear button when recent searches exist", () => {
+    (getRecentSearches as jest.Mock).mockReturnValue(["pink floyd", "the wall"]);
+
+    let component: any;
+    renderer.act(() => {
+      component = renderer.create(<SearchScreen />);
+    });
+
+    const { Chip, Button, Text } = require("react-native-paper");
+    const texts = component.root.findAllByType(Text);
+    const hasRecentTitle = texts.some(
+      (t: any) => t.props.children === "recent searches",
+    );
+    expect(hasRecentTitle).toBe(true);
+
+    const buttons = component.root.findAllByType(Button);
+    const clearButton = buttons.find((b: any) => {
+      const label = typeof b.props.children === "string" ? b.props.children : "";
+      return label.includes("clear");
+    });
+    expect(clearButton).toBeDefined();
+
+    const chips = component.root.findAllByType(Chip);
+    const pinkChip = chips.find((c: any) => c.props.children === "pink floyd");
+    const wallChip = chips.find((c: any) => c.props.children === "the wall");
+    expect(pinkChip).toBeDefined();
+    expect(wallChip).toBeDefined();
+
+    renderer.act(() => {
+      component.unmount();
+    });
+  });
+
+  it("populates search query and refreshes recent searches when a chip is pressed", () => {
+    (getRecentSearches as jest.Mock).mockReturnValue(["pink floyd"]);
+
+    let component: any;
+    renderer.act(() => {
+      component = renderer.create(<SearchScreen />);
+    });
+
+    const { Chip, Searchbar } = require("react-native-paper");
+    const chip = component.root
+      .findAllByType(Chip)
+      .find((c: any) => c.props.children === "pink floyd");
+    expect(chip).toBeDefined();
+
+    renderer.act(() => {
+      chip.props.onPress();
+    });
+
+    expect(addRecentSearch).toHaveBeenCalledWith("pink floyd");
+    const searchbar = component.root.findByType(Searchbar);
+    expect(searchbar.props.value).toBe("pink floyd");
+
+    renderer.act(() => {
+      component.unmount();
+    });
+  });
+
+  it("removes recent search when chip close icon is pressed", () => {
+    (getRecentSearches as jest.Mock).mockReturnValue(["pink floyd"]);
+
+    let component: any;
+    renderer.act(() => {
+      component = renderer.create(<SearchScreen />);
+    });
+
+    const { Chip } = require("react-native-paper");
+    const chip = component.root
+      .findAllByType(Chip)
+      .find((c: any) => c.props.children === "pink floyd");
+
+    renderer.act(() => {
+      chip.props.onClose();
+    });
+
+    expect(removeRecentSearch).toHaveBeenCalledWith("pink floyd");
+
+    renderer.act(() => {
+      component.unmount();
+    });
+  });
+
+  it("clears all recent searches and returns to empty view when clear button is pressed", () => {
+    (getRecentSearches as jest.Mock).mockReturnValue(["pink floyd"]);
+
+    let component: any;
+    renderer.act(() => {
+      component = renderer.create(<SearchScreen />);
+    });
+
+    const { Button, Text } = require("react-native-paper");
+    const buttons = component.root.findAllByType(Button);
+    const clearButton = buttons.find((b: any) => {
+      const label = typeof b.props.children === "string" ? b.props.children : "";
+      return label.includes("clear");
+    });
+    expect(clearButton).toBeDefined();
+
+    renderer.act(() => {
+      clearButton.props.onPress();
+    });
+
+    expect(clearRecentSearches).toHaveBeenCalled();
+    const texts = component.root.findAllByType(Text);
+    const hasInitialPrompt = texts.some((t: any) =>
+      typeof t.props.children === "string" &&
+      t.props.children.includes("type to search your library"),
+    );
+    expect(hasInitialPrompt).toBe(true);
+
+    renderer.act(() => {
+      component.unmount();
+    });
+  });
+
+  it("saves search to recent searches on submitEditing", () => {
+    let component: any;
+    renderer.act(() => {
+      component = renderer.create(<SearchScreen />);
+    });
+
+    const { Searchbar } = require("react-native-paper");
+    const searchbar = component.root.findByType(Searchbar);
+
+    renderer.act(() => {
+      searchbar.props.onChangeText("queen");
+    });
+
+    renderer.act(() => {
+      searchbar.props.onSubmitEditing();
+    });
+
+    expect(addRecentSearch).toHaveBeenCalledWith("queen");
+
+    renderer.act(() => {
+      component.unmount();
+    });
+  });
+
+  it("saves search to recent searches on song item press", () => {
+    (searchSongs as jest.Mock).mockReturnValue(mockSongs);
+
+    let component: any;
+    renderer.act(() => {
+      component = renderer.create(<SearchScreen />);
+    });
+
+    const { Searchbar, List } = require("react-native-paper");
+    const searchbar = component.root.findByType(Searchbar);
+
+    renderer.act(() => {
+      searchbar.props.onChangeText("numb");
+    });
+
+    const listItems = component.root.findAllByType(List.Item);
+    const songItem = listItems.find(
+      (item: any) => item.props.title === "comfortably numb",
+    );
+    expect(songItem).toBeDefined();
+
+    renderer.act(() => {
+      songItem.props.onPress();
+    });
+
+    expect(addRecentSearch).toHaveBeenCalledWith("numb");
+    expect(playPlaylist).toHaveBeenCalledWith(mockSongs, 0);
+
+    renderer.act(() => {
+      component.unmount();
+    });
+  });
 });
+
