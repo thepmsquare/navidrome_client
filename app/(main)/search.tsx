@@ -17,7 +17,11 @@ import {
 import { SongCacheButton } from "@/components/SongCacheButton";
 import { getCoverArtBaseUrl } from "@/services/api";
 import {
+  addRecentSearch,
+  clearRecentSearches,
   getAllSongCacheEntries,
+  getRecentSearches,
+  removeRecentSearch,
   searchAlbums,
   searchArtists,
   searchPlaylists,
@@ -48,12 +52,42 @@ export default function SearchScreen() {
   const [cacheEntries, setCacheEntries] = useState<Map<string, SongCacheRow>>(() =>
     getAllSongCacheEntries(),
   );
+  const [recentSearches, setRecentSearches] = useState<string[]>(() =>
+    getRecentSearches(),
+  );
 
   useFocusEffect(
     useCallback(() => {
       setCacheEntries(getAllSongCacheEntries());
+      setRecentSearches(getRecentSearches());
     }, []),
   );
+
+  const saveCurrentSearch = useCallback(
+    (termToSave?: string) => {
+      const queryToSave = (termToSave ?? searchQuery).trim();
+      if (!queryToSave) return;
+      addRecentSearch(queryToSave);
+      setRecentSearches(getRecentSearches());
+    },
+    [searchQuery],
+  );
+
+  const handleSelectRecentSearch = useCallback((term: string) => {
+    setSearchQuery(term);
+    addRecentSearch(term);
+    setRecentSearches(getRecentSearches());
+  }, []);
+
+  const handleRemoveRecentSearch = useCallback((term: string) => {
+    removeRecentSearch(term);
+    setRecentSearches(getRecentSearches());
+  }, []);
+
+  const handleClearRecentSearches = useCallback(() => {
+    clearRecentSearches();
+    setRecentSearches([]);
+  }, []);
 
   useEffect(() => {
     getCoverArtBaseUrl()
@@ -100,7 +134,10 @@ export default function SearchScreen() {
               : item.artist
             : item.album ?? undefined
         }
-        onPress={() => playPlaylist(list, index)}
+        onPress={() => {
+          saveCurrentSearch();
+          playPlaylist(list, index);
+        }}
         left={(props) =>
           artUrl ? (
             <Image
@@ -143,12 +180,13 @@ export default function SearchScreen() {
         key={`album-${item.id}`}
         title={item.name}
         description={description || undefined}
-        onPress={() =>
+        onPress={() => {
+          saveCurrentSearch();
           router.push({
             pathname: "/album/[id]",
             params: { id: item.id },
-          })
-        }
+          });
+        }}
         left={(props) =>
           artUrl ? (
             <Image
@@ -183,12 +221,13 @@ export default function SearchScreen() {
             ? `${item.albumCount} ${item.albumCount === 1 ? "album" : "albums"}`
             : undefined
         }
-        onPress={() =>
+        onPress={() => {
+          saveCurrentSearch();
           router.push({
             pathname: "/artist/[id]",
             params: { id: item.id },
-          })
-        }
+          });
+        }}
         left={(props) =>
           artUrl ? (
             <Image
@@ -217,12 +256,13 @@ export default function SearchScreen() {
             ? `${item.songCount} ${item.songCount === 1 ? "song" : "songs"}`
             : undefined
         }
-        onPress={() =>
+        onPress={() => {
+          saveCurrentSearch();
           router.push({
             pathname: "/(main)/library/playlist/[id]",
             params: { id: item.id },
-          })
-        }
+          });
+        }}
         left={(props) =>
           artUrl ? (
             <Image
@@ -250,6 +290,7 @@ export default function SearchScreen() {
         placeholder="search songs, albums, artists..."
         onChangeText={setSearchQuery}
         value={searchQuery}
+        onSubmitEditing={() => saveCurrentSearch()}
         style={searchStyles.searchbar}
       />
 
@@ -274,21 +315,55 @@ export default function SearchScreen() {
       </View>
 
       {!isSearching && (
-        <View style={searchStyles.emptyContainer}>
-          <Icon source="magnify" size={64} color={theme.colors.onSurfaceVariant} />
-          <Text
-            variant="titleMedium"
-            style={[searchStyles.emptyText, { color: theme.colors.onSurfaceVariant }]}
+        recentSearches.length > 0 ? (
+          <ScrollView
+            contentContainerStyle={searchStyles.recentContainer}
+            keyboardShouldPersistTaps="handled"
           >
-            type to search your library
-          </Text>
-          <Text
-            variant="bodySmall"
-            style={[searchStyles.emptyText, { color: theme.colors.outline }]}
-          >
-            find songs, albums, artists, and playlists
-          </Text>
-        </View>
+            <View style={searchStyles.recentHeader}>
+              <Text variant="titleMedium" style={searchStyles.recentTitle}>
+                recent searches
+              </Text>
+              <Button
+                mode="text"
+                compact
+                onPress={handleClearRecentSearches}
+                accessibilityLabel="clear recent searches"
+              >
+                clear recent searches
+              </Button>
+            </View>
+            <View style={searchStyles.recentChips}>
+              {recentSearches.map((term) => (
+                <Chip
+                  key={term}
+                  icon="history"
+                  onPress={() => handleSelectRecentSearch(term)}
+                  onClose={() => handleRemoveRecentSearch(term)}
+                  style={searchStyles.recentChip}
+                >
+                  {term}
+                </Chip>
+              ))}
+            </View>
+          </ScrollView>
+        ) : (
+          <View style={searchStyles.emptyContainer}>
+            <Icon source="magnify" size={64} color={theme.colors.onSurfaceVariant} />
+            <Text
+              variant="titleMedium"
+              style={[searchStyles.emptyText, { color: theme.colors.onSurfaceVariant }]}
+            >
+              type to search your library
+            </Text>
+            <Text
+              variant="bodySmall"
+              style={[searchStyles.emptyText, { color: theme.colors.outline }]}
+            >
+              find songs, albums, artists, and playlists
+            </Text>
+          </View>
+        )
       )}
 
       {isSearching && totalResults === 0 && (

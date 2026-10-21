@@ -54,4 +54,27 @@ export const searchStyles = StyleSheet.create({
     marginTop: spacing.sm,
     textAlign: "center",
   },
+  recentContainer: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
+  },
+  recentHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.sm,
+  },
+  recentTitle: {
+    fontWeight: "bold",
+  },
+  recentChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+  },
+  recentChip: {
+    marginBottom: spacing.xs,
+    marginRight: spacing.xs,
+  },
 });

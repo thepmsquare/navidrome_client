@@ -1,4 +1,8 @@
 import {
+  addRecentSearch,
+  clearRecentSearches,
+  getRecentSearches,
+  removeRecentSearch,
   searchAlbums,
   searchArtists,
   searchPlaylists,
@@ -7,13 +11,14 @@ import {
 import { AlbumID3, ArtistID3, Child, Playlist } from "@/types";
 
 const mockGetAllSync = jest.fn();
+const mockRunSync = jest.fn();
 
 jest.mock("expo-sqlite", () => ({
   openDatabaseSync: jest.fn(() => ({
     execSync: jest.fn(),
     getFirstSync: jest.fn(),
     getAllSync: mockGetAllSync,
-    runSync: jest.fn(),
+    runSync: mockRunSync,
     withTransactionSync: jest.fn((cb: () => void) => cb()),
     prepareSync: jest.fn(),
   })),
@@ -124,4 +129,65 @@ describe("services/db search functions", () => {
       expect(res).toEqual(mockPlaylists);
     });
   });
+
+  describe("recent searches functions", () => {
+    describe("getRecentSearches", () => {
+      it("queries recent_searches ordered by timestamp desc with default limit", () => {
+        mockGetAllSync.mockReturnValue([{ query: "floyd" }, { query: "beatles" }]);
+        const res = getRecentSearches();
+        expect(mockGetAllSync).toHaveBeenCalledWith(
+          expect.stringContaining("FROM recent_searches ORDER BY timestamp DESC LIMIT ?"),
+          [20],
+        );
+        expect(res).toEqual(["floyd", "beatles"]);
+      });
+
+      it("respects custom limit", () => {
+        mockGetAllSync.mockReturnValue([{ query: "floyd" }]);
+        const res = getRecentSearches(5);
+        expect(mockGetAllSync).toHaveBeenCalledWith(expect.any(String), [5]);
+        expect(res).toEqual(["floyd"]);
+      });
+    });
+
+    describe("addRecentSearch", () => {
+      it("ignores empty or whitespace query", () => {
+        addRecentSearch("");
+        addRecentSearch("   ");
+        expect(mockRunSync).not.toHaveBeenCalled();
+      });
+
+      it("inserts trimmed query and prunes older searches", () => {
+        addRecentSearch("  pink floyd  ");
+        expect(mockRunSync).toHaveBeenCalledTimes(2);
+        expect(mockRunSync).toHaveBeenNthCalledWith(
+          1,
+          expect.stringContaining("INSERT INTO recent_searches"),
+          ["pink floyd", expect.any(Number)],
+        );
+        expect(mockRunSync).toHaveBeenNthCalledWith(
+          2,
+          expect.stringContaining("DELETE FROM recent_searches WHERE id NOT IN"),
+        );
+      });
+    });
+
+    describe("removeRecentSearch", () => {
+      it("deletes specified recent search", () => {
+        removeRecentSearch("pink floyd");
+        expect(mockRunSync).toHaveBeenCalledWith(
+          "DELETE FROM recent_searches WHERE query = ?",
+          ["pink floyd"],
+        );
+      });
+    });
+
+    describe("clearRecentSearches", () => {
+      it("deletes all recent searches", () => {
+        clearRecentSearches();
+        expect(mockRunSync).toHaveBeenCalledWith("DELETE FROM recent_searches");
+      });
+    });
+  });
 });
+
