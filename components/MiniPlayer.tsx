@@ -12,13 +12,7 @@ import {
 } from "react-native-paper";
 
 import { getCoverArtBaseUrl } from "@/services/api";
-import {
-  cycleRepeatMode,
-  playNext,
-  playPrevious,
-  togglePlayback,
-  usePlayerState,
-} from "@/services/player";
+import { togglePlayback, usePlayerState } from "@/services/player";
 import { miniPlayerStyles } from "@/stylesheets";
 import { useAppTheme } from "@/types";
 
@@ -50,9 +44,6 @@ export function MiniPlayer() {
     isBuffering,
     position,
     duration,
-    repeatMode,
-    hasPrevious,
-    hasNext,
     isPlayingFromCache,
   } = playerState;
 
@@ -70,24 +61,9 @@ export function MiniPlayer() {
       ? getArtUrl(currentTrack.coverArt)
       : null;
 
-  const repeatIcon =
-    repeatMode === "one"
-      ? "repeat-once"
-      : repeatMode === "all"
-        ? "repeat"
-        : "repeat-off";
-
-  const repeatColor =
-    repeatMode === "off"
-      ? theme.colors.outline
-      : theme.colors.primary;
-
-  const repeatLabel =
-    repeatMode === "one"
-      ? "repeat one"
-      : repeatMode === "all"
-        ? "repeat all"
-        : "repeat off";
+  const handleOpenPlayer = () => {
+    router.push("/player");
+  };
 
   return (
     <Surface
@@ -115,7 +91,7 @@ export function MiniPlayer() {
       <View style={miniPlayerStyles.content}>
         <Pressable
           style={miniPlayerStyles.trackPressable}
-          onPress={() => router.push("/player")}
+          onPress={handleOpenPlayer}
           accessibilityRole="button"
           accessibilityLabel="open player"
         >
@@ -168,37 +144,6 @@ export function MiniPlayer() {
         </Pressable>
 
         <View style={miniPlayerStyles.actionsContainer}>
-          <IconButton
-            icon={repeatIcon}
-            size={22}
-            iconColor={repeatColor}
-            style={miniPlayerStyles.actionButton}
-            accessibilityLabel={repeatLabel}
-            onPress={() => {
-              cycleRepeatMode().catch((err) =>
-                console.error("failed to cycle repeat mode:", err),
-              );
-            }}
-          />
-
-          <IconButton
-            icon="skip-previous"
-            size={24}
-            iconColor={
-              hasPrevious
-                ? theme.colors.onSurface
-                : theme.colors.onSurfaceDisabled
-            }
-            disabled={!hasPrevious}
-            style={miniPlayerStyles.actionButton}
-            accessibilityLabel="previous track"
-            onPress={() => {
-              playPrevious().catch((err) =>
-                console.error("failed to play previous track:", err),
-              );
-            }}
-          />
-
           {isBuffering ? (
             <View style={miniPlayerStyles.bufferingIndicator}>
               <ActivityIndicator size={20} color={theme.colors.primary} />
@@ -217,24 +162,6 @@ export function MiniPlayer() {
               }}
             />
           )}
-
-          <IconButton
-            icon="skip-next"
-            size={24}
-            iconColor={
-              hasNext
-                ? theme.colors.onSurface
-                : theme.colors.onSurfaceDisabled
-            }
-            disabled={!hasNext}
-            style={miniPlayerStyles.actionButton}
-            accessibilityLabel="next track"
-            onPress={() => {
-              playNext().catch((err) =>
-                console.error("failed to play next track:", err),
-              );
-            }}
-          />
         </View>
       </View>
     </Surface>

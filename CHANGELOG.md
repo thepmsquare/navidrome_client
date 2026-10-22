@@ -5,6 +5,7 @@
 ### user release notes
 
 - add recent searches to search page.
+- remove all controls from mini player except play.
 
 ### internal notes
 
