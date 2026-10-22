@@ -89,12 +89,22 @@ upgrading users from previous versions require automated data migration and clea
   - **context**: [`app/(main)/library/playlist/[id].tsx`](<./app/(main)/library/playlist/[id].tsx>) currently fetches playlist songs from the network on every view open.
   - **task**: persist playlist songs into local sqlite during sync and cache on demand so playlist details open instantly and can be browsed offline.
 
-- [ ] **artist and album deep links across the app**
-  - **context**: [`app/player.tsx`](./app/player.tsx) has deep links to artist and album pages, but other app surfaces display static text.
+- [ ] **universal entity components & deep linking across the app**
+  - **context**: [`app/player.tsx`](./app/player.tsx) has deep links to artist and album pages. instead of ad-hoc nested touchables, entities (songs, albums, artists, playlists) will use universal components with tap-to-play/open, standard text overflow/a11y, and a 3-dot `⋯` / long-press context menu for deep links and options.
   - **task**:
-    - [ ] **audit & surface mapping**: identify and document all views and components where artist or album names are displayed (e.g. [`components/MiniPlayer.tsx`](./components/MiniPlayer.tsx), [`app/(main)/library/songs.tsx`](<./app/(main)/library/songs.tsx>), [`app/album/[id].tsx`](./app/album/[id].tsx), [`app/(main)/library/albums.tsx`](<./app/(main)/library/albums.tsx>), [`app/(main)/library/queue.tsx`](<./app/(main)/library/queue.tsx>), search results, home sections). define touch target bounds and navigation targets (`/library/artist/[id]` and `/library/album/[id]`). Consider album art as a potential clickable surface as well for albums.
-    - [ ] **mini-player deep linking**: make artist text in [`components/MiniPlayer.tsx`](./components/MiniPlayer.tsx) navigate to artist detail without conflicting with main player expansion.
-    - [ ] **song & list rows deep linking**: wire pressable artist and album labels across song rows and album list cards.
+    - [x] **audit & surface mapping**: identified and documented all views, routes (`/artist/[id]`, `/album/[id]`), and touch interaction patterns.
+    - [x] **mini-player streamlining**: streamlined mini-player with unified player expansion tap and single play/pause control.
+    - [ ] **universal song row (`<SongRow />`)**:
+      - tap plays song / playlist; long-press and 3-dot `⋯` opens context menu with `go to artist` and `go to album`.
+      - standardized a11y attributes (`accessibilityRole`, labels) and text overflow (tail truncation, dynamic type resiliency).
+      - offline cache indicator / button integration (tbd).
+      - rollout across surfaces: [`app/(main)/library/songs.tsx`](<./app/(main)/library/songs.tsx>), [`app/album/[id].tsx`](./app/album/[id].tsx), [`app/artist/[id].tsx`](./app/artist/[id].tsx), [`app/(main)/library/playlist/[id].tsx`](<./app/(main)/library/playlist/[id].tsx>), [`app/(main)/library/offline.tsx`](<./app/(main)/library/offline.tsx>), [`app/(main)/library/queue.tsx`](<./app/(main)/library/queue.tsx>), search results, and homepage tracks ([`components/home/RandomTracksSection.tsx`](./components/home/RandomTracksSection.tsx)).
+    - [ ] **universal album components (`<AlbumRow />` & `<AlbumCard />`)**:
+      - support both list view and grid view variants (including grid toggle on [`app/(main)/library/albums.tsx`](<./app/(main)/library/albums.tsx>)).
+      - tap opens album detail; long press / 3-dot `⋯` menu includes `go to artist`.
+      - rollout across surfaces: [`app/(main)/library/albums.tsx`](<./app/(main)/library/albums.tsx>), homepage album sections ([`components/home/`](./components/home/)), and search results.
+    - [ ] **universal artist & playlist rows (`<ArtistRow />` & `<PlaylistRow />`)**:
+      - standardized list rows with context options for [`app/(main)/library/artists.tsx`](<./app/(main)/library/artists.tsx>), [`app/(main)/library/playlists.tsx`](<./app/(main)/library/playlists.tsx>), and search results.
 
 - [ ] **offline filter in search (`app/(main)/search.tsx`)**
   - **context**: search queries songs, albums, and artists in local sqlite, but lacks a quick filter for content available offline.
