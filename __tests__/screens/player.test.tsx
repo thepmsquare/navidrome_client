@@ -79,6 +79,44 @@ jest.mock("@/components/SongSaveButton", () => ({
   SongSaveButton: "SongSaveButton",
 }));
 
+jest.mock("@/components/PlayerSeekBar", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+  const { formatTime } = require("@/utils/time");
+  return {
+    PlayerSeekBar: ({ position, duration, onSeek }: any) => {
+      const [width, setWidth] = React.useState(0);
+      return React.createElement(View, {
+        accessibilityLabel: "song progress",
+        accessibilityRole: "adjustable",
+        accessibilityValue: {
+          min: 0,
+          max: duration,
+          now: position,
+          text: `${formatTime(position)} of ${formatTime(duration)}`,
+        },
+        onLayout: (e: any) => setWidth(e.nativeEvent.layout.width),
+        onPress: (e: any) => {
+          if (width > 0 && duration > 0) {
+            const ratio = Math.max(
+              0,
+              Math.min(1, e.nativeEvent.locationX / width),
+            );
+            onSeek(Math.round(ratio * duration));
+          }
+        },
+        onAccessibilityAction: (e: any) => {
+          if (e.nativeEvent.actionName === "increment") {
+            onSeek(Math.min(duration, position + 10));
+          } else if (e.nativeEvent.actionName === "decrement") {
+            onSeek(Math.max(0, position - 10));
+          }
+        },
+      });
+    },
+  };
+});
+
 jest.mock("@/services/sleepTimer", () => ({
   useSleepTimer: jest.fn().mockReturnValue({
     isActive: false,
