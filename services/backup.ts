@@ -8,6 +8,7 @@ import { HOME_SECTIONS } from "@/components/home";
 import {
   getAutoCacheEnabled,
   getAutoCacheMaxBytes,
+  getHapticsEnabled,
   getKeepPlayingOnAppDismissed,
   getScrobbleMinDuration,
   getScrobbleMinPercent,
@@ -93,6 +94,7 @@ export async function createBackupData(): Promise<BackupData> {
       scrobble_min_percent: getScrobbleMinPercent(),
       keep_playing_on_app_dismissed: keepPlaying,
       lyrics_mode: getLyricsMode(),
+      haptics_enabled: getHapticsEnabled(),
     },
     stop_playback_on_task_removed: stopPlayback,
     home_sections: homeSections,
@@ -208,6 +210,10 @@ export function parseProfileData(jsonString: string): BackupData {
         data.settings.lyrics_mode === "file_first" ||
         data.settings.lyrics_mode === "online_first"
           ? data.settings.lyrics_mode
+          : undefined,
+      haptics_enabled:
+        typeof data.settings.haptics_enabled === "boolean"
+          ? data.settings.haptics_enabled
           : undefined,
     };
   }

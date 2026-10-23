@@ -23,6 +23,7 @@ jest.mock("@/services/db", () => ({
   getScrobbleMinDuration: jest.fn().mockReturnValue(240),
   getScrobbleMinPercent: jest.fn().mockReturnValue(75),
   getKeepPlayingOnAppDismissed: jest.fn().mockReturnValue(false),
+  getHapticsEnabled: jest.fn().mockReturnValue(true),
 }));
 
 jest.mock("@/services/lyrics", () => ({
@@ -99,6 +100,7 @@ describe("backup service", () => {
           scrobble_min_percent: 75,
           keep_playing_on_app_dismissed: false,
           lyrics_mode: "file_only",
+          haptics_enabled: true,
         },
         stop_playback_on_task_removed: true,
         home_sections: [
@@ -138,6 +140,7 @@ describe("backup service", () => {
         scrobble_min_percent: 75,
         keep_playing_on_app_dismissed: false,
         lyrics_mode: "file_only",
+        haptics_enabled: true,
       });
     });
   });
@@ -295,6 +298,7 @@ describe("backup service", () => {
           scrobble_min_percent: 60,
           keep_playing_on_app_dismissed: true,
           lyrics_mode: "online_first",
+          haptics_enabled: true,
         },
         export_date: "2026-10-09T03:30:00.000000",
         version: 1,
@@ -309,6 +313,7 @@ describe("backup service", () => {
         scrobble_min_percent: 60,
         keep_playing_on_app_dismissed: true,
         lyrics_mode: "online_first",
+        haptics_enabled: true,
       });
     });
 
