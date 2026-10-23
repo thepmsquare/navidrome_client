@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   AccessibilityActionEvent,
   LayoutChangeEvent,
@@ -43,16 +43,15 @@ export function PlayerSeekBar({
   onSeek,
   color,
   trackColor,
-  skin = "default",
   accessibilityLabel = "song progress",
 }: PlayerSeekBarProps) {
   const theme = useAppTheme();
   const trackWidth = useSharedValue(0);
   const scrubX = useSharedValue(0);
   const isScrubbing = useSharedValue(false);
+  const lastRoundedSecs = useSharedValue(-1);
 
   const [previewSecs, setPreviewSecs] = useState<number | null>(null);
-  const lastRoundedSecs = useRef<number>(-1);
 
   const activeColor = color ?? theme.colors.primary;
   const inactiveColor = trackColor ?? theme.colors.surfaceContainerHighest;
@@ -60,13 +59,6 @@ export function PlayerSeekBar({
   const validDuration = duration > 0 ? duration : 0;
   const progressRatio =
     validDuration > 0 ? Math.min(Math.max(position / validDuration, 0), 1) : 0;
-
-  // Synchronize playback position into Reanimated shared value when not scrubbing
-  useEffect(() => {
-    if (!isScrubbing.value && trackWidth.value > 0) {
-      scrubX.value = progressRatio * trackWidth.value;
-    }
-  }, [position, duration, progressRatio]);
 
   const onTrackLayout = (e: LayoutChangeEvent) => {
     const width = e.nativeEvent.layout.width;
@@ -78,16 +70,11 @@ export function PlayerSeekBar({
 
   const handleScrubStart = (secs: number) => {
     triggerHapticSelection();
-    lastRoundedSecs.current = Math.floor(secs);
     setPreviewSecs(secs);
   };
 
   const handleScrubUpdate = (secs: number) => {
-    const rounded = Math.floor(secs);
-    if (rounded !== lastRoundedSecs.current) {
-      lastRoundedSecs.current = rounded;
-      setPreviewSecs(secs);
-    }
+    setPreviewSecs(secs);
   };
 
   const handleScrubEnd = (secs: number) => {
@@ -96,38 +83,48 @@ export function PlayerSeekBar({
     onSeek(secs);
   };
 
-  const panGesture = useMemo(() => {
-    return Gesture.Pan()
-      .minDistance(0)
-      .onBegin((e) => {
-        if (trackWidth.value <= 0 || validDuration <= 0) return;
-        isScrubbing.value = true;
-        const clampedX = Math.max(0, Math.min(trackWidth.value, e.x));
-        scrubX.value = clampedX;
-        const ratio = clampedX / trackWidth.value;
-        const secs = ratio * validDuration;
-        runOnJS(handleScrubStart)(secs);
-      })
-      .onUpdate((e) => {
-        if (trackWidth.value <= 0 || validDuration <= 0) return;
-        const clampedX = Math.max(0, Math.min(trackWidth.value, e.x));
-        scrubX.value = clampedX;
-        const ratio = clampedX / trackWidth.value;
-        const secs = ratio * validDuration;
+  const panGesture = Gesture.Pan()
+    .minDistance(0)
+    .onBegin((e) => {
+      if (trackWidth.value <= 0 || validDuration <= 0) return;
+      isScrubbing.value = true;
+      const clampedX = Math.max(0, Math.min(trackWidth.value, e.x));
+      scrubX.value = clampedX;
+      const ratio = clampedX / trackWidth.value;
+      const secs = ratio * validDuration;
+      lastRoundedSecs.value = Math.floor(secs);
+      runOnJS(handleScrubStart)(secs);
+    })
+    .onUpdate((e) => {
+      if (trackWidth.value <= 0 || validDuration <= 0) return;
+      const clampedX = Math.max(0, Math.min(trackWidth.value, e.x));
+      scrubX.value = clampedX;
+      const ratio = clampedX / trackWidth.value;
+      const secs = ratio * validDuration;
+      const rounded = Math.floor(secs);
+      if (rounded !== lastRoundedSecs.value) {
+        lastRoundedSecs.value = rounded;
         runOnJS(handleScrubUpdate)(secs);
-      })
-      .onFinalize(() => {
-        if (trackWidth.value <= 0 || validDuration <= 0) {
-          isScrubbing.value = false;
-          return;
-        }
+      }
+    })
+    .onFinalize(() => {
+      if (trackWidth.value <= 0 || validDuration <= 0) {
         isScrubbing.value = false;
-        const clampedX = Math.max(0, Math.min(trackWidth.value, scrubX.value));
-        const ratio = clampedX / trackWidth.value;
-        const secs = Math.round(ratio * validDuration);
-        runOnJS(handleScrubEnd)(secs);
-      });
-  }, [validDuration, onSeek]);
+        return;
+      }
+      isScrubbing.value = false;
+      const clampedX = Math.max(0, Math.min(trackWidth.value, scrubX.value));
+      const ratio = clampedX / trackWidth.value;
+      const secs = Math.round(ratio * validDuration);
+      runOnJS(handleScrubEnd)(secs);
+    });
+
+  // Synchronize playback position into Reanimated shared value when not scrubbing
+  useEffect(() => {
+    if (!isScrubbing.value && trackWidth.value > 0) {
+      scrubX.value = progressRatio * trackWidth.value;
+    }
+  }, [progressRatio, isScrubbing, scrubX, trackWidth]);
 
   // Floating tooltip animation
   const tooltipAnimatedStyle = useAnimatedStyle(() => {
