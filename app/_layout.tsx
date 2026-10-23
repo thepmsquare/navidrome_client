@@ -1,3 +1,5 @@
+import "react-native-gesture-handler";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useMemo, useState } from "react";
@@ -124,34 +126,36 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <PaperProvider theme={paperTheme}>
-        <SafeAreaView style={layoutStyles.safeArea}>
-          {showSpinner ? (
-            <SafeAreaView style={layoutStyles.container}>
-              <ActivityIndicator size="large" />
-            </SafeAreaView>
-          ) : (
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(main)" />
-              <Stack.Screen name="(auth)" />
-              <Stack.Screen name="album/[id]" />
-              <Stack.Screen name="artist/[id]" />
-              <Stack.Screen
-                name="player"
-                options={{
-                  presentation: "modal",
-                  animation: "slide_from_bottom",
-                }}
-              />
-            </Stack>
-          )}
-          <ChangelogModal
-            visible={showWhatsNew}
-            onDismiss={() => setShowWhatsNew(false)}
-            title="what's new"
-          />
-        </SafeAreaView>
-      </PaperProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <PaperProvider theme={paperTheme}>
+          <SafeAreaView style={layoutStyles.safeArea}>
+            {showSpinner ? (
+              <SafeAreaView style={layoutStyles.container}>
+                <ActivityIndicator size="large" />
+              </SafeAreaView>
+            ) : (
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(main)" />
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="album/[id]" />
+                <Stack.Screen name="artist/[id]" />
+                <Stack.Screen
+                  name="player"
+                  options={{
+                    presentation: "modal",
+                    animation: "slide_from_bottom",
+                  }}
+                />
+              </Stack>
+            )}
+            <ChangelogModal
+              visible={showWhatsNew}
+              onDismiss={() => setShowWhatsNew(false)}
+              title="what's new"
+            />
+          </SafeAreaView>
+        </PaperProvider>
+      </GestureHandlerRootView>
     </SafeAreaProvider>
   );
 }
