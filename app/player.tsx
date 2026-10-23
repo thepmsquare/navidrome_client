@@ -1,9 +1,7 @@
-import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
-  GestureResponderEvent,
   Pressable,
   ScrollView,
   View,
@@ -16,7 +14,6 @@ import {
   Chip,
   IconButton,
   Menu,
-  ProgressBar,
   Snackbar,
   Surface,
   Text,
@@ -25,6 +22,7 @@ import {
 // Import the new component
 import { LyricsSheetModal } from "@/components/LyricsSheetModal";
 import { ModalArtViewer } from "@/components/ModalArtViewer";
+import { PlayerSeekBar } from "@/components/PlayerSeekBar";
 import { SleepTimerModal } from "@/components/SleepTimerModal";
 import { SongCacheButton } from "@/components/SongCacheButton";
 import { SongSaveButton } from "@/components/SongSaveButton";
@@ -55,15 +53,9 @@ import {
   NormalizedLyrics,
   useAppTheme,
 } from "@/types";
+import { triggerHapticImpact, triggerHapticSelection } from "@/utils/haptics";
 import { spacing } from "@/utils/spacing";
-
-function formatTime(seconds: number): string {
-  if (isNaN(seconds) || seconds < 0) return "0:00";
-  const totalSecs = Math.floor(seconds);
-  const mins = Math.floor(totalSecs / 60);
-  const secs = totalSecs % 60;
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
-}
+import { formatTime } from "@/utils/time";
 
 export default function PlayerScreen() {
   const router = useRouter();
@@ -72,7 +64,6 @@ export default function PlayerScreen() {
   const sleepTimerState = useSleepTimer();
   const [sleepTimerModalVisible, setSleepTimerModalVisible] = useState(false);
   const [ratingMenuVisible, setRatingMenuVisible] = useState(false);
-  const [progressBarWidth, setProgressBarWidth] = useState<number>(0);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [getArtUrl, setGetArtUrl] = useState<
@@ -260,16 +251,7 @@ export default function PlayerScreen() {
     }
   };
 
-  const progress = useMemo(() => {
-    if (!duration || duration <= 0) return 0;
-    return Math.min(Math.max(position / duration, 0), 1);
-  }, [position, duration]);
-
-  const handleSeek = (event: GestureResponderEvent) => {
-    if (!duration || duration <= 0 || progressBarWidth <= 0) return;
-    const touchX = event.nativeEvent.locationX;
-    const ratio = Math.max(0, Math.min(1, touchX / progressBarWidth));
-    const targetSecs = Math.round(ratio * duration);
+  const handleSeek = (targetSecs: number) => {
     seekToPosition(targetSecs).catch((err) =>
       console.error("failed to seek position:", err),
     );
@@ -329,7 +311,7 @@ export default function PlayerScreen() {
 
   const handleToggleShuffle = async () => {
     try {
-      Haptics.selectionAsync().catch(() => {});
+      triggerHapticSelection();
       await toggleShuffle();
     } catch {
       showSnackbar("failed to toggle shuffle");
@@ -338,7 +320,7 @@ export default function PlayerScreen() {
 
   const handleCycleRepeat = async () => {
     try {
-      Haptics.selectionAsync().catch(() => {});
+      triggerHapticSelection();
       await cycleRepeatMode();
     } catch (err) {
       console.error("failed to cycle repeat mode:", err);
@@ -347,7 +329,7 @@ export default function PlayerScreen() {
 
   const handleTogglePlayback = async () => {
     try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      triggerHapticImpact();
       await togglePlayback();
     } catch (err) {
       console.error("failed to toggle playback:", err);
@@ -356,7 +338,7 @@ export default function PlayerScreen() {
 
   const handlePlayPrevious = async () => {
     try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      triggerHapticImpact();
       await playPrevious();
     } catch (err) {
       console.error("failed to play previous track:", err);
@@ -365,7 +347,7 @@ export default function PlayerScreen() {
 
   const handlePlayNext = async () => {
     try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      triggerHapticImpact();
       await playNext();
     } catch (err) {
       console.error("failed to play next track:", err);
@@ -409,7 +391,7 @@ export default function PlayerScreen() {
 
   const handleArtistPress = () => {
     if (!resolvedArtistId) return;
-    Haptics.selectionAsync().catch(() => {});
+    triggerHapticSelection();
     router.push({
       pathname: "/artist/[id]",
       params: { id: resolvedArtistId },
@@ -418,7 +400,7 @@ export default function PlayerScreen() {
 
   const handleAlbumPress = () => {
     if (!resolvedAlbumId) return;
-    Haptics.selectionAsync().catch(() => {});
+    triggerHapticSelection();
     router.push({
       pathname: "/album/[id]",
       params: { id: resolvedAlbumId },
@@ -813,49 +795,17 @@ export default function PlayerScreen() {
 
       {/* Song Progress and Timestamps */}
       <View style={playerStyles.progressSection}>
-        <Pressable
-          onPress={handleSeek}
-          onLayout={(e) => setProgressBarWidth(e.nativeEvent.layout.width)}
-          style={playerStyles.progressTouchArea}
-          accessibilityLabel="song progress"
-          accessibilityRole="adjustable"
-          accessibilityValue={{
-            min: 0,
-            max: duration,
-            now: position,
-            text: `${formatTime(position)} of ${formatTime(duration)}`,
-          }}
-          accessibilityActions={[
-            { name: "increment", label: "seek forward 10 seconds" },
-            { name: "decrement", label: "seek backward 10 seconds" },
-          ]}
-          onAccessibilityAction={(event) => {
-            if (event.nativeEvent.actionName === "increment") {
-              const newPos = Math.min(duration, position + 10);
-              seekToPosition(newPos).catch((err) =>
-                console.error("failed to seek forward:", err),
-              );
-            } else if (event.nativeEvent.actionName === "decrement") {
-              const newPos = Math.max(0, position - 10);
-              seekToPosition(newPos).catch((err) =>
-                console.error("failed to seek backward:", err),
-              );
-            }
-          }}
-        >
-          <ProgressBar
-            progress={progress}
-            color={
-              isPlayingFromCache
-                ? theme.colors.secondary
-                : theme.colors.tertiary
-            }
-            style={[
-              playerStyles.progressBar,
-              { backgroundColor: theme.colors.surfaceContainerHighest },
-            ]}
-          />
-        </Pressable>
+        <PlayerSeekBar
+          position={position}
+          duration={duration}
+          onSeek={handleSeek}
+          color={
+            isPlayingFromCache
+              ? theme.colors.secondary
+              : theme.colors.tertiary
+          }
+          trackColor={theme.colors.surfaceContainerHighest}
+        />
         <View style={playerStyles.timeRow}>
           <Text
             variant="labelSmall"

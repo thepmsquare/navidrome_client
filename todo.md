@@ -45,9 +45,8 @@ upgrading users from previous versions require automated data migration and clea
     - `removeFromQueue(index)`: remove specific track without stopping active playback.
     - `clearQueue()`: empty all upcoming tracks.
 
-- [ ] **scrubber / interactive seek bar**
-  - **context**: playback progress bar only supports tap-to-seek without dragging or preview ([`app/player.tsx`](./app/player.tsx)).
-  - **task**: implement a draggable slider in `app/player.tsx` with live scrub timestamp preview and smooth timeline scrubbing.
+- [x] **scrubber / interactive seek bar & modular skin system**
+  - verified: interactive draggable slider with reanimated gesture scrubbing, animated thumb, floating preview timestamp tooltip, and modular skin architecture (`PlayerSeekBarSkin`) in [`components/PlayerSeekBar.tsx`](./components/PlayerSeekBar.tsx) integrated into [`app/player.tsx`](./app/player.tsx).
 
 - [x] **bulk offline song caching**
   - verified: bulk downloading of albums and playlists with progress and cancellation via [`components/BulkSongCacheButton.tsx`](./components/BulkSongCacheButton.tsx).
@@ -143,6 +142,10 @@ upgrading users from previous versions require automated data migration and clea
   - **task**:
     - [x] **settings access**: make the version number in settings clickable to show the full changelog modal with current version open and previous versions in closed accordions ([`components/ChangelogModal.tsx`](./components/ChangelogModal.tsx)).
     - [x] **first-launch post-update**: detect version code increase on launch and display a "what's new" changelog modal automatically once ([`app/_layout.tsx`](./app/_layout.tsx)).
+
+- [ ] **haptic feedback toggle in settings & profile export**
+  - **context**: haptic feedback is routed through centralized helpers ([`utils/haptics.ts`](./utils/haptics.ts)) checking [`getHapticsEnabled()`](./services/db.ts) and is supported in [`BackupSettings`](./types/backup.ts).
+  - **task**: add a settings switch in [`app/(main)/settings.tsx`](./app/(main)/settings.tsx) to toggle haptic feedback on/off globally, and preserve the preference when exporting or importing profile backups in [`services/backup.ts`](./services/backup.ts).
 
 - [ ] **continuous ui/ux & interaction refinements**
   - **task**: ongoing refinement of tactile haptic feedback on actions, spacing and typography consistency across device sizes, dark mode contrast, smooth route animations, and accessible touch targets.

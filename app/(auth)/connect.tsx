@@ -19,6 +19,7 @@ import { pickProfileFile } from "@/services/backup";
 import {
   setAutoCacheEnabled,
   setAutoCacheMaxBytes,
+  setHapticsEnabled,
   setScrobbleMinDuration,
   setScrobbleMinPercent,
 } from "@/services/db";
@@ -276,6 +277,9 @@ export default function ConnectScreen() {
         }
         if (profile.settings.lyrics_mode !== undefined) {
           setLyricsMode(profile.settings.lyrics_mode);
+        }
+        if (profile.settings.haptics_enabled !== undefined) {
+          setHapticsEnabled(profile.settings.haptics_enabled);
         }
       }
 

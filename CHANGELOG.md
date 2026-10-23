@@ -1,5 +1,15 @@
 # changelog
 
+## 2.29.0+64
+
+### user release notes
+
+- update drag to seek support on music play page.
+
+### internal notes
+
+- add helpers and utils for toggling haptics.
+
 ## 2.28.0+63
 
 ### user release notes

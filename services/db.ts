@@ -1000,6 +1000,18 @@ export function setKeepPlayingOnAppDismissed(enabled: boolean): void {
   setSyncMeta("keep_playing_on_app_dismissed", String(enabled));
 }
 
+export function getHapticsEnabled(): boolean {
+  const val = getSyncMeta("haptics_enabled");
+  if (val === null) {
+    return true;
+  }
+  return val === "true";
+}
+
+export function setHapticsEnabled(enabled: boolean): void {
+  setSyncMeta("haptics_enabled", String(enabled));
+}
+
 function escapeLike(str: string): string {
   return str.replace(/[%_\\]/g, "\\$0");
 }
