@@ -3,6 +3,7 @@ import renderer from "react-test-renderer";
 
 import { SongCacheButton } from "@/components/SongCacheButton";
 import { getSongCacheEntry } from "@/services/db";
+import { isSongCaching } from "@/services/songCache";
 import { SongCacheRow, SongCacheType } from "@/types";
 
 let cacheListener:
@@ -44,6 +45,7 @@ describe("SongCacheButton", () => {
     cacheListener = null;
     progressListener = null;
     (getSongCacheEntry as jest.Mock).mockReturnValue(null);
+    (isSongCaching as jest.Mock).mockReturnValue(false);
   });
 
   it("returns null when mini=true, hideIfUncached=true and song is uncached", () => {
@@ -320,6 +322,95 @@ describe("SongCacheButton", () => {
 
     renderer.act(() => {
       component.unmount();
+    });
+  });
+
+  describe("variant=menu-item", () => {
+    it("renders menu item with download label when uncached", () => {
+      let component: any;
+      renderer.act(() => {
+        component = renderer.create(
+          <SongCacheButton
+            songId="song-menu-1"
+            variant="menu-item"
+            initialEntry={null}
+          />,
+        );
+      });
+
+      const menuItem = component.root.findByProps({
+        accessibilityLabel: "download",
+      });
+      expect(menuItem).toBeDefined();
+
+      const icon = menuItem.findByProps({ icon: "download-outline" });
+      expect(icon).toBeDefined();
+
+      renderer.act(() => {
+        component.unmount();
+      });
+    });
+
+    it("renders menu item with remove download label when cached", () => {
+      const manualEntry: SongCacheRow = {
+        songId: "song-menu-2",
+        cacheType: SongCacheType.Manual,
+        filePath: "file:///path/to/song.mp3",
+        fileSizeBytes: 123456,
+        addedAt: "2026-09-01T00:00:00.000Z",
+        lastAccessedAt: null,
+      };
+
+      let component: any;
+      renderer.act(() => {
+        component = renderer.create(
+          <SongCacheButton
+            songId="song-menu-2"
+            variant="menu-item"
+            initialEntry={manualEntry}
+          />,
+        );
+      });
+
+      const menuItem = component.root.findByProps({
+        accessibilityLabel: "remove download",
+      });
+      expect(menuItem).toBeDefined();
+
+      const icon = menuItem.findByProps({ icon: "check-circle" });
+      expect(icon).toBeDefined();
+
+      renderer.act(() => {
+        component.unmount();
+      });
+    });
+
+    it("calls onAction callback when pressed", () => {
+      const onAction = jest.fn();
+      let component: any;
+      renderer.act(() => {
+        component = renderer.create(
+          <SongCacheButton
+            songId="song-menu-3"
+            variant="menu-item"
+            initialEntry={null}
+            onAction={onAction}
+          />,
+        );
+      });
+
+      const menuItem = component.root.findByProps({
+        accessibilityLabel: "download",
+      });
+      renderer.act(() => {
+        menuItem.props.onPress();
+      });
+
+      expect(onAction).toHaveBeenCalledTimes(1);
+
+      renderer.act(() => {
+        component.unmount();
+      });
     });
   });
 });

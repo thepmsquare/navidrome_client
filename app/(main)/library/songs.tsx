@@ -1,20 +1,17 @@
-import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, RefreshControl, View } from "react-native";
 import {
   Appbar,
-  Avatar,
   Button,
   IconButton,
-  List,
   Menu,
   Searchbar,
   Surface,
   Text,
 } from "react-native-paper";
 
-import { SongCacheButton } from "@/components/SongCacheButton";
+import { SongRow } from "@/components/SongRow";
 import { client_app_sync, getCoverArtBaseUrl } from "@/services/api";
 import { getAllSongCacheEntries, getAllSongs, searchSongs } from "@/services/db";
 import { playPlaylist } from "@/services/player";
@@ -201,38 +198,15 @@ export default function SongsScreen() {
             <Text variant="bodyLarge">no songs found</Text>
           </View>
         }
-        renderItem={({ item, index }) => {
-          const artUrl = getArtUrl ? getArtUrl(item.coverArt) : null;
-
-          return (
-            <List.Item
-              title={item.title}
-              description={item.artist ?? undefined}
-              onPress={() => playPlaylist(processedSongs, index)}
-              left={(props) =>
-                artUrl ? (
-                  <Image
-                    source={{ uri: artUrl, cacheKey: `${item.coverArt}-300` }}
-                    style={songsStyles.artwork}
-                    contentFit="cover"
-                    transition={200}
-                    cachePolicy="memory-disk"
-                  />
-                ) : (
-                  <Avatar.Icon {...props} size={48} icon="music" />
-                )
-              }
-              right={() => (
-                <SongCacheButton
-                  songId={item.id}
-                  mini
-                  hideIfUncached
-                  initialEntry={cacheEntries.get(item.id) ?? null}
-                />
-              )}
-            />
-          );
-        }}
+        renderItem={({ item, index }) => (
+          <SongRow
+            song={item}
+            index={index}
+            onPress={() => playPlaylist(processedSongs, index)}
+            getArtUrl={getArtUrl}
+            initialCacheEntry={cacheEntries.get(item.id) ?? null}
+          />
+        )}
       />
     </Surface>
   );

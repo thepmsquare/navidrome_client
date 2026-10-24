@@ -44,6 +44,8 @@ jest.mock("@/components/SongCacheButton", () => ({
 
 jest.mock("@/services/player", () => ({
   playPlaylist: (...args: any[]) => mockPlayPlaylist(...args),
+  playSong: jest.fn(),
+  usePlayerState: jest.fn().mockReturnValue({ currentTrack: null }),
 }));
 
 jest.mock("@/services/songCache", () => ({
@@ -245,11 +247,11 @@ describe("HomeScreen", () => {
     });
 
     const root = tree.root;
-    const { List } = require("react-native-paper");
-    const listItems = root.findAllByType(List.Item);
+    const { SongRow } = require("@/components/SongRow");
+    const listItems = root.findAllByType(SongRow);
     expect(listItems.length).toBe(2);
-    expect(listItems[0].props.title).toBe("Time");
-    expect(listItems[1].props.title).toBe("Money");
+    expect(listItems[0].props.song.title).toBe("Time");
+    expect(listItems[1].props.song.title).toBe("Money");
 
     await renderer.act(async () => {
       listItems[0].props.onPress();
@@ -284,10 +286,10 @@ describe("HomeScreen", () => {
     });
 
     expect(db.getRandomSongs).toHaveBeenCalledWith(10);
-    const { List } = require("react-native-paper");
-    const listItems = root.findAllByType(List.Item);
+    const { SongRow } = require("@/components/SongRow");
+    const listItems = root.findAllByType(SongRow);
     expect(listItems.length).toBe(1);
-    expect(listItems[0].props.title).toBe("Us and Them");
+    expect(listItems[0].props.song.title).toBe("Us and Them");
   });
 
   it("renders empty message when no random tracks are available", async () => {

@@ -6,14 +6,13 @@ import {
   Appbar,
   Avatar,
   Button,
-  List,
   Surface,
   Text,
 } from "react-native-paper";
 
 import { AppBottomBar, TabKey } from "@/components/AppBottomBar";
 import { RichHtmlText } from "@/components/RichHtmlText";
-import { SongCacheButton } from "@/components/SongCacheButton";
+import { SongRow } from "@/components/SongRow";
 import {
   getArtistInfo,
   getCoverArtBaseUrl,
@@ -38,13 +37,6 @@ import {
   SongCacheRow,
   useAppTheme,
 } from "@/types";
-
-function formatDuration(seconds?: number): string {
-  if (!seconds) return "";
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
-}
 
 export default function ArtistDetailScreen() {
   const router = useRouter();
@@ -407,40 +399,15 @@ export default function ArtistDetailScreen() {
           </View>
         }
         renderItem={({ item, index }) => (
-          <List.Item
-            title={item.title}
-            description={item.album ?? undefined}
-            style={artistDetailStyles.trackItem}
+          <SongRow
+            song={item}
+            index={index}
+            showTrackNumber
+            trackNumber={index + 1}
+            subtitle={item.album ?? undefined}
+            showDuration
             onPress={() => playPlaylist(songs, index)}
-            left={() => (
-              <Text
-                variant="bodyMedium"
-                style={[
-                  artistDetailStyles.trackNumber,
-                  { color: theme.colors.outline },
-                ]}
-              >
-                {index + 1}
-              </Text>
-            )}
-            right={() => (
-              <View style={artistDetailStyles.rightContainer}>
-                <SongCacheButton
-                  songId={item.id}
-                  mini
-                  hideIfUncached
-                  initialEntry={cacheEntries.get(item.id) ?? null}
-                />
-                {item.duration ? (
-                  <Text
-                    variant="bodySmall"
-                    style={{ color: theme.colors.onSurfaceVariant }}
-                  >
-                    {formatDuration(item.duration)}
-                  </Text>
-                ) : null}
-              </View>
-            )}
+            initialCacheEntry={cacheEntries.get(item.id) ?? null}
           />
         )}
       />

@@ -57,6 +57,7 @@ jest.mock("@/services/db", () => ({
 
 jest.mock("@/services/player", () => ({
   playPlaylist: jest.fn(),
+  usePlayerState: jest.fn().mockReturnValue({ currentTrack: null }),
 }));
 
 const mockSongs: Child[] = [
@@ -156,8 +157,10 @@ describe("SearchScreen", () => {
     expect(searchArtists).toHaveBeenCalledWith("pink", expect.any(Number));
     expect(searchPlaylists).toHaveBeenCalledWith("pink", expect.any(Number));
 
+    const { SongRow } = require("@/components/SongRow");
     const listItems = component.root.findAllByType(List.Item);
-    expect(listItems.length).toBeGreaterThanOrEqual(4);
+    const songRows = component.root.findAllByType(SongRow);
+    expect(listItems.length + songRows.length).toBeGreaterThanOrEqual(4);
 
     renderer.act(() => {
       component.unmount();
@@ -172,16 +175,17 @@ describe("SearchScreen", () => {
       component = renderer.create(<SearchScreen />);
     });
 
-    const { Searchbar, List } = require("react-native-paper");
+    const { Searchbar } = require("react-native-paper");
+    const { SongRow } = require("@/components/SongRow");
     const searchbar = component.root.findByType(Searchbar);
 
     renderer.act(() => {
       searchbar.props.onChangeText("numb");
     });
 
-    const listItems = component.root.findAllByType(List.Item);
-    const songItem = listItems.find(
-      (item: any) => item.props.title === "comfortably numb",
+    const songRows = component.root.findAllByType(SongRow);
+    const songItem = songRows.find(
+      (item: any) => item.props.song.title === "comfortably numb",
     );
     expect(songItem).toBeDefined();
 
@@ -460,9 +464,10 @@ describe("SearchScreen", () => {
       searchbar.props.onChangeText("numb");
     });
 
-    const listItems = component.root.findAllByType(List.Item);
-    const songItem = listItems.find(
-      (item: any) => item.props.title === "comfortably numb",
+    const { SongRow } = require("@/components/SongRow");
+    const songRows = component.root.findAllByType(SongRow);
+    const songItem = songRows.find(
+      (item: any) => item.props.song.title === "comfortably numb",
     );
     expect(songItem).toBeDefined();
 

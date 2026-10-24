@@ -607,7 +607,14 @@ export async function playSong(song: Child): Promise<void> {
   await playPlaylist([song], 0);
 }
 
-export async function playNext(): Promise<void> {
+export async function playNext(): Promise<void>;
+export async function playNext(song: Child): Promise<void>;
+export async function playNext(song?: Child): Promise<void> {
+  ensureSessionHydrated();
+  if (song) {
+    await playNextSong(song);
+    return;
+  }
   if (currentIndex + 1 < currentQueue.length) {
     await playTrackAtIndex(currentIndex + 1);
   } else if (currentRepeatMode === "all" && currentQueue.length > 0) {
@@ -615,6 +622,145 @@ export async function playNext(): Promise<void> {
   } else {
     handlePlaybackStopped();
   }
+}
+
+export async function playNextSong(song: Child): Promise<void> {
+  ensureSessionHydrated();
+  if (currentQueue.length === 0 || !currentTrack) {
+    await playPlaylist([song], 0);
+    return;
+  }
+  const insertIndex = currentIndex + 1;
+  currentQueue.splice(insertIndex, 0, song);
+  if (originalQueue.length > 0) {
+    const origIndex = currentTrack
+      ? originalQueue.findIndex((s) => s.id === currentTrack?.id)
+      : -1;
+    if (origIndex >= 0) {
+      originalQueue.splice(origIndex + 1, 0, song);
+    } else {
+      originalQueue.push(song);
+    }
+  } else {
+    originalQueue = [...currentQueue];
+  }
+  notifyStateChanged();
+  persistCurrentSession();
+}
+
+export async function addToQueue(song: Child | Child[]): Promise<void> {
+  ensureSessionHydrated();
+  const songsToAdd = Array.isArray(song) ? song : [song];
+  if (songsToAdd.length === 0) return;
+
+  if (currentQueue.length === 0 || !currentTrack) {
+    await playPlaylist(songsToAdd, 0);
+    return;
+  }
+
+  currentQueue.push(...songsToAdd);
+  if (originalQueue.length > 0) {
+    originalQueue.push(...songsToAdd);
+  } else {
+    originalQueue = [...currentQueue];
+  }
+  notifyStateChanged();
+  persistCurrentSession();
+}
+
+export function removeFromQueue(index: number): boolean {
+  ensureSessionHydrated();
+  if (index < 0 || index >= currentQueue.length) {
+    return false;
+  }
+  const [removed] = currentQueue.splice(index, 1);
+
+  if (index < currentIndex) {
+    currentIndex--;
+  } else if (index === currentIndex) {
+    if (currentQueue.length === 0) {
+      currentIndex = 0;
+    } else if (currentIndex >= currentQueue.length) {
+      currentIndex = currentQueue.length - 1;
+    }
+  }
+
+  if (originalQueue.length > 0 && removed) {
+    const origIndex = originalQueue.findIndex((s) => s.id === removed.id);
+    if (origIndex >= 0) {
+      originalQueue.splice(origIndex, 1);
+    }
+  }
+
+  notifyStateChanged();
+  persistCurrentSession();
+  return true;
+}
+
+export function clearQueue(): void {
+  ensureSessionHydrated();
+  if (currentQueue.length === 0) return;
+
+  if (currentIndex < currentQueue.length - 1) {
+    currentQueue = currentQueue.slice(0, currentIndex + 1);
+    if (originalQueue.length > 0 && currentTrack) {
+      const origIndex = originalQueue.findIndex(
+        (s) => s.id === currentTrack?.id,
+      );
+      if (origIndex >= 0) {
+        originalQueue = originalQueue.slice(0, origIndex + 1);
+      } else {
+        originalQueue = [...currentQueue];
+      }
+    } else {
+      originalQueue = [...currentQueue];
+    }
+    notifyStateChanged();
+    persistCurrentSession();
+  }
+}
+
+export function moveQueueItem(fromIndex: number, toIndex: number): boolean {
+  ensureSessionHydrated();
+  if (
+    fromIndex < 0 ||
+    fromIndex >= currentQueue.length ||
+    toIndex < 0 ||
+    toIndex >= currentQueue.length ||
+    fromIndex === toIndex
+  ) {
+    return false;
+  }
+  const [movedItem] = currentQueue.splice(fromIndex, 1);
+  currentQueue.splice(toIndex, 0, movedItem);
+
+  if (currentIndex === fromIndex) {
+    currentIndex = toIndex;
+  } else if (fromIndex < currentIndex && toIndex >= currentIndex) {
+    currentIndex--;
+  } else if (fromIndex > currentIndex && toIndex <= currentIndex) {
+    currentIndex++;
+  }
+
+  notifyStateChanged();
+  persistCurrentSession();
+  return true;
+}
+
+export function setQueue(newQueue: Child[]): void {
+  ensureSessionHydrated();
+  currentQueue = [...newQueue];
+  if (currentTrack) {
+    const foundIdx = currentQueue.findIndex((s) => s.id === currentTrack?.id);
+    if (foundIdx >= 0) {
+      currentIndex = foundIdx;
+    }
+  }
+  if (!currentShuffle) {
+    originalQueue = [...currentQueue];
+  }
+  notifyStateChanged();
+  persistCurrentSession();
 }
 
 export async function playPrevious(): Promise<void> {

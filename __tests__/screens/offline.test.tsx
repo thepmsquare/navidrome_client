@@ -35,6 +35,7 @@ jest.mock("@/services/db", () => ({
 
 jest.mock("@/services/player", () => ({
   playPlaylist: jest.fn(),
+  usePlayerState: jest.fn().mockReturnValue({ currentTrack: null }),
 }));
 
 const mockSongs: Child[] = [
@@ -119,8 +120,8 @@ describe("AvailableOfflineScreen", () => {
       component = renderer.create(<AvailableOfflineScreen />);
     });
 
-    const { List } = require("react-native-paper");
-    const listItems = component.root.findAllByType(List.Item);
+    const { SongRow } = require("@/components/SongRow");
+    const listItems = component.root.findAllByType(SongRow);
     expect(listItems.length).toBe(2);
 
     renderer.act(() => {
