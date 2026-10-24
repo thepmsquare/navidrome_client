@@ -1,5 +1,16 @@
 # changelog
 
+## 2.30.0+65
+
+### user release notes
+
+- unified song list ui across all screens.
+- song list now has context menu on long press and menu click with action items like, add to queue, play next etc.
+
+### internal notes
+
+- add menu item variant for cache button.
+
 ## 2.29.0+64
 
 ### user release notes

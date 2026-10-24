@@ -14,7 +14,7 @@ import {
   Text,
 } from "react-native-paper";
 
-import { SongCacheButton } from "@/components/SongCacheButton";
+import { SongRow } from "@/components/SongRow";
 import { getCoverArtBaseUrl } from "@/services/api";
 import {
   addRecentSearch,
@@ -122,43 +122,24 @@ export default function SearchScreen() {
   const isSearching = searchQuery.trim().length > 0;
 
   const renderSongItem = (item: Child, index: number, list: Child[]) => {
-    const artUrl = getArtUrl ? getArtUrl(item.coverArt) : null;
     return (
-      <List.Item
+      <SongRow
         key={`song-${item.id}`}
-        title={item.title}
-        description={
+        song={item}
+        index={index}
+        subtitle={
           item.artist
             ? item.album
               ? `${item.artist} • ${item.album}`
               : item.artist
-            : item.album ?? undefined
+            : (item.album ?? undefined)
         }
         onPress={() => {
           saveCurrentSearch();
           playPlaylist(list, index);
         }}
-        left={(props) =>
-          artUrl ? (
-            <Image
-              source={{ uri: artUrl, cacheKey: `${item.coverArt}-300` }}
-              style={searchStyles.artwork}
-              contentFit="cover"
-              transition={200}
-              cachePolicy="memory-disk"
-            />
-          ) : (
-            <Avatar.Icon {...props} size={48} icon="music" />
-          )
-        }
-        right={() => (
-          <SongCacheButton
-            songId={item.id}
-            mini
-            hideIfUncached
-            initialEntry={cacheEntries.get(item.id) ?? null}
-          />
-        )}
+        getArtUrl={getArtUrl}
+        initialCacheEntry={cacheEntries.get(item.id) ?? null}
       />
     );
   };

@@ -1,8 +1,8 @@
 {
   "name": "navidrome_client",
   "main": "expo-router/entry",
-  "version": "2.29.0",
-  "versionCode": 64,
+  "version": "2.30.0",
+  "versionCode": 65,
   "repository": "https://github.com/thepmsquare/navidrome_client",
   "scripts": {
     "start": "node scripts/dev.js start",

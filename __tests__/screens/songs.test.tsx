@@ -46,6 +46,7 @@ jest.mock("@/services/db", () => ({
 
 jest.mock("@/services/player", () => ({
   playPlaylist: jest.fn(),
+  usePlayerState: jest.fn().mockReturnValue({ currentTrack: null }),
 }));
 
 const mockSongs: Child[] = [
@@ -87,8 +88,8 @@ describe("SongsScreen", () => {
       component = renderer.create(<SongsScreen />);
     });
 
-    const { List } = require("react-native-paper");
-    const listItems = component.root.findAllByType(List.Item);
+    const { SongRow } = require("@/components/SongRow");
+    const listItems = component.root.findAllByType(SongRow);
     expect(listItems.length).toBe(2);
 
     renderer.act(() => {
@@ -104,7 +105,8 @@ describe("SongsScreen", () => {
       component = renderer.create(<SongsScreen />);
     });
 
-    const { Searchbar, List } = require("react-native-paper");
+    const { Searchbar } = require("react-native-paper");
+    const { SongRow } = require("@/components/SongRow");
     const searchbar = component.root.findByType(Searchbar);
 
     renderer.act(() => {
@@ -113,9 +115,9 @@ describe("SongsScreen", () => {
 
     expect(searchSongs).toHaveBeenCalledWith("numb", 1000);
 
-    const listItems = component.root.findAllByType(List.Item);
+    const listItems = component.root.findAllByType(SongRow);
     expect(listItems.length).toBe(1);
-    expect(listItems[0].props.title).toBe("comfortably numb");
+    expect(listItems[0].props.song.title).toBe("comfortably numb");
 
     renderer.act(() => {
       component.unmount();
@@ -128,8 +130,8 @@ describe("SongsScreen", () => {
       component = renderer.create(<SongsScreen />);
     });
 
-    const { List } = require("react-native-paper");
-    const listItems = component.root.findAllByType(List.Item);
+    const { SongRow } = require("@/components/SongRow");
+    const listItems = component.root.findAllByType(SongRow);
 
     renderer.act(() => {
       listItems[0].props.onPress();

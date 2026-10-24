@@ -7,9 +7,16 @@ import {
   StyleProp,
   StyleSheet,
   TextStyle,
+  View,
   ViewStyle,
 } from "react-native";
-import { Button, Chip, IconButton } from "react-native-paper";
+import {
+  Button,
+  Chip,
+  IconButton,
+  Text,
+  TouchableRipple,
+} from "react-native-paper";
 
 import { CircularProgressRing } from "@/components/CircularProgressRing";
 import {
@@ -17,6 +24,7 @@ import {
   getSongCacheEntry,
   removeFromDownloadQueue,
 } from "@/services/db";
+import { requestDownloadNotificationPermission } from "@/services/permissions";
 import {
   cacheSongManually,
   cancelSongCaching,
@@ -26,8 +34,8 @@ import {
   subscribeSongCache,
   subscribeSongCacheProgress,
 } from "@/services/songCache";
-import { requestDownloadNotificationPermission } from "@/services/permissions";
 import { SongCacheRow, SongCacheType, useAppTheme } from "@/types";
+import { spacing } from "@/utils/spacing";
 
 export interface SongCacheButtonProps {
   songId?: string | null;
@@ -36,10 +44,10 @@ export interface SongCacheButtonProps {
    */
   mini?: boolean;
   /**
-   * Display style: "button" shows icon + text, "icon" shows compact icon only, "chip" renders a Material Chip.
+   * Display style: "button" shows icon + text, "icon" shows compact icon only, "chip" renders a Material Chip, "menu-item" renders a context menu row.
    * Defaults to "button" unless mini is true or showText is explicitly set to false.
    */
-  variant?: "button" | "icon" | "chip";
+  variant?: "button" | "icon" | "chip" | "menu-item";
   /**
    * Toggle: if false, displays icon only.
    */
@@ -69,6 +77,10 @@ export interface SongCacheButtonProps {
   onCacheError?: (error: unknown) => void;
   onCacheCancelled?: () => void;
   onCacheRemoved?: () => void;
+  /**
+   * Optional callback invoked immediately when pressed (e.g. to dismiss a parent modal/menu).
+   */
+  onAction?: () => void;
 }
 
 export function SongCacheButton({
@@ -89,6 +101,7 @@ export function SongCacheButton({
   onCacheError,
   onCacheCancelled,
   onCacheRemoved,
+  onAction,
 }: SongCacheButtonProps) {
   const theme = useAppTheme();
 
@@ -212,6 +225,8 @@ export function SongCacheButton({
     e?.stopPropagation?.();
 
     if (!songId) return;
+
+    onAction?.();
 
     if (isManual) {
       confirmRemoveFromCache();
@@ -380,6 +395,76 @@ export function SongCacheButton({
     );
   }
 
+  if (variant === "menu-item") {
+    const isCached = isManual;
+    const label = isCaching
+      ? cachingProgress < 0
+        ? "downloading..."
+        : `downloading... ${progressPercent}%`
+      : isCached
+        ? "remove download"
+        : isAuto
+          ? "make available offline"
+          : "download";
+
+    const icon = isCaching
+      ? "progress-download"
+      : isCached
+        ? "check-circle"
+        : isAuto
+          ? "clock-outline"
+          : "download-outline";
+
+    const iconColor = isCached
+      ? theme.colors.primary
+      : isCaching
+        ? theme.colors.tertiary
+        : theme.colors.onSurface;
+
+    const textColor = isCached
+      ? theme.colors.primary
+      : isCaching
+        ? theme.colors.tertiary
+        : theme.colors.onSurface;
+
+    return (
+      <TouchableRipple
+        onPress={handlePress}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        style={[styles.menuItem, style]}
+      >
+        <View style={styles.menuItemRow}>
+          {isCaching ? (
+            <View style={styles.menuProgressContainer}>
+              <CircularProgressRing
+                progress={cachingProgress}
+                size={22}
+                strokeWidth={2.5}
+                color={theme.colors.tertiary}
+                trackColor={theme.colors.surfaceContainerHighest}
+                showPercentage={false}
+              />
+            </View>
+          ) : (
+            <IconButton
+              icon={icon}
+              size={iconSize}
+              iconColor={iconColor}
+              style={styles.menuIcon}
+            />
+          )}
+          <Text
+            variant="bodyLarge"
+            style={[styles.menuLabel, { color: textColor }, labelStyle]}
+          >
+            {label}
+          </Text>
+        </View>
+      </TouchableRipple>
+    );
+  }
+
   return (
     <Button
       mode={mode}
@@ -433,6 +518,28 @@ const styles = StyleSheet.create({
   iconProgressContainer: {
     justifyContent: "center",
     alignItems: "center",
+  },
+  menuItem: {
+    paddingVertical: 4,
+    // paddingHorizontal: spacing.lg,
+  },
+  menuItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  menuIcon: {
+    margin: 0,
+    marginRight: spacing.md,
+  },
+  menuLabel: {
+    fontWeight: "500",
+  },
+  menuProgressContainer: {
+    width: 48,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: spacing.md,
   },
 });
 

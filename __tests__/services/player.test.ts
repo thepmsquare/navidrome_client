@@ -5,6 +5,8 @@ import renderer from "react-test-renderer";
 import * as audioPlayback from "@/modules/audio-playback";
 import * as api from "@/services/api";
 import {
+  addToQueue,
+  clearQueue,
   cycleRepeatMode,
   getCurrentIndex,
   getCurrentQueue,
@@ -14,19 +16,23 @@ import {
   getOriginalQueue,
   getPlayerState,
   getStatus,
+  moveQueueItem,
   pausePlayback,
   playNext,
+  playNextSong,
   playPlaylist,
   playPrevious,
   playSong,
   playTestSound,
   playTrackAtIndex,
+  removeFromQueue,
   resetPlayer,
   resumePlayback,
   seekToPosition,
   setPlaybackRepeatMode,
   setPlaybackShuffle,
   setPlaybackVolume,
+  setQueue,
   stopPlayback,
   stopTestSound,
   subscribePlayerState,
@@ -453,6 +459,168 @@ describe("player service", () => {
 
       await playPrevious();
       expect(getCurrentIndex()).toBe(1);
+    });
+  });
+
+  describe("dynamic queue operations", () => {
+    const song3: Child = {
+      id: "song-3",
+      title: "Song Three",
+      artist: "Artist 3",
+      duration: 210,
+    };
+    const song4: Child = {
+      id: "song-4",
+      title: "Song Four",
+      artist: "Artist 4",
+      duration: 240,
+    };
+
+    it("playNext(song) should insert track immediately after active track", async () => {
+      await playPlaylist([sampleSong1, sampleSong2], 0);
+      expect(getCurrentQueue().map((s) => s.id)).toEqual(["song-1", "song-2"]);
+      expect(getCurrentIndex()).toBe(0);
+
+      await playNext(song3);
+      expect(getCurrentQueue().map((s) => s.id)).toEqual([
+        "song-1",
+        "song-3",
+        "song-2",
+      ]);
+      expect(getCurrentIndex()).toBe(0);
+      expect(getCurrentTrack()?.id).toBe("song-1");
+      expect(getPlayerState().hasNext).toBe(true);
+    });
+
+    it("playNext(song) on empty queue should immediately start playback", async () => {
+      await resetPlayer();
+      expect(getCurrentQueue().length).toBe(0);
+
+      await playNext(song3);
+      expect(getCurrentQueue().map((s) => s.id)).toEqual(["song-3"]);
+      expect(getCurrentTrack()?.id).toBe("song-3");
+      expect(audioPlayback.loadTrack).toHaveBeenCalled();
+    });
+
+    it("addToQueue(song) should append track to end of queue", async () => {
+      await playPlaylist([sampleSong1, sampleSong2], 0);
+
+      await addToQueue(song3);
+      expect(getCurrentQueue().map((s) => s.id)).toEqual([
+        "song-1",
+        "song-2",
+        "song-3",
+      ]);
+      expect(getCurrentIndex()).toBe(0);
+    });
+
+    it("addToQueue(song) on empty queue should start playback", async () => {
+      await resetPlayer();
+      await addToQueue(song3);
+
+      expect(getCurrentQueue().map((s) => s.id)).toEqual(["song-3"]);
+      expect(getCurrentTrack()?.id).toBe("song-3");
+      expect(audioPlayback.loadTrack).toHaveBeenCalled();
+    });
+
+    it("addToQueue with array should append multiple tracks", async () => {
+      await playPlaylist([sampleSong1], 0);
+
+      await addToQueue([song3, song4]);
+      expect(getCurrentQueue().map((s) => s.id)).toEqual([
+        "song-1",
+        "song-3",
+        "song-4",
+      ]);
+    });
+
+    it("removeFromQueue should remove upcoming track without affecting currentIndex or playback", async () => {
+      await playPlaylist([sampleSong1, sampleSong2, song3], 0);
+      expect(getCurrentIndex()).toBe(0);
+
+      const removed = removeFromQueue(1);
+      expect(removed).toBe(true);
+      expect(getCurrentQueue().map((s) => s.id)).toEqual(["song-1", "song-3"]);
+      expect(getCurrentIndex()).toBe(0);
+      expect(getCurrentTrack()?.id).toBe("song-1");
+    });
+
+    it("removeFromQueue should decrement currentIndex when removing track before active track", async () => {
+      await playPlaylist([sampleSong1, sampleSong2, song3], 1);
+      expect(getCurrentIndex()).toBe(1);
+      expect(getCurrentTrack()?.id).toBe("song-2");
+
+      const removed = removeFromQueue(0);
+      expect(removed).toBe(true);
+      expect(getCurrentQueue().map((s) => s.id)).toEqual(["song-2", "song-3"]);
+      expect(getCurrentIndex()).toBe(0);
+      expect(getCurrentTrack()?.id).toBe("song-2");
+    });
+
+    it("removeFromQueue should adjust index when removing active track without stopping playback", async () => {
+      await playPlaylist([sampleSong1, sampleSong2, song3], 0);
+      (audioPlayback.stop as jest.Mock).mockClear();
+      expect(getCurrentTrack()?.id).toBe("song-1");
+
+      const removed = removeFromQueue(0);
+      expect(removed).toBe(true);
+      expect(getCurrentQueue().map((s) => s.id)).toEqual(["song-2", "song-3"]);
+      // Audio is not stopped
+      expect(audioPlayback.stop).not.toHaveBeenCalled();
+    });
+
+    it("removeFromQueue should return false for invalid indices", async () => {
+      await playPlaylist([sampleSong1], 0);
+      expect(removeFromQueue(-1)).toBe(false);
+      expect(removeFromQueue(5)).toBe(false);
+      expect(getCurrentQueue().length).toBe(1);
+    });
+
+    it("clearQueue should remove all upcoming tracks after current track", async () => {
+      await playPlaylist([sampleSong1, sampleSong2, song3, song4], 1);
+      expect(getCurrentIndex()).toBe(1);
+      expect(getCurrentTrack()?.id).toBe("song-2");
+
+      clearQueue();
+      expect(getCurrentQueue().map((s) => s.id)).toEqual([
+        "song-1",
+        "song-2",
+      ]);
+      expect(getCurrentIndex()).toBe(1);
+      expect(getPlayerState().hasNext).toBe(false);
+    });
+
+    it("moveQueueItem should reorder items and track currentIndex correctly", async () => {
+      await playPlaylist([sampleSong1, sampleSong2, song3], 1);
+      expect(getCurrentIndex()).toBe(1);
+
+      // Move active track (index 1) to end (index 2)
+      const success = moveQueueItem(1, 2);
+      expect(success).toBe(true);
+      expect(getCurrentQueue().map((s) => s.id)).toEqual([
+        "song-1",
+        "song-3",
+        "song-2",
+      ]);
+      expect(getCurrentIndex()).toBe(2);
+
+      // Invalid moves
+      expect(moveQueueItem(-1, 0)).toBe(false);
+      expect(moveQueueItem(0, 10)).toBe(false);
+      expect(moveQueueItem(1, 1)).toBe(false);
+    });
+
+    it("setQueue should replace queue and keep currentTrack index synchronized", async () => {
+      await playPlaylist([sampleSong1, sampleSong2], 0);
+
+      setQueue([song3, sampleSong1, song4]);
+      expect(getCurrentQueue().map((s) => s.id)).toEqual([
+        "song-3",
+        "song-1",
+        "song-4",
+      ]);
+      expect(getCurrentIndex()).toBe(1);
+      expect(getCurrentTrack()?.id).toBe("song-1");
     });
   });
 

@@ -2,11 +2,11 @@ import { Image } from "expo-image";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, RefreshControl, View } from "react-native";
-import { Appbar, Avatar, List, Surface, Text } from "react-native-paper";
+import { Appbar, Avatar, Surface, Text } from "react-native-paper";
 
 import { AppBottomBar, TabKey } from "@/components/AppBottomBar";
 import { BulkSongCacheButton } from "@/components/BulkSongCacheButton";
-import { SongCacheButton } from "@/components/SongCacheButton";
+import { SongRow } from "@/components/SongRow";
 import { getAlbum, getCoverArtBaseUrl } from "@/services/api";
 import {
   getAlbumById,
@@ -19,14 +19,6 @@ import { playPlaylist } from "@/services/player";
 import { subscribeSongCache } from "@/services/songCache";
 import { albumDetailStyles } from "@/stylesheets";
 import { SongCacheRow, useAppTheme } from "@/types";
-
-
-function formatDuration(seconds?: number): string {
-  if (!seconds) return "";
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
-}
 
 export default function AlbumDetailScreen() {
   const router = useRouter();
@@ -201,43 +193,14 @@ export default function AlbumDetailScreen() {
           </View>
         }
         renderItem={({ item, index }) => (
-          <List.Item
-            title={item.title}
-            description={item.artist ?? undefined}
-            style={albumDetailStyles.trackItem}
+          <SongRow
+            song={item}
+            index={index}
+            showTrackNumber
+            trackNumber={item.track ?? index + 1}
+            showDuration
             onPress={() => playPlaylist(songs, index)}
-            left={() => (
-              <Text
-                variant="bodyMedium"
-                style={[
-                  albumDetailStyles.trackNumber,
-                  { color: theme.colors.outline },
-                ]}
-              >
-                {item.track ? `${item.track}` : "-"}
-              </Text>
-            )}
-            right={() => (
-              <View style={albumDetailStyles.rightContainer}>
-                <SongCacheButton
-                  songId={item.id}
-                  mini
-                  hideIfUncached
-                  initialEntry={cacheEntries.get(item.id) ?? null}
-                />
-                {item.duration ? (
-                  <Text
-                    variant="bodySmall"
-                    style={[
-                      albumDetailStyles.metaText,
-                      { color: theme.colors.onSurfaceVariant },
-                    ]}
-                  >
-                    {formatDuration(item.duration)}
-                  </Text>
-                ) : null}
-              </View>
-            )}
+            initialCacheEntry={cacheEntries.get(item.id) ?? null}
           />
         )}
       />

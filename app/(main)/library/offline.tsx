@@ -1,10 +1,9 @@
-import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { FlatList, RefreshControl, View } from "react-native";
-import { Appbar, Avatar, List, Surface, Text } from "react-native-paper";
+import { Appbar, Surface, Text } from "react-native-paper";
 
-import { SongCacheButton } from "@/components/SongCacheButton";
+import { SongRow } from "@/components/SongRow";
 import { getCoverArtBaseUrl } from "@/services/api";
 import { getAllSongCacheEntries, getCachedSongs } from "@/services/db";
 import { playPlaylist } from "@/services/player";
@@ -75,43 +74,20 @@ export default function AvailableOfflineScreen() {
             <Text variant="bodyLarge">no songs available offline</Text>
           </View>
         }
-        renderItem={({ item, index }) => {
-          const artUrl = getArtUrl ? getArtUrl(item.coverArt) : null;
-          const description =
-            item.artist && item.album
-              ? `${item.artist} • ${item.album}`
-              : (item.artist ?? item.album ?? undefined);
-
-          return (
-            <List.Item
-              title={item.title}
-              description={description}
-              onPress={() => playPlaylist(songs, index)}
-              left={(props) =>
-                artUrl ? (
-                  <Image
-                    source={{ uri: artUrl, cacheKey: `${item.coverArt}-300` }}
-                    style={songsStyles.artwork}
-                    contentFit="cover"
-                    transition={200}
-                    cachePolicy="memory-disk"
-                  />
-                ) : (
-                  <Avatar.Icon {...props} size={48} icon="music" />
-                )
-              }
-              right={() => (
-                <SongCacheButton
-                  songId={item.id}
-                  mini
-                  hideIfUncached
-                  initialEntry={cacheEntries.get(item.id) ?? null}
-                  onCacheRemoved={refreshSongsAndCache}
-                />
-              )}
-            />
-          );
-        }}
+        renderItem={({ item, index }) => (
+          <SongRow
+            song={item}
+            index={index}
+            subtitle={
+              item.artist && item.album
+                ? `${item.artist} • ${item.album}`
+                : (item.artist ?? item.album ?? undefined)
+            }
+            onPress={() => playPlaylist(songs, index)}
+            getArtUrl={getArtUrl}
+            initialCacheEntry={cacheEntries.get(item.id) ?? null}
+          />
+        )}
       />
     </Surface>
   );

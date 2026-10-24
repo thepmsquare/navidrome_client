@@ -1,10 +1,9 @@
-import { Image } from "expo-image";
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
-import { Avatar, IconButton, List, Surface, Text } from "react-native-paper";
+import { Avatar, IconButton, Text } from "react-native-paper";
 
-import { SongCacheButton } from "@/components/SongCacheButton";
+import { SongRow } from "@/components/SongRow";
 import { getCoverArtBaseUrl, subscribeSyncState } from "@/services/api";
 import { getAllSongCacheEntries, getRandomSongs } from "@/services/db";
 import { playPlaylist } from "@/services/player";
@@ -113,49 +112,16 @@ export function RandomTracksSection() {
         </View>
       ) : (
         <View style={homeStyles.trackList}>
-          {tracks.map((item, index) => {
-            const artUrl = getArtUrl ? getArtUrl(item.coverArt) : null;
-
-            return (
-              <List.Item
-                key={item.id}
-                title={item.title}
-                description={item.artist ?? undefined}
-                onPress={() => playPlaylist(tracks, index)}
-                left={(props) =>
-                  artUrl ? (
-                    <Image
-                      source={{ uri: artUrl, cacheKey: `${item.coverArt}-300` }}
-                      style={homeStyles.trackArtwork}
-                      contentFit="cover"
-                      transition={200}
-                      cachePolicy="memory-disk"
-                    />
-                  ) : (
-                    <Surface
-                      style={[
-                        homeStyles.trackPlaceholder,
-                        {
-                          backgroundColor:
-                            theme.colors.surfaceContainerHighest,
-                        },
-                      ]}
-                    >
-                      <Avatar.Icon {...props} size={28} icon="music" />
-                    </Surface>
-                  )
-                }
-                right={() => (
-                  <SongCacheButton
-                    songId={item.id}
-                    mini
-                    hideIfUncached
-                    initialEntry={cacheEntries.get(item.id) ?? null}
-                  />
-                )}
-              />
-            );
-          })}
+          {tracks.map((item, index) => (
+            <SongRow
+              key={item.id}
+              song={item}
+              index={index}
+              onPress={() => playPlaylist(tracks, index)}
+              getArtUrl={getArtUrl}
+              initialCacheEntry={cacheEntries.get(item.id) ?? null}
+            />
+          ))}
         </View>
       )}
     </View>

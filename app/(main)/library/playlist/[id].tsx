@@ -6,13 +6,12 @@ import {
   ActivityIndicator,
   Appbar,
   Avatar,
-  List,
   Surface,
   Text,
 } from "react-native-paper";
 
 import { BulkSongCacheButton } from "@/components/BulkSongCacheButton";
-import { SongCacheButton } from "@/components/SongCacheButton";
+import { SongRow } from "@/components/SongRow";
 import { getCoverArtBaseUrl, getPlaylist } from "@/services/api";
 import { getAllSongCacheEntries, getPlaylistById } from "@/services/db";
 import { playPlaylist } from "@/services/player";
@@ -208,43 +207,14 @@ export default function PlaylistDetailScreen() {
           )
         }
         renderItem={({ item, index }) => (
-          <List.Item
-            title={item.title}
-            description={item.artist ?? undefined}
-            style={playlistDetailStyles.trackItem}
+          <SongRow
+            song={item}
+            index={index}
+            showTrackNumber
+            trackNumber={index + 1}
+            showDuration
             onPress={() => playPlaylist(songs, index)}
-            left={() => (
-              <Text
-                variant="bodyMedium"
-                style={[
-                  playlistDetailStyles.trackNumber,
-                  { color: theme.colors.outline },
-                ]}
-              >
-                {index + 1}
-              </Text>
-            )}
-            right={() => (
-              <View style={playlistDetailStyles.rightContainer}>
-                <SongCacheButton
-                  songId={item.id}
-                  mini
-                  hideIfUncached
-                  initialEntry={cacheEntries.get(item.id) ?? null}
-                />
-                {item.duration ? (
-                  <Text
-                    variant="bodySmall"
-                    style={[
-                      playlistDetailStyles.metaText,
-                      { color: theme.colors.onSurfaceVariant },
-                    ]}
-                  >
-                    {formatDuration(item.duration)}
-                  </Text>
-                ) : null}
-              </View>
-            )}
+            initialCacheEntry={cacheEntries.get(item.id) ?? null}
           />
         )}
       />
