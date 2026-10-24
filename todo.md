@@ -38,12 +38,8 @@ upgrading users from previous versions require automated data migration and clea
     - removing individual tracks from queue
     - clearing remaining queue
 
-- [ ] **dynamic queue operations in player service**
-  - **task**: expose queue mutation methods in [`services/player.ts`](./services/player.ts):
-    - `playNext(song)`: insert track immediately after the active track.
-    - `addToQueue(song)`: append track to the end of the current queue.
-    - `removeFromQueue(index)`: remove specific track without stopping active playback.
-    - `clearQueue()`: empty all upcoming tracks.
+- [x] **dynamic queue operations in player service**
+  - verified: exposed queue mutation methods in [`services/player.ts`](./services/player.ts) (`playNext(song)`, `addToQueue(song)`, `removeFromQueue(index)`, `clearQueue()`, `moveQueueItem(from, to)`, `setQueue(newQueue)`) with session persistence and full test suite verification.
 
 - [x] **scrubber / interactive seek bar & modular skin system**
   - verified: interactive draggable slider with reanimated gesture scrubbing, animated thumb, floating preview timestamp tooltip, and modular skin architecture (`PlayerSeekBarSkin`) in [`components/PlayerSeekBar.tsx`](./components/PlayerSeekBar.tsx) integrated into [`app/player.tsx`](./app/player.tsx).
@@ -93,11 +89,11 @@ upgrading users from previous versions require automated data migration and clea
   - **task**:
     - [x] **audit & surface mapping**: identified and documented all views, routes (`/artist/[id]`, `/album/[id]`), and touch interaction patterns.
     - [x] **mini-player streamlining**: streamlined mini-player with unified player expansion tap and single play/pause control.
-    - [ ] **universal song row (`<SongRow />`)**:
-      - tap plays song / playlist; long-press and 3-dot `⋯` opens context menu with `go to artist` and `go to album`.
-      - standardized a11y attributes (`accessibilityRole`, labels) and text overflow (tail truncation, dynamic type resiliency).
-      - offline cache indicator / button integration (tbd).
-      - rollout across surfaces: [`app/(main)/library/songs.tsx`](<./app/(main)/library/songs.tsx>), [`app/album/[id].tsx`](./app/album/[id].tsx), [`app/artist/[id].tsx`](./app/artist/[id].tsx), [`app/(main)/library/playlist/[id].tsx`](<./app/(main)/library/playlist/[id].tsx>), [`app/(main)/library/offline.tsx`](<./app/(main)/library/offline.tsx>), [`app/(main)/library/queue.tsx`](<./app/(main)/library/queue.tsx>), search results, and homepage tracks ([`components/home/RandomTracksSection.tsx`](./components/home/RandomTracksSection.tsx)).
+    - [x] **universal song row (`<SongRow />`)**:
+      - verified: implemented universal `<SongRow />` and `<SongContextMenuModal />` with tap-to-play, long-press and 3-dot `⋯` context sheet (`play next`, `add to queue`, `go to artist`, `go to album`, `favorite`/`unfavorite`, download status).
+      - standardized a11y attributes (`accessibilityRole`, lowercase labels) and text overflow tail truncation.
+      - offline cache indicator / button integration via `<SongCacheButton />`.
+      - rolled out across surfaces: [`app/(main)/library/songs.tsx`](<./app/(main)/library/songs.tsx>), [`app/album/[id].tsx`](./app/album/[id].tsx), [`app/artist/[id].tsx`](./app/artist/[id].tsx), [`app/(main)/library/playlist/[id].tsx`](<./app/(main)/library/playlist/[id].tsx>), [`app/(main)/library/offline.tsx`](<./app/(main)/library/offline.tsx>), search results ([`app/(main)/search.tsx`](./app/(main)/search.tsx)), and homepage tracks ([`components/home/RandomTracksSection.tsx`](./components/home/RandomTracksSection.tsx)).
     - [ ] **universal album components (`<AlbumRow />` & `<AlbumCard />`)**:
       - support both list view and grid view variants (including grid toggle on [`app/(main)/library/albums.tsx`](<./app/(main)/library/albums.tsx>)).
       - tap opens album detail; long press / 3-dot `⋯` menu includes `go to artist`.

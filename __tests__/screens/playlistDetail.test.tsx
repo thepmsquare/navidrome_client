@@ -52,6 +52,7 @@ jest.mock("@/services/songCache", () => ({
 
 jest.mock("@/services/player", () => ({
   playPlaylist: jest.fn(),
+  usePlayerState: jest.fn().mockReturnValue({ currentTrack: null }),
 }));
 
 const mockPlaylist: Playlist = {
