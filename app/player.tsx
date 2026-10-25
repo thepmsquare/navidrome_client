@@ -1,11 +1,7 @@
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import {
-  Pressable,
-  ScrollView,
-  View,
-} from "react-native";
+import { BackHandler, Pressable, ScrollView, View } from "react-native";
 import {
   ActivityIndicator,
   Appbar,
@@ -22,6 +18,7 @@ import {
 // Import the new component
 import { LyricsSheetModal } from "@/components/LyricsSheetModal";
 import { ModalArtViewer } from "@/components/ModalArtViewer";
+import { PlaybackQueueView } from "@/components/PlaybackQueueView";
 import { PlayerSeekBar } from "@/components/PlayerSeekBar";
 import { SleepTimerModal } from "@/components/SleepTimerModal";
 import { SongCacheButton } from "@/components/SongCacheButton";
@@ -62,6 +59,7 @@ export default function PlayerScreen() {
   const theme = useAppTheme();
   const playerState = usePlayerState();
   const sleepTimerState = useSleepTimer();
+  const [viewMode, setViewMode] = useState<"player" | "queue">("player");
   const [sleepTimerModalVisible, setSleepTimerModalVisible] = useState(false);
   const [ratingMenuVisible, setRatingMenuVisible] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
@@ -96,6 +94,18 @@ export default function PlayerScreen() {
       setLyricsModeState(mode);
     });
   }, []);
+
+  useEffect(() => {
+    if (viewMode !== "queue") return;
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        setViewMode("player");
+        return true;
+      },
+    );
+    return () => backHandler.remove();
+  }, [viewMode]);
 
   const showSnackbar = (message: string) => {
     setSnackbarMessage(message);
@@ -407,6 +417,14 @@ export default function PlayerScreen() {
     });
   };
 
+  if (viewMode === "queue") {
+    return (
+      <PlaybackQueueView
+        onBack={() => setViewMode("player")}
+      />
+    );
+  }
+
   if (!currentTrack) {
     return (
       <View
@@ -421,6 +439,11 @@ export default function PlayerScreen() {
             onPress={() => router.back()}
           />
           <Appbar.Content title="now playing" />
+          <Appbar.Action
+            icon="playlist-music"
+            accessibilityLabel="view queue"
+            onPress={() => setViewMode("queue")}
+          />
         </Appbar.Header>
 
         <View style={playerStyles.emptyContainer}>
@@ -470,6 +493,11 @@ export default function PlayerScreen() {
           onPress={() => router.back()}
         />
         <Appbar.Content title="now playing" />
+        <Appbar.Action
+          icon="playlist-music"
+          accessibilityLabel="view queue"
+          onPress={() => setViewMode("queue")}
+        />
       </Appbar.Header>
 
       {/* Large Album Artwork (Clickable Area) */}
@@ -800,9 +828,7 @@ export default function PlayerScreen() {
           duration={duration}
           onSeek={handleSeek}
           color={
-            isPlayingFromCache
-              ? theme.colors.secondary
-              : theme.colors.tertiary
+            isPlayingFromCache ? theme.colors.secondary : theme.colors.tertiary
           }
           trackColor={theme.colors.surfaceContainerHighest}
         />

@@ -7,4 +7,5 @@ export * from "./miniPlayer";
 export * from "./player";
 export * from "./search";
 export * from "./settings";
+export * from "./queue";
 

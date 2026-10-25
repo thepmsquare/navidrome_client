@@ -1,5 +1,15 @@
 # changelog
 
+## 2.31.0+66
+
+### user release notes
+
+- add screen to display playback queue.
+
+### internal notes
+
+- add new component PlaybackQueueSongRow that extends SongRow.
+
 ## 2.30.0+65
 
 ### user release notes
