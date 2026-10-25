@@ -61,6 +61,11 @@ jest.mock("@/services/api", () => ({
 
 jest.mock("@/services/player", () => ({
   usePlayerState: jest.fn(),
+  usePlaybackQueue: jest.fn().mockReturnValue({
+    queue: [],
+    currentIndex: 0,
+    currentTrack: null,
+  }),
   cycleRepeatMode: jest.fn().mockResolvedValue(undefined),
   playNext: jest.fn().mockResolvedValue(undefined),
   playPrevious: jest.fn().mockResolvedValue(undefined),
@@ -980,6 +985,64 @@ describe("PlayerScreen", () => {
     });
 
     expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("should switch between player and queue views seamlessly", async () => {
+    (usePlayerState as jest.Mock).mockReturnValue({
+      currentTrack: {
+        id: "song-1",
+        title: "Test Song",
+        artist: "Test Artist",
+        album: "Test Album",
+        coverArt: "art-1",
+        duration: 200,
+        starred: null,
+        userRating: 0,
+      },
+      isPlaying: false,
+      isBuffering: false,
+      position: 0,
+      duration: 200,
+      repeatMode: "off",
+      hasPrevious: false,
+      hasNext: false,
+      isPlayingFromCache: false,
+      scrobbled: false,
+    });
+
+    let root: any;
+    await act(async () => {
+      root = renderer.create(<PlayerScreen />);
+    });
+
+    // Find the queue toggle in the header
+    const queueBtn = root.root.findByProps({
+      accessibilityLabel: "view queue",
+    });
+    expect(queueBtn).toBeDefined();
+
+    // Tap to enter queue view
+    await act(async () => {
+      queueBtn.props.onPress();
+    });
+
+    // We should now be in queue view (title "playback queue")
+    expect(
+      root.root.findAll((node: any) => node.props?.title === "playback queue").length,
+    ).toBeGreaterThan(0);
+
+    // Tap back in queue view
+    const backBtn = root.root.findByProps({
+      accessibilityLabel: "back to player",
+    });
+    await act(async () => {
+      backBtn.props.onPress();
+    });
+
+    // We should now be back in now playing view
+    expect(
+      root.root.findAll((node: any) => node.props?.title === "now playing").length,
+    ).toBeGreaterThan(0);
   });
 });
 

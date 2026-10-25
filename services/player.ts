@@ -1011,6 +1011,52 @@ export function usePlayerState(): PlayerState {
   return state;
 }
 
+export interface PlaybackQueueState {
+  queue: Child[];
+  currentIndex: number;
+  currentTrack: ActiveTrackInfo | null;
+}
+
+export function getPlaybackQueueState(): PlaybackQueueState {
+  ensureSessionHydrated();
+  return {
+    queue: [...currentQueue],
+    currentIndex,
+    currentTrack,
+  };
+}
+
+/**
+ * React hook to observe queue state and active track index without
+ * re-rendering on high-frequency playback position changes.
+ */
+export function usePlaybackQueue(): PlaybackQueueState {
+  const [state, setState] = useState<PlaybackQueueState>(() =>
+    getPlaybackQueueState(),
+  );
+
+  useEffect(() => {
+    const unsubscribe = subscribePlayerState(() => {
+      const next = getPlaybackQueueState();
+      setState((prev) => {
+        if (
+          prev.currentIndex === next.currentIndex &&
+          prev.currentTrack?.id === next.currentTrack?.id &&
+          prev.queue.length === next.queue.length &&
+          prev.queue.every((song, i) => song.id === next.queue[i]?.id)
+        ) {
+          return prev;
+        }
+        return next;
+      });
+    });
+
+    return unsubscribe;
+  }, []);
+
+  return state;
+}
+
 export async function toggleStarCurrentTrack(): Promise<boolean> {
   if (!currentTrack) return false;
   const songId = currentTrack.id;

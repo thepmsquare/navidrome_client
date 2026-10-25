@@ -30,13 +30,9 @@ upgrading users from previous versions require automated data migration and clea
   - **context**: native exoplayer loads one track at a time, resulting in brief silence between consecutive songs.
   - **task**: update native audio playback module to pre-buffer the upcoming `MediaItem` into exoplayer's native playlist sequence to eliminate track gaps.
 
-- [ ] **playback queue management & ui**
-  - **context**: currently only a download queue exists in [`app/(main)/library/queue.tsx`](<./app/(main)/library/queue.tsx>).
-  - **task**: create a dedicated "now playing / up next" queue screen with support for:
-    - viewing queued songs and current track index
-    - drag-and-drop queue reordering
-    - removing individual tracks from queue
-    - clearing remaining queue
+- [x] **playback queue management & ui**
+  - verified: dedicated "now playing / up next" queue view integrated seamlessly into player screen ([`app/player.tsx`](./app/player.tsx)) and standalone route ([`app/queue.tsx`](./app/queue.tsx)) via [`components/PlaybackQueueView.tsx`](./components/PlaybackQueueView.tsx) and [`usePlaybackQueue`](./services/player.ts). features active song card, collapsible history section, track jumping, individual item removal, clear remaining queue confirmation, and move up/down track reordering.
+  - note: drag-and-drop gesture reordering deferred as follow-up task.
 
 - [x] **dynamic queue operations in player service**
   - verified: exposed queue mutation methods in [`services/player.ts`](./services/player.ts) (`playNext(song)`, `addToQueue(song)`, `removeFromQueue(index)`, `clearQueue()`, `moveQueueItem(from, to)`, `setQueue(newQueue)`) with session persistence and full test suite verification.

@@ -14,6 +14,7 @@ import {
   getCurrentShuffle,
   getCurrentTrack,
   getOriginalQueue,
+  getPlaybackQueueState,
   getPlayerState,
   getStatus,
   moveQueueItem,
@@ -38,6 +39,7 @@ import {
   subscribePlayerState,
   togglePlayback,
   toggleShuffle,
+  usePlaybackQueue,
   usePlayerState,
   hydratePlayerSession,
   setRatingCurrentTrack,
@@ -971,6 +973,57 @@ describe("player service", () => {
         type: "text",
         props: {},
         children: ["true-10"],
+      });
+
+      renderer.act(() => {
+        tree.unmount();
+      });
+    });
+
+    it("should return playback queue state and update when queue changes", async () => {
+      await playPlaylist([sampleSong1, sampleSong2], 0);
+
+      const qState = getPlaybackQueueState();
+      expect(qState.queue).toEqual([sampleSong1, sampleSong2]);
+      expect(qState.currentIndex).toBe(0);
+      expect(qState.currentTrack?.id).toBe("song-1");
+
+      function TestQueueComponent() {
+        const { queue, currentIndex } = usePlaybackQueue();
+        return React.createElement("text", null, `${currentIndex}:${queue.map((s) => s.id).join(",")}`);
+      }
+
+      let tree: any;
+      renderer.act(() => {
+        tree = renderer.create(React.createElement(TestQueueComponent));
+      });
+
+      expect(tree.toJSON()).toEqual({
+        type: "text",
+        props: {},
+        children: ["0:song-1,song-2"],
+      });
+
+      // Move queue item
+      renderer.act(() => {
+        moveQueueItem(0, 1);
+      });
+
+      expect(tree.toJSON()).toEqual({
+        type: "text",
+        props: {},
+        children: ["1:song-2,song-1"],
+      });
+
+      // Remove queue item
+      renderer.act(() => {
+        removeFromQueue(0);
+      });
+
+      expect(tree.toJSON()).toEqual({
+        type: "text",
+        props: {},
+        children: ["0:song-1"],
       });
 
       renderer.act(() => {
