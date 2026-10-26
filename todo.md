@@ -135,7 +135,7 @@ upgrading users from previous versions require automated data migration and clea
     - [x] **settings access**: make the version number in settings clickable to show the full changelog modal with current version open and previous versions in closed accordions ([`components/ChangelogModal.tsx`](./components/ChangelogModal.tsx)).
     - [x] **first-launch post-update**: detect version code increase on launch and display a "what's new" changelog modal automatically once ([`app/_layout.tsx`](./app/_layout.tsx)).
 
-- [ ] **haptic feedback toggle in settings & profile export**
+- [x] **haptic feedback toggle in settings & profile export**
   - **context**: haptic feedback is routed through centralized helpers ([`utils/haptics.ts`](./utils/haptics.ts)) checking [`getHapticsEnabled()`](./services/db.ts) and is supported in [`BackupSettings`](./types/backup.ts).
   - **task**: add a settings switch in [`app/(main)/settings.tsx`](./app/(main)/settings.tsx) to toggle haptic feedback on/off globally, and preserve the preference when exporting or importing profile backups in [`services/backup.ts`](./services/backup.ts).
 
@@ -243,7 +243,7 @@ upgrading users from previous versions require automated data migration and clea
     - configure `android/gradle.properties` build flags (`org.gradle.parallel=true`, `org.gradle.caching=true`, `org.gradle.jvmargs=-Xmx4g`).
     - evaluate standard cloud builds via eas build (expo application services) with prebuilt worker images and remote caching.
 
-- [ ] **separate development build variant (side-by-side install)**
+- [x] **separate development build variant (side-by-side install)**
   - **context**: developing locally with default package `com.thepmsquare.navidrome_client` conflicts with the play store release signature, requiring uninstallation that wipes local cache and saved music.
   - **task**: configure `app.config.ts` to assign `com.thepmsquare.navidrome_client.dev` and name `navidrome (dev)` during development so the play store app and dev build coexist on the same device without data loss.
 

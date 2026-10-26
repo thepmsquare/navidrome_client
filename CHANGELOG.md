@@ -1,5 +1,13 @@
 # changelog
 
+## unreleased
+
+### user release notes
+
+- add ui setting to toggle haptics.
+
+### internal notes
+
 ## 2.31.0+66
 
 ### user release notes

@@ -7,12 +7,17 @@ import * as api from "@/services/api";
 import * as db from "@/services/db";
 import * as player from "@/services/player";
 import { APP_VERSION, APP_VERSION_CODE } from "@/utils/constants";
+import { triggerHapticSelection } from "@/utils/haptics";
 
 const mockReplace = jest.fn();
 jest.mock("expo-router", () => ({
   useRouter: () => ({
     replace: mockReplace,
   }),
+}));
+
+jest.mock("@/utils/haptics", () => ({
+  triggerHapticSelection: jest.fn(),
 }));
 
 jest.mock("expo-secure-store", () => ({
@@ -61,6 +66,7 @@ jest.mock("@/services/db", () => ({
   getAutoCacheEnabled: jest.fn().mockReturnValue(true),
   getAutoCacheMaxBytes: jest.fn().mockReturnValue(1073741824),
   getAutoCacheTotalSize: jest.fn().mockReturnValue(0),
+  getHapticsEnabled: jest.fn().mockReturnValue(true),
   getKeepPlayingOnAppDismissed: jest.fn().mockReturnValue(false),
   getLocalCounts: jest.fn().mockReturnValue({
     artistCount: 10,
@@ -72,6 +78,7 @@ jest.mock("@/services/db", () => ({
   getScrobbleMinPercent: jest.fn().mockReturnValue(75),
   setAutoCacheEnabled: jest.fn(),
   setAutoCacheMaxBytes: jest.fn(),
+  setHapticsEnabled: jest.fn(),
   setKeepPlayingOnAppDismissed: jest.fn(),
   setScrobbleMinDuration: jest.fn(),
   setScrobbleMinPercent: jest.fn(),
@@ -127,8 +134,8 @@ describe("SettingsScreen", () => {
 
     const root = tree.root;
     const switches = root.findAllByType(Switch);
-    // There are 2 switches: autoCache and keepPlayingOnAppDismissed
-    expect(switches.length).toBe(2);
+    // There are 3 switches: autoCache, playback, and haptics
+    expect(switches.length).toBe(3);
 
     const playbackSwitch = switches[1];
     expect(playbackSwitch.props.value).toBe(false);
@@ -151,6 +158,60 @@ describe("SettingsScreen", () => {
     });
 
     expect(player.updateKeepPlayingOnAppDismissed).toHaveBeenCalledWith(true);
+  });
+
+  it("renders haptics toggle with default value", async () => {
+    (db.getHapticsEnabled as jest.Mock).mockReturnValue(true);
+
+    let tree: any;
+    await renderer.act(async () => {
+      tree = renderer.create(<SettingsScreen />);
+    });
+
+    const root = tree.root;
+    const switches = root.findAllByType(Switch);
+    const hapticsSwitch = switches[2];
+    expect(hapticsSwitch.props.value).toBe(true);
+  });
+
+  it("toggling haptics switch calls setHapticsEnabled and triggers haptic on enable", async () => {
+    (db.getHapticsEnabled as jest.Mock).mockReturnValue(false);
+
+    let tree: any;
+    await renderer.act(async () => {
+      tree = renderer.create(<SettingsScreen />);
+    });
+
+    const root = tree.root;
+    const switches = root.findAllByType(Switch);
+    const hapticsSwitch = switches[2];
+
+    await renderer.act(async () => {
+      hapticsSwitch.props.onValueChange(true);
+    });
+
+    expect(db.setHapticsEnabled).toHaveBeenCalledWith(true);
+    expect(triggerHapticSelection).toHaveBeenCalled();
+  });
+
+  it("toggling haptics switch off calls setHapticsEnabled without triggering haptic", async () => {
+    (db.getHapticsEnabled as jest.Mock).mockReturnValue(true);
+
+    let tree: any;
+    await renderer.act(async () => {
+      tree = renderer.create(<SettingsScreen />);
+    });
+
+    const root = tree.root;
+    const switches = root.findAllByType(Switch);
+    const hapticsSwitch = switches[2];
+
+    await renderer.act(async () => {
+      hapticsSwitch.props.onValueChange(false);
+    });
+
+    expect(db.setHapticsEnabled).toHaveBeenCalledWith(false);
+    expect(triggerHapticSelection).not.toHaveBeenCalled();
   });
 
   it("renders version number and version code below logout button", async () => {
