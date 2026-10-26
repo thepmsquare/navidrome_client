@@ -57,6 +57,7 @@ jest.mock("@/services/backup", () => ({
 jest.mock("@/services/db", () => ({
   setAutoCacheEnabled: jest.fn(),
   setAutoCacheMaxBytes: jest.fn(),
+  setHapticsEnabled: jest.fn(),
   setScrobbleMinDuration: jest.fn(),
   setScrobbleMinPercent: jest.fn(),
 }));
@@ -87,6 +88,7 @@ describe("ConnectScreen - handleImportProfile", () => {
         scrobble_min_percent: 60,
         keep_playing_on_app_dismissed: true,
         lyrics_mode: "online_first",
+        haptics_enabled: false,
       },
       stop_playback_on_task_removed: false,
       home_sections: [
@@ -140,6 +142,7 @@ describe("ConnectScreen - handleImportProfile", () => {
     expect(db.setScrobbleMinPercent).toHaveBeenCalledWith(60);
     expect(player.updateKeepPlayingOnAppDismissed).toHaveBeenCalledWith(true);
     expect(lyrics.setLyricsMode).toHaveBeenCalledWith("online_first");
+    expect(db.setHapticsEnabled).toHaveBeenCalledWith(false);
 
     // Verify legacy & home sections saved
     expect(SecureStore.setItemAsync).toHaveBeenCalledWith(

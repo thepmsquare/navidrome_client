@@ -18,14 +18,17 @@ import {
   getAutoCacheEnabled,
   getAutoCacheMaxBytes,
   getAutoCacheTotalSize,
+  getHapticsEnabled,
   getKeepPlayingOnAppDismissed,
   getScrobbleMinDuration,
   getScrobbleMinPercent,
   setAutoCacheEnabled,
   setAutoCacheMaxBytes,
+  setHapticsEnabled,
   setScrobbleMinDuration,
   setScrobbleMinPercent,
 } from "@/services/db";
+import { triggerHapticSelection } from "@/utils/haptics";
 import {
   getLyricsMode,
   setLyricsMode,
@@ -104,6 +107,9 @@ export default function SettingsScreen() {
   const [keepPlayingOnAppDismissed, setKeepPlayingOnAppDismissedState] = useState(() =>
     getKeepPlayingOnAppDismissed(),
   );
+  const [hapticsEnabled, setHapticsEnabledState] = useState(() =>
+    getHapticsEnabled(),
+  );
   const [lyricsMode, setLyricsModeState] = useState<LyricsMode>(() =>
     getLyricsMode(),
   );
@@ -121,6 +127,14 @@ export default function SettingsScreen() {
   async function handleToggleKeepPlaying(nextValue: boolean) {
     setKeepPlayingOnAppDismissedState(nextValue);
     await updateKeepPlayingOnAppDismissed(nextValue);
+  }
+
+  function handleToggleHaptics(nextValue: boolean) {
+    setHapticsEnabledState(nextValue);
+    setHapticsEnabled(nextValue);
+    if (nextValue) {
+      triggerHapticSelection();
+    }
   }
 
 
@@ -509,6 +523,37 @@ export default function SettingsScreen() {
             <Switch
               value={keepPlayingOnAppDismissed}
               onValueChange={handleToggleKeepPlaying}
+            />
+          </View>
+        </Surface>
+
+        <Surface
+          elevation={0}
+          style={[
+            settingsStyles.sectionCard,
+            { backgroundColor: theme.colors.surfaceContainerHighest },
+          ]}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <View style={{ flex: 1, paddingRight: spacing.sm }}>
+              <Text variant="titleMedium">haptic feedback</Text>
+              <Text
+                variant="bodyMedium"
+                style={{ color: theme.colors.onSurfaceVariant }}
+              >
+                tactile vibrations on touch and interactions
+              </Text>
+            </View>
+            <Switch
+              value={hapticsEnabled}
+              onValueChange={handleToggleHaptics}
+              accessibilityLabel="haptic feedback"
             />
           </View>
         </Surface>
