@@ -1077,6 +1077,68 @@ export function searchSongs(query: string, limit: number = 50): Child[] {
   return db.getAllSync<Child>(sql, queryParams);
 }
 
+export function searchCachedSongs(query: string, limit: number = 50): Child[] {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  const db = getDb();
+  const tokens = trimmed.split(/\s+/).filter(Boolean);
+  const escapedTrimmed = escapeLike(trimmed);
+
+  // Exact substring & prefix patterns for ranking
+  const prefixPattern = `${escapedTrimmed}%`;
+  const substringPattern = `%${escapedTrimmed}%`;
+
+  const tokenClauses: string[] = [];
+  const queryParams: (string | number)[] = [];
+
+  for (const token of tokens) {
+    const escapedToken = `%${escapeLike(token)}%`;
+    tokenClauses.push(
+      "(s.title LIKE ? ESCAPE '\\' OR s.artist LIKE ? ESCAPE '\\' OR s.album LIKE ? ESCAPE '\\')",
+    );
+    queryParams.push(escapedToken, escapedToken, escapedToken);
+  }
+
+  let whereClause = tokenClauses.join(" AND ");
+
+  // If single token with length >= 2 and <= 15, also include fuzzy character sequence match
+  if (tokens.length === 1 && tokens[0].length >= 2 && tokens[0].length <= 15) {
+    const clean = tokens[0].replace(/[^a-zA-Z0-9]/g, "");
+    if (clean.length >= 2) {
+      const fuzzyPattern = `%${clean.split("").map(escapeLike).join("%")}%`;
+      whereClause = `(${whereClause}) OR (s.title LIKE ? ESCAPE '\\' OR s.artist LIKE ? ESCAPE '\\' OR s.album LIKE ? ESCAPE '\\')`;
+      queryParams.push(fuzzyPattern, fuzzyPattern, fuzzyPattern);
+    }
+  }
+
+  const sql = `
+    SELECT s.* FROM songs s
+    INNER JOIN song_cache sc ON s.id = sc.songId
+    WHERE ${whereClause}
+    ORDER BY
+      CASE
+        WHEN s.title LIKE ? ESCAPE '\\' THEN 1
+        WHEN s.title LIKE ? ESCAPE '\\' THEN 2
+        WHEN s.artist LIKE ? ESCAPE '\\' THEN 3
+        WHEN s.album LIKE ? ESCAPE '\\' THEN 4
+        ELSE 5
+      END,
+      s.title COLLATE NOCASE ASC
+    LIMIT ?
+  `;
+
+  queryParams.push(
+    prefixPattern,
+    substringPattern,
+    substringPattern,
+    substringPattern,
+    limit,
+  );
+
+  return db.getAllSync<Child>(sql, queryParams);
+}
+
 export function searchAlbums(query: string, limit: number = 20): AlbumID3[] {
   const trimmed = query.trim();
   if (!trimmed) return [];
