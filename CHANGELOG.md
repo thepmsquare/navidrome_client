@@ -5,8 +5,11 @@
 ### user release notes
 
 - add ui setting to toggle haptics.
+- add search bar and sort controls to available offline library screen.
 
 ### internal notes
+
+- add searchCachedSongs db helper and integrate search bar and sort menu in available offline screen.
 
 ## 2.31.0+66
 

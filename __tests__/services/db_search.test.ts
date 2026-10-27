@@ -5,6 +5,7 @@ import {
   removeRecentSearch,
   searchAlbums,
   searchArtists,
+  searchCachedSongs,
   searchPlaylists,
   searchSongs,
 } from "@/services/db";
@@ -62,6 +63,46 @@ describe("services/db search functions", () => {
       expect(mockGetAllSync).toHaveBeenCalledWith(
         expect.any(String),
         expect.arrayContaining([10]),
+      );
+    });
+  });
+
+  describe("searchCachedSongs", () => {
+    it("returns empty array when query is empty or only whitespace", () => {
+      expect(searchCachedSongs("")).toEqual([]);
+      expect(searchCachedSongs("   ")).toEqual([]);
+      expect(mockGetAllSync).not.toHaveBeenCalled();
+    });
+
+    it("queries SQLite joined with song_cache", () => {
+      const mockResult: Child[] = [
+        {
+          id: "s1",
+          title: "offline track",
+          artist: "artist 1",
+          album: "album 1",
+          duration: 200,
+          size: 1000,
+          contentType: "audio/mp3",
+          suffix: "mp3",
+        },
+      ];
+      mockGetAllSync.mockReturnValue(mockResult);
+
+      const res = searchCachedSongs("track");
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        expect.stringContaining("INNER JOIN song_cache"),
+        expect.any(Array),
+      );
+      expect(res).toEqual(mockResult);
+    });
+
+    it("respects custom limit", () => {
+      mockGetAllSync.mockReturnValue([]);
+      searchCachedSongs("test", 100);
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.arrayContaining([100]),
       );
     });
   });
