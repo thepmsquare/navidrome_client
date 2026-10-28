@@ -11,6 +11,9 @@ import {
   removeRecentSearch,
   searchAlbums,
   searchArtists,
+  searchCachedAlbums,
+  searchCachedArtists,
+  searchCachedSongs,
   searchPlaylists,
   searchSongs,
 } from "@/services/db";
@@ -48,11 +51,18 @@ jest.mock("@/services/db", () => ({
   searchAlbums: jest.fn(),
   searchArtists: jest.fn(),
   searchPlaylists: jest.fn(),
+  searchCachedSongs: jest.fn(),
+  searchCachedAlbums: jest.fn(),
+  searchCachedArtists: jest.fn(),
   getAllSongCacheEntries: jest.fn(() => new Map()),
   getRecentSearches: jest.fn(() => []),
   addRecentSearch: jest.fn(),
   removeRecentSearch: jest.fn(),
   clearRecentSearches: jest.fn(),
+}));
+
+jest.mock("@/services/songCache", () => ({
+  subscribeSongCache: jest.fn(() => () => {}),
 }));
 
 jest.mock("@/services/player", () => ({
@@ -109,6 +119,9 @@ describe("SearchScreen", () => {
     (searchAlbums as jest.Mock).mockReturnValue([]);
     (searchArtists as jest.Mock).mockReturnValue([]);
     (searchPlaylists as jest.Mock).mockReturnValue([]);
+    (searchCachedSongs as jest.Mock).mockReturnValue([]);
+    (searchCachedAlbums as jest.Mock).mockReturnValue([]);
+    (searchCachedArtists as jest.Mock).mockReturnValue([]);
   });
 
   it("renders searchbar and initial empty prompt", () => {
@@ -272,6 +285,45 @@ describe("SearchScreen", () => {
     );
     expect(hasSong).toBe(false);
     expect(hasAlbum).toBe(true);
+
+    renderer.act(() => {
+      component.unmount();
+    });
+  });
+
+  it("toggles available offline filter chip and queries cached search helpers", () => {
+    (searchCachedSongs as jest.Mock).mockReturnValue(mockSongs);
+    (searchCachedAlbums as jest.Mock).mockReturnValue(mockAlbums);
+    (searchCachedArtists as jest.Mock).mockReturnValue(mockArtists);
+
+    let component: any;
+    renderer.act(() => {
+      component = renderer.create(<SearchScreen />);
+    });
+
+    const { Searchbar, Chip } = require("react-native-paper");
+    const searchbar = component.root.findByType(Searchbar);
+
+    renderer.act(() => {
+      searchbar.props.onChangeText("pink");
+    });
+
+    expect(searchSongs).toHaveBeenCalledWith("pink", expect.any(Number));
+    expect(searchCachedSongs).not.toHaveBeenCalled();
+
+    const chips = component.root.findAllByType(Chip);
+    const offlineChip = chips.find(
+      (c: any) => c.props.children === "available offline",
+    );
+    expect(offlineChip).toBeDefined();
+
+    renderer.act(() => {
+      offlineChip.props.onPress();
+    });
+
+    expect(searchCachedSongs).toHaveBeenCalledWith("pink", expect.any(Number));
+    expect(searchCachedAlbums).toHaveBeenCalledWith("pink", expect.any(Number));
+    expect(searchCachedArtists).toHaveBeenCalledWith("pink", expect.any(Number));
 
     renderer.act(() => {
       component.unmount();

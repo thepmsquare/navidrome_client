@@ -24,10 +24,14 @@ import {
   removeRecentSearch,
   searchAlbums,
   searchArtists,
+  searchCachedAlbums,
+  searchCachedArtists,
+  searchCachedSongs,
   searchPlaylists,
   searchSongs,
 } from "@/services/db";
 import { playPlaylist } from "@/services/player";
+import { subscribeSongCache } from "@/services/songCache";
 import { searchStyles } from "@/stylesheets";
 import { AlbumID3, ArtistID3, Child, Playlist, SongCacheRow, useAppTheme } from "@/types";
 
@@ -46,6 +50,7 @@ export default function SearchScreen() {
   const theme = useAppTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<SearchCategory>("all");
+  const [offlineOnly, setOfflineOnly] = useState(false);
   const [getArtUrl, setGetArtUrl] = useState<
     ((id?: string | null) => string | null) | null
   >(null);
@@ -62,6 +67,15 @@ export default function SearchScreen() {
       setRecentSearches(getRecentSearches());
     }, []),
   );
+
+  useEffect(() => {
+    const unsubscribe = subscribeSongCache(() => {
+      setCacheEntries(getAllSongCacheEntries());
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const saveCurrentSearch = useCallback(
     (termToSave?: string) => {
@@ -99,23 +113,33 @@ export default function SearchScreen() {
 
   const songs = useMemo(() => {
     if (!searchQuery.trim()) return [];
-    return searchSongs(searchQuery, activeCategory === "songs" ? 100 : 5);
-  }, [searchQuery, activeCategory]);
+    const limit = activeCategory === "songs" ? 100 : 5;
+    return offlineOnly
+      ? searchCachedSongs(searchQuery, limit)
+      : searchSongs(searchQuery, limit);
+  }, [searchQuery, activeCategory, offlineOnly, cacheEntries]);
 
   const albums = useMemo(() => {
     if (!searchQuery.trim()) return [];
-    return searchAlbums(searchQuery, activeCategory === "albums" ? 50 : 5);
-  }, [searchQuery, activeCategory]);
+    const limit = activeCategory === "albums" ? 50 : 5;
+    return offlineOnly
+      ? searchCachedAlbums(searchQuery, limit)
+      : searchAlbums(searchQuery, limit);
+  }, [searchQuery, activeCategory, offlineOnly, cacheEntries]);
 
   const artists = useMemo(() => {
     if (!searchQuery.trim()) return [];
-    return searchArtists(searchQuery, activeCategory === "artists" ? 50 : 5);
-  }, [searchQuery, activeCategory]);
+    const limit = activeCategory === "artists" ? 50 : 5;
+    return offlineOnly
+      ? searchCachedArtists(searchQuery, limit)
+      : searchArtists(searchQuery, limit);
+  }, [searchQuery, activeCategory, offlineOnly, cacheEntries]);
 
   const playlists = useMemo(() => {
     if (!searchQuery.trim()) return [];
+    if (offlineOnly) return [];
     return searchPlaylists(searchQuery, activeCategory === "playlists" ? 50 : 5);
-  }, [searchQuery, activeCategory]);
+  }, [searchQuery, activeCategory, offlineOnly]);
 
   const totalResults =
     songs.length + albums.length + artists.length + playlists.length;
@@ -281,6 +305,17 @@ export default function SearchScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={searchStyles.chipScrollContent}
         >
+          <Chip
+            icon={offlineOnly ? "cloud-check" : "cloud-outline"}
+            selected={offlineOnly}
+            onPress={() => setOfflineOnly((prev) => !prev)}
+            style={searchStyles.chip}
+            showSelectedOverlay
+            accessibilityRole="button"
+            accessibilityLabel="available offline"
+          >
+            available offline
+          </Chip>
           {CATEGORIES.map((cat) => (
             <Chip
               key={cat.value}
@@ -364,7 +399,9 @@ export default function SearchScreen() {
             variant="bodySmall"
             style={[searchStyles.emptyText, { color: theme.colors.outline }]}
           >
-            {`no results found for "${searchQuery}"`}
+            {offlineOnly
+              ? `no offline results found for "${searchQuery}"`
+              : `no results found for "${searchQuery}"`}
           </Text>
         </View>
       )}
@@ -453,7 +490,9 @@ export default function SearchScreen() {
           renderItem={({ item, index }) => renderSongItem(item, index, songs)}
           ListEmptyComponent={
             <View style={searchStyles.emptyContainer}>
-              <Text variant="bodyLarge">no songs found</Text>
+              <Text variant="bodyLarge">
+                {offlineOnly ? "no offline songs found" : "no songs found"}
+              </Text>
             </View>
           }
         />
@@ -467,7 +506,9 @@ export default function SearchScreen() {
           renderItem={({ item }) => renderAlbumItem(item)}
           ListEmptyComponent={
             <View style={searchStyles.emptyContainer}>
-              <Text variant="bodyLarge">no albums found</Text>
+              <Text variant="bodyLarge">
+                {offlineOnly ? "no offline albums found" : "no albums found"}
+              </Text>
             </View>
           }
         />
@@ -481,7 +522,9 @@ export default function SearchScreen() {
           renderItem={({ item }) => renderArtistItem(item)}
           ListEmptyComponent={
             <View style={searchStyles.emptyContainer}>
-              <Text variant="bodyLarge">no artists found</Text>
+              <Text variant="bodyLarge">
+                {offlineOnly ? "no offline artists found" : "no artists found"}
+              </Text>
             </View>
           }
         />
@@ -495,7 +538,9 @@ export default function SearchScreen() {
           renderItem={({ item }) => renderPlaylistItem(item)}
           ListEmptyComponent={
             <View style={searchStyles.emptyContainer}>
-              <Text variant="bodyLarge">no playlists found</Text>
+              <Text variant="bodyLarge">
+                {offlineOnly ? "no offline playlists found" : "no playlists found"}
+              </Text>
             </View>
           }
         />

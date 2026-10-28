@@ -5,6 +5,8 @@ import {
   removeRecentSearch,
   searchAlbums,
   searchArtists,
+  searchCachedAlbums,
+  searchCachedArtists,
   searchCachedSongs,
   searchPlaylists,
   searchSongs,
@@ -129,6 +131,31 @@ describe("services/db search functions", () => {
     });
   });
 
+  describe("searchCachedAlbums", () => {
+    it("returns empty array for empty query", () => {
+      expect(searchCachedAlbums("")).toEqual([]);
+      expect(mockGetAllSync).not.toHaveBeenCalled();
+    });
+
+    it("queries albums joined with songs and song_cache", () => {
+      const mockAlbums: AlbumID3[] = [
+        {
+          id: "a1",
+          name: "the wall",
+          artist: "pink floyd",
+        },
+      ];
+      mockGetAllSync.mockReturnValue(mockAlbums);
+
+      const res = searchCachedAlbums("the wall");
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        expect.stringContaining("INNER JOIN song_cache"),
+        expect.any(Array),
+      );
+      expect(res).toEqual(mockAlbums);
+    });
+  });
+
   describe("searchArtists", () => {
     it("returns empty array for empty query", () => {
       expect(searchArtists("")).toEqual([]);
@@ -146,6 +173,30 @@ describe("services/db search functions", () => {
 
       const res = searchArtists("floyd");
       expect(mockGetAllSync).toHaveBeenCalled();
+      expect(res).toEqual(mockArtists);
+    });
+  });
+
+  describe("searchCachedArtists", () => {
+    it("returns empty array for empty query", () => {
+      expect(searchCachedArtists("")).toEqual([]);
+      expect(mockGetAllSync).not.toHaveBeenCalled();
+    });
+
+    it("queries artists joined with songs and song_cache", () => {
+      const mockArtists: ArtistID3[] = [
+        {
+          id: "ar1",
+          name: "pink floyd",
+        },
+      ];
+      mockGetAllSync.mockReturnValue(mockArtists);
+
+      const res = searchCachedArtists("pink");
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        expect.stringContaining("INNER JOIN song_cache"),
+        expect.any(Array),
+      );
       expect(res).toEqual(mockArtists);
     });
   });
