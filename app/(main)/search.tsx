@@ -112,6 +112,7 @@ export default function SearchScreen() {
   }, []);
 
   const songs = useMemo(() => {
+    void cacheEntries;
     if (!searchQuery.trim()) return [];
     const limit = activeCategory === "songs" ? 100 : 5;
     return offlineOnly
@@ -120,6 +121,7 @@ export default function SearchScreen() {
   }, [searchQuery, activeCategory, offlineOnly, cacheEntries]);
 
   const albums = useMemo(() => {
+    void cacheEntries;
     if (!searchQuery.trim()) return [];
     const limit = activeCategory === "albums" ? 50 : 5;
     return offlineOnly
@@ -128,6 +130,7 @@ export default function SearchScreen() {
   }, [searchQuery, activeCategory, offlineOnly, cacheEntries]);
 
   const artists = useMemo(() => {
+    void cacheEntries;
     if (!searchQuery.trim()) return [];
     const limit = activeCategory === "artists" ? 50 : 5;
     return offlineOnly
