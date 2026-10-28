@@ -1,15 +1,17 @@
 # changelog
 
-## unreleased
+## 2.32.0+67
 
 ### user release notes
 
 - add ui setting to toggle haptics.
 - add search bar and sort controls to available offline library screen.
+- add available offline filter chip on search screen.
 
 ### internal notes
 
 - add searchCachedSongs db helper and integrate search bar and sort menu in available offline screen.
+- add searchCachedAlbums and searchCachedArtists db helpers and integrate offline filter chip in search screen.
 
 ## 2.31.0+66
 

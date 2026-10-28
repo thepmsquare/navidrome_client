@@ -97,9 +97,15 @@ upgrading users from previous versions require automated data migration and clea
     - [ ] **universal artist & playlist rows (`<ArtistRow />` & `<PlaylistRow />`)**:
       - standardized list rows with context options for [`app/(main)/library/artists.tsx`](<./app/(main)/library/artists.tsx>), [`app/(main)/library/playlists.tsx`](<./app/(main)/library/playlists.tsx>), and search results.
 
-- [ ] **offline filter in search (`app/(main)/search.tsx`)**
+- [x] **offline filter in search (`app/(main)/search.tsx`)**
   - **context**: search queries songs, albums, and artists in local sqlite, but lacks a quick filter for content available offline.
   - **task**: add an "available offline" filter chip/toggle on the search screen to filter results strictly to cached media.
+  - **completed**:
+    - added `searchCachedAlbums` and `searchCachedArtists` SQLite queries in [`services/db.ts`](./services/db.ts) matching albums and artists that have tracks cached in `song_cache`.
+    - added `available offline` filter chip with `cloud-check`/`cloud-outline` toggle icon on [`app/(main)/search.tsx`](<./app/(main)/search.tsx>) to filter songs, albums, and artists strictly to locally cached media.
+    - subscribed to `subscribeSongCache` for real-time reactivity when offline cached media changes.
+    - updated category empty state prompts to clarify offline search results.
+    - added unit tests in [`__tests__/services/db_search.test.ts`](./__tests__/services/db_search.test.ts) and [`__tests__/screens/search.test.tsx`](./__tests__/screens/search.test.tsx).
 
 - [ ] **pending scrobbles screen**
   - **context**: offline plays are queued in sqlite via [`services/scrobbleQueue.ts`](./services/scrobbleQueue.ts) until an internet connection is restored.
