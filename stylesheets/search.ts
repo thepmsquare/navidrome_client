@@ -18,6 +18,12 @@ export const searchStyles = StyleSheet.create({
   chip: {
     marginRight: spacing.xs,
   },
+  filterDivider: {
+    width: 1,
+    height: 24,
+    alignSelf: "center",
+    marginHorizontal: spacing.xs,
+  },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",

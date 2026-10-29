@@ -1,5 +1,15 @@
 # changelog
 
+## unreleased
+
+### user release notes
+
+- TBD
+
+### internal notes
+
+- tweak ui styling for chips on search screen.
+
 ## 2.32.0+67
 
 ### user release notes

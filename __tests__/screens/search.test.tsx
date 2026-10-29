@@ -1,4 +1,3 @@
-import React from "react";
 import renderer from "react-test-renderer";
 
 import SearchScreen from "@/app/(main)/search";
@@ -6,7 +5,6 @@ import { getCoverArtBaseUrl } from "@/services/api";
 import {
   addRecentSearch,
   clearRecentSearches,
-  getAllSongCacheEntries,
   getRecentSearches,
   removeRecentSearch,
   searchAlbums,
@@ -112,8 +110,8 @@ const mockPlaylists: Playlist[] = [
 describe("SearchScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (getCoverArtBaseUrl as jest.Mock).mockResolvedValue(
-      (id?: string | null) => (id ? `https://art/${id}` : null),
+    (getCoverArtBaseUrl as jest.Mock).mockResolvedValue((id?: string | null) =>
+      id ? `https://art/${id}` : null,
     );
     (searchSongs as jest.Mock).mockReturnValue([]);
     (searchAlbums as jest.Mock).mockReturnValue([]);
@@ -133,12 +131,15 @@ describe("SearchScreen", () => {
     const { Searchbar, Text } = require("react-native-paper");
     const searchbars = component.root.findAllByType(Searchbar);
     expect(searchbars.length).toBe(1);
-    expect(searchbars[0].props.placeholder).toBe("search songs, albums, artists...");
+    expect(searchbars[0].props.placeholder).toBe(
+      "search songs, albums, artists...",
+    );
 
     const texts = component.root.findAllByType(Text);
-    const hasInitialPrompt = texts.some((t: any) =>
-      typeof t.props.children === "string" &&
-      t.props.children.includes("type to search your library"),
+    const hasInitialPrompt = texts.some(
+      (t: any) =>
+        typeof t.props.children === "string" &&
+        t.props.children.includes("type to search your library"),
     );
     expect(hasInitialPrompt).toBe(true);
 
@@ -266,7 +267,8 @@ describe("SearchScreen", () => {
 
     const chips = component.root.findAllByType(Chip);
     const albumsChip = chips.find((c: any) => {
-      const label = typeof c.props.children === "string" ? c.props.children : "";
+      const label =
+        typeof c.props.children === "string" ? c.props.children : "";
       return label === "albums";
     });
     expect(albumsChip).toBeDefined();
@@ -312,9 +314,7 @@ describe("SearchScreen", () => {
     expect(searchCachedSongs).not.toHaveBeenCalled();
 
     const chips = component.root.findAllByType(Chip);
-    const offlineChip = chips.find(
-      (c: any) => c.props.children === "available offline",
-    );
+    const offlineChip = chips.find((c: any) => c.props.children === "offline");
     expect(offlineChip).toBeDefined();
 
     renderer.act(() => {
@@ -323,7 +323,10 @@ describe("SearchScreen", () => {
 
     expect(searchCachedSongs).toHaveBeenCalledWith("pink", expect.any(Number));
     expect(searchCachedAlbums).toHaveBeenCalledWith("pink", expect.any(Number));
-    expect(searchCachedArtists).toHaveBeenCalledWith("pink", expect.any(Number));
+    expect(searchCachedArtists).toHaveBeenCalledWith(
+      "pink",
+      expect.any(Number),
+    );
 
     renderer.act(() => {
       component.unmount();
@@ -349,9 +352,10 @@ describe("SearchScreen", () => {
     });
 
     const texts = component.root.findAllByType(Text);
-    const hasNoResults = texts.some((t: any) =>
-      typeof t.props.children === "string" &&
-      t.props.children.includes("no results found"),
+    const hasNoResults = texts.some(
+      (t: any) =>
+        typeof t.props.children === "string" &&
+        t.props.children.includes("no results found"),
     );
     expect(hasNoResults).toBe(true);
 
@@ -361,7 +365,10 @@ describe("SearchScreen", () => {
   });
 
   it("renders recent search chips and clear button when recent searches exist", () => {
-    (getRecentSearches as jest.Mock).mockReturnValue(["pink floyd", "the wall"]);
+    (getRecentSearches as jest.Mock).mockReturnValue([
+      "pink floyd",
+      "the wall",
+    ]);
 
     let component: any;
     renderer.act(() => {
@@ -377,7 +384,8 @@ describe("SearchScreen", () => {
 
     const buttons = component.root.findAllByType(Button);
     const clearButton = buttons.find((b: any) => {
-      const label = typeof b.props.children === "string" ? b.props.children : "";
+      const label =
+        typeof b.props.children === "string" ? b.props.children : "";
       return label.includes("clear");
     });
     expect(clearButton).toBeDefined();
@@ -455,7 +463,8 @@ describe("SearchScreen", () => {
     const { Button, Text } = require("react-native-paper");
     const buttons = component.root.findAllByType(Button);
     const clearButton = buttons.find((b: any) => {
-      const label = typeof b.props.children === "string" ? b.props.children : "";
+      const label =
+        typeof b.props.children === "string" ? b.props.children : "";
       return label.includes("clear");
     });
     expect(clearButton).toBeDefined();
@@ -466,9 +475,10 @@ describe("SearchScreen", () => {
 
     expect(clearRecentSearches).toHaveBeenCalled();
     const texts = component.root.findAllByType(Text);
-    const hasInitialPrompt = texts.some((t: any) =>
-      typeof t.props.children === "string" &&
-      t.props.children.includes("type to search your library"),
+    const hasInitialPrompt = texts.some(
+      (t: any) =>
+        typeof t.props.children === "string" &&
+        t.props.children.includes("type to search your library"),
     );
     expect(hasInitialPrompt).toBe(true);
 
@@ -535,4 +545,3 @@ describe("SearchScreen", () => {
     });
   });
 });
-

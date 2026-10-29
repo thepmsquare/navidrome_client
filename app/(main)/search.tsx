@@ -315,10 +315,16 @@ export default function SearchScreen() {
             style={searchStyles.chip}
             showSelectedOverlay
             accessibilityRole="button"
-            accessibilityLabel="available offline"
+            accessibilityLabel="offline"
           >
-            available offline
+            offline
           </Chip>
+          <View
+            style={[
+              searchStyles.filterDivider,
+              { backgroundColor: theme.colors.outlineVariant },
+            ]}
+          />
           {CATEGORIES.map((cat) => (
             <Chip
               key={cat.value}
