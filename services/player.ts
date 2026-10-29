@@ -16,6 +16,7 @@ import {
   play,
   PlaybackStatus,
   seekTo,
+  setPlaybackSpeed as nativeSetPlaybackSpeed,
   setRepeatMode,
   setStopOnAppDismissed,
   setVolume,
@@ -34,12 +35,14 @@ import {
   addPendingScrobble,
   clearPlayerSession,
   getKeepPlayingOnAppDismissed,
+  getPlaybackSpeedSetting,
   getPlayerSession,
   getScrobbleMinDuration,
   getScrobbleMinPercent,
   getSongById,
   savePlayerSession,
   setKeepPlayingOnAppDismissed,
+  setPlaybackSpeedSetting,
   updateSongCacheLastAccessed,
   updateSongRating,
   updateSongStarred,
@@ -82,6 +85,7 @@ export interface PlayerState {
   hasNext: boolean;
   isPlayingFromCache: boolean;
   scrobbled: boolean;
+  playbackSpeed: number;
 }
 
 let currentQueue: Child[] = [];
@@ -92,12 +96,14 @@ let currentPlaybackSource: { songId: string; isFromCache: boolean } | null =
   null;
 let currentRepeatMode: "off" | "one" | "all" = "off";
 let currentShuffle = false;
+let currentPlaybackSpeed = 1.0;
 let lastPlaybackStatus: PlaybackStatus = {
   isPlaying: false,
   isBuffering: false,
   duration: 0,
   position: 0,
   repeatMode: "off",
+  playbackSpeed: 1.0,
 };
 let isInitialized = false;
 let scrobbleInFlightTrackId: string | null = null;
@@ -194,6 +200,13 @@ export function hydratePlayerSession(): void {
   } catch {
     // ignore
   }
+
+  try {
+    currentPlaybackSpeed = getPlaybackSpeedSetting();
+    nativeSetPlaybackSpeed(currentPlaybackSpeed).catch(() => {});
+  } catch {
+    // ignore
+  }
 }
 
 let hasHydrated = false;
@@ -247,6 +260,7 @@ export function getPlayerState(): PlayerState {
     hasNext,
     isPlayingFromCache,
     scrobbled,
+    playbackSpeed: currentPlaybackSpeed,
   };
 }
 
@@ -379,6 +393,10 @@ function ensureListenersInitialized(): void {
       lastEvaluatedPosition = status.position;
     } else {
       lastEvaluatedPosition = status.position;
+    }
+
+    if (typeof status.playbackSpeed === "number" && status.playbackSpeed > 0) {
+      currentPlaybackSpeed = status.playbackSpeed;
     }
 
     lastPlaybackStatus = status;
@@ -956,6 +974,23 @@ export async function cycleRepeatMode(): Promise<void> {
         ? "one"
         : "off";
   await setPlaybackRepeatMode(nextMode);
+}
+
+export async function setPlaybackSpeed(speed: number): Promise<void> {
+  const clamped = Math.max(0.25, Math.min(3.0, speed));
+  currentPlaybackSpeed = clamped;
+  lastPlaybackStatus.playbackSpeed = clamped;
+  try {
+    setPlaybackSpeedSetting(clamped);
+  } catch (err) {
+    console.error("failed to persist playback speed:", err);
+  }
+  try {
+    await nativeSetPlaybackSpeed(clamped);
+  } catch (err) {
+    console.error("failed to set native playback speed:", err);
+  }
+  notifyStateChanged();
 }
 
 export async function updateKeepPlayingOnAppDismissed(

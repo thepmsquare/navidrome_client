@@ -8,6 +8,7 @@ import {
   playNext,
   playPrevious,
   seekToPosition,
+  setPlaybackSpeed,
   setRatingCurrentTrack,
   togglePlayback,
   toggleShuffle,
@@ -74,6 +75,7 @@ jest.mock("@/services/player", () => ({
   toggleShuffle: jest.fn().mockResolvedValue(true),
   toggleStarCurrentTrack: jest.fn().mockResolvedValue(true),
   setRatingCurrentTrack: jest.fn().mockResolvedValue(4),
+  setPlaybackSpeed: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock("@/components/SongCacheButton", () => ({
@@ -1043,6 +1045,58 @@ describe("PlayerScreen", () => {
     expect(
       root.root.findAll((node: any) => node.props?.title === "now playing").length,
     ).toBeGreaterThan(0);
+  });
+
+  it("renders playback speed chip and triggers setPlaybackSpeed", async () => {
+    (usePlayerState as jest.Mock).mockReturnValue({
+      currentTrack: {
+        id: "song-1",
+        title: "Neon Lights",
+        artist: "Kraftwerk",
+        album: "The Man-Machine",
+        coverArt: "art-1",
+        duration: 300,
+        starred: null,
+        userRating: 0,
+      },
+      isPlaying: true,
+      isBuffering: false,
+      position: 60,
+      duration: 300,
+      repeatMode: "off",
+      hasPrevious: true,
+      hasNext: true,
+      isPlayingFromCache: false,
+      scrobbled: false,
+      playbackSpeed: 1.25,
+    });
+
+    let root: any;
+    await act(async () => {
+      root = renderer.create(<PlayerScreen />);
+    });
+
+    const speedChip = root.root.findByProps({
+      accessibilityLabel: "playback speed: 1.25x",
+    });
+    expect(speedChip).toBeDefined();
+
+    // Trigger speed menu opening
+    await act(async () => {
+      speedChip.props.onPress();
+    });
+
+    // Find and select 1.5x speed option
+    const speedOption = root.root.findByProps({
+      accessibilityLabel: "1.5x speed",
+    });
+    expect(speedOption).toBeDefined();
+
+    await act(async () => {
+      speedOption.props.onPress();
+    });
+
+    expect(setPlaybackSpeed).toHaveBeenCalledWith(1.5);
   });
 });
 

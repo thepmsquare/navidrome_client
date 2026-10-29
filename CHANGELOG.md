@@ -4,7 +4,7 @@
 
 ### user release notes
 
-- TBD
+- add playback speed options on music player page.
 
 ### internal notes
 

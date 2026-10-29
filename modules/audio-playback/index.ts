@@ -6,6 +6,7 @@ export interface PlaybackStatus {
   duration: number;
   position: number;
   repeatMode: "off" | "one" | "all";
+  playbackSpeed?: number;
 }
 
 export interface PlaybackError {
@@ -50,6 +51,7 @@ declare class AudioPlaybackNativeModule extends NativeModule<AudioPlaybackEvents
   seekTo(positionSeconds: number): Promise<void>;
   setVolume(volume: number): Promise<void>;
   setRepeatMode(mode: "off" | "one" | "all"): Promise<void>;
+  setPlaybackSpeed(speed: number): Promise<void>;
   setStopOnAppDismissed(stop: boolean): Promise<void>;
   getPlaybackStatus(): Promise<PlaybackStatus>;
   playTestSound(url: string): Promise<void>;
@@ -119,6 +121,11 @@ export async function setRepeatMode(
   await AudioPlayback.setRepeatMode(mode);
 }
 
+export async function setPlaybackSpeed(speed: number): Promise<void> {
+  if (!AudioPlayback) return;
+  await AudioPlayback.setPlaybackSpeed(speed);
+}
+
 export async function setStopOnAppDismissed(stop: boolean): Promise<void> {
   if (!AudioPlayback) return;
   await AudioPlayback.setStopOnAppDismissed(stop);
@@ -132,6 +139,7 @@ export async function getPlaybackStatus(): Promise<PlaybackStatus> {
       duration: 0,
       position: 0,
       repeatMode: "off",
+      playbackSpeed: 1.0,
     };
   }
   return await AudioPlayback.getPlaybackStatus();

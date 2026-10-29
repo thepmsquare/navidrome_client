@@ -32,6 +32,7 @@ import {
   seekToPosition,
   setPlaybackRepeatMode,
   setPlaybackShuffle,
+  setPlaybackSpeed,
   setPlaybackVolume,
   setQueue,
   stopPlayback,
@@ -94,6 +95,8 @@ jest.mock("@/services/db", () => ({
   getSongById: jest.fn().mockReturnValue(null),
   updateSongStarred: jest.fn(),
   updateSongRating: jest.fn(),
+  getPlaybackSpeedSetting: jest.fn().mockReturnValue(1.0),
+  setPlaybackSpeedSetting: jest.fn(),
 }));
 
 jest.mock("@/modules/audio-playback", () => ({
@@ -104,6 +107,7 @@ jest.mock("@/modules/audio-playback", () => ({
   seekTo: jest.fn(),
   setVolume: jest.fn(),
   setRepeatMode: jest.fn(),
+  setPlaybackSpeed: jest.fn(),
   setStopOnAppDismissed: jest.fn().mockResolvedValue(undefined),
   playTestSound: jest.fn(),
   stopTestSound: jest.fn(),
@@ -113,6 +117,7 @@ jest.mock("@/modules/audio-playback", () => ({
     duration: 100,
     position: 10,
     repeatMode: "off",
+    playbackSpeed: 1.0,
   }),
   addPlaybackStateListener: jest.fn((cb) => {
     stateListenerCb = cb;
@@ -1310,6 +1315,21 @@ describe("player service", () => {
         expect(cleared).toBe(0);
         expect(api.setRating).toHaveBeenCalledWith("song-11", 0);
         expect(getPlayerState().currentTrack?.userRating).toBeNull();
+      });
+
+      it("setPlaybackSpeed should update speed, persist setting, and call native module", async () => {
+        await setPlaybackSpeed(1.25);
+        expect(audioPlayback.setPlaybackSpeed).toHaveBeenCalledWith(1.25);
+        expect(getPlayerState().playbackSpeed).toBe(1.25);
+
+        // Clamp upper and lower bounds
+        await setPlaybackSpeed(5.0);
+        expect(audioPlayback.setPlaybackSpeed).toHaveBeenCalledWith(3.0);
+        expect(getPlayerState().playbackSpeed).toBe(3.0);
+
+        await setPlaybackSpeed(0.1);
+        expect(audioPlayback.setPlaybackSpeed).toHaveBeenCalledWith(0.25);
+        expect(getPlayerState().playbackSpeed).toBe(0.25);
       });
     });
   });
