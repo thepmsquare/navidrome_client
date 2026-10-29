@@ -123,6 +123,20 @@ export const playerStyles = StyleSheet.create({
   ratingMenuClearButton: {
     marginTop: spacing.xs,
   },
+  speedMenuContent: {
+    paddingVertical: spacing.xs,
+    borderRadius: shape.large,
+    minWidth: 170,
+  },
+  speedMenuTitle: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
+    fontWeight: "bold",
+  },
+  speedMenuResetButton: {
+    marginTop: spacing.xs,
+  },
   title: {
     marginBottom: spacing.xs,
   },

@@ -337,6 +337,23 @@ class AudioPlaybackModule : Module() {
       }
     }
 
+    AsyncFunction("setPlaybackSpeed") { speed: Double, promise: Promise ->
+      mainHandler.post {
+        try {
+          val s = getOrFindService()
+          if (s == null) {
+            promise.reject("ERR_NO_PLAYER", "Player not initialized", null)
+            return@post
+          }
+          s.setPlaybackSpeed(speed.toFloat())
+          promise.resolve(null)
+        } catch (e: Exception) {
+          android.util.Log.e(TAG, "Error setting playback speed: ${e.message}", e)
+          promise.reject("ERR_SET_SPEED", e.message ?: "Unknown error", e)
+        }
+      }
+    }
+
     AsyncFunction("getPlaybackStatus") { promise: Promise ->
       mainHandler.post {
         try {
@@ -350,7 +367,8 @@ class AudioPlaybackModule : Module() {
                 "isBuffering" to false,
                 "duration" to 0.0,
                 "position" to 0.0,
-                "repeatMode" to "off"
+                "repeatMode" to "off",
+                "playbackSpeed" to 1.0
               )
             )
           }

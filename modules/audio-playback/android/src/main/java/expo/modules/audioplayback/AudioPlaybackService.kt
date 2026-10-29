@@ -91,6 +91,7 @@ class AudioPlaybackService : MediaSessionService() {
   private var currentArtworkBitmap: Bitmap? = null
   private var artworkLoadJob: Job? = null
   private var currentRepeatMode: String = "off"
+  private var currentPlaybackSpeed: Float = 1.0f
 
   private val scope = CoroutineScope(Dispatchers.IO + Job())
   private var mediaActionReceiver: BroadcastReceiver? = null
@@ -300,6 +301,7 @@ class AudioPlaybackService : MediaSessionService() {
           .add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
           .add(Player.COMMAND_STOP)
           .add(Player.COMMAND_SET_REPEAT_MODE)
+          .add(Player.COMMAND_SET_SPEED_AND_PITCH)
           .build()
       }
 
@@ -311,7 +313,8 @@ class AudioPlaybackService : MediaSessionService() {
           Player.COMMAND_SEEK_TO_PREVIOUS,
           Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
           Player.COMMAND_STOP,
-          Player.COMMAND_SET_REPEAT_MODE -> true
+          Player.COMMAND_SET_REPEAT_MODE,
+          Player.COMMAND_SET_SPEED_AND_PITCH -> true
           else -> super.isCommandAvailable(command)
         }
       }
@@ -521,6 +524,7 @@ class AudioPlaybackService : MediaSessionService() {
       .build()
 
     p.setMediaItem(mediaItem)
+    p.setPlaybackSpeed(currentPlaybackSpeed)
     p.prepare()
     p.playWhenReady = playWhenReady
 
@@ -591,6 +595,15 @@ class AudioPlaybackService : MediaSessionService() {
     updateNotification()
   }
 
+  fun setPlaybackSpeed(speed: Float) {
+    val clamped = speed.coerceIn(0.25f, 3.0f)
+    currentPlaybackSpeed = clamped
+    player?.setPlaybackSpeed(clamped)
+    eventListener?.onPlaybackStateChanged(getPlaybackStatusMap())
+  }
+
+  fun getPlaybackSpeed(): Float = currentPlaybackSpeed
+
   fun isPlayerInitialized(): Boolean = player != null
 
   fun getPlaybackStatusMap(): Map<String, Any?> {
@@ -600,7 +613,8 @@ class AudioPlaybackService : MediaSessionService() {
       "isBuffering" to (p?.playbackState == Player.STATE_BUFFERING),
       "duration" to ((p?.duration ?: 0L).takeIf { it > 0 }?.let { it / 1000.0 } ?: 0.0),
       "position" to ((p?.currentPosition ?: 0L) / 1000.0),
-      "repeatMode" to currentRepeatMode
+      "repeatMode" to currentRepeatMode,
+      "playbackSpeed" to (p?.playbackParameters?.speed ?: currentPlaybackSpeed)
     )
   }
 

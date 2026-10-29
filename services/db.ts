@@ -1012,6 +1012,19 @@ export function setHapticsEnabled(enabled: boolean): void {
   setSyncMeta("haptics_enabled", String(enabled));
 }
 
+export function getPlaybackSpeedSetting(): number {
+  const val = getSyncMeta("playback_speed");
+  if (val === null) {
+    return 1.0;
+  }
+  const parsed = parseFloat(val);
+  return isNaN(parsed) || parsed <= 0 ? 1.0 : parsed;
+}
+
+export function setPlaybackSpeedSetting(speed: number): void {
+  setSyncMeta("playback_speed", String(speed));
+}
+
 function escapeLike(str: string): string {
   return str.replace(/[%_\\]/g, "\\$0");
 }

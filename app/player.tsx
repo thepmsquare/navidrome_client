@@ -36,6 +36,7 @@ import {
   playNext,
   playPrevious,
   seekToPosition,
+  setPlaybackSpeed,
   setRatingCurrentTrack,
   togglePlayback,
   toggleShuffle,
@@ -54,6 +55,8 @@ import { triggerHapticImpact, triggerHapticSelection } from "@/utils/haptics";
 import { spacing } from "@/utils/spacing";
 import { formatTime } from "@/utils/time";
 
+const PLAYBACK_SPEED_PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+
 export default function PlayerScreen() {
   const router = useRouter();
   const theme = useAppTheme();
@@ -62,6 +65,7 @@ export default function PlayerScreen() {
   const [viewMode, setViewMode] = useState<"player" | "queue">("player");
   const [sleepTimerModalVisible, setSleepTimerModalVisible] = useState(false);
   const [ratingMenuVisible, setRatingMenuVisible] = useState(false);
+  const [speedMenuVisible, setSpeedMenuVisible] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [getArtUrl, setGetArtUrl] = useState<
@@ -261,6 +265,17 @@ export default function PlayerScreen() {
     }
   };
 
+  const playbackSpeed = playerState.playbackSpeed ?? 1.0;
+
+  const handleSelectSpeed = async (speedVal: number) => {
+    try {
+      triggerHapticSelection();
+      await setPlaybackSpeed(speedVal);
+    } catch {
+      showSnackbar("failed to update playback speed");
+    }
+  };
+
   const handleSeek = (targetSecs: number) => {
     seekToPosition(targetSecs).catch((err) =>
       console.error("failed to seek position:", err),
@@ -418,11 +433,7 @@ export default function PlayerScreen() {
   };
 
   if (viewMode === "queue") {
-    return (
-      <PlaybackQueueView
-        onBack={() => setViewMode("player")}
-      />
-    );
+    return <PlaybackQueueView onBack={() => setViewMode("player")} />;
   }
 
   if (!currentTrack) {
@@ -765,6 +776,83 @@ export default function PlayerScreen() {
                 : `timer: ${Math.ceil(sleepTimerState.remainingSeconds / 60)}m`
               : "sleep timer"}
           </Chip>
+
+          {/* Playback Speed Chip + Contextual Popover Menu */}
+          <Menu
+            visible={speedMenuVisible}
+            onDismiss={() => setSpeedMenuVisible(false)}
+            anchor={
+              <Chip
+                mode="flat"
+                icon="play-speed"
+                style={[
+                  playerStyles.controlChip,
+                  {
+                    backgroundColor:
+                      playbackSpeed !== 1
+                        ? theme.colors.secondaryContainer
+                        : theme.colors.surfaceContainerHighest,
+                  },
+                ]}
+                textStyle={{
+                  color:
+                    playbackSpeed !== 1
+                      ? theme.colors.onSecondaryContainer
+                      : theme.colors.onSurfaceVariant,
+                  fontSize: 12,
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`playback speed: ${playbackSpeed}x`}
+                onPress={() => setSpeedMenuVisible(true)}
+              >
+                {`${playbackSpeed}x`}
+              </Chip>
+            }
+            contentStyle={[
+              playerStyles.speedMenuContent,
+              { backgroundColor: theme.colors.surfaceContainerHigh },
+            ]}
+          >
+            <Text
+              variant="labelMedium"
+              style={[
+                playerStyles.speedMenuTitle,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
+            >
+              playback speed
+            </Text>
+            {PLAYBACK_SPEED_PRESETS.map((speedVal) => {
+              const isSelected = playbackSpeed === speedVal;
+              return (
+                <Menu.Item
+                  key={speedVal}
+                  title={`${speedVal}x${speedVal === 1 ? " (normal)" : ""}`}
+                  leadingIcon={isSelected ? "check" : undefined}
+                  onPress={async () => {
+                    setSpeedMenuVisible(false);
+                    await handleSelectSpeed(speedVal);
+                  }}
+                  accessibilityLabel={`${speedVal}x speed`}
+                />
+              );
+            })}
+            {playbackSpeed !== 1 && (
+              <Button
+                mode="text"
+                compact
+                textColor={theme.colors.primary}
+                style={playerStyles.speedMenuResetButton}
+                onPress={async () => {
+                  setSpeedMenuVisible(false);
+                  await handleSelectSpeed(1);
+                }}
+                accessibilityLabel="reset speed to normal"
+              >
+                reset to normal speed
+              </Button>
+            )}
+          </Menu>
 
           {/* Scrobbled Chip */}
           {playerState.scrobbled && (
