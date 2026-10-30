@@ -80,6 +80,7 @@ jest.spyOn(AppState, "addEventListener").mockImplementation(((event: string, cb:
 
 jest.mock("@/services/scrobbleQueue", () => ({
   syncPendingScrobbles: jest.fn().mockResolvedValue({ synced: 0, failed: 0 }),
+  notifyScrobbleQueueChanged: jest.fn(),
 }));
 
 jest.mock("@/services/db", () => ({

@@ -90,6 +90,9 @@ upgrading users from previous versions require automated data migration and clea
       - standardized a11y attributes (`accessibilityRole`, lowercase labels) and text overflow tail truncation.
       - offline cache indicator / button integration via `<SongCacheButton />`.
       - rolled out across surfaces: [`app/(main)/library/songs.tsx`](<./app/(main)/library/songs.tsx>), [`app/album/[id].tsx`](./app/album/[id].tsx), [`app/artist/[id].tsx`](./app/artist/[id].tsx), [`app/(main)/library/playlist/[id].tsx`](<./app/(main)/library/playlist/[id].tsx>), [`app/(main)/library/offline.tsx`](<./app/(main)/library/offline.tsx>), search results ([`app/(main)/search.tsx`](./app/(main)/search.tsx)), and homepage tracks ([`components/home/RandomTracksSection.tsx`](./components/home/RandomTracksSection.tsx)).
+    - [ ] **universal song list & row extensibility for specialized screens**:
+      - **context**: screens like pending scrobbles ([`app/(main)/library/scrobbles.tsx`](./app/(main)/library/scrobbles.tsx)), download queue ([`app/(main)/library/queue.tsx`](./app/(main)/library/queue.tsx)), and available offline ([`app/(main)/library/offline.tsx`](./app/(main)/library/offline.tsx)) have specialized requirements (custom right actions like delete/retry/cancel, live progress rings, sync status badges, attempt counts, and secondary metadata lines like played timestamps).
+      - **task**: extend the universal song list (`<SongRow />` and a shared song list container) to natively accommodate these screens without ad-hoc list item implementations, supporting configurable accessory slots, status badges, secondary metadata lines, and custom right actions.
     - [ ] **universal album components (`<AlbumRow />` & `<AlbumCard />`)**:
       - support both list view and grid view variants (including grid toggle on [`app/(main)/library/albums.tsx`](<./app/(main)/library/albums.tsx>)).
       - tap opens album detail; long press / 3-dot `⋯` menu includes `go to artist`.
@@ -107,9 +110,14 @@ upgrading users from previous versions require automated data migration and clea
     - updated category empty state prompts to clarify offline search results.
     - added unit tests in [`__tests__/services/db_search.test.ts`](./__tests__/services/db_search.test.ts) and [`__tests__/screens/search.test.tsx`](./__tests__/screens/search.test.tsx).
 
-- [ ] **pending scrobbles screen**
+- [x] **pending scrobbles screen**
   - **context**: offline plays are queued in sqlite via [`services/scrobbleQueue.ts`](./services/scrobbleQueue.ts) until an internet connection is restored.
   - **task**: create a dedicated screen in library/settings to view pending scrobbles, display attempt counts and sync status, and allow manual sync triggering or individual deletion.
+  - **completed**:
+    - created [`app/(main)/library/scrobbles.tsx`](./app/(main)/library/scrobbles.tsx) dedicated pending scrobbles screen with real-time reactivity via `subscribeScrobbleQueue`.
+    - displays item cover art, title, artist, album, relative played timestamp, and attempt count badges.
+    - supports batch "sync now" manual sync triggering with live status indicators, pull-to-refresh, individual retry sync, individual item deletion, and "clear all".
+    - added navigation entry buttons in [`app/(main)/library/index.tsx`](./app/(main)/library/index.tsx) and under scrobble settings in [`app/(main)/settings.tsx`](./app/(main)/settings.tsx).
 
 - [ ] **starred / favorites screen (`app/(main)/library/starred.tsx`) (medium priority)**
   - **context**: star/unstar api operations exist, but there is no dedicated destination in the library tab to browse all favorited songs, albums, or artists in one place.

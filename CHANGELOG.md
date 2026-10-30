@@ -1,10 +1,11 @@
 # changelog
 
-## unreleased
+## 2.33.0+68
 
 ### user release notes
 
 - add playback speed options on music player page.
+- add ui for pending scrobbles (wip).
 
 ### internal notes
 

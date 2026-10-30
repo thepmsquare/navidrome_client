@@ -104,6 +104,17 @@ export default function LibraryHomeScreen() {
           >
             download queue
           </Button>
+
+          <Button
+            mode="contained-tonal"
+            icon="cloud-sync"
+            style={libraryStyles.button}
+            loading={loadingRoute === "/library/scrobbles"}
+            disabled={loadingRoute !== null}
+            onPress={() => handleNavigate("/library/scrobbles")}
+          >
+            pending scrobbles
+          </Button>
         </Surface>
       </ScrollView>
     </Surface>

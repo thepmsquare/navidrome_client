@@ -47,7 +47,10 @@ import {
   updateSongRating,
   updateSongStarred,
 } from "@/services/db";
-import { syncPendingScrobbles } from "@/services/scrobbleQueue";
+import {
+  notifyScrobbleQueueChanged,
+  syncPendingScrobbles,
+} from "@/services/scrobbleQueue";
 import {
   autoCacheSong,
   getCachedSongPlaybackUri,
@@ -348,6 +351,7 @@ function checkAndScrobble(forceEndOfTrack: boolean = false): Promise<void> {
         console.error("failed to scrobble song, queueing for offline sync:", err);
         try {
           addPendingScrobble(trackId, listenTimestamp);
+          notifyScrobbleQueueChanged();
           scrobbledSuccessfullyTrackId = trackId;
           notifyStateChanged();
         } catch (dbErr) {
