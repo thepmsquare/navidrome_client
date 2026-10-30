@@ -489,6 +489,15 @@ export default function SettingsScreen() {
             onBlur={handleScrobblePercentBlur}
             keyboardType="number-pad"
           />
+          <Button
+            mode="contained-tonal"
+            icon="cloud-sync"
+            onPress={() => router.push("/library/scrobbles")}
+            style={{ marginTop: 4 }}
+          >
+            view pending scrobbles
+          </Button>
+
         </Surface>
 
         <Surface
