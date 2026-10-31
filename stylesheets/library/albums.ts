@@ -17,14 +17,18 @@ export const albumsStyles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     marginBottom: spacing.sm,
   },
+  sortActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
   listContent: {
     paddingHorizontal: spacing.sm,
     paddingBottom: spacing.lg,
   },
-  artwork: {
-    width: spacing.xxl,
-    height: spacing.xxl,
-    borderRadius: spacing.sm,
+  gridRow: {
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
   emptyContainer: {
     flex: 1,
