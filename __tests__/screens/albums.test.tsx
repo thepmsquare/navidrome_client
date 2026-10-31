@@ -2,8 +2,11 @@ import React from "react";
 import renderer from "react-test-renderer";
 
 import AlbumsScreen from "@/app/(main)/library/albums";
+import { AlbumCard } from "@/components/AlbumCard";
+import { AlbumRow } from "@/components/AlbumRow";
 import { client_app_sync, getCoverArtBaseUrl } from "@/services/api";
-import { getAllAlbums, searchAlbums } from "@/services/db";
+import { getAllAlbums, getSongsByAlbumId, searchAlbums } from "@/services/db";
+import { playPlaylist } from "@/services/player";
 import { AlbumID3 } from "@/types";
 
 const mockBack = jest.fn();
@@ -49,6 +52,14 @@ jest.mock("@/services/api", () => ({
 jest.mock("@/services/db", () => ({
   getAllAlbums: jest.fn(),
   searchAlbums: jest.fn(),
+  getAlbumById: jest.fn(() => null),
+  getArtistByName: jest.fn(() => null),
+  getSongsByAlbumId: jest.fn(() => []),
+  getHapticsEnabled: jest.fn(() => false),
+}));
+
+jest.mock("@/services/player", () => ({
+  playPlaylist: jest.fn().mockResolvedValue(undefined),
 }));
 
 const mockAlbums: AlbumID3[] = [
@@ -98,9 +109,8 @@ describe("AlbumsScreen", () => {
       component = renderer.create(<AlbumsScreen />);
     });
 
-    const { List } = require("react-native-paper");
-    const listItems = component.root.findAllByType(List.Item);
-    expect(listItems.length).toBe(2);
+    const cards = component.root.findAllByType(AlbumCard);
+    expect(cards.length).toBe(2);
 
     renderer.act(() => {
       component.unmount();
@@ -113,11 +123,9 @@ describe("AlbumsScreen", () => {
       component = renderer.create(<AlbumsScreen />);
     });
 
-    const { List } = require("react-native-paper");
-    const listItems = component.root.findAllByType(List.Item);
-    const darkSideItem = listItems.find(
-      (item: any) => item.props.title === "the dark side of the moon",
-    );
+    const darkSideItem = component.root.findAll(
+      (node: any) => node.props.testID === "album-card-album-1",
+    )[0];
 
     renderer.act(() => {
       darkSideItem.props.onPress();
@@ -141,7 +149,7 @@ describe("AlbumsScreen", () => {
       component = renderer.create(<AlbumsScreen />);
     });
 
-    const { Searchbar, List } = require("react-native-paper");
+    const { Searchbar } = require("react-native-paper");
     const searchbar = component.root.findByType(Searchbar);
 
     renderer.act(() => {
@@ -150,9 +158,9 @@ describe("AlbumsScreen", () => {
 
     expect(searchAlbums).toHaveBeenCalledWith("beatles", 1000);
 
-    const listItems = component.root.findAllByType(List.Item);
-    expect(listItems.length).toBe(1);
-    expect(listItems[0].props.title).toBe("abbey road");
+    const cards = component.root.findAllByType(AlbumCard);
+    expect(cards.length).toBe(1);
+    expect(cards[0].props.album.name).toBe("abbey road");
 
     renderer.act(() => {
       component.unmount();
@@ -165,7 +173,7 @@ describe("AlbumsScreen", () => {
       component = renderer.create(<AlbumsScreen />);
     });
 
-    const { Menu, IconButton, List } = require("react-native-paper");
+    const { Menu, IconButton } = require("react-native-paper");
     const menuItems = component.root.findAllByType(Menu.Item);
     const yearOption = menuItems.find(
       (item: any) => item.props.title === "year",
@@ -175,10 +183,10 @@ describe("AlbumsScreen", () => {
       yearOption.props.onPress();
     });
 
-    let listItems = component.root.findAllByType(List.Item);
+    let cards = component.root.findAllByType(AlbumCard);
     // 1969 ("abbey road") before 1973 ("the dark side of the moon") in asc
-    expect(listItems[0].props.title).toBe("abbey road");
-    expect(listItems[1].props.title).toBe("the dark side of the moon");
+    expect(cards[0].props.album.name).toBe("abbey road");
+    expect(cards[1].props.album.name).toBe("the dark side of the moon");
 
     // Toggle to desc
     const iconButtons = component.root.findAllByType(IconButton);
@@ -192,10 +200,62 @@ describe("AlbumsScreen", () => {
       orderButton.props.onPress();
     });
 
-    listItems = component.root.findAllByType(List.Item);
+    cards = component.root.findAllByType(AlbumCard);
     // 1973 before 1969 in desc
-    expect(listItems[0].props.title).toBe("the dark side of the moon");
-    expect(listItems[1].props.title).toBe("abbey road");
+    expect(cards[0].props.album.name).toBe("the dark side of the moon");
+    expect(cards[1].props.album.name).toBe("abbey road");
+
+    renderer.act(() => {
+      component.unmount();
+    });
+  });
+
+  it("switches between list and grid views", async () => {
+    let component: any;
+    await renderer.act(async () => {
+      component = renderer.create(<AlbumsScreen />);
+    });
+
+    expect(component.root.findAllByType(AlbumCard).length).toBe(2);
+    expect(component.root.findAllByType(AlbumRow).length).toBe(0);
+
+    const { IconButton } = require("react-native-paper");
+    const listToggle = component.root
+      .findAllByType(IconButton)
+      .find(
+        (btn: any) => btn.props.accessibilityLabel === "switch to list view",
+      );
+
+    renderer.act(() => {
+      listToggle.props.onPress();
+    });
+
+    expect(component.root.findAllByType(AlbumRow).length).toBe(2);
+    expect(component.root.findAllByType(AlbumCard).length).toBe(0);
+
+    renderer.act(() => {
+      component.unmount();
+    });
+  });
+
+  it("plays an album from the grid card play button", async () => {
+    const songs = [{ id: "song-1", title: "time", albumId: "album-1" }];
+    (getSongsByAlbumId as jest.Mock).mockReturnValue(songs);
+
+    let component: any;
+    await renderer.act(async () => {
+      component = renderer.create(<AlbumsScreen />);
+    });
+
+    const playButton = component.root.findAll(
+      (node: any) => node.props.testID === "album-card-play-album-1",
+    )[0];
+
+    await renderer.act(async () => {
+      playButton.props.onPress();
+    });
+
+    expect(playPlaylist).toHaveBeenCalledWith(songs, 0);
 
     renderer.act(() => {
       component.unmount();
