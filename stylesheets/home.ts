@@ -46,26 +46,6 @@ export const homeStyles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  tile: {
-    width: 140,
-    gap: spacing.xs,
-  },
-  artwork: {
-    width: 140,
-    height: 140,
-    borderRadius: 8,
-  },
-  artworkPlaceholder: {
-    width: 140,
-    height: 140,
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  tileTitle: {
-    fontWeight: "600",
-  },
-  tileSubtitle: {},
   emptyText: {
     paddingHorizontal: spacing.md,
   },

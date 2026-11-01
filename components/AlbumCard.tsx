@@ -166,7 +166,7 @@ export function AlbumCard({
               >
                 <Icon
                   source="play"
-                  size={35}
+                  size={40}
                   color={theme.colors.onSecondaryContainer}
                 />
               </TouchableRipple>
@@ -265,8 +265,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: spacing.sm,
     right: spacing.sm,
-    width: 50,
-    height: 50,
+    width: 56,
+    height: 56,
     borderRadius: shape.full,
     alignItems: "center",
     justifyContent: "center",

@@ -172,9 +172,13 @@ describe("SearchScreen", () => {
     expect(searchPlaylists).toHaveBeenCalledWith("pink", expect.any(Number));
 
     const { SongRow } = require("@/components/SongRow");
+    const { AlbumRow } = require("@/components/AlbumRow");
     const listItems = component.root.findAllByType(List.Item);
+    const albumRows = component.root.findAllByType(AlbumRow);
     const songRows = component.root.findAllByType(SongRow);
-    expect(listItems.length + songRows.length).toBeGreaterThanOrEqual(4);
+    expect(
+      listItems.length + albumRows.length + songRows.length,
+    ).toBeGreaterThanOrEqual(4);
 
     renderer.act(() => {
       component.unmount();
@@ -222,16 +226,17 @@ describe("SearchScreen", () => {
       component = renderer.create(<SearchScreen />);
     });
 
-    const { Searchbar, List } = require("react-native-paper");
+    const { Searchbar } = require("react-native-paper");
+    const { AlbumRow } = require("@/components/AlbumRow");
     const searchbar = component.root.findByType(Searchbar);
 
     renderer.act(() => {
       searchbar.props.onChangeText("wall");
     });
 
-    const listItems = component.root.findAllByType(List.Item);
-    const albumItem = listItems.find(
-      (item: any) => item.props.title === "the wall",
+    const albumRows = component.root.findAllByType(AlbumRow);
+    const albumItem = albumRows.find(
+      (item: any) => item.props.album.name === "the wall",
     );
     expect(albumItem).toBeDefined();
 
@@ -259,6 +264,8 @@ describe("SearchScreen", () => {
     });
 
     const { Searchbar, Chip, List } = require("react-native-paper");
+    const { SongRow } = require("@/components/SongRow");
+    const { AlbumRow } = require("@/components/AlbumRow");
     const searchbar = component.root.findByType(Searchbar);
 
     renderer.act(() => {
@@ -277,13 +284,15 @@ describe("SearchScreen", () => {
       albumsChip.props.onPress();
     });
 
-    const listItems = component.root.findAllByType(List.Item);
     // Should now only show album items
-    const hasSong = listItems.some(
-      (item: any) => item.props.title === "comfortably numb",
-    );
-    const hasAlbum = listItems.some(
-      (item: any) => item.props.title === "the wall",
+    const listItems = component.root.findAllByType(List.Item);
+    const songRows = component.root.findAllByType(SongRow);
+    const albumRows = component.root.findAllByType(AlbumRow);
+    const hasSong =
+      songRows.length > 0 ||
+      listItems.some((item: any) => item.props.title === "comfortably numb");
+    const hasAlbum = albumRows.some(
+      (item: any) => item.props.album.name === "the wall",
     );
     expect(hasSong).toBe(false);
     expect(hasAlbum).toBe(true);

@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, RefreshControl, ScrollView, TouchableOpacity, View } from "react-native";
+import { FlatList, RefreshControl, TouchableOpacity, View } from "react-native";
 import {
   Appbar,
   Avatar,
@@ -11,6 +11,7 @@ import {
 } from "react-native-paper";
 
 import { AppBottomBar, TabKey } from "@/components/AppBottomBar";
+import { AlbumCard } from "@/components/AlbumCard";
 import { RichHtmlText } from "@/components/RichHtmlText";
 import { SongRow } from "@/components/SongRow";
 import {
@@ -321,68 +322,16 @@ export default function ArtistDetailScreen() {
                     albums
                   </Text>
                 </View>
-                <ScrollView
+                <FlatList
                   horizontal
                   showsHorizontalScrollIndicator={false}
+                  data={albums}
+                  keyExtractor={(item) => item.id}
                   contentContainerStyle={artistDetailStyles.albumListContent}
-                >
-                  {albums.map((album) => {
-                    const albumArtUrl =
-                      getArtUrl && album.coverArt
-                        ? getArtUrl(album.coverArt)
-                        : null;
-
-                    return (
-                      <TouchableOpacity
-                        key={album.id}
-                        style={artistDetailStyles.albumCard}
-                        onPress={() =>
-                          router.push({
-                            pathname: "/album/[id]",
-                            params: { id: album.id },
-                          })
-                        }
-                      >
-                        {albumArtUrl ? (
-                          <Image
-                            source={{
-                              uri: albumArtUrl,
-                              cacheKey: `${album.coverArt}-300`,
-                            }}
-                            style={artistDetailStyles.albumArt}
-                            contentFit="cover"
-                            transition={200}
-                            cachePolicy="memory-disk"
-                          />
-                        ) : (
-                          <Avatar.Icon
-                            size={130}
-                            icon="album"
-                            style={artistDetailStyles.albumArt}
-                          />
-                        )}
-                        <Text
-                          variant="bodyMedium"
-                          numberOfLines={1}
-                          style={artistDetailStyles.albumTitle}
-                        >
-                          {album.name}
-                        </Text>
-                        {album.year ? (
-                          <Text
-                            variant="bodySmall"
-                            style={[
-                              artistDetailStyles.albumYear,
-                              { color: theme.colors.onSurfaceVariant },
-                            ]}
-                          >
-                            {album.year}
-                          </Text>
-                        ) : null}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
+                  renderItem={({ item }) => (
+                    <AlbumCard album={item} width={140} getArtUrl={getArtUrl} />
+                  )}
+                />
               </View>
             ) : null}
 

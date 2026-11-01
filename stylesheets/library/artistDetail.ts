@@ -70,23 +70,6 @@ export const artistDetailStyles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     gap: spacing.md,
   },
-  albumCard: {
-    width: 130,
-    alignItems: "flex-start",
-  },
-  albumArt: {
-    width: 130,
-    height: 130,
-    borderRadius: shape.medium,
-    marginBottom: spacing.xs,
-  },
-  albumTitle: {
-    width: 130,
-    fontWeight: "600",
-  },
-  albumYear: {
-    width: 130,
-  },
   trackItem: {
     paddingVertical: spacing.xs,
   },

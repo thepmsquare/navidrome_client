@@ -14,6 +14,7 @@ import {
   Text,
 } from "react-native-paper";
 
+import { AlbumRow } from "@/components/AlbumRow";
 import { SongRow } from "@/components/SongRow";
 import { getCoverArtBaseUrl } from "@/services/api";
 import {
@@ -171,46 +172,20 @@ export default function SearchScreen() {
     );
   };
 
-  const renderAlbumItem = (item: AlbumID3) => {
-    const artUrl = getArtUrl ? getArtUrl(item.coverArt) : null;
-    const description = [
-      item.artist,
-      item.year ? String(item.year) : null,
-      item.songCount
-        ? `${item.songCount} ${item.songCount === 1 ? "song" : "songs"}`
-        : null,
-    ]
-      .filter(Boolean)
-      .join(" • ");
-
-    return (
-      <List.Item
-        key={`album-${item.id}`}
-        title={item.name}
-        description={description || undefined}
-        onPress={() => {
-          saveCurrentSearch();
-          router.push({
-            pathname: "/album/[id]",
-            params: { id: item.id },
-          });
-        }}
-        left={(props) =>
-          artUrl ? (
-            <Image
-              source={{ uri: artUrl, cacheKey: `${item.coverArt}-300` }}
-              style={searchStyles.artwork}
-              contentFit="cover"
-              transition={200}
-              cachePolicy="memory-disk"
-            />
-          ) : (
-            <Avatar.Icon {...props} size={48} icon="album" />
-          )
-        }
-      />
-    );
-  };
+  const renderAlbumItem = (item: AlbumID3) => (
+    <AlbumRow
+      key={`album-${item.id}`}
+      album={item}
+      getArtUrl={getArtUrl}
+      onPress={() => {
+        saveCurrentSearch();
+        router.push({
+          pathname: "/album/[id]",
+          params: { id: item.id },
+        });
+      }}
+    />
+  );
 
   const renderArtistItem = (item: ArtistID3) => {
     let artUrl: string | null = null;

@@ -1,5 +1,4 @@
 import React from "react";
-import { TouchableOpacity } from "react-native";
 import { Text } from "react-native-paper";
 import renderer from "react-test-renderer";
 
@@ -59,6 +58,7 @@ jest.mock("@/services/db", () => ({
   getRandomAlbums: jest.fn().mockReturnValue([]),
   getRecentlyReleasedAlbums: jest.fn().mockReturnValue([]),
   getRandomSongs: jest.fn(),
+  getSongsByAlbumId: jest.fn().mockReturnValue([]),
   getAllSongCacheEntries: jest.fn().mockReturnValue(new Map()),
 }));
 
@@ -165,12 +165,17 @@ describe("HomeScreen", () => {
     });
 
     const root = tree.root;
-    const touchables = root.findAllByType(TouchableOpacity);
-    // 2 from most played + 1 from recently played + 1 from newly added releases = 4 touchable tiles
-    expect(touchables.length).toBe(4);
+    const { TouchableRipple } = require("react-native-paper");
+    const cards = root
+      .findAllByType(TouchableRipple)
+      .filter((t: any) =>
+        String(t.props.testID ?? "").startsWith("album-card-alb-"),
+      );
+    // 2 from most played + 1 from recently played + 1 from newly added releases = 4 album cards
+    expect(cards.length).toBe(4);
 
     await renderer.act(async () => {
-      touchables[0].props.onPress();
+      cards[0].props.onPress();
     });
 
     expect(mockPush).toHaveBeenCalledWith({
@@ -190,9 +195,14 @@ describe("HomeScreen", () => {
     expect(texts).toContain("Dark Side of the Moon");
     expect(texts).toContain("Pink Floyd");
 
-    const touchables = root.findAllByType(TouchableOpacity);
+    const { TouchableRipple } = require("react-native-paper");
+    const card = root
+      .findAllByType(TouchableRipple)
+      .find((t: any) => t.props.testID === "album-card-alb-3");
+    expect(card).toBeDefined();
+
     await renderer.act(async () => {
-      touchables[2].props.onPress();
+      card.props.onPress();
     });
 
     expect(mockPush).toHaveBeenCalledWith({
@@ -212,9 +222,14 @@ describe("HomeScreen", () => {
     expect(texts).toContain("Wish You Were Here");
     expect(texts).toContain("Pink Floyd");
 
-    const touchables = root.findAllByType(TouchableOpacity);
+    const { TouchableRipple } = require("react-native-paper");
+    const card = root
+      .findAllByType(TouchableRipple)
+      .find((t: any) => t.props.testID === "album-card-alb-4");
+    expect(card).toBeDefined();
+
     await renderer.act(async () => {
-      touchables[3].props.onPress();
+      card.props.onPress();
     });
 
     expect(mockPush).toHaveBeenCalledWith({
