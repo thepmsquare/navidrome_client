@@ -1,298 +1,293 @@
-# roadmap & release readiness (v2.0)
+# roadmap & release readiness
 
-technical checklist and roadmap for the v2.0 production release and future iterations. this document outlines data migration tasks, functional playback requirements, library and playlist management, network resilience, architectural hardening, and long-term vision.
+technical roadmap for the v2.0 public release and subsequent 2.x iterations. this file is **gate-driven**: only items under a release gate can block a release. everything else is fast-follow work that can be pulled forward opportunistically.
 
----
+status legend: `[ ]` todo · `[/]` in progress · `[x]` done
+release path: **closed beta → open beta → production (staged rollout)**
 
-## 1. legacy data migration & storage (v1 -> v2 upgrade)
-
-upgrading users from previous versions require automated data migration and cleanup to prevent session resets and orphaned disk usage.
-
-- [ ] **credentials & session auto-migration**
-  - **context**: legacy builds stored credentials in android `SharedPreferences` (`flutter.server_url`, `flutter.username`, `flutter.password`). v2 uses [`expo-secure-store`](./services/backup.ts).
-  - **task**: create a one-time startup routine that checks for legacy shared preferences, imports credentials into secure store, and marks migration complete to avoid forcing users to re-login.
-- [ ] **orphaned cache & media cleanup**
-  - **context**: legacy downloaded files were saved in `<app_dir>/app_flutter/offline/{tracks,covers,lyrics,meta}`. v2 stores cache under [`Paths.document + "/manual-cache"`](./services/songCache.ts) and `"/auto-cache"`.
-  - **task**: detect legacy `app_flutter/offline` directories on app launch and provide an automated or prompt-based cleanup to reclaim disk space.
-
-- [ ] **settings migration & safe fallbacks**
-  - **context**: legacy preferences (`stop_playback_on_task_removed`, `auto_save_offline_played`, `home_sections`) were serialized in shared preferences.
-  - **task**: ensure legacy settings keys are imported into sqlite on first run and all missing keys gracefully fall back to default values.
-
-- [x] **profile backup/export compatibility**
-  - verified: backup json schema (`navidrome_client_backup`) parses correctly with full backward compatibility in [`parseProfileData`](./services/backup.ts).
+how this file works:
+- gates have binary exit criteria. a release ships when the criteria are met, not when the list is empty.
+- non-gating work may be done at any time, including between gate items.
+- nothing new enters a gate without moving that gate's target date.
+- weekly review: items may move down freely. moving up requires a date slip.
+- p0 = data loss, login loop, playback crash. only p0s block a gate.
+- estimates assume ~30–60 min/day, 6–8 meaningful commits/week.
 
 ---
 
-## 2. audio engine & playback
+## current sprint (nov 2–8, 2026)
 
-- [ ] **gapless playback (architectural)**
-  - **context**: native exoplayer loads one track at a time, resulting in brief silence between consecutive songs.
-  - **task**: update native audio playback module to pre-buffer the upcoming `MediaItem` into exoplayer's native playlist sequence to eliminate track gaps.
+- [ ] `ui-2` artist row + context menu, wired into the artists library and search
+- [ ] `ui-2` playlist row + context menu, wired into the playlists library and search
+- [ ] `ui-2` song row for download queue and pending scrobbles
+- [ ] `net-2` server url management screen (view / test ping / switch / add / remove)
 
-- [x] **playback queue management & ui**
-  - verified: dedicated "now playing / up next" queue view integrated seamlessly into player screen ([`app/player.tsx`](./app/player.tsx)) and standalone route ([`app/queue.tsx`](./app/queue.tsx)) via [`components/PlaybackQueueView.tsx`](./components/PlaybackQueueView.tsx) and [`usePlaybackQueue`](./services/player.ts). features active song card, collapsible history section, track jumping, individual item removal, clear remaining queue confirmation, and move up/down track reordering.
-  - note: drag-and-drop gesture reordering deferred as follow-up task.
-
-- [x] **dynamic queue operations in player service**
-  - verified: exposed queue mutation methods in [`services/player.ts`](./services/player.ts) (`playNext(song)`, `addToQueue(song)`, `removeFromQueue(index)`, `clearQueue()`, `moveQueueItem(from, to)`, `setQueue(newQueue)`) with session persistence and full test suite verification.
-
-- [x] **scrubber / interactive seek bar & modular skin system**
-  - verified: interactive draggable slider with reanimated gesture scrubbing, animated thumb, floating preview timestamp tooltip, and modular skin architecture (`PlayerSeekBarSkin`) in [`components/PlayerSeekBar.tsx`](./components/PlayerSeekBar.tsx) integrated into [`app/player.tsx`](./app/player.tsx).
-
-- [x] **bulk offline song caching**
-  - verified: bulk downloading of albums and playlists with progress and cancellation via [`components/BulkSongCacheButton.tsx`](./components/BulkSongCacheButton.tsx).
-
-- [ ] **resumable playback / mini player state after notification dismissal**
-  - **context**: tapping the close icon on the android media notification stops the native playback service. when returning to the app, the mini player remains visible, but tapping play fails to resume playback.
-  - **task**: audit player state lifecycle when the notification is closed by the user. either make the player resumable (re-instantiating the audio session from current track state upon play), or automatically dismiss/hide the mini player when playback is closed.
-
-- [ ] **audio focus ducking & transient loss recovery (high priority)**
-  - **context**: while `setHandleAudioBecomingNoisy(true)` handles headphone disconnections, transient audio focus losses (such as turn-by-turn navigation prompts, incoming alarms/notifications, and phone calls) require explicit ducking and pause/resume logic in the native playback service.
-  - **task**: audit audio focus transient vs exclusive loss in `AudioPlaybackService.kt`. duck audio volume during transient loss and cleanly pause and resume upon phone call completion.
-
-- [ ] **sleep timer gradual volume fade-out (low priority)**
-  - **context**: [`services/sleepTimer.ts`](./services/sleepTimer.ts) pauses playback abruptly when the timer expires, which can startle a sleeping user.
-  - **task**: smoothly ramp audio volume down over the final 30–60 seconds prior to triggering the pause executor.
-
-- [ ] **playback speed / rate controls (low priority)**
-  - **context**: listeners of audiobooks, podcasts, or lecture tracks on navidrome currently lack playback speed options.
-  - **task**: expose variable playback speed options (0.75x, 1.0x, 1.25x, 1.5x, 2.0x) in the player controls using exoplayer's `setPlaybackSpeed()`.
+detailed context under §4.
 
 ---
 
-## 3. library, playlists & navigation
+## release gates
 
-- [x] **artist details page (`app/(main)/library/artist/[id].tsx`)**
-  - **context**: [`app/(main)/library/artists.tsx`](<./app/(main)/library/artists.tsx>) displays artists from local sqlite, with list items navigating to the destination page.
-  - **task**:
-    - implemented `artist/[id].tsx` screen displaying artist biography, artwork, albums list, and songs.
-    - wired navigation `onPress` in `app/(main)/library/artists.tsx` and `app/(main)/search.tsx`.
+### gate 1 — closed beta (target: nov 22, 2026)
 
-- [ ] **playlist management & mutations**
-  - **task**: add full playlist crud and modification controls connected to subsonic endpoints:
-    - create new playlist dialog.
-    - "add to playlist" option from song actions/menus across player and library lists.
-    - reorder songs within a playlist (`updatePlaylist`).
-    - remove songs from a playlist or delete playlist.
+exit criteria:
+- a v1 flutter user upgrading through play keeps credentials, settings, and downloaded cache.
+- migration failures fall back to the connect screen. no crash loop.
+- closed-track upload is automated and a `release/v2.0` branch exists.
+- manual upgrade smoke test passes on a physical device.
 
-- [ ] **playlist details local caching**
-  - **context**: [`app/(main)/library/playlist/[id].tsx`](<./app/(main)/library/playlist/[id].tsx>) currently fetches playlist songs from the network on every view open.
-  - **task**: persist playlist songs into local sqlite during sync and cache on demand so playlist details open instantly and can be browsed offline.
+gated by: `mig-0`, `mig-1`, `mig-2`, `mig-3`, `db-1`, `ci-1`, `qa-1`
 
-- [ ] **universal entity components & deep linking across the app**
-  - **context**: [`app/player.tsx`](./app/player.tsx) has deep links to artist and album pages. instead of ad-hoc nested touchables, entities (songs, albums, artists, playlists) will use universal components with tap-to-play/open, standard text overflow/a11y, and a 3-dot `⋯` / long-press context menu for deep links and options.
-  - **task**:
-    - [x] **audit & surface mapping**: identified and documented all views, routes (`/artist/[id]`, `/album/[id]`), and touch interaction patterns.
-    - [x] **mini-player streamlining**: streamlined mini-player with unified player expansion tap and single play/pause control.
-    - [x] **universal song row (`<SongRow />`)**:
-      - verified: implemented universal `<SongRow />` and `<SongContextMenuModal />` with tap-to-play, long-press and 3-dot `⋯` context sheet (`play next`, `add to queue`, `go to artist`, `go to album`, `favorite`/`unfavorite`, download status).
-      - standardized a11y attributes (`accessibilityRole`, lowercase labels) and text overflow tail truncation.
-      - offline cache indicator / button integration via `<SongCacheButton />`.
-      - rolled out across surfaces: [`app/(main)/library/songs.tsx`](<./app/(main)/library/songs.tsx>), [`app/album/[id].tsx`](./app/album/[id].tsx), [`app/artist/[id].tsx`](./app/artist/[id].tsx), [`app/(main)/library/playlist/[id].tsx`](<./app/(main)/library/playlist/[id].tsx>), [`app/(main)/library/offline.tsx`](<./app/(main)/library/offline.tsx>), search results ([`app/(main)/search.tsx`](./app/(main)/search.tsx)), and homepage tracks ([`components/home/RandomTracksSection.tsx`](./components/home/RandomTracksSection.tsx)).
-    - [ ] **universal song list & row extensibility for specialized screens**:
-      - **context**: screens like pending scrobbles ([`app/(main)/library/scrobbles.tsx`](./app/(main)/library/scrobbles.tsx)), download queue ([`app/(main)/library/queue.tsx`](./app/(main)/library/queue.tsx)), and available offline ([`app/(main)/library/offline.tsx`](./app/(main)/library/offline.tsx)) have specialized requirements (custom right actions like delete/retry/cancel, live progress rings, sync status badges, attempt counts, and secondary metadata lines like played timestamps).
-      - **task**: extend the universal song list (`<SongRow />` and a shared song list container) to natively accommodate these screens without ad-hoc list item implementations, supporting configurable accessory slots, status badges, secondary metadata lines, and custom right actions.
-    - [ ] **universal album components (`<AlbumRow />` & `<AlbumCard />`)**:
-      - support both list view and grid view variants (including grid toggle on [`app/(main)/library/albums.tsx`](<./app/(main)/library/albums.tsx>)).
-      - tap opens album detail; long press / 3-dot `⋯` menu includes `go to artist`.
-      - rollout across surfaces: [`app/(main)/library/albums.tsx`](<./app/(main)/library/albums.tsx>), homepage album sections ([`components/home/`](./components/home/)), and search results.
-    - [ ] **universal artist & playlist rows (`<ArtistRow />` & `<PlaylistRow />`)**:
-      - standardized list rows with context options for [`app/(main)/library/artists.tsx`](<./app/(main)/library/artists.tsx>), [`app/(main)/library/playlists.tsx`](<./app/(main)/library/playlists.tsx>), and search results.
+### gate 2 — open beta (target: mid-december 2026)
 
-- [x] **offline filter in search (`app/(main)/search.tsx`)**
-  - **context**: search queries songs, albums, and artists in local sqlite, but lacks a quick filter for content available offline.
-  - **task**: add an "available offline" filter chip/toggle on the search screen to filter results strictly to cached media.
-  - **completed**:
-    - added `searchCachedAlbums` and `searchCachedArtists` SQLite queries in [`services/db.ts`](./services/db.ts) matching albums and artists that have tracks cached in `song_cache`.
-    - added `available offline` filter chip with `cloud-check`/`cloud-outline` toggle icon on [`app/(main)/search.tsx`](<./app/(main)/search.tsx>) to filter songs, albums, and artists strictly to locally cached media.
-    - subscribed to `subscribeSongCache` for real-time reactivity when offline cached media changes.
-    - updated category empty state prompts to clarify offline search results.
-    - added unit tests in [`__tests__/services/db_search.test.ts`](./__tests__/services/db_search.test.ts) and [`__tests__/screens/search.test.tsx`](./__tests__/screens/search.test.tsx).
+exit criteria:
+- open testing track is live with listing, screenshots, data safety, and privacy policy.
+- crashes and anrs are readable in play console (r8 mapping + native symbols uploaded).
+- two weeks of closed beta with no p0.
 
-- [x] **pending scrobbles screen**
-  - **context**: offline plays are queued in sqlite via [`services/scrobbleQueue.ts`](./services/scrobbleQueue.ts) until an internet connection is restored.
-  - **task**: create a dedicated screen in library/settings to view pending scrobbles, display attempt counts and sync status, and allow manual sync triggering or individual deletion.
-  - **completed**:
-    - created [`app/(main)/library/scrobbles.tsx`](./app/(main)/library/scrobbles.tsx) dedicated pending scrobbles screen with real-time reactivity via `subscribeScrobbleQueue`.
-    - displays item cover art, title, artist, album, relative played timestamp, and attempt count badges.
-    - supports batch "sync now" manual sync triggering with live status indicators, pull-to-refresh, individual retry sync, individual item deletion, and "clear all".
-    - added navigation entry buttons in [`app/(main)/library/index.tsx`](./app/(main)/library/index.tsx) and under scrobble settings in [`app/(main)/settings.tsx`](./app/(main)/settings.tsx).
+gated by: `store-1`, `store-2`, `ci-2`
+quality work (can slip without moving the date): `pb-1`, `pb-2`, `off-1`, `off-2`, `off-3`
 
-- [ ] **starred / favorites screen (`app/(main)/library/starred.tsx`) (medium priority)**
-  - **context**: star/unstar api operations exist, but there is no dedicated destination in the library tab to browse all favorited songs, albums, or artists in one place.
-  - **task**: create `app/(main)/library/starred.tsx` with tabs/filters for starred songs, albums, and artists, integrated with subsonic `getStarred` and local sqlite.
+note: if the play developer account is new, the 12-tester / 14-day closed testing requirement runs in parallel with gate 2 work. start the clock as soon as gate 1 is green.
 
-- [x] **pull-to-refresh across screens**
-  - **task**:
-    - added `RefreshControl` across detail screens ([`app/album/[id].tsx`](./app/album/[id].tsx), [`app/artist/[id].tsx`](./app/artist/[id].tsx)), library collection screens ([`app/(main)/library/songs.tsx`](<./app/(main)/library/songs.tsx>), [`albums.tsx`](<./app/(main)/library/albums.tsx>), [`artists.tsx`](<./app/(main)/library/artists.tsx>), [`playlists.tsx`](<./app/(main)/library/playlists.tsx>)), and utility screens ([`offline.tsx`](<./app/(main)/library/offline.tsx>), [`queue.tsx`](<./app/(main)/library/queue.tsx>), [`sync.tsx`](<./app/(main)/sync.tsx>)).
-    - updated home random sections iconography from `refresh` to `shuffle-variant` to distinguish local reshuffling from network sync.
+### gate 3 — production (target: late january 2027)
 
-- [ ] **audit & placement of cache button (make available offline)**
-  - **context**: [`components/SongCacheButton.tsx`](./components/SongCacheButton.tsx) and [`components/BulkSongCacheButton.tsx`](./components/BulkSongCacheButton.tsx) allow saving songs and collections offline.
-  - **task**: identify and document all places and surfaces across the app where the cache button (make available offline button) should be displayed (e.g. song list items, album details, playlist details, artist details, now playing full player, search results).
+exit criteria:
+- production lane supports staged rollout.
+- two weeks of open beta with no p0.
+- privacy and data-safety review complete.
 
-- [x] **recent search history (low priority)**
-  - **context**: [`app/(main)/search.tsx`](<./app/(main)/search.tsx>) displays an empty view when the search query is blank.
-  - **task**: store recent search terms in sqlite and display them as tappable chips with a "clear recent searches" option when the search bar is active.
+gated by: `ci-3`, `sec-1`, `store-3`, `rel-1`
+
+at current pace, a scoped v2 public release lands around january 2027. the non-gating backlog extends into q2 2027.
 
 ---
 
-## 4. settings, home customization & changelog
+## 1. closed beta work (gate 1)
 
-- [ ] **reorderable and hideable home page sections**
-  - **context**: home page sections are currently statically mapped in [`components/home/index.ts`](./components/home/index.ts).
-  - **task**: add a settings screen to reorder home sections via drag-and-drop and toggle visibility on/off, persisted to local preferences.
+### `mig-0` verify the v1 → v2 upgrade path
+- **context:** migration only works if v2 can upgrade the installed v1 app in place. that requires the same `applicationId` (`com.thepmsquare.navidrome_client`) and the same play app signing key.
+- **task:** confirm the legacy flutter app shipped with the same package id and signing key. test through the play internal track — a locally built apk cannot upgrade a play-installed app because play re-signs it.
+- **note:** if this fails, migration is impossible and beta becomes fresh-install only. do this before writing any migration code.
 
-- [x] **in-app changelog dialogs**
-  - **task**:
-    - [x] **settings access**: make the version number in settings clickable to show the full changelog modal with current version open and previous versions in closed accordions ([`components/ChangelogModal.tsx`](./components/ChangelogModal.tsx)).
-    - [x] **first-launch post-update**: detect version code increase on launch and display a "what's new" changelog modal automatically once ([`app/_layout.tsx`](./app/_layout.tsx)).
+### `mig-1` credentials & session auto-migration
+- **context:** legacy builds stored credentials in android `SharedPreferences` (`flutter.server_url`, `flutter.username`, `flutter.password`). v2 uses [`expo-secure-store`](./services/backup.ts).
+- **task:** create a one-time startup routine that checks for legacy shared preferences, imports credentials into secure store, and marks migration complete to avoid forcing users to re-login.
 
-- [x] **haptic feedback toggle in settings & profile export**
-  - **context**: haptic feedback is routed through centralized helpers ([`utils/haptics.ts`](./utils/haptics.ts)) checking [`getHapticsEnabled()`](./services/db.ts) and is supported in [`BackupSettings`](./types/backup.ts).
-  - **task**: add a settings switch in [`app/(main)/settings.tsx`](./app/(main)/settings.tsx) to toggle haptic feedback on/off globally, and preserve the preference when exporting or importing profile backups in [`services/backup.ts`](./services/backup.ts).
+### `mig-2` settings migration & safe fallbacks
+- **context:** legacy preferences (`stop_playback_on_task_removed`, `auto_save_offline_played`, `home_sections`) were serialized in shared preferences.
+- **task:** import legacy settings keys into sqlite on first run. all missing keys must gracefully fall back to defaults.
 
-- [ ] **continuous ui/ux & interaction refinements**
-  - **task**: ongoing refinement of tactile haptic feedback on actions, spacing and typography consistency across device sizes, dark mode contrast, smooth route animations, and accessible touch targets.
+### `mig-3` migration safety & idempotency
+- **task:** make every migration step idempotent and failure-safe. a failed migration must log and fall back to the connect screen — never crash-loop or wipe existing data. gate the whole routine behind a single "migration complete" flag.
 
-- [ ] **app performance & render optimization**
-  - **context**: large music libraries (thousands of songs/albums) can experience frame drops during fast scrolling, view transitions, or image loading spikes.
-  - **task**:
-    - profile and optimize list rendering across library and search screens (`getItemLayout`, window size tuning, row memoization).
-    - optimize memory footprint and image cache pre-warming with `expo-image`.
-    - minimize redundant react re-renders triggered by high-frequency player state and download progress updates.
+### `db-1` sqlite schema versioning & migration runner
+- **context:** [`services/db.ts`](./services/db.ts) initializes tables using `CREATE TABLE IF NOT EXISTS` without schema version tracking. future schema changes will fail to apply to existing databases.
+- **task:** implement a versioned migration runner using `PRAGMA user_version` to apply incremental `ALTER TABLE` and schema migrations reliably across updates. bundle with `mig-1` / `mig-2` since all three touch startup and storage.
 
----
+### `ci-1` closed testing track automation + release branch
+- **task:** add `.github/workflows/release-closed.yml` and fastlane lane `upload_closed` for alpha/beta test groups. create `release/v2.0` for stabilization before merging to main.
 
-## 5. network resilience & offline experience (pre-v2)
-
-- [/] **alternate / fallback server urls (pre-v2 requirement)**
-  - **context**: users running split-dns or separate local and external domain setups require automated fallback.
-  - **status**: partially complete.
-    - [x] connect screen progressive disclosure ui (add up to 4 alternative urls, hidden until non-empty).
-    - [x] unified parallel ping engine (`pingFastestServer`) with latency measurement across all candidate urls.
-    - [x] winner selection on connect, demo login, and profile import, displayed on stage 2 and sync screen with original `label (url)`.
-    - [x] profile backup export and restore compatibility for `server_urls`.
-    - [ ] auto fallback / failover logic on transport network failures (pending).
-    - [ ] settings screen ui to view, add, reorder, test ping, and manually switch active server url (pending).
-    - [x] backward compatibility / upgrade migration: automated startup routine in [`app/_layout.tsx`](./app/_layout.tsx) backfills `serverUrls = [{ url, label: "server url" }]` and `serverUrlLabel = "server url"` for existing users who already have `serverUrl` in `SecureStore`.
-
-- [ ] **graceful offline error feedback**
-  - **context**: cached songs play locally and library metadata is stored in sqlite. offline playback operates without network dependency.
-  - **task**:
-    - show non-blocking snackbars when an action requires internet (e.g. streaming an uncached song or triggering manual library sync while disconnected).
-    - ensure no intrusive blocking modal or unwanted global state flips occur during transient connection drops.
-
-- [ ] **offline user experience & state transitions (when app goes offline)**
-  - **context**: when network drops (subways, flights, dead zones), the app needs a cohesive, predictable lifecycle based on what the user is currently doing:
-    - **mid-stream playback interruption**: if an uncached stream drops mid-song, gracefully pause with a clear inline retry indicator or offer to skip to the next available cached song in queue, rather than failing silently or crashing exoplayer.
-    - **library browsing & affordances**: visually differentiate cached vs uncached content while disconnected (e.g. dimming uncached rows or providing a quick one-tap toggle to filter to offline-only media).
-    - **offline mutation queueing**: queue user actions taken offline (starring, ratings, scrobbles, playlist additions) in local sqlite and automatically replay them when connection is restored.
-    - **download queue pausing & auto-resume**: pause in-flight downloads cleanly on connection drop without corrupting active cache files, and resume automatically when network connectivity is re-established.
-    - **reconnection auto-recovery**: smoothly reconnect, ping fallback urls if needed, and flush pending scrobbles/mutations in the background without ui stutters or interrupting active audio playback.
-
-- [ ] **persist album art for offline cached songs**
-  - **context**: when songs are cached for offline playback via [`services/songCache.ts`](./services/songCache.ts), the audio stream is saved to disk, but album artwork is not explicitly stored in permanent offline storage for expo-image, causing missing covers offline.
-  - **task**: explicitly download and persist album cover art alongside cached songs to ensure artwork is always available offline.
-
-- [ ] **storage breakdown & cache management screen (medium priority)**
-  - **context**: users can toggle auto-cache limits in settings, but there is no screen showing how much disk space is consumed by manual downloads, auto-cache, album art, or database data, nor any way to delete cached albums/artists without logging out.
-  - **task**: add a dedicated storage management view in settings or library showing disk usage breakdown by artist/album, sorted by size, with bulk prune/delete actions.
-
-- [ ] **download over wi-fi only toggle (low priority)**
-  - **context**: bulk caching large playlists or discographies over cellular data can unintentionally drain user data allowances.
-  - **task**: add a setting (`"download only on wi-fi"`) that pauses queued offline caching when connected via cellular networks.
-
-- [ ] **incremental / delta library sync**
-  - **context**: [`client_app_sync()`](./services/api.ts) currently pulls the entire library during sync operations, which can be slow on large collections.
-  - **task**: verify and implement delta synchronization using subsonic `getScanStatus` / server scan timestamps to fetch only modified albums and tracks since the last sync.
+### `qa-1` upgrade smoke test
+- **task:** install v1 from play on a physical device with a real library, upgrade to the v2 internal build, and verify: login state preserved, library syncs, settings intact, downloaded songs still play offline, playback and scrobbling work.
 
 ---
 
-## 6. architectural stability, database & code health
+## 2. open beta work (gate 2)
 
-- [ ] **sqlite schema versioning & migration runner**
-  - **context**: [`services/db.ts`](./services/db.ts) initializes tables strictly using `CREATE TABLE IF NOT EXISTS` without schema version tracking. subsequent schema updates (new columns or modified tables) will fail to apply to existing databases on upgraded devices, causing runtime sql errors.
-  - **task**: implement a versioned migration runner utilizing `PRAGMA user_version` to apply incremental `ALTER TABLE` and schema migration scripts reliably across app updates.
+### `pb-1` audio focus ducking & transient loss recovery
+- **context:** `setHandleAudioBecomingNoisy(true)` handles headphone disconnects, but transient focus losses (navigation prompts, alarms, calls) need explicit ducking and pause/resume logic.
+- **task:** audit transient vs exclusive focus loss in `AudioPlaybackService.kt`. duck volume during transient loss; pause and resume cleanly after calls.
 
-- [ ] **audit and eliminate silent exception swallowing**
-  - **context**: more than 40 instances of empty `catch { }` blocks exist across services ([`services/player.ts`](./services/player.ts), [`services/songCache.ts`](./services/songCache.ts), [`services/lyrics.ts`](./services/lyrics.ts)), preventing errors in downloads, caching, and playback from being diagnosed.
-  - **task**: audit all catch blocks; replace bare empty catches with structured error logging and sentry breadcrumb capture where appropriate.
+### `pb-2` resumable playback after notification dismissal
+- **context:** tapping the close icon on the android media notification stops the native playback service. returning to the app leaves the mini player visible, but play fails to resume.
+- **task:** audit the player state lifecycle when the notification is closed. either re-instantiate the audio session from the current track on play, or hide the mini player when playback is closed.
 
-- [ ] **js and native audio state synchronization**
-  - **context**: [`services/player.ts`](./services/player.ts) relies on 17 mutable module-level `let` variables. because the android native foreground service and the react native javascript activity have distinct lifecycles, activity recreation can leave js state desynchronized from native playback.
-  - **task**: ensure the native audio module is queried as the authoritative source of truth on app launch and activity resume, synchronizing the active track and status into js state.
+### `off-1` persist album art for offline cached songs
+- **context:** [`services/songCache.ts`](./services/songCache.ts) saves audio but not artwork, so covers are missing offline.
+- **task:** download and persist cover art alongside cached songs, and resolve cached covers before network urls.
 
-- [ ] **decomposition of monolithic service and screen files**
-  - **context**: core files have grown into large single-file monoliths:
-    - [`services/db.ts`](./services/db.ts) (~1,200 lines): combines schema, library queries, caching, sessions, and scrobbling.
-    - [`services/player.ts`](./services/player.ts) (~950 lines): tightly couples audio control, queue mutation, scrobbling, auto-cache triggers, and app state listeners.
-    - [`app/player.tsx`](./app/player.tsx) (~900 lines): houses complex modals, lyrics sheets, rating menus, and art viewers in one view.
-  - **task**: split database operations into domain-focused repository modules and extract player sub-components into dedicated modules.
+### `off-2` graceful offline error feedback
+- **task:** show non-blocking snackbars when an action needs internet (streaming an uncached song, manual sync while offline). no blocking modals or global state flips during transient drops.
 
-- [ ] **backup profile credentials protection**
-  - **context**: [`services/backup.ts`](./services/backup.ts) writes server passwords in plaintext to exported json files.
-  - **task**: add optional passphrase-based encryption or clear security disclosures during export to avoid unencrypted credentials residing on public storage.
+### `off-3` cheap download survival mitigation
+- **context:** bulk caching runs in the js runtime and stalls when the app is backgrounded. a proper foreground service is tracked as `off-4` in §4.
+- **task:** keep the screen awake during active downloads and show a "keep the app open" banner. rely on the existing `resumePendingDownloadsAfterRestart()` for process death.
 
-- [ ] **android foreground service for background downloads & sync**
-  - **context**: bulk song caching ([`services/songCache.ts`](./services/songCache.ts)) and library sync ([`app/(main)/sync.tsx`](<./app/(main)/sync.tsx>)) currently run in the javascript runtime. if the user navigates away, locks the screen, or the app process is suspended by the os, downloads fail or stall unpredictably.
-  - **task**: attach bulk downloads and library sync to a standard android foreground service (or workmanager) with an ongoing system notification displaying real-time progress, song counts, and a cancel action to guarantee task survival in the background.
+### `store-1` store listing & compliance
+- **task:** complete the play store listing (description, screenshots, feature graphic), data safety form, content rating, and confirm [`privacy_policy.html`](./privacy_policy.html) is published. fastlane currently skips images and screenshots.
 
----
+### `store-2` crash visibility without sentry
+- **context:** no sentry by design. play console android vitals is the crash/anr source of truth.
+- **task:** upload the r8 mapping file and native debug symbols during release builds so vitals show readable stack traces.
 
-## 7. play store ci/cd & automated deployment
-
-- [x] **internal testing track automation**
-  - workflow: [.github/workflows/release-internal.yml](.github/workflows/release-internal.yml) with fastlane `upload_internal`.
-
-- [ ] **build pipeline optimization (ci & compilation speed)**
-  - **context**: android release builds in github actions currently take 20+ minutes to compile and assemble from scratch. this is primarily driven by:
-    - sequential execution of both `./gradlew bundleRelease` (aab) and `assembleRelease` (apk), running r8/proguard, hermes compilation, c++ ndk builds, and resource packaging twice.
-    - absence of persistent gradle build caching and ccache across runner instances.
-    - `--no-daemon` execution without gradle configuration caching or multi-worker parallelism flags.
-  - **task**: optimize build speed and align with standard tooling:
-    - generate universal apk directly from `app-release.aab` using `bundletool` instead of running `assembleRelease` separately (saving ~8-12 minutes).
-    - adopt `gradle/actions/setup-gradle@v4` with read/write caching for gradle build and configuration cache.
-    - configure `android/gradle.properties` build flags (`org.gradle.parallel=true`, `org.gradle.caching=true`, `org.gradle.jvmargs=-Xmx4g`).
-    - evaluate standard cloud builds via eas build (expo application services) with prebuilt worker images and remote caching.
-
-- [x] **separate development build variant (side-by-side install)**
-  - **context**: developing locally with default package `com.thepmsquare.navidrome_client` conflicts with the play store release signature, requiring uninstallation that wipes local cache and saved music.
-  - **task**: configure `app.config.ts` to assign `com.thepmsquare.navidrome_client.dev` and name `navidrome (dev)` during development so the play store app and dev build coexist on the same device without data loss.
-
-- [ ] **closed testing track automation**
-  - create `.github/workflows/release-closed.yml` and fastlane lane `upload_closed` for alpha/beta test groups.
-
-- [ ] **open testing track automation**
-  - create `.github/workflows/release-open.yml` and fastlane lane `upload_open` for public testing.
-
-- [ ] **production track automation with staged rollouts**
-  - create `.github/workflows/release-prod.yml` and fastlane lane `upload_production` supporting staged rollout percentages (e.g. 10%, 20%, 50%, 100%).
-
-- [ ] **release branch isolation**
-  - **task**: isolate v2.0 release stabilization on a dedicated branch (e.g. `release/v2.0.0`) to allow focused stabilization and testing prior to merging into main.
-
-- [ ] **staged rollout execution**
-  - execute phased release on google play console (10% -> 20% -> 50% -> 100%) to monitor crash rates and error tracking prior to full rollout.
+### `ci-2` open testing track automation
+- **task:** add `.github/workflows/release-open.yml` and fastlane lane `upload_open`.
 
 ---
 
-## 8. future roadmap & long-term vision (post-v2.x)
+## 3. production work (gate 3)
 
-features planned for major subsequent updates after the v2.0 core stability milestone:
+### `ci-3` production track automation with staged rollout
+- **task:** add `.github/workflows/release-prod.yml` and fastlane lane `upload_production` with staged rollout percentages (e.g. 10%, 20%, 50%, 100%).
 
-- [ ] **local network server auto-discovery (mDNS / SSDP)**
-  - discover local navidrome / subsonic servers automatically on the local wi-fi network during the initial connection flow.
+### `sec-1` backup export credentials disclosure
+- **context:** [`services/backup.ts`](./services/backup.ts) writes server passwords in plaintext to exported json.
+- **task:** add a clear warning/disclosure during export. passphrase encryption is tracked as `sec-2` in §4.
 
-- [ ] **shareable guest song links**
-  - integrate subsonic sharing endpoints (`createShare`) to generate temporary public playback links with optional expiration times that can be played in any browser without requiring user credentials.
+### `store-3` final privacy & data-safety review
+- **task:** re-check the data safety form against the shipped build (network calls, local storage, exports) and confirm the privacy policy covers everything.
 
-- [ ] **remote control for other navidrome clients**
-  - use the navidrome/subsonic player session api to allow this app to act as a remote controller (play, pause, seek, volume, queue change) for other active clients on the account.
+### `rel-1` staged rollout execution
+- **task:** roll out 10% → 50% → 100% on the production track while monitoring vitals and p0 reports.
 
-- [ ] **synchronized group listening ("jam" sessions)**
-  - enable multiple users on the same server to join a shared synchronized listening session with a shared real-time queue and concurrent playback.
+---
 
-- [ ] **server statistics & analytics dashboard**
-  - display server-side analytics from navidrome (user play stats, top played songs/artists, server uptime, and storage metrics).
+## 4. non-gating work (2.x fast follow)
+
+these items are valuable but never block a release. pull them forward when a week has room.
+
+### `ui-2` universal entity components & deep linking across the app
+- **context:** entities (songs, albums, artists, playlists) share tap-to-play/open, standard text overflow/a11y, and a 3-dot / long-press context menu.
+- **task:**
+  - [x] audit & surface mapping
+  - [x] mini-player streamlining
+  - [x] universal song row + context menu
+  - [x] universal album components (`<AlbumRow />` / `<AlbumCard />`) across library, search, home, artist detail
+  - [/] universal artist & playlist rows (`<ArtistRow />` / `<PlaylistRow />`) across library and search (this week)
+  - [/] specialized song list extensibility for download queue and pending scrobbles (this week)
+
+### `ui-1` reorderable and hideable home page sections
+- **context:** home sections are statically mapped in [`components/home/index.ts`](./components/home/index.ts).
+- **task:** settings screen to reorder via drag-and-drop and toggle visibility, persisted locally.
+
+### `ui-3` shared entity context sheet (optional)
+- **task:** deduplicate `SongContextMenuModal`, `AlbumContextMenuModal`, `ArtistContextMenuModal`, and `PlaylistContextMenuModal` into one configurable sheet. only worth it once all four exist.
+
+### `lib-1` playlist management & mutations
+- **context:** only read paths exist (`getPlaylists`, `getPlaylist`). there is no create/update/delete api or ui.
+- **task:**
+  - create new playlist dialog.
+  - "add to playlist" from song menus across player and library.
+  - remove songs from a playlist.
+  - reorder songs within a playlist (`updatePlaylist`).
+  - delete playlist.
+
+### `lib-2` playlist details local caching
+- **context:** [`app/(main)/library/playlist/[id].tsx`](<./app/(main)/library/playlist/[id].tsx>) fetches songs from the network on every open.
+- **task:** persist playlist songs into sqlite during sync and cache on demand so details open instantly and browse offline.
+
+### `lib-3` starred / favorites screen
+- **task:** `app/(main)/library/starred.tsx` with tabs/filters for starred songs, albums, and artists, integrated with subsonic `getStarred` and local sqlite.
+
+### `lib-4` audit & placement of cache button
+- **task:** document every surface where the "make available offline" button should appear (song rows, album, playlist, artist, player, search) and fill the gaps.
+
+### `off-4` android foreground service for downloads & sync
+- **context:** bulk caching and library sync run in the js runtime and stall when the app is suspended.
+- **task:** attach downloads and sync to a foreground service / workmanager with an ongoing notification showing progress, counts, and cancel.
+
+### `off-5` offline user experience & state transitions
+- **task:**
+  - mid-stream interruption: pause gracefully with retry or skip to the next cached song.
+  - visually differentiate cached vs uncached content while offline.
+  - queue offline mutations (star, rating, scrobbles, playlist additions) and replay on reconnect.
+  - pause in-flight downloads cleanly on connection drop and resume automatically.
+  - reconnect, ping fallback urls, and flush queues without interrupting playback.
+
+### `off-6` storage breakdown & cache management screen
+- **task:** show disk usage by manual downloads, auto-cache, artwork, and database. sort by artist/album. bulk prune/delete.
+
+### `off-7` download over wi-fi only toggle
+- **task:** pause queued caching on cellular connections.
+
+### `off-8` incremental / delta library sync
+- **context:** [`client_app_sync()`](./services/api.ts) pulls the entire library each sync.
+- **task:** use `getScanStatus` / server scan timestamps to fetch only changed albums and tracks since the last sync.
+
+### `off-9` orphaned legacy cache cleanup
+- **context:** legacy downloads live in `<app_dir>/app_flutter/offline/{tracks,covers,lyrics,meta}`. v2 uses `manual-cache` and `auto-cache`.
+- **task:** detect legacy directories on launch and offer cleanup to reclaim disk space. cheap to add while `mig-*` is in flight.
+
+### `net-1` auto fallback / failover on transport failures
+- **context:** alternate server urls are stored and pinged on connect, but runtime requests still target the active url only.
+- **task:** wrap request building so transport failures retry the next candidate url, update the active url on success, and debounce flapping. manual control lives in `net-2`.
+
+### `net-2` server url management screen
+- **context:** partially complete. connect-screen inputs, parallel ping, winner selection, backup compatibility, and startup backfill are done.
+- **task:**
+  - [/] view saved urls, active badge, latency, and test ping.
+  - [ ] switch active url without logging out.
+  - [ ] add/remove urls (keep at least one, block removing the active one).
+  - [ ] reorder urls (priority order for `net-1`).
+
+### `pb-3` gapless playback
+- **context:** native exoplayer loads one track at a time, causing brief silence between songs.
+- **task:** pre-buffer the upcoming `MediaItem` into exoplayer's native playlist sequence.
+
+### `pb-4` sleep timer gradual fade-out
+- **context:** [`services/sleepTimer.ts`](./services/sleepTimer.ts) pauses abruptly.
+- **task:** ramp volume down over the final 30–60 seconds.
+
+### `arch-1` js and native audio state synchronization
+- **context:** [`services/player.ts`](./services/player.ts) relies on module-level mutable state. activity recreation can desynchronize js from native playback.
+- **task:** treat the native audio module as authoritative on launch and resume. sync active track and status into js.
+
+### `sec-2` backup profile credentials encryption
+- **task:** optional passphrase-based encryption for exported profiles. `sec-1` ships the disclosure first.
+
+### `dbg-1` local js error log + export
+- **context:** no sentry by design. play vitals only surfaces native crashes and anrs.
+- **task:** keep a bounded ring buffer of js errors in sqlite and expose "export debug logs" in settings.
+
+---
+
+## 5. engineering hygiene (continuous, never gates)
+
+### `eng-1` silent exception swallowing audit
+- **task:** replace empty `catch { }` blocks across services with structured `console.error` logging. do this opportunistically when touching a file.
+
+### `eng-2` decomposition of monoliths
+- **context:** [`services/db.ts`](./services/db.ts) is ~1,200 lines and [`app/player.tsx`](./app/player.tsx) is ~900 lines.
+- **task:** split the database into domain repositories and extract player sub-components into dedicated modules.
+
+### `eng-3` performance & render optimization
+- **task:** profile list rendering (`getItemLayout`, window size, memoization), tune `expo-image` cache, and reduce re-renders from player and download progress.
+
+### `eng-4` build pipeline optimization
+- **context:** release builds take 20+ minutes because the aab and apk are built separately and gradle caching is absent.
+- **task:** build the universal apk from the aab with `bundletool` instead of a second `assembleRelease`, add gradle caching and configuration cache, and enable parallel builds.
+
+### `eng-5` continuous ui/ux refinements
+- **task:** haptics, spacing, typography, dark-mode contrast, route animations, and touch targets.
+
+---
+
+## 6. post-2.x (parking lot)
+
+### `future-1` local network server auto-discovery (mdns / ssdp)
+### `future-2` shareable guest song links (`createShare`)
+### `future-3` remote control for other navidrome clients
+### `future-4` synchronized group listening ("jam" sessions)
+### `future-5` server statistics & analytics dashboard
+
+---
+
+## appendix: completed
+
+- v1 → v2 profile backup/export compatibility (`navidrome_client_backup` schema).
+- playback queue management & ui (`app/queue.tsx`, `components/PlaybackQueueView.tsx`).
+- dynamic queue operations in `services/player.ts` (play next, add, remove, clear, move, set).
+- interactive seek bar & modular skin (`components/PlayerSeekBar.tsx`).
+- bulk offline song caching with progress and cancellation.
+- artist details page (`app/artist/[id].tsx`).
+- offline filter in search.
+- pending scrobbles screen (`app/(main)/library/scrobbles.tsx`).
+- pull-to-refresh across screens.
+- recent search history.
+- in-app changelog dialogs.
+- haptic feedback toggle in settings + backup.
+- playback speed options (0.75x–2.0x).
+- universal album components across library, search, home, artist detail.
+- internal testing track automation.
+- separate development build variant.
