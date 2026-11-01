@@ -1,16 +1,15 @@
-import { Image } from "expo-image";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
-import { FlatList, TouchableOpacity, View } from "react-native";
-import { Avatar, IconButton, Surface, Text } from "react-native-paper";
+import { FlatList, View } from "react-native";
+import { Avatar, IconButton, Text } from "react-native-paper";
 
+import { AlbumCard } from "@/components/AlbumCard";
 import { getCoverArtBaseUrl, subscribeSyncState } from "@/services/api";
 import { getRandomAlbums } from "@/services/db";
 import { homeStyles } from "@/stylesheets";
 import { AlbumID3, useAppTheme } from "@/types";
 
 export function RandomAlbumsSection() {
-  const router = useRouter();
   const theme = useAppTheme();
   const [albums, setAlbums] = useState<AlbumID3[]>(() => getRandomAlbums(20));
   const [getArtUrl, setGetArtUrl] = useState<
@@ -95,62 +94,9 @@ export function RandomAlbumsSection() {
           data={albums}
           keyExtractor={(item) => item.id}
           contentContainerStyle={homeStyles.horizontalList}
-          renderItem={({ item }) => {
-            const artUrl = getArtUrl ? getArtUrl(item.coverArt) : null;
-
-            return (
-              <TouchableOpacity
-                activeOpacity={0.7}
-                style={homeStyles.tile}
-                onPress={() =>
-                  router.push({
-                    pathname: "/album/[id]",
-                    params: { id: item.id },
-                  })
-                }
-              >
-                {artUrl ? (
-                  <Image
-                    source={{ uri: artUrl, cacheKey: `${item.coverArt}-300` }}
-                    style={homeStyles.artwork}
-                    contentFit="cover"
-                    transition={200}
-                    cachePolicy="memory-disk"
-                  />
-                ) : (
-                  <Surface
-                    style={[
-                      homeStyles.artworkPlaceholder,
-                      { backgroundColor: theme.colors.surfaceContainerHighest },
-                    ]}
-                  >
-                    <Avatar.Icon size={48} icon="album" />
-                  </Surface>
-                )}
-                <Text
-                  variant="bodyMedium"
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                  style={homeStyles.tileTitle}
-                >
-                  {item.name}
-                </Text>
-                {item.artist && (
-                  <Text
-                    variant="bodySmall"
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                    style={[
-                      { color: theme.colors.onSurfaceVariant },
-                      homeStyles.tileSubtitle,
-                    ]}
-                  >
-                    {item.artist}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            );
-          }}
+          renderItem={({ item }) => (
+            <AlbumCard album={item} width={140} getArtUrl={getArtUrl} />
+          )}
         />
       )}
     </View>
