@@ -1,12 +1,18 @@
 # changelog
 
-## unreleased
+## 2.34.0+69
 
 ### user release notes
 
-- add universal album component.
+- ui tweaks to album listings across all screens.
 
 ### internal notes
+
+- add universal album component:
+  - library -> albums screen.
+  - library -> artists screen.
+  - search screen.
+  - home screen sections.
 
 ## 2.33.0+68
 
