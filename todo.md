@@ -15,8 +15,9 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
 - [ ] **migration safety & idempotency** (`mig-3`)
   - **task:** make every migration step idempotent and failure-safe. a failed migration must log and fall back to the connect screen without crash-looping or wiping existing data. guard the routine behind a single "migration complete" flag.
 
-- [ ] **verify minSdk coverage for legacy installs** (`mig-4`)
+- [x] **verify minSdk coverage for legacy installs** (`mig-4`)
   - **task:** confirm v2's `minSdk` covers devices on legacy builds. play keeps incompatible devices on the last compatible version.
+  - **verified:** v2 is `minSdk 24` (android 7.0) — expo sdk 57 / rn 0.86 defaults and the merged manifest both report 24, with no override in `app.config.ts`. legacy was flutter using `flutter.minSdkVersion` with no override; flutter's default moved from 21 to 24 on 2025-07-02 (stable >= 3.35), and all legacy builds shipped 2026-04 to 2026-07-02, so legacy is also 24. no legacy install exists below 24, so every legacy device is upgrade-eligible and `mig-1`/`mig-2` cover the full legacy population.
 
 - [ ] **sqlite schema versioning & migration runner** (`db-1`)
   - **context:** [`services/db.ts`](./services/db.ts) initializes tables using `CREATE TABLE IF NOT EXISTS` without schema version tracking. future schema changes will fail to apply to existing databases.
@@ -24,6 +25,7 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
 
 - [ ] **upgrade smoke test** (`qa-1`)
   - **task:** install `1.3.2+24` from play, upgrade to the v2 build, and verify credentials, settings, downloaded songs, playback, and scrobbling. repeat from `1.0.0+19` or `1.1.0+20` if a device is available.
+  - **minSdk parity:** legacy and v2 are both `minSdk 24`, so no device is stranded on the old build. confirm the v2 release is signed with the legacy upload key, otherwise play will reject the in-place upgrade.
 
 ## playback & audio
 
