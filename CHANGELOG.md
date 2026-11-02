@@ -1,5 +1,15 @@
 # changelog
 
+## unreleased
+
+### user release notes
+
+- migration logic from v1 (wip).
+
+### internal notes
+
+- add `legacy-prefs` native module for reading legacy flutter shared preferences at startup.
+
 ## 2.34.0+69
 
 ### user release notes

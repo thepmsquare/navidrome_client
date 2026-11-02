@@ -1,0 +1,8 @@
+{
+  "name": "legacy-prefs",
+  "platforms": ["android"],
+  "android": {
+    "package": "expo.modules.legacyprefs",
+    "modules": ["expo.modules.legacyprefs.LegacyPrefsModule"]
+  }
+}
