@@ -1,26 +1,48 @@
 import { NativeModule, requireNativeModule } from "expo";
 
 /**
- * default android shared preferences file (`<applicationId>_preferences`).
- * this is the file name the mig-1 migration is specified against.
+ * file used by flutter's `shared_preferences` plugin, where the legacy app
+ * actually wrote its credentials and settings.
+ */
+export const LEGACY_FLUTTER_PREFS_FILE = "FlutterSharedPreferences";
+
+/**
+ * default android shared preferences file (`<applicationId>_preferences`),
+ * checked as a fallback in case legacy keys were ever mirrored there.
  */
 export const LEGACY_DEFAULT_PREFS_FILE =
   "com.thepmsquare.navidrome_client_preferences";
 
 /**
- * file used by flutter's `shared_preferences` plugin, which the legacy app
- * actually wrote to. keys are stored with a `flutter.` prefix.
+ * prefixed preference names written by the legacy flutter app
+ * (`lib/services/auth_service.dart` + `lib/services/session_service.dart`).
+ * keys keep the `flutter.` prefix that `shared_preferences` adds on android.
  */
-export const LEGACY_FLUTTER_PREFS_FILE = "FlutterSharedPreferences";
+export const LEGACY_PREF_KEYS = {
+  serverUrl: "flutter.server_url",
+  alternateServerUrls: "flutter.alternate_server_urls",
+  username: "flutter.username",
+  password: "flutter.password",
+  isLoggedIn: "flutter.is_logged_in",
+  stopPlaybackOnTaskRemoved: "flutter.stop_playback_on_task_removed",
+  autoSaveOfflinePlayed: "flutter.auto_save_offline_played",
+  autoSaveOfflineMaxBytes: "flutter.auto_save_offline_max_bytes",
+  autoSaveOfflineLruEvict: "flutter.auto_save_offline_lru_evict",
+  homeSections: "flutter.home_sections",
+} as const;
 
-/**
- * raw snapshot of the preferences written by the legacy flutter app
- * (`1.0.0+19` .. `1.3.2+24`). values are returned as stored: callers are
- * responsible for validation and for falling back to defaults.
- */
+export type LegacyPrefKey =
+  (typeof LEGACY_PREF_KEYS)[keyof typeof LEGACY_PREF_KEYS];
+
+/** raw payload returned by the native reader. */
+export type LegacyPrefsRaw = Partial<
+  Record<LegacyPrefKey, string | boolean | number | string[]>
+>;
+
+/** typed view of the legacy preferences. absent keys are null. */
 export interface LegacyPreferences {
-  /** true when at least one legacy key was present in the file. */
-  found: boolean;
+  /** preferences file the values came from. */
+  sourceFile: string;
   serverUrl: string | null;
   alternateServerUrls: string[];
   username: string | null;
@@ -34,12 +56,13 @@ export interface LegacyPreferences {
   homeSections: string | null;
 }
 
-export interface LegacyPreferencesSnapshot extends LegacyPreferences {
-  sourceFile: string;
-}
+export type LegacyCredentials = Pick<
+  LegacyPreferences,
+  "sourceFile" | "serverUrl" | "username" | "password"
+>;
 
 declare class LegacyPrefsNativeModule extends NativeModule {
-  read(fileName: string): Promise<LegacyPreferences>;
+  read(fileName: string): Promise<LegacyPrefsRaw | null>;
 }
 
 let LegacyPrefs: LegacyPrefsNativeModule | null = null;
@@ -50,29 +73,75 @@ try {
   LegacyPrefs = null;
 }
 
+function asString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function asBoolean(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
+
+function asNumber(value: unknown): number | null {
+  return typeof value === "number" ? value : null;
+}
+
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function toPreferences(
+  raw: LegacyPrefsRaw,
+  sourceFile: string,
+): LegacyPreferences {
+  return {
+    sourceFile,
+    serverUrl: asString(raw[LEGACY_PREF_KEYS.serverUrl]),
+    alternateServerUrls: asStringArray(
+      raw[LEGACY_PREF_KEYS.alternateServerUrls],
+    ),
+    username: asString(raw[LEGACY_PREF_KEYS.username]),
+    password: asString(raw[LEGACY_PREF_KEYS.password]),
+    isLoggedIn: asBoolean(raw[LEGACY_PREF_KEYS.isLoggedIn]),
+    stopPlaybackOnTaskRemoved: asBoolean(
+      raw[LEGACY_PREF_KEYS.stopPlaybackOnTaskRemoved],
+    ),
+    autoSaveOfflinePlayed: asBoolean(
+      raw[LEGACY_PREF_KEYS.autoSaveOfflinePlayed],
+    ),
+    autoSaveOfflineMaxBytes: asNumber(
+      raw[LEGACY_PREF_KEYS.autoSaveOfflineMaxBytes],
+    ),
+    autoSaveOfflineLruEvict: asBoolean(
+      raw[LEGACY_PREF_KEYS.autoSaveOfflineLruEvict],
+    ),
+    homeSections: asString(raw[LEGACY_PREF_KEYS.homeSections]),
+  };
+}
+
 /**
- * reads legacy preferences for the one-time startup migration.
+ * reads the preferences written by the legacy flutter app for the one-time
+ * startup migration.
  *
- * tries the default android preferences file first, then the flutter
- * `shared_preferences` file. returns `null` when no legacy data is present
- * (fresh install, already migrated, or a non-android runtime).
- *
- * pass `fileName` to read a single specific file instead.
+ * tries the flutter `shared_preferences` file first, then the default android
+ * preferences file. returns `null` when the native module is unavailable
+ * (non-android runtime), the files are absent, or none of the known keys hold
+ * a usable value. pass `fileName` to read a single specific file instead.
  */
 export async function readLegacyPreferences(
   fileName?: string,
-): Promise<LegacyPreferencesSnapshot | null> {
+): Promise<LegacyPreferences | null> {
   if (!LegacyPrefs) return null;
 
   const candidates = fileName
     ? [fileName]
-    : [LEGACY_DEFAULT_PREFS_FILE, LEGACY_FLUTTER_PREFS_FILE];
+    : [LEGACY_FLUTTER_PREFS_FILE, LEGACY_DEFAULT_PREFS_FILE];
 
   for (const candidate of candidates) {
     try {
-      const snapshot = await LegacyPrefs.read(candidate);
-      if (snapshot.found) {
-        return { ...snapshot, sourceFile: candidate };
+      const raw = await LegacyPrefs.read(candidate);
+      if (raw) {
+        return toPreferences(raw, candidate);
       }
     } catch (error) {
       console.warn(
@@ -83,6 +152,24 @@ export async function readLegacyPreferences(
   }
 
   return null;
+}
+
+/**
+ * credentials-only view for `mig-1`. returns `null` when no preference file
+ * has credentials: a file that only contains settings is not an import source.
+ */
+export async function readLegacyCredentials(
+  fileName?: string,
+): Promise<LegacyCredentials | null> {
+  const preferences = await readLegacyPreferences(fileName);
+  if (!preferences) return null;
+
+  const { sourceFile, serverUrl, username, password } = preferences;
+  if (serverUrl === null && username === null && password === null) {
+    return null;
+  }
+
+  return { sourceFile, serverUrl, username, password };
 }
 
 export default LegacyPrefs;
