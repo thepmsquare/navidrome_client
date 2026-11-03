@@ -8,7 +8,7 @@
 
 ### internal notes
 
-- add `legacy-prefs` native module for reading legacy flutter shared preferences at startup.
+- add `legacy-prefs` native module for reading legacy flutter preferences (credentials + settings) at startup.
 
 ## 2.34.0+69
 
