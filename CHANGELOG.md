@@ -9,6 +9,7 @@
 ### internal notes
 
 - add `legacy-prefs` native module for reading legacy flutter preferences (credentials + settings) at startup.
+- add one-time migration of legacy flutter credentials into secure store, guarded by a `migration.complete` flag.
 
 ## 2.34.0+69
 
