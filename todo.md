@@ -4,10 +4,11 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
 
 ## migration & upgrade
 
-- [ ] **credentials & session auto-migration** (`mig-1`)
+- [x] **credentials & session auto-migration** (`mig-1`)
   - **context:** legacy builds (`1.0.0`, `1.1.0`, `1.3.2`) stored credentials in android `SharedPreferences` (`flutter.server_url`, `flutter.username`, `flutter.password`). v2 uses [`expo-secure-store`](./services/backup.ts).
   - **reader:** [`modules/legacy-prefs`](./modules/legacy-prefs/index.ts) exposes `readLegacyCredentials()`, reading `FlutterSharedPreferences` first and skipping absent files, absent keys, and non-string values. `readLegacyPreferences()` also exposes `flutter.is_logged_in` and `flutter.alternate_server_urls` for session and server-url restore.
   - **task:** create a one-time startup routine that checks for legacy shared preferences, imports credentials into secure store, and marks migration complete so existing sessions remain authenticated. read keys defensively across legacy versions.
+  - **startup:** `app/_layout.tsx` runs `migrateLegacyCredentials()` before `checkToken()`. the service is guarded by `migration.complete`, skips incomplete/logged-out legacy state, and never blocks session restore.
 
 - [ ] **settings migration & safe fallbacks** (`mig-2`)
   - **context:** legacy preferences (`stop_playback_on_task_removed`, `auto_save_offline_played`, `home_sections`) were serialized in shared preferences.
