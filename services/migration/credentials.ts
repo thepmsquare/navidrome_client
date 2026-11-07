@@ -1,7 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 
-import { readLegacyPreferences } from "@/modules/legacy-prefs";
-import type { LegacyPreferences } from "@/modules/legacy-prefs";
+import { readLegacyPreferencesResult } from "@/modules/legacy-prefs";
+import type { LegacyPrefsReadResult } from "@/modules/legacy-prefs";
 import {
   isMigrationComplete,
   markMigrationComplete,
@@ -22,7 +22,7 @@ export type CredentialMigrationResult =
   | { status: "migrated"; serverUrl: string; alternateUrlCount: number }
   | { status: "already-complete" }
   | { status: "no-legacy-data" }
-  | { status: "skipped"; reason: "logged-out" | "incomplete-credentials" }
+  | { status: "skipped"; reason: "logged-out" | "incomplete-credentials" | "unreadable-prefs" }
   | { status: "failed"; error: unknown };
 
 /**
@@ -89,17 +89,30 @@ export async function migrateLegacyCredentials(): Promise<CredentialMigrationRes
     return { status: "already-complete" };
   }
 
-  let legacy: LegacyPreferences | null = null;
-  try {
-    legacy = await readLegacyPreferences();
-  } catch (error) {
-    console.error("failed to read legacy preferences:", error);
-    return { status: "failed", error };
+  // an unexpected throw (or a corrupt preference file) must not crash startup
+  // or retry forever. log it, leave the legacy store untouched, and let the
+  // session restore fall back to the connect screen.
+  const readResult: LegacyPrefsReadResult =
+    await readLegacyPreferencesResult().catch(
+      (error): LegacyPrefsReadResult => {
+        console.error("failed to read legacy preferences:", error);
+        return { status: "unreadable", errors: [error] };
+      },
+    );
+
+  if (readResult.status === "unreadable") {
+    console.warn(
+      "legacy credentials are unreadable, falling back to connect:",
+      readResult.errors,
+    );
+    return markComplete({ status: "skipped", reason: "unreadable-prefs" });
   }
 
-  if (!legacy) {
+  if (readResult.status !== "ok") {
     return markComplete({ status: "no-legacy-data" });
   }
+
+  const legacy = readResult.preferences;
 
   // the legacy app clears its preferences on logout, so this only guards
   // against a file that survived a partial logout.

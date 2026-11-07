@@ -61,6 +61,13 @@ export type LegacyCredentials = Pick<
   "sourceFile" | "serverUrl" | "username" | "password"
 >;
 
+/** outcome of reading the legacy store, ready for migration logging. */
+export type LegacyPrefsReadResult =
+  | { status: "ok"; preferences: LegacyPreferences }
+  | { status: "absent" }
+  | { status: "unavailable" }
+  | { status: "unreadable"; errors: unknown[] };
+
 declare class LegacyPrefsNativeModule extends NativeModule {
   read(fileName: string): Promise<LegacyPrefsRaw | null>;
 }
@@ -120,38 +127,62 @@ function toPreferences(
 }
 
 /**
- * reads the preferences written by the legacy flutter app for the one-time
- * startup migration.
+ * reads the preferences written by the legacy flutter app and reports why the
+ * result is empty. migration uses this to tell "nothing to import" apart from
+ * "the legacy store exists but could not be read".
  *
  * tries the flutter `shared_preferences` file first, then the default android
- * preferences file. returns `null` when the native module is unavailable
- * (non-android runtime), the files are absent, or none of the known keys hold
- * a usable value. pass `fileName` to read a single specific file instead.
+ * preferences file. pass `fileName` to read a single specific file instead.
  */
-export async function readLegacyPreferences(
+export async function readLegacyPreferencesResult(
   fileName?: string,
-): Promise<LegacyPreferences | null> {
-  if (!LegacyPrefs) return null;
+): Promise<LegacyPrefsReadResult> {
+  if (!LegacyPrefs) {
+    return { status: "unavailable" };
+  }
 
   const candidates = fileName
     ? [fileName]
     : [LEGACY_FLUTTER_PREFS_FILE, LEGACY_DEFAULT_PREFS_FILE];
+  const errors: unknown[] = [];
 
   for (const candidate of candidates) {
     try {
       const raw = await LegacyPrefs.read(candidate);
       if (raw) {
-        return toPreferences(raw, candidate);
+        return {
+          status: "ok",
+          preferences: toPreferences(raw, candidate),
+        };
       }
     } catch (error) {
       console.warn(
         `failed to read legacy preferences from ${candidate}`,
         error,
       );
+      errors.push(error);
     }
   }
 
-  return null;
+  // a missing file resolves to null rather than throwing, so any error means
+  // a preference file was present but could not be decoded.
+  if (errors.length > 0) {
+    return { status: "unreadable", errors };
+  }
+
+  return { status: "absent" };
+}
+
+/**
+ * convenience wrapper over {@link readLegacyPreferencesResult} for callers that
+ * only need the values. returns `null` for absent, unavailable, or unreadable
+ * legacy data.
+ */
+export async function readLegacyPreferences(
+  fileName?: string,
+): Promise<LegacyPreferences | null> {
+  const result = await readLegacyPreferencesResult(fileName);
+  return result.status === "ok" ? result.preferences : null;
 }
 
 /**

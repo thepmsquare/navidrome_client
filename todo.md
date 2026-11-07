@@ -15,8 +15,9 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
   - **reader:** `readLegacyPreferences()` from [`modules/legacy-prefs`](./modules/legacy-prefs/index.ts) returns all migrated settings, including `autoSaveOfflineMaxBytes` and `autoSaveOfflineLruEvict`. `homeSections` is raw json and must be parsed defensively.
   - **task:** import legacy settings keys into sqlite on first run. all missing keys must gracefully fall back to defaults.
 
-- [ ] **migration safety & idempotency** (`mig-3`)
+- [/] **migration safety & idempotency** (`mig-3`)
   - **task:** make every migration step idempotent and failure-safe. a failed migration must log and fall back to the connect screen without crash-looping or wiping existing data. guard the routine behind a single "migration complete" flag.
+  - **credentials:** `readLegacyPreferencesResult()` distinguishes absent, unavailable, and unreadable legacy stores. missing module is treated as no legacy data; corrupt/unreadable prefs mark the migration complete (no retry loop), leave the legacy store untouched, and fall through to the connect screen. write failures do not set the flag so the next launch retries.
 
 - [x] **verify minSdk coverage for legacy installs** (`mig-4`)
   - **task:** confirm v2's `minSdk` covers devices on legacy builds. play keeps incompatible devices on the last compatible version.

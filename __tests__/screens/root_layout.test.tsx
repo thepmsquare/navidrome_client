@@ -30,6 +30,8 @@ jest.mock("@pchmn/expo-material3-theme", () => ({
   useMaterial3Theme: () => ({ theme: { dark: {}, light: {} } }),
 }));
 
+const mockReplace = jest.fn();
+
 jest.mock("expo-router", () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const React = require("react");
@@ -39,7 +41,7 @@ jest.mock("expo-router", () => {
   Stack.Screen = () => null;
   return {
     Stack,
-    useRouter: () => ({ replace: jest.fn() }),
+    useRouter: () => ({ replace: mockReplace }),
     useSegments: () => [],
   };
 });
@@ -74,6 +76,26 @@ describe("RootLayout credential migration", () => {
     const restoreOrder =
       mockGetItem.mock.invocationCallOrder[sessionRestoreCall];
     expect(migrationOrder).toBeLessThan(restoreOrder);
+    expect(mockReplace).toHaveBeenCalledWith("/connect");
+
+    await act(async () => {
+      tree!.unmount();
+    });
+  });
+
+  it("sends the user to connect when unreadable prefs skip the migration", async () => {
+    mockMigrate.mockResolvedValue({
+      status: "skipped",
+      reason: "unreadable-prefs",
+    });
+
+    let tree: renderer.ReactTestRenderer;
+
+    await act(async () => {
+      tree = renderer.create(<RootLayout />);
+    });
+
+    expect(mockReplace).toHaveBeenCalledWith("/connect");
 
     await act(async () => {
       tree!.unmount();
