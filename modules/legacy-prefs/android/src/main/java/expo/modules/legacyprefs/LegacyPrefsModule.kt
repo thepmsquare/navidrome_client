@@ -29,7 +29,9 @@ class LegacyPrefsModule : Module() {
 
   /**
    * returns the known legacy keys stored in [fileName], or null when the file
-   * does not exist or none of the known keys are usable.
+   * does not exist or none of the known keys are usable. throws when the file
+   * exists but cannot be read, so the js layer can tell a corrupt store apart
+   * from an absent one.
    */
   private fun readPreferences(fileName: String): Map<String, Any?>? {
     val context = appContext.reactContext
@@ -47,7 +49,7 @@ class LegacyPrefsModule : Module() {
       context.getSharedPreferences(fileName, Context.MODE_PRIVATE).all
     } catch (e: Exception) {
       Log.w(TAG, "failed to read shared preferences file $fileName", e)
-      return null
+      throw e
     }
 
     return LegacyPrefsDecoder.decode(stored) { message ->

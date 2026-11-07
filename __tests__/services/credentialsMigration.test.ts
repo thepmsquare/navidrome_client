@@ -109,6 +109,7 @@ describe("legacy credentials migration", () => {
     mockNativeAvailable = true;
     mockNativeRead.mockReset();
     jest.spyOn(console, "error").mockImplementation(() => {});
+    jest.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -230,13 +231,31 @@ describe("legacy credentials migration", () => {
     mockNativeAvailable = false;
     const { secureStore, credentials, legacyPrefs, state } = loadModules();
 
-    await expect(legacyPrefs.readLegacyPreferences()).resolves.toBeNull();
+    await expect(legacyPrefs.readLegacyPreferencesResult()).resolves.toEqual({
+      status: "unavailable",
+    });
 
     await expect(credentials.migrateLegacyCredentials()).resolves.toEqual({
       status: "no-legacy-data",
     });
 
     expect(mockNativeRead).not.toHaveBeenCalled();
+    expect(writes(secureStore)).toEqual([
+      [state.MIGRATION_COMPLETE_KEY, "true"],
+    ]);
+  });
+
+  it("falls back to connect when every legacy file is corrupt", async () => {
+    mockNativeRead.mockRejectedValue(new Error("corrupt preference xml"));
+    const { secureStore, credentials, state } = loadModules();
+
+    await expect(credentials.migrateLegacyCredentials()).resolves.toEqual({
+      status: "skipped",
+      reason: "unreadable-prefs",
+    });
+
+    // both candidate files were attempted and left untouched.
+    expect(mockNativeRead).toHaveBeenCalledTimes(2);
     expect(writes(secureStore)).toEqual([
       [state.MIGRATION_COMPLETE_KEY, "true"],
     ]);

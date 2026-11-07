@@ -11,6 +11,7 @@
 - add `legacy-prefs` native module for reading legacy flutter preferences (credentials + settings) at startup.
 - add one-time migration of legacy flutter credentials into secure store, guarded by a `migration.complete` flag.
 - run legacy credential migration at startup, before session restore.
+- treat unreadable legacy preferences as a safe fallback: log, keep the old store untouched, and continue to the connect screen.
 
 ## 2.34.0+69
 

@@ -1,6 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 
-import { readLegacyPreferences } from "@/modules/legacy-prefs";
+import { readLegacyPreferencesResult } from "@/modules/legacy-prefs";
 import type { LegacyPreferences } from "@/modules/legacy-prefs";
 import {
   LEGACY_SUBSONIC_VERSION,
@@ -15,12 +15,12 @@ jest.mock("expo-secure-store", () => ({
 }));
 
 jest.mock("@/modules/legacy-prefs", () => ({
-  readLegacyPreferences: jest.fn(),
+  readLegacyPreferencesResult: jest.fn(),
 }));
 
 const mockGetItem = SecureStore.getItemAsync as jest.Mock;
 const mockSetItem = SecureStore.setItemAsync as jest.Mock;
-const mockReadLegacy = readLegacyPreferences as jest.Mock;
+const mockReadLegacy = readLegacyPreferencesResult as jest.Mock;
 
 function legacyPrefs(
   overrides: Partial<LegacyPreferences> = {},
@@ -43,6 +43,10 @@ function legacyPrefs(
 
 function writes(): [string, string][] {
   return mockSetItem.mock.calls.map(([key, value]) => [key, value]);
+}
+
+function ok(preferences: LegacyPreferences) {
+  return { status: "ok" as const, preferences };
 }
 
 describe("normalizeServerUrl", () => {
@@ -79,6 +83,7 @@ describe("migrateLegacyCredentials", () => {
     mockGetItem.mockResolvedValue(null);
     mockSetItem.mockResolvedValue(undefined);
     jest.spyOn(console, "error").mockImplementation(() => {});
+    jest.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -106,7 +111,7 @@ describe("migrateLegacyCredentials", () => {
   });
 
   it("marks the migration complete when there is no legacy data", async () => {
-    mockReadLegacy.mockResolvedValue(null);
+    mockReadLegacy.mockResolvedValue({ status: "absent" });
 
     await expect(migrateLegacyCredentials()).resolves.toEqual({
       status: "no-legacy-data",
@@ -116,7 +121,7 @@ describe("migrateLegacyCredentials", () => {
 
   it("migrates credentials and writes the flag last", async () => {
     mockReadLegacy.mockResolvedValue(
-      legacyPrefs({ alternateServerUrls: ["https://backup.example.com"] }),
+      ok(legacyPrefs({ alternateServerUrls: ["https://backup.example.com"] })),
     );
 
     await expect(migrateLegacyCredentials()).resolves.toEqual({
@@ -147,15 +152,17 @@ describe("migrateLegacyCredentials", () => {
 
   it("normalizes, deduplicates, and labels alternate urls", async () => {
     mockReadLegacy.mockResolvedValue(
-      legacyPrefs({
-        serverUrl: "music.example.com/",
-        alternateServerUrls: [
-          "",
-          "https://music.example.com",
-          "backup.example.com/",
-          "http://plain.example.com",
-        ],
-      }),
+      ok(
+        legacyPrefs({
+          serverUrl: "music.example.com/",
+          alternateServerUrls: [
+            "",
+            "https://music.example.com",
+            "backup.example.com/",
+            "http://plain.example.com",
+          ],
+        }),
+      ),
     );
 
     await expect(migrateLegacyCredentials()).resolves.toEqual({
@@ -175,7 +182,7 @@ describe("migrateLegacyCredentials", () => {
   });
 
   it("skips a logged-out legacy session but still marks complete", async () => {
-    mockReadLegacy.mockResolvedValue(legacyPrefs({ isLoggedIn: false }));
+    mockReadLegacy.mockResolvedValue(ok(legacyPrefs({ isLoggedIn: false })));
 
     await expect(migrateLegacyCredentials()).resolves.toEqual({
       status: "skipped",
@@ -185,7 +192,7 @@ describe("migrateLegacyCredentials", () => {
   });
 
   it("skips incomplete credentials but still marks complete", async () => {
-    mockReadLegacy.mockResolvedValue(legacyPrefs({ password: null }));
+    mockReadLegacy.mockResolvedValue(ok(legacyPrefs({ password: null })));
 
     await expect(migrateLegacyCredentials()).resolves.toEqual({
       status: "skipped",
@@ -196,7 +203,7 @@ describe("migrateLegacyCredentials", () => {
 
   it("does not set the flag when a credential write fails", async () => {
     const error = new Error("secure store unavailable");
-    mockReadLegacy.mockResolvedValue(legacyPrefs());
+    mockReadLegacy.mockResolvedValue(ok(legacyPrefs()));
     mockSetItem.mockRejectedValue(error);
 
     await expect(migrateLegacyCredentials()).resolves.toEqual({
@@ -206,9 +213,34 @@ describe("migrateLegacyCredentials", () => {
     expect(writes()).not.toContainEqual([MIGRATION_COMPLETE_KEY, "true"]);
   });
 
+  it("falls back to connect when the legacy prefs are unreadable", async () => {
+    const error = new Error("corrupt xml");
+    mockReadLegacy.mockResolvedValue({
+      status: "unreadable",
+      errors: [error],
+    });
+
+    await expect(migrateLegacyCredentials()).resolves.toEqual({
+      status: "skipped",
+      reason: "unreadable-prefs",
+    });
+    expect(writes()).toEqual([[MIGRATION_COMPLETE_KEY, "true"]]);
+  });
+
+  it("falls back to connect when reading throws unexpectedly", async () => {
+    const error = new Error("native module exploded");
+    mockReadLegacy.mockRejectedValue(error);
+
+    await expect(migrateLegacyCredentials()).resolves.toEqual({
+      status: "skipped",
+      reason: "unreadable-prefs",
+    });
+    expect(writes()).toEqual([[MIGRATION_COMPLETE_KEY, "true"]]);
+  });
+
   it("reports a failed result when the flag write fails", async () => {
     const error = new Error("secure store unavailable");
-    mockReadLegacy.mockResolvedValue(null);
+    mockReadLegacy.mockResolvedValue({ status: "absent" });
     mockSetItem.mockRejectedValue(error);
 
     await expect(migrateLegacyCredentials()).resolves.toEqual({

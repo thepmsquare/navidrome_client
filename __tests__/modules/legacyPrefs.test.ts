@@ -4,6 +4,7 @@ import {
   LEGACY_PREF_KEYS,
   readLegacyCredentials,
   readLegacyPreferences,
+  readLegacyPreferencesResult,
 } from "@/modules/legacy-prefs";
 import type { LegacyPrefsRaw } from "@/modules/legacy-prefs";
 
@@ -128,6 +129,59 @@ describe("readLegacyPreferences", () => {
 
     await expect(readLegacyPreferences()).resolves.toMatchObject({
       sourceFile: LEGACY_DEFAULT_PREFS_FILE,
+    });
+  });
+});
+
+describe("readLegacyPreferencesResult", () => {
+  beforeEach(() => {
+    mockRead.mockReset();
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("reports ok with the typed preferences", async () => {
+    mockRead.mockResolvedValue(FULL_RAW);
+
+    await expect(readLegacyPreferencesResult()).resolves.toEqual({
+      status: "ok",
+      preferences: expect.objectContaining({
+        sourceFile: LEGACY_FLUTTER_PREFS_FILE,
+        serverUrl: "https://music.example.com",
+      }),
+    });
+  });
+
+  it("reports absent when no candidate file has data", async () => {
+    mockRead.mockResolvedValue(null);
+
+    await expect(readLegacyPreferencesResult()).resolves.toEqual({
+      status: "absent",
+    });
+  });
+
+  it("reports unreadable when every candidate throws", async () => {
+    const first = new Error("corrupt flutter prefs");
+    const second = new Error("corrupt default prefs");
+    mockRead.mockRejectedValueOnce(first).mockRejectedValueOnce(second);
+
+    await expect(readLegacyPreferencesResult()).resolves.toEqual({
+      status: "unreadable",
+      errors: [first, second],
+    });
+  });
+
+  it("recovers when a corrupt candidate is followed by a readable one", async () => {
+    mockRead
+      .mockRejectedValueOnce(new Error("corrupt flutter prefs"))
+      .mockResolvedValueOnce(FULL_RAW);
+
+    await expect(readLegacyPreferencesResult()).resolves.toMatchObject({
+      status: "ok",
+      preferences: { sourceFile: LEGACY_DEFAULT_PREFS_FILE },
     });
   });
 });
