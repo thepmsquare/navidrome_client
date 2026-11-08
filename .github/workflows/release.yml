@@ -188,6 +188,17 @@ jobs:
       - name: Generate Android Native Project (Expo Prebuild)
         run: npx expo prebuild --platform android --no-install
 
+      - name: Configure Gradle Wrapper Timeout & Properties
+        run: |
+          # Increase wrapper download timeout from default 10s (10000ms) to 5m (300000ms)
+          sed -i 's/networkTimeout=.*/networkTimeout=300000/' android/gradle/wrapper/gradle-wrapper.properties
+          mkdir -p ~/.gradle
+          cat << 'EOF' > ~/.gradle/gradle.properties
+          systemProp.org.gradle.internal.http.connectionTimeout=120000
+          systemProp.org.gradle.internal.http.socketTimeout=120000
+          systemProp.org.gradle.internal.repository.max.retries=5
+          EOF
+
       - name: Configure Release Keystore & Patch Signing Config
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -258,6 +269,8 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           cd android
+          # Bootstrap Gradle wrapper with retry
+          ./gradlew --version || (echo "Retrying Gradle wrapper download..." && sleep 5 && ./gradlew --version)
           ./gradlew bundleRelease assembleRelease --no-daemon
 
       - name: Upload AAB to Google Play Store Internal Track
