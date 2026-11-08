@@ -1,5 +1,15 @@
 # changelog
 
+## 2.36.4+76
+
+### user release notes
+
+- deployment streamlining.
+
+### internal notes
+
+- pre-download and sha-256 verify gradle 9.3.1 distribution to bypass services.gradle.org gateway timeout.
+
 ## 2.36.3+75
 
 ### user release notes
