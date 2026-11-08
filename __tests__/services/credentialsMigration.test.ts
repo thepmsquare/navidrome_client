@@ -6,7 +6,6 @@ type SecureStoreMock = {
 type CredentialsModule =
   typeof import("@/services/migration/credentials");
 type LegacyPrefsModule = typeof import("@/modules/legacy-prefs");
-type MigrationStateModule = typeof import("@/services/migration/state");
 
 jest.mock("expo-secure-store", () => ({
   getItemAsync: jest.fn(),
@@ -41,18 +40,24 @@ const PREF = {
   autoSaveOfflinePlayed: "flutter.auto_save_offline_played",
   autoSaveOfflineMaxBytes: "flutter.auto_save_offline_max_bytes",
   autoSaveOfflineLruEvict: "flutter.auto_save_offline_lru_evict",
+  autoDownloadPlayed: "flutter.auto_download_played",
+  autoDownloadMaxBytes: "flutter.auto_download_max_bytes",
+  autoDownloadLruEvict: "flutter.auto_download_lru_evict",
   homeSections: "flutter.home_sections",
 } as const;
 
 const HOME_SECTIONS = '[{"id":"most_played","visible":true}]';
 
-/** 1.0.0: credentials + session only, settings still used the old auto_download names. */
+/** 1.0.0: credentials + session; settings used the old auto_download names. */
 const LEGACY_1_0_0 = {
   [PREF.serverUrl]: "https://music.example.com",
   [PREF.username]: "alice",
   [PREF.password]: "secret",
   [PREF.isLoggedIn]: true,
   [PREF.stopPlaybackOnTaskRemoved]: false,
+  [PREF.autoDownloadPlayed]: true,
+  [PREF.autoDownloadMaxBytes]: 1_073_741_824,
+  [PREF.autoDownloadLruEvict]: true,
   [PREF.homeSections]: HOME_SECTIONS,
 };
 
@@ -86,15 +91,10 @@ function loadModules() {
   ) as CredentialsModule;
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const legacyPrefs = require("@/modules/legacy-prefs") as LegacyPrefsModule;
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const state = require(
-    "@/services/migration/state",
-  ) as MigrationStateModule;
 
-  secureStore.getItemAsync.mockResolvedValue(null);
   secureStore.setItemAsync.mockResolvedValue(undefined);
 
-  return { secureStore, credentials, legacyPrefs, state };
+  return { secureStore, credentials, legacyPrefs };
 }
 
 function writes(secureStore: SecureStoreMock): [string, string][] {
@@ -125,7 +125,7 @@ describe("legacy credentials migration", () => {
     (version, raw, alternateUrlCount) => {
       it(`migrates the ${version} shape`, async () => {
         mockNativeRead.mockResolvedValue(raw);
-        const { secureStore, credentials, state } = loadModules();
+        const { secureStore, credentials } = loadModules();
 
         await expect(
           credentials.migrateLegacyCredentials(),
@@ -161,10 +161,6 @@ describe("legacy credentials migration", () => {
         expect(writes(secureStore)).toContainEqual(["subsonicVersion", "1.16.1"]);
         expect(writes(secureStore)).toContainEqual(["username", "alice"]);
         expect(writes(secureStore)).toContainEqual(["password", "secret"]);
-        expect(writes(secureStore).at(-1)).toEqual([
-          state.MIGRATION_COMPLETE_KEY,
-          "true",
-        ]);
       });
     },
   );
@@ -197,9 +193,9 @@ describe("legacy credentials migration", () => {
   ] as [string, Record<string, unknown>][])(
     "partial legacy data with %s",
     (_description, raw) => {
-      it("skips credentials and still marks the migration complete", async () => {
+      it("skips credentials without writing", async () => {
         mockNativeRead.mockResolvedValue(raw);
-        const { secureStore, credentials, state } = loadModules();
+        const { secureStore, credentials } = loadModules();
 
         await expect(
           credentials.migrateLegacyCredentials(),
@@ -208,28 +204,14 @@ describe("legacy credentials migration", () => {
           reason: "incomplete-credentials",
         });
 
-        expect(writes(secureStore)).toEqual([
-          [state.MIGRATION_COMPLETE_KEY, "true"],
-        ]);
+        expect(secureStore.setItemAsync).not.toHaveBeenCalled();
       });
     },
   );
 
-  it("short-circuits when the migration flag is already set", async () => {
-    const { secureStore, credentials } = loadModules();
-    secureStore.getItemAsync.mockResolvedValue("true");
-
-    await expect(credentials.migrateLegacyCredentials()).resolves.toEqual({
-      status: "already-complete",
-    });
-
-    expect(mockNativeRead).not.toHaveBeenCalled();
-    expect(secureStore.setItemAsync).not.toHaveBeenCalled();
-  });
-
-  it("marks complete without importing when the native module is unavailable", async () => {
+  it("imports nothing when the native module is unavailable", async () => {
     mockNativeAvailable = false;
-    const { secureStore, credentials, legacyPrefs, state } = loadModules();
+    const { secureStore, credentials, legacyPrefs } = loadModules();
 
     await expect(legacyPrefs.readLegacyPreferencesResult()).resolves.toEqual({
       status: "unavailable",
@@ -240,14 +222,12 @@ describe("legacy credentials migration", () => {
     });
 
     expect(mockNativeRead).not.toHaveBeenCalled();
-    expect(writes(secureStore)).toEqual([
-      [state.MIGRATION_COMPLETE_KEY, "true"],
-    ]);
+    expect(secureStore.setItemAsync).not.toHaveBeenCalled();
   });
 
-  it("falls back to connect when every legacy file is corrupt", async () => {
+  it("imports nothing when every legacy file is corrupt", async () => {
     mockNativeRead.mockRejectedValue(new Error("corrupt preference xml"));
-    const { secureStore, credentials, state } = loadModules();
+    const { secureStore, credentials } = loadModules();
 
     await expect(credentials.migrateLegacyCredentials()).resolves.toEqual({
       status: "skipped",
@@ -256,8 +236,6 @@ describe("legacy credentials migration", () => {
 
     // both candidate files were attempted and left untouched.
     expect(mockNativeRead).toHaveBeenCalledTimes(2);
-    expect(writes(secureStore)).toEqual([
-      [state.MIGRATION_COMPLETE_KEY, "true"],
-    ]);
+    expect(secureStore.setItemAsync).not.toHaveBeenCalled();
   });
 });

@@ -2,7 +2,7 @@ import React from "react";
 import renderer, { act } from "react-test-renderer";
 
 import RootLayout from "@/app/_layout";
-import { migrateLegacyCredentials } from "@/services/migration/credentials";
+import { runLegacyMigration } from "@/services/migration";
 import * as SecureStore from "expo-secure-store";
 
 jest.mock("expo-secure-store", () => ({
@@ -10,8 +10,8 @@ jest.mock("expo-secure-store", () => ({
   setItemAsync: jest.fn(),
 }));
 
-jest.mock("@/services/migration/credentials", () => ({
-  migrateLegacyCredentials: jest.fn(),
+jest.mock("@/services/migration", () => ({
+  runLegacyMigration: jest.fn(),
 }));
 
 jest.mock("@/services/api", () => ({
@@ -46,14 +46,14 @@ jest.mock("expo-router", () => {
   };
 });
 
-const mockMigrate = migrateLegacyCredentials as jest.Mock;
+const mockMigrate = runLegacyMigration as jest.Mock;
 const mockGetItem = SecureStore.getItemAsync as jest.Mock;
 const mockSetItem = SecureStore.setItemAsync as jest.Mock;
 
 describe("RootLayout credential migration", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockMigrate.mockResolvedValue({ status: "no-legacy-data" });
+    mockMigrate.mockResolvedValue({ status: "already-complete" });
     mockGetItem.mockResolvedValue(null);
     mockSetItem.mockResolvedValue(undefined);
   });
@@ -85,8 +85,9 @@ describe("RootLayout credential migration", () => {
 
   it("sends the user to connect when unreadable prefs skip the migration", async () => {
     mockMigrate.mockResolvedValue({
-      status: "skipped",
-      reason: "unreadable-prefs",
+      status: "migrated",
+      credentials: { status: "skipped", reason: "unreadable-prefs" },
+      settings: { status: "skipped", reason: "unreadable-prefs" },
     });
 
     let tree: renderer.ReactTestRenderer;
@@ -116,7 +117,7 @@ describe("RootLayout credential migration", () => {
 
     expect(mockGetItem).toHaveBeenCalledWith("serverUrl");
     expect(consoleError).toHaveBeenCalledWith(
-      "failed to migrate legacy credentials:",
+      "failed to run legacy migration:",
       expect.any(Error),
     );
 

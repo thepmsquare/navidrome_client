@@ -89,6 +89,34 @@ describe("readLegacyPreferences", () => {
     });
   });
 
+  it("falls back to the pre-1.1.0 auto_download setting names", async () => {
+    mockRead.mockResolvedValue({
+      [LEGACY_PREF_KEYS.autoDownloadPlayed]: false,
+      [LEGACY_PREF_KEYS.autoDownloadMaxBytes]: 2_147_483_648,
+      [LEGACY_PREF_KEYS.autoDownloadLruEvict]: false,
+    });
+
+    await expect(readLegacyPreferences()).resolves.toMatchObject({
+      autoSaveOfflinePlayed: false,
+      autoSaveOfflineMaxBytes: 2_147_483_648,
+      autoSaveOfflineLruEvict: false,
+    });
+  });
+
+  it("prefers auto_save_offline when both setting names exist", async () => {
+    mockRead.mockResolvedValue({
+      [LEGACY_PREF_KEYS.autoSaveOfflinePlayed]: true,
+      [LEGACY_PREF_KEYS.autoDownloadPlayed]: false,
+      [LEGACY_PREF_KEYS.autoSaveOfflineMaxBytes]: 512,
+      [LEGACY_PREF_KEYS.autoDownloadMaxBytes]: 1024,
+    });
+
+    await expect(readLegacyPreferences()).resolves.toMatchObject({
+      autoSaveOfflinePlayed: true,
+      autoSaveOfflineMaxBytes: 512,
+    });
+  });
+
   it("ignores values whose runtime type does not match", async () => {
     mockRead.mockResolvedValue({
       [LEGACY_PREF_KEYS.serverUrl]: 42,

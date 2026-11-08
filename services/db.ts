@@ -9,7 +9,6 @@ import {
   SongCacheRow,
   SongCacheType,
   PendingScrobble,
-  DownloadQueueRow,
   DownloadQueueState,
   DownloadQueueStatus,
   LyricsCacheRow,
@@ -35,10 +34,8 @@ export function getDb(): SQLite.SQLiteDatabase {
   return dbInstance;
 }
 
-export function initDatabase(db: SQLite.SQLiteDatabase = getDb()): void {
+function createInitialSchema(db: SQLite.SQLiteDatabase): void {
   db.execSync(`
-    PRAGMA journal_mode = WAL;
-
     CREATE TABLE IF NOT EXISTS sync_meta (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
@@ -232,6 +229,42 @@ export function initDatabase(db: SQLite.SQLiteDatabase = getDb()): void {
 
     CREATE INDEX IF NOT EXISTS idx_recent_searches_timestamp ON recent_searches(timestamp DESC);
   `);
+}
+
+type SchemaMigration = (db: SQLite.SQLiteDatabase) => void;
+
+/**
+ * ordered schema migrations. index + 1 is the `PRAGMA user_version` written
+ * after the migration succeeds. never reorder or remove an entry; append new
+ * ones so existing databases upgrade incrementally.
+ */
+const SCHEMA_MIGRATIONS: SchemaMigration[] = [createInitialSchema];
+
+/** current schema version, derived from the migration list. */
+export const SCHEMA_VERSION = SCHEMA_MIGRATIONS.length;
+
+/**
+ * applies pending schema migrations inside a transaction and records the new
+ * version with `PRAGMA user_version`. databases created before versioning was
+ * introduced report version 0 and run every migration, which is safe because
+ * the initial schema only uses `IF NOT EXISTS`.
+ */
+export function initDatabase(db: SQLite.SQLiteDatabase = getDb()): void {
+  db.execSync("PRAGMA journal_mode = WAL;");
+
+  const row = db.getFirstSync<{ user_version: number }>("PRAGMA user_version");
+  const currentVersion = row?.user_version ?? 0;
+
+  for (
+    let version = currentVersion;
+    version < SCHEMA_MIGRATIONS.length;
+    version++
+  ) {
+    db.withTransactionSync(() => {
+      SCHEMA_MIGRATIONS[version](db);
+      db.execSync(`PRAGMA user_version = ${version + 1};`);
+    });
+  }
 }
 
 export function getSyncMeta(key: string): string | null {

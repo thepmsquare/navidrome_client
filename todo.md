@@ -8,28 +8,44 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
   - **context:** legacy builds (`1.0.0`, `1.1.0`, `1.3.2`) stored credentials in android `SharedPreferences` (`flutter.server_url`, `flutter.username`, `flutter.password`). v2 uses [`expo-secure-store`](./services/backup.ts).
   - **reader:** [`modules/legacy-prefs`](./modules/legacy-prefs/index.ts) exposes `readLegacyCredentials()`, reading `FlutterSharedPreferences` first and skipping absent files, absent keys, and non-string values. `readLegacyPreferences()` also exposes `flutter.is_logged_in` and `flutter.alternate_server_urls` for session and server-url restore.
   - **task:** create a one-time startup routine that checks for legacy shared preferences, imports credentials into secure store, and marks migration complete so existing sessions remain authenticated. read keys defensively across legacy versions.
-  - **startup:** `app/_layout.tsx` runs `migrateLegacyCredentials()` before `checkToken()`. the service is guarded by `migration.complete`, skips incomplete/logged-out legacy state, and never blocks session restore.
+  - **startup:** `app/_layout.tsx` runs `runLegacyMigration()` before `checkToken()`. the orchestrator is guarded by `migration.complete`, runs credentials then settings, skips incomplete/logged-out legacy state, and never blocks session restore.
 
-- [ ] **settings migration & safe fallbacks** (`mig-2`)
+- [x] **settings migration & safe fallbacks** (`mig-2`)
   - **context:** legacy preferences (`stop_playback_on_task_removed`, `auto_save_offline_played`, `home_sections`) were serialized in shared preferences.
   - **reader:** `readLegacyPreferences()` from [`modules/legacy-prefs`](./modules/legacy-prefs/index.ts) returns all migrated settings, including `autoSaveOfflineMaxBytes` and `autoSaveOfflineLruEvict`. `homeSections` is raw json and must be parsed defensively.
   - **task:** import legacy settings keys into sqlite on first run. all missing keys must gracefully fall back to defaults.
+  - **mapping:** [`services/migration/settings.ts`](./services/migration/settings.ts) applies `auto_save_offline_played` -> `auto_cache_enabled`, `auto_save_offline_max_bytes` -> `auto_cache_max_bytes`, `stop_playback_on_task_removed` -> `keep_playing_on_app_dismissed` (inverted, plus the secure-store copy used by backup/restore), and `home_sections` -> secure store. `auto_save_offline_lru_evict` is ignored because v2 always evicts by lru. invalid or missing values are skipped so the v2 default applies, and malformed `home_sections` entries are dropped by `parseHomeSections()`.
 
-- [/] **migration safety & idempotency** (`mig-3`)
+- [x] **migration safety & idempotency** (`mig-3`)
   - **task:** make every migration step idempotent and failure-safe. a failed migration must log and fall back to the connect screen without crash-looping or wiping existing data. guard the routine behind a single "migration complete" flag.
   - **credentials:** `readLegacyPreferencesResult()` distinguishes absent, unavailable, and unreadable legacy stores. missing module is treated as no legacy data; corrupt/unreadable prefs mark the migration complete (no retry loop), leave the legacy store untouched, and fall through to the connect screen. write failures do not set the flag so the next launch retries.
+  - **orchestrator:** [`services/migration/index.ts`](./services/migration/index.ts) runs both steps in one startup pass and owns the flag. each step is idempotent, so a partial run can safely repeat. `migration.complete` now stores `2`; installs that completed the earlier credentials-only pass rerun the idempotent steps to pick up settings.
+  - **fail-closed flag:** an unreadable completion flag is treated as complete, so a secure-store read failure can never re-import legacy credentials over user-set credentials. unreadable legacy data is logged and the app still reaches the connect screen.
 
 - [x] **verify minSdk coverage for legacy installs** (`mig-4`)
   - **task:** confirm v2's `minSdk` covers devices on legacy builds. play keeps incompatible devices on the last compatible version.
   - **verified:** v2 is `minSdk 24` (android 7.0) — expo sdk 57 / rn 0.86 defaults and the merged manifest both report 24, with no override in `app.config.ts`. legacy was flutter using `flutter.minSdkVersion` with no override; flutter's default moved from 21 to 24 on 2025-07-02 (stable >= 3.35), and all legacy builds shipped 2026-04 to 2026-07-02, so legacy is also 24. no legacy install exists below 24, so every legacy device is upgrade-eligible and `mig-1`/`mig-2` cover the full legacy population.
 
-- [ ] **sqlite schema versioning & migration runner** (`db-1`)
+- [x] **sqlite schema versioning & migration runner** (`db-1`)
   - **context:** [`services/db.ts`](./services/db.ts) initializes tables using `CREATE TABLE IF NOT EXISTS` without schema version tracking. future schema changes will fail to apply to existing databases.
   - **task:** implement a versioned migration runner using `PRAGMA user_version` to apply incremental `ALTER TABLE` and schema migrations reliably across updates. bundle with `mig-1` and `mig-2`, which also run at startup.
+  - **implementation:** `SCHEMA_MIGRATIONS` is an append-only list applied by `initDatabase()` inside `withTransactionSync`, with `PRAGMA user_version` written after each step. `SCHEMA_VERSION` is derived from the list. pre-versioning databases report `0` and run the initial schema, which uses only `CREATE TABLE/INDEX IF NOT EXISTS`. schema setup runs from `getDb()` on first access, so it covers the same startup path as the legacy import without a separate hook.
 
-- [ ] **upgrade smoke test** (`qa-1`)
+- [ ] **upgrade smoke test** (`qa-1`, manual)
   - **task:** install `1.3.2+24` from play, upgrade to the v2 build, and verify credentials, settings, downloaded songs, playback, and scrobbling. repeat from `1.0.0+19` or `1.1.0+20` if a device is available.
-  - **minSdk parity:** legacy and v2 are both `minSdk 24`, so no device is stranded on the old build. confirm the v2 release is signed with the legacy upload key, otherwise play will reject the in-place upgrade.
+  - **checklist:**
+    - install the legacy build from play and sign in, enable auto-save offline, customize the settings available in that build, play a song, and scrobble at least one track.
+    - install the v2 build over it (same application id, higher version code) without uninstalling.
+    - verify the app opens straight to the library without the connect screen.
+    - verify the legacy server url + alternate urls, username, and password are preserved.
+    - verify auto-cache and keep-playing settings match the legacy values. `home_sections` is preserved in secure store for backup/restore; the reorder/hide UI itself is tracked as `ui-1`.
+    - play a remote song; confirm playback controls, notification, and background behaviour.
+    - save a song offline in v2 and play it in airplane mode. legacy downloads are not adopted (cleanup is tracked in `off-9`); confirm the old `app_flutter/offline` directory is left untouched and does not crash the app.
+    - scrobble a new track and confirm it appears on the server; confirm the pending-scrobble queue survives going offline and reconnecting.
+    - verify no crash loop and that a fresh connect still works if the legacy session was logged out.
+  - **minSdk parity:** legacy and v2 are both `minSdk 24`, so no device is stranded on the old build.
+  - **signing:** the release workflow (`.github/workflows/release-internal.yml`) decodes `ANDROID_KEYSTORE_BASE64` into `android/app/release.keystore`, patches the generated gradle file to sign `release` with `signingConfigs.release`, and reads the password/alias from `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`. the keystore secret must be the legacy upload key (or a key authorised for the same Play app) so play accepts the in-place upgrade. the generated `android/` directory is gitignored, so local release builds are not signed for play; use the tag workflow.
+  - **blocked:** requires a physical device and access to the play testing tracks; cannot be completed from the repository alone.
 
 ## playback & audio
 
