@@ -187,22 +187,30 @@ jobs:
       - name: Generate Android Native Project (Expo Prebuild)
         run: npx expo prebuild --platform android --no-install
 
-      - name: Configure Gradle Wrapper & Mirrors
+      - name: Pre-download & Verify Gradle 9.3.1 Distribution
         run: |
-          # Use reliable CDN mirror to bypass services.gradle.org / GitHub releases 504 gateway timeout
-          sed -i 's|distributionUrl=.*|distributionUrl=https\\://mirrors.cloud.tencent.com/gradle/gradle-9.3.1-bin.zip|' android/gradle/wrapper/gradle-wrapper.properties
+          # 1. Download Gradle 9.3.1 with fallback to bypass services.gradle.org 504 outage
+          echo "Downloading Gradle 9.3.1 distribution..."
+          curl -fL --retry 3 --connect-timeout 15 -o /tmp/gradle-9.3.1-bin.zip \
+            https://mirrors.cloud.tencent.com/gradle/gradle-9.3.1-bin.zip || \
+          curl -fL --retry 3 --connect-timeout 15 -o /tmp/gradle-9.3.1-bin.zip \
+            https://services.gradle.org/distributions/gradle-9.3.1-bin.zip
+
+          # 2. Cryptographic SHA-256 verification against official Gradle release checksum
+          echo "b266d5ff6b90eada6dc3b20cb090e3731302e553a27c5d3e4df1f0d76beaff06  /tmp/gradle-9.3.1-bin.zip" | sha256sum -c -
+
+          # 3. Configure Gradle wrapper to load from verified local archive
+          sed -i 's|distributionUrl=.*|distributionUrl=file\\:/tmp/gradle-9.3.1-bin.zip|' android/gradle/wrapper/gradle-wrapper.properties
+          sed -i 's/validateDistributionUrl=.*/validateDistributionUrl=false/' android/gradle/wrapper/gradle-wrapper.properties
           sed -i 's/networkTimeout=.*/networkTimeout=300000/' android/gradle/wrapper/gradle-wrapper.properties
+
+          # 4. Global Gradle network timeouts and retries for dependencies
           mkdir -p ~/.gradle
           cat << 'EOF' > ~/.gradle/gradle.properties
           systemProp.org.gradle.internal.http.connectionTimeout=120000
           systemProp.org.gradle.internal.http.socketTimeout=120000
           systemProp.org.gradle.internal.repository.max.retries=5
           EOF
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "9.3.1"
 
       - name: Configure Release Keystore & Patch Signing Config
         env:
