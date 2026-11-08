@@ -1,5 +1,15 @@
 # changelog
 
+## 2.36.5+77
+
+### user release notes
+
+- deployment streamlining.
+
+### internal notes
+
+- add aliyun maven mirrors as primary repository source in ci to bypass kotlin compiler cdn 504 errors.
+
 ## 2.36.4+76
 
 ### user release notes
