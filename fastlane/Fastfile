@@ -37,4 +37,70 @@ platform :android do
       check_superseded_tracks: false
     )
   end
+
+  desc "Get highest version code on closed track"
+  lane :get_closed_version_code do |options|
+    track_name = options[:track] || "alpha"
+    json_key = ENV["SUPPLY_JSON_KEY"]
+    begin
+      codes = google_play_track_version_codes(
+        track: track_name,
+        package_name: "com.thepmsquare.navidrome_client",
+        json_key: json_key
+      )
+      max_code = (codes || []).map(&:to_i).max || 0
+    rescue => e
+      UI.important("Could not fetch existing track version codes: #{e.message}. Assuming 0.")
+      max_code = 0
+    end
+    UI.message("HIGHEST_CLOSED_VERSION_CODE:#{max_code}")
+    max_code
+  end
+
+  desc "Upload AAB to Google Play Store closed track"
+  lane :upload_closed do |options|
+    aab_path = options[:aab_path] || "android/app/build/outputs/bundle/release/app-release.aab"
+    track_name = options[:track] || "alpha"
+    json_key = ENV["SUPPLY_JSON_KEY"]
+
+    supply(
+      track: track_name,
+      aab: aab_path,
+      json_key: json_key,
+      package_name: "com.thepmsquare.navidrome_client",
+      skip_upload_apk: true,
+      skip_upload_metadata: false,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      validate_only: false,
+      check_superseded_tracks: false
+    )
+  end
+
+  desc "Promote existing release from internal track to closed testing track"
+  lane :promote_to_closed do |options|
+    track_from = options[:from_track] || "internal"
+    track_to = options[:to_track] || "alpha"
+    version_code = options[:version_code]
+    json_key = ENV["SUPPLY_JSON_KEY"]
+
+    supply_args = {
+      track: track_from,
+      track_promote_to: track_to,
+      json_key: json_key,
+      package_name: "com.thepmsquare.navidrome_client",
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_metadata: false,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      validate_only: false,
+      check_superseded_tracks: false
+    }
+    if version_code && !version_code.to_s.empty?
+      supply_args[:version_code] = version_code.to_i
+    end
+
+    supply(supply_args)
+  end
 end

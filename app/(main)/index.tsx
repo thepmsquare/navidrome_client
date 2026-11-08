@@ -1,15 +1,39 @@
-import { useCallback, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import { RefreshControl, ScrollView, View } from "react-native";
 import { Surface, Text } from "react-native-paper";
 
-import { HOME_SECTIONS } from "@/components/home";
+import { HOME_SECTIONS, type HomeSectionDefinition } from "@/components/home";
 import { client_app_sync } from "@/services/api";
+import { getHomeSections, resolveHomeSections } from "@/services/homeSections";
 import { homeStyles } from "@/stylesheets";
 import { useAppTheme } from "@/types";
 
 export default function HomeScreen() {
   const theme = useAppTheme();
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [sections, setSections] =
+    useState<HomeSectionDefinition[]>(HOME_SECTIONS);
+
+  const loadSections = useCallback(() => {
+    getHomeSections()
+      .then((configs) => {
+        setSections(resolveHomeSections(configs));
+      })
+      .catch((err) => {
+        console.error("failed to load home sections:", err);
+      });
+  }, []);
+
+  useEffect(() => {
+    loadSections();
+  }, [loadSections]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadSections();
+    }, [loadSections]),
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -40,7 +64,7 @@ export default function HomeScreen() {
           <Text variant="titleLarge">home</Text>
         </View>
 
-        {HOME_SECTIONS.map((section) => {
+        {sections.map((section) => {
           const SectionComponent = section.component;
           return <SectionComponent key={section.id} />;
         })}
