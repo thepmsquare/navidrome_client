@@ -13,7 +13,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { ChangelogModal } from "@/components/ChangelogModal";
 import { subscribeAuthState } from "@/services/api";
-import { migrateLegacyCredentials } from "@/services/migration/credentials";
+import { runLegacyMigration } from "@/services/migration";
 import { resumePendingDownloadsAfterRestart } from "@/services/songCache";
 import { layoutStyles } from "@/stylesheets";
 import { APP_VERSION_CODE } from "@/utils/constants";
@@ -81,13 +81,13 @@ export default function RootLayout() {
     }
 
     async function initialize() {
-      // one-time import of legacy credentials, guarded by the
-      // `migration.complete` flag. must finish before session restore reads
+      // one-time import of legacy data (credentials + settings), guarded by
+      // the `migration.complete` flag. must finish before session restore reads
       // secure store so a migrated session is treated as logged in.
       try {
-        await migrateLegacyCredentials();
+        await runLegacyMigration();
       } catch (e) {
-        console.error("failed to migrate legacy credentials:", e);
+        console.error("failed to run legacy migration:", e);
       }
 
       await Promise.all([checkToken(), checkVersionCodeUpdate()]);

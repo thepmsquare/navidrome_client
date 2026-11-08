@@ -220,6 +220,23 @@ jobs:
           console.log('Successfully patched android/app/build.gradle for release signing.');
           EOF
 
+      - name: Verify Release Keystore
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
+            echo "error: release signing secrets are not set." >&2
+            exit 1
+          fi
+          keytool -list -v \
+            -keystore android/app/release.keystore \
+            -alias "$ANDROID_KEY_ALIAS" \
+            -storepass "$ANDROID_KEYSTORE_PASSWORD" \
+            | grep -E "Alias name:|SHA1:|SHA256:"
+          echo "Compare these fingerprints with the legacy upload key in Play Console → App integrity."
+
       - name: Write Fastlane Release Notes
         run: |
           mkdir -p fastlane/metadata/android/en-US/changelogs

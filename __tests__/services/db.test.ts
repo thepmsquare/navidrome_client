@@ -20,6 +20,7 @@ import {
   getSongsByAlbumId,
   getSyncMeta,
   initDatabase,
+  SCHEMA_VERSION,
   setSyncMeta,
   updateAlbumPlayStats,
   updateSongCacheLastAccessed,
@@ -111,8 +112,46 @@ describe("db service", () => {
       expect(mockExecSync).toHaveBeenCalledWith(
         expect.stringContaining("PRAGMA journal_mode = WAL;"),
       );
-      initDatabase(db);
-      expect(mockExecSync).toHaveBeenCalledTimes(2);
+      expect(mockExecSync).toHaveBeenCalledWith(
+        expect.stringContaining("CREATE TABLE IF NOT EXISTS sync_meta"),
+      );
+      expect(mockExecSync).toHaveBeenCalledWith(
+        `PRAGMA user_version = ${SCHEMA_VERSION};`,
+      );
+      expect(mockWithTransactionSync).toHaveBeenCalled();
+    });
+
+    it("should skip migrations when the schema is already current", () => {
+      const fakeDb = {
+        execSync: jest.fn(),
+        getFirstSync: jest.fn().mockReturnValue({
+          user_version: SCHEMA_VERSION,
+        }),
+        withTransactionSync: jest.fn(),
+      };
+
+      initDatabase(fakeDb as unknown as ReturnType<typeof getDb>);
+
+      expect(fakeDb.execSync).toHaveBeenCalledTimes(1);
+      expect(fakeDb.execSync).toHaveBeenCalledWith(
+        "PRAGMA journal_mode = WAL;",
+      );
+      expect(fakeDb.withTransactionSync).not.toHaveBeenCalled();
+    });
+
+    it("should apply pending migrations from an older schema", () => {
+      const fakeDb = {
+        execSync: jest.fn(),
+        getFirstSync: jest.fn().mockReturnValue({ user_version: 0 }),
+        withTransactionSync: jest.fn((cb: () => void) => cb()),
+      };
+
+      initDatabase(fakeDb as unknown as ReturnType<typeof getDb>);
+
+      expect(fakeDb.withTransactionSync).toHaveBeenCalledTimes(SCHEMA_VERSION);
+      expect(fakeDb.execSync).toHaveBeenCalledWith(
+        `PRAGMA user_version = ${SCHEMA_VERSION};`,
+      );
     });
   });
 

@@ -27,10 +27,16 @@ internal object LegacyPrefsDecoder {
     "is_logged_in",
     "stop_playback_on_task_removed",
     "auto_save_offline_played",
-    "auto_save_offline_lru_evict"
+    "auto_save_offline_lru_evict",
+    // pre-1.1.0 names, before "download" was renamed to "save offline".
+    "auto_download_played",
+    "auto_download_lru_evict"
   )
 
-  private val LONG_KEYS = listOf("auto_save_offline_max_bytes")
+  private val LONG_KEYS = listOf(
+    "auto_save_offline_max_bytes",
+    "auto_download_max_bytes"
+  )
 
   private val LIST_KEYS = listOf("alternate_server_urls")
 

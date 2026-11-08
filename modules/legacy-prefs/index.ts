@@ -28,6 +28,10 @@ export const LEGACY_PREF_KEYS = {
   autoSaveOfflinePlayed: "flutter.auto_save_offline_played",
   autoSaveOfflineMaxBytes: "flutter.auto_save_offline_max_bytes",
   autoSaveOfflineLruEvict: "flutter.auto_save_offline_lru_evict",
+  // pre-1.1.0 names, before "download" was renamed to "save offline".
+  autoDownloadPlayed: "flutter.auto_download_played",
+  autoDownloadMaxBytes: "flutter.auto_download_max_bytes",
+  autoDownloadLruEvict: "flutter.auto_download_lru_evict",
   homeSections: "flutter.home_sections",
 } as const;
 
@@ -113,15 +117,17 @@ function toPreferences(
     stopPlaybackOnTaskRemoved: asBoolean(
       raw[LEGACY_PREF_KEYS.stopPlaybackOnTaskRemoved],
     ),
-    autoSaveOfflinePlayed: asBoolean(
-      raw[LEGACY_PREF_KEYS.autoSaveOfflinePlayed],
-    ),
-    autoSaveOfflineMaxBytes: asNumber(
-      raw[LEGACY_PREF_KEYS.autoSaveOfflineMaxBytes],
-    ),
-    autoSaveOfflineLruEvict: asBoolean(
-      raw[LEGACY_PREF_KEYS.autoSaveOfflineLruEvict],
-    ),
+    // `auto_download_*` is the pre-1.1.0 name; prefer the newer key when both
+    // exist so a partially upgraded store still resolves to the latest value.
+    autoSaveOfflinePlayed:
+      asBoolean(raw[LEGACY_PREF_KEYS.autoSaveOfflinePlayed]) ??
+      asBoolean(raw[LEGACY_PREF_KEYS.autoDownloadPlayed]),
+    autoSaveOfflineMaxBytes:
+      asNumber(raw[LEGACY_PREF_KEYS.autoSaveOfflineMaxBytes]) ??
+      asNumber(raw[LEGACY_PREF_KEYS.autoDownloadMaxBytes]),
+    autoSaveOfflineLruEvict:
+      asBoolean(raw[LEGACY_PREF_KEYS.autoSaveOfflineLruEvict]) ??
+      asBoolean(raw[LEGACY_PREF_KEYS.autoDownloadLruEvict]),
     homeSections: asString(raw[LEGACY_PREF_KEYS.homeSections]),
   };
 }

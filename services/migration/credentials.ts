@@ -2,10 +2,6 @@ import * as SecureStore from "expo-secure-store";
 
 import { readLegacyPreferencesResult } from "@/modules/legacy-prefs";
 import type { LegacyPrefsReadResult } from "@/modules/legacy-prefs";
-import {
-  isMigrationComplete,
-  markMigrationComplete,
-} from "@/services/migration/state";
 import type { ServerUrlItem } from "@/types";
 
 /**
@@ -20,7 +16,6 @@ const PRIMARY_URL_LABEL = "server url";
 
 export type CredentialMigrationResult =
   | { status: "migrated"; serverUrl: string; alternateUrlCount: number }
-  | { status: "already-complete" }
   | { status: "no-legacy-data" }
   | { status: "skipped"; reason: "logged-out" | "incomplete-credentials" | "unreadable-prefs" }
   | { status: "failed"; error: unknown };
@@ -64,31 +59,16 @@ function buildServerUrls(
   return serverUrls;
 }
 
-async function markComplete(
-  result: CredentialMigrationResult,
-): Promise<CredentialMigrationResult> {
-  try {
-    await markMigrationComplete();
-    return result;
-  } catch (error) {
-    console.error("failed to mark legacy migration complete:", error);
-    return { status: "failed", error };
-  }
-}
-
 /**
  * one-time import of the credentials written by the legacy flutter app into
- * secure store, followed by the migration flag.
+ * secure store. the caller is responsible for the `migration.complete` flag so
+ * settings can be imported in the same run.
  *
  * every failure is logged and reported instead of thrown so startup can fall
  * back to the connect screen. partial writes are safe: a retry overwrites them
  * with the same values.
  */
 export async function migrateLegacyCredentials(): Promise<CredentialMigrationResult> {
-  if (await isMigrationComplete()) {
-    return { status: "already-complete" };
-  }
-
   // an unexpected throw (or a corrupt preference file) must not crash startup
   // or retry forever. log it, leave the legacy store untouched, and let the
   // session restore fall back to the connect screen.
@@ -105,11 +85,11 @@ export async function migrateLegacyCredentials(): Promise<CredentialMigrationRes
       "legacy credentials are unreadable, falling back to connect:",
       readResult.errors,
     );
-    return markComplete({ status: "skipped", reason: "unreadable-prefs" });
+    return { status: "skipped", reason: "unreadable-prefs" };
   }
 
   if (readResult.status !== "ok") {
-    return markComplete({ status: "no-legacy-data" });
+    return { status: "no-legacy-data" };
   }
 
   const legacy = readResult.preferences;
@@ -117,7 +97,7 @@ export async function migrateLegacyCredentials(): Promise<CredentialMigrationRes
   // the legacy app clears its preferences on logout, so this only guards
   // against a file that survived a partial logout.
   if (legacy.isLoggedIn === false) {
-    return markComplete({ status: "skipped", reason: "logged-out" });
+    return { status: "skipped", reason: "logged-out" };
   }
 
   const serverUrl = normalizeServerUrl(legacy.serverUrl);
@@ -125,13 +105,12 @@ export async function migrateLegacyCredentials(): Promise<CredentialMigrationRes
   const password = legacy.password?.trim();
 
   if (!serverUrl || !username || !password) {
-    return markComplete({ status: "skipped", reason: "incomplete-credentials" });
+    return { status: "skipped", reason: "incomplete-credentials" };
   }
 
   const serverUrls = buildServerUrls(serverUrl, legacy.alternateServerUrls);
 
   try {
-    // order matters: credentials first, flag last.
     await SecureStore.setItemAsync("subsonicVersion", LEGACY_SUBSONIC_VERSION);
     await SecureStore.setItemAsync("serverUrl", serverUrl);
     await SecureStore.setItemAsync("serverUrlLabel", PRIMARY_URL_LABEL);
@@ -143,9 +122,9 @@ export async function migrateLegacyCredentials(): Promise<CredentialMigrationRes
     return { status: "failed", error };
   }
 
-  return markComplete({
+  return {
     status: "migrated",
     serverUrl,
     alternateUrlCount: serverUrls.length - 1,
-  });
+  };
 }

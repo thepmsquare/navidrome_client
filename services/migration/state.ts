@@ -11,6 +11,13 @@ import * as SecureStore from "expo-secure-store";
 export const MIGRATION_COMPLETE_KEY = "migration.complete";
 
 /**
+ * value stored under {@link MIGRATION_COMPLETE_KEY}. bump it whenever a new
+ * migration step is added so installs that completed an older version rerun
+ * the idempotent steps; the previous credentials-only build wrote "true".
+ */
+export const MIGRATION_COMPLETE_VALUE = "2";
+
+/**
  * returns true when the flag cannot be read, so an unreadable flag can never
  * trigger a second import that overwrites credentials set after migration.
  * the next launch retries the read.
@@ -18,7 +25,7 @@ export const MIGRATION_COMPLETE_KEY = "migration.complete";
 export async function isMigrationComplete(): Promise<boolean> {
   try {
     const value = await SecureStore.getItemAsync(MIGRATION_COMPLETE_KEY);
-    return value === "true";
+    return value === MIGRATION_COMPLETE_VALUE;
   } catch (error) {
     console.error("failed to read migration state:", error);
     return true;
@@ -27,5 +34,8 @@ export async function isMigrationComplete(): Promise<boolean> {
 
 /** may reject; callers decide whether a failed flag write is fatal. */
 export async function markMigrationComplete(): Promise<void> {
-  await SecureStore.setItemAsync(MIGRATION_COMPLETE_KEY, "true");
+  await SecureStore.setItemAsync(
+    MIGRATION_COMPLETE_KEY,
+    MIGRATION_COMPLETE_VALUE,
+  );
 }

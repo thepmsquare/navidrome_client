@@ -41,6 +41,26 @@ class LegacyPrefsDecoderTest {
   }
 
   @Test
+  fun `decodes pre-1_1_0 auto_download setting names`() {
+    val decoded = LegacyPrefsDecoder.decode(
+      mapOf(
+        "flutter.auto_download_played" to false,
+        "flutter.auto_download_lru_evict" to true,
+        "flutter.auto_download_max_bytes" to 2_147_483_648L
+      )
+    )
+
+    assertEquals(
+      mapOf(
+        "flutter.auto_download_played" to false,
+        "flutter.auto_download_lru_evict" to true,
+        "flutter.auto_download_max_bytes" to 2_147_483_648L
+      ),
+      decoded
+    )
+  }
+
+  @Test
   fun `omits absent keys`() {
     val decoded = LegacyPrefsDecoder.decode(
       mapOf("flutter.server_url" to "https://music.example.com")

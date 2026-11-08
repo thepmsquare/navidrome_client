@@ -4,14 +4,17 @@
 
 ### user release notes
 
-- migration logic from v1 (wip).
+- upgrading from v1 keeps your server login and playback settings.
 
 ### internal notes
 
 - add `legacy-prefs` native module for reading legacy flutter preferences (credentials + settings) at startup.
 - add one-time migration of legacy flutter credentials into secure store, guarded by a `migration.complete` flag.
-- run legacy credential migration at startup, before session restore.
-- treat unreadable legacy preferences as a safe fallback: log, keep the old store untouched, and continue to the connect screen.
+- run the full legacy migration at startup, before session restore.
+- migrate legacy settings: auto-cache toggle/size, keep-playing-on-dismiss (inverted from `stop_playback_on_task_removed`), and home sections. pre-1.1.0 builds used `auto_download_*` names, which are read as a fallback. missing or invalid values keep the v2 defaults; `auto_save_offline_lru_evict` is ignored because v2 always evicts by lru.
+- make the migration idempotent and failure-safe: both steps run in one pass, the completion flag is written last, write failures retry on the next launch, and unreadable legacy data logs and falls back to connect without wiping data. `migration.complete` now stores `2` so installs from the earlier credentials-only pass re-run the idempotent steps.
+- add versioned sqlite schema migrations using `PRAGMA user_version` and an append-only migration list; pre-versioning databases upgrade through the `IF NOT EXISTS` initial schema.
+- add tests for legacy preference shapes across `1.0.0`/`1.1.0`/`1.3.2`, settings mapping, migration orchestration, startup fallback, and schema versioning.
 
 ## 2.34.0+69
 
