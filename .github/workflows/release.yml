@@ -1,14 +1,18 @@
-name: Release to Internal Track
+name: Release Pipeline
 
 on:
   push:
     tags:
       - 'v*'
-      - '!*-closed*'
   workflow_dispatch:
+    inputs:
+      production_rollout:
+        description: 'Production rollout fraction (e.g. 0.1 for 10%, 1.0 for full rollout)'
+        required: false
+        default: '0.1'
 
 concurrency:
-  group: release-internal-${{ github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -147,8 +151,8 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `release_notes<<${delimiter}\n${notes}\n${delimiter}\n`);
           EOF
 
-  build_and_publish:
-    name: Build & Publish to Internal Track
+  build_and_upload_internal:
+    name: Build & Upload to Internal Track
     needs: check_release
     if: needs.check_release.outputs.should_release == 'true'
     runs-on: ubuntu-latest
@@ -239,11 +243,12 @@ jobs:
           echo "Compare these fingerprints with the legacy upload key in Play Console → App integrity."
 
       - name: Write Fastlane Release Notes
+        env:
+          RELEASE_NOTES: ${{ needs.check_release.outputs.release_notes }}
+          VERSION_CODE: ${{ needs.check_release.outputs.version_code }}
         run: |
           mkdir -p fastlane/metadata/android/en-US/changelogs
-          cat << 'EOF' > fastlane/metadata/android/en-US/changelogs/${{ needs.check_release.outputs.version_code }}.txt
-          ${{ needs.check_release.outputs.release_notes }}
-          EOF
+          node -e 'fs.writeFileSync(`fastlane/metadata/android/en-US/changelogs/${process.env.VERSION_CODE}.txt`, process.env.RELEASE_NOTES || "");'
           echo "Release notes written to fastlane/metadata/android/en-US/changelogs/${{ needs.check_release.outputs.version_code }}.txt"
 
       - name: Build Android Release AAB and APK
@@ -269,3 +274,114 @@ jobs:
           name: app-release-v${{ needs.check_release.outputs.version_code }}.apk
           path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 90
+
+  promote_to_closed:
+    name: Promote to Closed Testing (Alpha)
+    needs: [check_release, build_and_upload_internal]
+    if: needs.check_release.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    environment: closed-testing
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.1"
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Write Fastlane Release Notes
+        env:
+          RELEASE_NOTES: ${{ needs.check_release.outputs.release_notes }}
+          VERSION_CODE: ${{ needs.check_release.outputs.version_code }}
+        run: |
+          mkdir -p fastlane/metadata/android/en-US/changelogs
+          node -e 'fs.writeFileSync(`fastlane/metadata/android/en-US/changelogs/${process.env.VERSION_CODE}.txt`, process.env.RELEASE_NOTES || "");'
+
+      - name: Promote Release via Fastlane
+        env:
+          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          echo "$PLAY_STORE_SERVICE_ACCOUNT_JSON" > /tmp/service-account.json
+          export SUPPLY_JSON_KEY=/tmp/service-account.json
+          bundle exec fastlane android promote_to_closed version_code:${{ needs.check_release.outputs.version_code }}
+
+  promote_to_open:
+    name: Promote to Open Testing (Beta)
+    needs: [check_release, promote_to_closed]
+    if: needs.check_release.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    environment: open-testing
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.1"
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Write Fastlane Release Notes
+        env:
+          RELEASE_NOTES: ${{ needs.check_release.outputs.release_notes }}
+          VERSION_CODE: ${{ needs.check_release.outputs.version_code }}
+        run: |
+          mkdir -p fastlane/metadata/android/en-US/changelogs
+          node -e 'fs.writeFileSync(`fastlane/metadata/android/en-US/changelogs/${process.env.VERSION_CODE}.txt`, process.env.RELEASE_NOTES || "");'
+
+      - name: Promote Release via Fastlane
+        env:
+          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          echo "$PLAY_STORE_SERVICE_ACCOUNT_JSON" > /tmp/service-account.json
+          export SUPPLY_JSON_KEY=/tmp/service-account.json
+          bundle exec fastlane android promote_to_open version_code:${{ needs.check_release.outputs.version_code }}
+
+  promote_to_production:
+    name: Promote to Production
+    needs: [check_release, promote_to_open]
+    if: needs.check_release.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.1"
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Write Fastlane Release Notes
+        env:
+          RELEASE_NOTES: ${{ needs.check_release.outputs.release_notes }}
+          VERSION_CODE: ${{ needs.check_release.outputs.version_code }}
+        run: |
+          mkdir -p fastlane/metadata/android/en-US/changelogs
+          node -e 'fs.writeFileSync(`fastlane/metadata/android/en-US/changelogs/${process.env.VERSION_CODE}.txt`, process.env.RELEASE_NOTES || "");'
+
+      - name: Promote Release via Fastlane
+        env:
+          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          echo "$PLAY_STORE_SERVICE_ACCOUNT_JSON" > /tmp/service-account.json
+          export SUPPLY_JSON_KEY=/tmp/service-account.json
+          bundle exec fastlane android promote_to_production version_code:${{ needs.check_release.outputs.version_code }} rollout:${{ inputs.production_rollout || '0.1' }}

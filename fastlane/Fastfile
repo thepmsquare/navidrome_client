@@ -103,4 +103,62 @@ platform :android do
 
     supply(supply_args)
   end
+
+  desc "Promote existing release from closed testing track to open testing track"
+  lane :promote_to_open do |options|
+    track_from = options[:from_track] || "alpha"
+    track_to = options[:to_track] || "beta"
+    version_code = options[:version_code]
+    json_key = ENV["SUPPLY_JSON_KEY"]
+
+    supply_args = {
+      track: track_from,
+      track_promote_to: track_to,
+      json_key: json_key,
+      package_name: "com.thepmsquare.navidrome_client",
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_metadata: false,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      validate_only: false,
+      check_superseded_tracks: false
+    }
+    if version_code && !version_code.to_s.empty?
+      supply_args[:version_code] = version_code.to_i
+    end
+
+    supply(supply_args)
+  end
+
+  desc "Promote existing release from open testing track to production track"
+  lane :promote_to_production do |options|
+    track_from = options[:from_track] || "beta"
+    track_to = options[:to_track] || "production"
+    version_code = options[:version_code]
+    rollout = options[:rollout]
+    json_key = ENV["SUPPLY_JSON_KEY"]
+
+    supply_args = {
+      track: track_from,
+      track_promote_to: track_to,
+      json_key: json_key,
+      package_name: "com.thepmsquare.navidrome_client",
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_metadata: false,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      validate_only: false,
+      check_superseded_tracks: false
+    }
+    if version_code && !version_code.to_s.empty?
+      supply_args[:version_code] = version_code.to_i
+    end
+    if rollout && !rollout.to_s.empty?
+      supply_args[:rollout] = rollout.to_s
+    end
+
+    supply(supply_args)
+  end
 end

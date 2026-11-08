@@ -198,14 +198,16 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
 ## release & testing
 
 - [x] **closed testing track automation** (`ci-1`)
-  - **task:** add `.github/workflows/release-closed.yml`, fastlane lane `promote_to_closed`, and `npm run release:closed` script for promoting internal releases to closed testing track.
-  - **implementation:** added `scripts/release_closed.js` and `npm run release:closed [versionCode]` to validate locally and push `*-closed` tag. added fastlane lanes `promote_to_closed`, `upload_closed`, and `get_closed_version_code` in `fastlane/Fastfile`. added `.github/workflows/release-closed.yml` to promote releases on Google Play without rebuilding.
+  - **task:** add fastlane lane `promote_to_closed` and automated environment promotion to closed testing track (alpha).
+  - **implementation:** added fastlane `promote_to_closed` in `fastlane/Fastfile` and integrated into unified `.github/workflows/release.yml` with `closed-testing` environment gate for 1-click promotion without rebuilding.
 
-- [ ] **open testing track automation** (`ci-2`)
-  - **task:** add `.github/workflows/release-open.yml` and fastlane lane `upload_open`.
+- [x] **open testing track automation** (`ci-2`)
+  - **task:** add fastlane lane `promote_to_open` and automated environment promotion to open testing track (beta).
+  - **implementation:** added fastlane `promote_to_open` in `fastlane/Fastfile` and integrated into unified `.github/workflows/release.yml` with `open-testing` environment gate for 1-click promotion without rebuilding.
 
-- [ ] **production track automation with staged rollout** (`ci-3`)
-  - **task:** add `.github/workflows/release-prod.yml` and fastlane lane `upload_production` with staged rollout percentages (e.g. 10%, 20%, 50%, 100%).
+- [x] **production track automation with staged rollout** (`ci-3`)
+  - **task:** add fastlane lane `promote_to_production` with staged rollout percentages (e.g. 10%, 20%, 50%, 100%).
+  - **implementation:** added fastlane `promote_to_production` in `fastlane/Fastfile` with configurable `rollout` percentage and integrated into unified `.github/workflows/release.yml` with `production` environment gate.
 
 - [ ] **store listing & compliance** (`store-1`)
   - **task:** update the play store listing (description, screenshots, feature graphic), data safety form, and content rating. confirm [`privacy_policy.html`](./privacy_policy.html) is published.

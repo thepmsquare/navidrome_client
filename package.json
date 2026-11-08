@@ -13,8 +13,8 @@
     "lint": "expo lint",
     "lint:changelog": "node scripts/validate_changelog.js",
     "postinstall": "node scripts/validate_changelog.js",
+    "release": "node scripts/release_internal.js",
     "release:internal": "node scripts/release_internal.js",
-    "release:closed": "node scripts/release_closed.js",
     "test": "jest",
     "pretest": "node scripts/validate_changelog.js"
   },

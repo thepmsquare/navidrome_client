@@ -101,7 +101,8 @@ function releaseInternal() {
   }
 
   console.log(`\nsuccessfully tagged and pushed "${tagName}".`);
-  console.log('github actions workflow will trigger release to internal track.');
+  console.log('github actions workflow will trigger the unified release pipeline.');
+  console.log('after internal upload, approve in github actions to promote to closed, open, and production tracks.');
 }
 
 releaseInternal();
