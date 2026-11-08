@@ -1,5 +1,15 @@
 # changelog
 
+## 2.36.2+74
+
+### user release notes
+
+- deployment streamlining.
+
+### internal notes
+
+- increase gradle wrapper network timeout and add download retries in release workflow.
+
 ## 2.36.1+73
 
 ### user release notes
