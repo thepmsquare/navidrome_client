@@ -183,14 +183,14 @@ jobs:
         with:
           distribution: "temurin"
           java-version: "17"
-          cache: "gradle"
 
       - name: Generate Android Native Project (Expo Prebuild)
         run: npx expo prebuild --platform android --no-install
 
-      - name: Configure Gradle Wrapper Timeout & Properties
+      - name: Configure Gradle Wrapper & Mirrors
         run: |
-          # Increase wrapper download timeout from default 10s (10000ms) to 5m (300000ms)
+          # Use reliable CDN mirror to bypass services.gradle.org / GitHub releases 504 gateway timeout
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://mirrors.cloud.tencent.com/gradle/gradle-9.3.1-bin.zip|' android/gradle/wrapper/gradle-wrapper.properties
           sed -i 's/networkTimeout=.*/networkTimeout=300000/' android/gradle/wrapper/gradle-wrapper.properties
           mkdir -p ~/.gradle
           cat << 'EOF' > ~/.gradle/gradle.properties
@@ -198,6 +198,11 @@ jobs:
           systemProp.org.gradle.internal.http.socketTimeout=120000
           systemProp.org.gradle.internal.repository.max.retries=5
           EOF
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.3.1"
 
       - name: Configure Release Keystore & Patch Signing Config
         env:
