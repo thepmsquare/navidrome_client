@@ -1,5 +1,15 @@
 # changelog
 
+## 2.36.3+75
+
+### user release notes
+
+- deployment streamlining.
+
+### internal notes
+
+- use gradle mirror and setup-gradle action to bypass services.gradle.org 504 gateway timeout.
+
 ## 2.36.2+74
 
 ### user release notes
