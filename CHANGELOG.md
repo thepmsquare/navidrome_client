@@ -1,5 +1,17 @@
 # changelog
 
+## 2.36.1+73
+
+### user release notes
+
+- deployment streamlining.
+
+### internal notes
+
+- consolidate release workflows into unified environment promotion pipeline with github environment protection gates (`closed-testing`, `open-testing`, `production`).
+- add fastlane promotion lanes for open testing (`promote_to_open`) and production (`promote_to_production`).
+- remove obsolete `release:closed` script and dedicated closed release workflow.
+
 ## 2.36.0+71
 
 ### user release notes
