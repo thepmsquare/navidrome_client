@@ -1,8 +1,8 @@
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { useEffect, useMemo, useState } from "react";
-import { useColorScheme } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Alert, useColorScheme } from "react-native";
 import {
   ActivityIndicator,
   MD3DarkTheme,
@@ -13,6 +13,11 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { ChangelogModal } from "@/components/ChangelogModal";
 import { subscribeAuthState } from "@/services/api";
+import {
+  checkLegacyOfflineCache,
+  deleteLegacyOfflineCache,
+  formatBytes,
+} from "@/services/legacyCache";
 import { runLegacyMigration } from "@/services/migration";
 import { resumePendingDownloadsAfterRestart } from "@/services/songCache";
 import { layoutStyles } from "@/stylesheets";
@@ -23,6 +28,7 @@ export default function RootLayout() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showWhatsNew, setShowWhatsNew] = useState(false);
+  const needsInitialSyncRef = useRef(false);
 
   const router = useRouter();
   const segments = useSegments();
@@ -85,7 +91,13 @@ export default function RootLayout() {
       // the `migration.complete` flag. must finish before session restore reads
       // secure store so a migrated session is treated as logged in.
       try {
-        await runLegacyMigration();
+        const migrationResult = await runLegacyMigration();
+        if (
+          migrationResult.status === "migrated" &&
+          migrationResult.credentials.status === "migrated"
+        ) {
+          needsInitialSyncRef.current = true;
+        }
       } catch (e) {
         console.error("failed to run legacy migration:", e);
       }
@@ -116,10 +128,44 @@ export default function RootLayout() {
 
     if (!isLoggedIn && !isAuthRoute) {
       router.replace("/connect");
-    } else if (isLoggedIn && isAuthRoute) {
+    } else if (isLoggedIn && (isAuthRoute || needsInitialSyncRef.current)) {
+      needsInitialSyncRef.current = false;
       router.replace({ pathname: "/sync", params: { initial: "true" } });
     }
   }, [isLoggedIn, isLoading, segments, router]);
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    checkLegacyOfflineCache()
+      .then((info) => {
+        if (info.exists && info.sizeBytes > 0) {
+          Alert.alert(
+            "legacy offline downloads detected",
+            `we found ${formatBytes(info.sizeBytes)} of downloaded music from the previous version of the app. this version cannot use these downloads. delete them now to reclaim storage?`,
+            [
+              { text: "not now", style: "cancel" },
+              {
+                text: "delete and reclaim space",
+                style: "destructive",
+                onPress: async () => {
+                  const res = await deleteLegacyOfflineCache();
+                  if (!res.success) {
+                    Alert.alert(
+                      "error",
+                      "failed to delete legacy offline downloads",
+                    );
+                  }
+                },
+              },
+            ],
+          );
+        }
+      })
+      .catch((e) => {
+        console.error("failed to check legacy offline cache on launch:", e);
+      });
+  }, [isLoading]);
 
   const paperTheme = useMemo(
     () =>

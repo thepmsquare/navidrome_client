@@ -5,12 +5,21 @@
 ### user release notes
 
 - upgrading from v1 keeps your server login and playback settings.
+- initial library sync triggers automatically after upgrading from v1.
+- detect and clean up orphaned legacy offline downloads to reclaim storage.
+- manage primary and alternative server urls, test latency with ping, and switch servers directly in settings.
+- customize order and visibility of home screen sections in settings.
 
 ### internal notes
 
 - add `legacy-prefs` native module for reading legacy flutter preferences (credentials + settings) at startup.
 - add one-time migration of legacy flutter credentials into secure store, guarded by a `migration.complete` flag.
 - run the full legacy migration at startup, before session restore.
+- route to initial sync (`/sync?initial=true`) upon detecting legacy-to-v2 migration.
+- implement orphaned legacy cache cleanup (`off-9`) on launch and in settings (`services/legacyCache.ts`).
+- implement server connection management (`net-2`) in settings with ping latency testing, active url switching, add, remove, and priority reordering (`services/connection.ts`).
+- implement dynamic home screen section ordering and visibility (`ui-1`) in home screen and settings (`services/homeSections.ts`).
+- add closed testing track release workflow (`release-closed.yml`) and fastlane lanes `get_closed_version_code` and `upload_closed` (`ci-1`).
 - migrate legacy settings: auto-cache toggle/size, keep-playing-on-dismiss (inverted from `stop_playback_on_task_removed`), and home sections. pre-1.1.0 builds used `auto_download_*` names, which are read as a fallback. missing or invalid values keep the v2 defaults; `auto_save_offline_lru_evict` is ignored because v2 always evicts by lru.
 - make the migration idempotent and failure-safe: both steps run in one pass, the completion flag is written last, write failures retry on the next launch, and unreadable legacy data logs and falls back to connect without wiping data. `migration.complete` now stores `2` so installs from the earlier credentials-only pass re-run the idempotent steps.
 - add versioned sqlite schema migrations using `PRAGMA user_version` and an append-only migration list; pre-versioning databases upgrade through the `IF NOT EXISTS` initial schema.

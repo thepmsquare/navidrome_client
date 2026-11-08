@@ -61,6 +61,15 @@ jest.mock("@/services/songCache", () => ({
   clearAllAutoCachedSongs: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock("@/services/legacyCache", () => ({
+  checkLegacyOfflineCache: jest.fn().mockResolvedValue({
+    exists: false,
+    sizeBytes: 0,
+    uri: null,
+  }),
+  deleteLegacyOfflineCache: jest.fn().mockResolvedValue({ success: true }),
+}));
+
 jest.mock("@/services/db", () => ({
   getAutoCacheCount: jest.fn().mockReturnValue(0),
   getAutoCacheEnabled: jest.fn().mockReturnValue(true),
@@ -134,8 +143,8 @@ describe("SettingsScreen", () => {
 
     const root = tree.root;
     const switches = root.findAllByType(Switch);
-    // There are 3 switches: autoCache, playback, and haptics
-    expect(switches.length).toBe(3);
+    // There are 3 core switches (autoCache, playback, haptics) plus 6 home section switches
+    expect(switches.length).toBe(9);
 
     const playbackSwitch = switches[1];
     expect(playbackSwitch.props.value).toBe(false);
@@ -316,5 +325,74 @@ describe("SettingsScreen", () => {
     });
 
     expect(setLyricsMode).toHaveBeenCalledWith("online_first");
+  });
+
+  it("renders legacy offline downloads section when cache is present", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { checkLegacyOfflineCache } = require("@/services/legacyCache");
+    (checkLegacyOfflineCache as jest.Mock).mockResolvedValueOnce({
+      exists: true,
+      sizeBytes: 104857600,
+      uri: "file:///test/offline",
+    });
+
+    let component: any;
+    await renderer.act(async () => {
+      component = renderer.create(<SettingsScreen />);
+    });
+
+    const root = component.root;
+    const texts = root
+      .findAllByType(Text)
+      .map((t: any) => t.props.children)
+      .flat();
+
+    expect(texts).toContain("legacy offline downloads");
+
+    const deleteBtn = root
+      .findAllByType(Button)
+      .find((b: any) => {
+        const text = Array.isArray(b.props.children)
+          ? b.props.children.join("")
+          : b.props.children;
+        return text === "delete legacy downloads";
+      });
+    expect(deleteBtn).toBeDefined();
+  });
+
+  it("renders connection section with server urls and allows pinging", async () => {
+    let component: any;
+    await renderer.act(async () => {
+      component = renderer.create(<SettingsScreen />);
+    });
+
+    const root = component.root;
+    const texts = root
+      .findAllByType(Text)
+      .map((t: any) => t.props.children)
+      .flat();
+
+    expect(texts).toContain("connection");
+    expect(texts).toContain("manage server urls and test connectivity");
+  });
+
+  it("renders home sections customization card", async () => {
+    let component: any;
+    await renderer.act(async () => {
+      component = renderer.create(<SettingsScreen />);
+    });
+
+    const root = component.root;
+    const texts = root
+      .findAllByType(Text)
+      .map((t: any) => t.props.children)
+      .flat();
+
+    expect(texts).toContain("home sections");
+    expect(texts).toContain(
+      "customize order and visibility of sections on the home screen",
+    );
+    expect(texts).toContain("most played");
+    expect(texts).toContain("recently played");
   });
 });

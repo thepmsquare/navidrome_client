@@ -30,6 +30,22 @@ jest.mock("@pchmn/expo-material3-theme", () => ({
   useMaterial3Theme: () => ({ theme: { dark: {}, light: {} } }),
 }));
 
+const mockCheckLegacyOfflineCache = jest.fn().mockResolvedValue({
+  exists: false,
+  sizeBytes: 0,
+  uri: null,
+});
+const mockDeleteLegacyOfflineCache = jest.fn().mockResolvedValue({
+  success: true,
+});
+
+jest.mock("@/services/legacyCache", () => ({
+  checkLegacyOfflineCache: () => mockCheckLegacyOfflineCache(),
+  deleteLegacyOfflineCache: () => mockDeleteLegacyOfflineCache(),
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  formatBytes: (bytes: number) => `${bytes} b`,
+}));
+
 const mockReplace = jest.fn();
 
 jest.mock("expo-router", () => {
@@ -126,5 +142,85 @@ describe("RootLayout credential migration", () => {
     });
 
     consoleError.mockRestore();
+  });
+
+  it("redirects to the sync screen with initial=true after a successful legacy migration", async () => {
+    mockMigrate.mockResolvedValue({
+      status: "migrated",
+      credentials: {
+        status: "migrated",
+        serverUrl: "https://music.example.com",
+        alternateUrlCount: 0,
+      },
+      settings: { status: "applied", applied: [] },
+    });
+    mockGetItem.mockImplementation(async (key: string) => {
+      if (
+        key === "serverUrl" ||
+        key === "subsonicVersion" ||
+        key === "username" ||
+        key === "password"
+      ) {
+        return "val";
+      }
+      return null;
+    });
+
+    let tree: renderer.ReactTestRenderer;
+
+    await act(async () => {
+      tree = renderer.create(<RootLayout />);
+    });
+
+    expect(mockReplace).toHaveBeenCalledWith({
+      pathname: "/sync",
+      params: { initial: "true" },
+    });
+
+    await act(async () => {
+      tree!.unmount();
+    });
+  });
+
+  it("prompts the user to clean up legacy offline downloads when detected on launch", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const alertSpy = jest.spyOn(require("react-native").Alert, "alert");
+    mockCheckLegacyOfflineCache.mockResolvedValueOnce({
+      exists: true,
+      sizeBytes: 52428800,
+      uri: "file:///test/offline",
+    });
+
+    let tree: renderer.ReactTestRenderer;
+
+    await act(async () => {
+      tree = renderer.create(<RootLayout />);
+    });
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      "legacy offline downloads detected",
+      expect.stringContaining("52428800 b"),
+      expect.arrayContaining([
+        expect.objectContaining({ text: "not now", style: "cancel" }),
+        expect.objectContaining({ text: "delete and reclaim space" }),
+      ]),
+    );
+
+    const deleteButton = (alertSpy.mock.calls[0][2] as any[])?.find(
+      (btn: any) => btn.text === "delete and reclaim space",
+    );
+    expect(deleteButton).toBeDefined();
+
+    await act(async () => {
+      await deleteButton?.onPress?.();
+    });
+
+    expect(mockDeleteLegacyOfflineCache).toHaveBeenCalled();
+
+    await act(async () => {
+      tree!.unmount();
+    });
+
+    alertSpy.mockRestore();
   });
 });

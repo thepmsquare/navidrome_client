@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, View } from "react-native";
 import {
   Button,
+  Chip,
+  IconButton,
   RadioButton,
   Surface,
   Switch,
@@ -13,6 +15,21 @@ import {
 
 import { exportBackupToFile } from "@/services/backup";
 import { logout } from "@/services/session";
+import {
+  addServerUrl,
+  getServerConnectionState,
+  pingServerUrl,
+  removeServerUrl,
+  saveServerUrls,
+  switchActiveServerUrl,
+} from "@/services/connection";
+import {
+  getHomeSections,
+  HOME_SECTION_LABELS,
+  saveHomeSections,
+} from "@/services/homeSections";
+import type { ServerUrlItem } from "@/types/auth";
+import type { HomeSectionConfig } from "@/types";
 import {
   getAutoCacheCount,
   getAutoCacheEnabled,
@@ -40,6 +57,10 @@ import {
   usePlayerState,
 } from "@/services/player";
 import { clearAllAutoCachedSongs } from "@/services/songCache";
+import {
+  checkLegacyOfflineCache,
+  deleteLegacyOfflineCache,
+} from "@/services/legacyCache";
 import { ChangelogModal } from "@/components/ChangelogModal";
 import { settingsStyles } from "@/stylesheets";
 import { LyricsMode, useAppTheme } from "@/types";
@@ -70,19 +91,17 @@ export default function SettingsScreen() {
   const [serverUrl, setServerUrl] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [changelogVisible, setChangelogVisible] = useState(false);
+  const [legacyCacheBytes, setLegacyCacheBytes] = useState(0);
+  const [clearingLegacyCache, setClearingLegacyCache] = useState(false);
 
-  useEffect(() => {
-    async function loadData() {
-      const version = await SecureStore.getItemAsync("subsonicVersion");
-      const url = await SecureStore.getItemAsync("serverUrl");
-      const user = await SecureStore.getItemAsync("username");
-      setSubsonicVersion(version);
-      setServerUrl(url);
-      setUsername(user);
-    }
-
-    loadData();
-  }, []);
+  const [serverUrls, setServerUrls] = useState<ServerUrlItem[]>([]);
+  const [newServerUrl, setNewServerUrl] = useState("");
+  const [newServerLabel, setNewServerLabel] = useState("");
+  const [showAddServer, setShowAddServer] = useState(false);
+  const [pingLatencies, setPingLatencies] = useState<
+    Record<string, { latencyMs?: number; error?: string; testing?: boolean }>
+  >({});
+  const [homeSections, setHomeSections] = useState<HomeSectionConfig[]>([]);
 
   const [exporting, setExporting] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -115,6 +134,45 @@ export default function SettingsScreen() {
   );
 
   useEffect(() => {
+    async function loadData() {
+      const version = await SecureStore.getItemAsync("subsonicVersion");
+      const url = await SecureStore.getItemAsync("serverUrl");
+      const user = await SecureStore.getItemAsync("username");
+      setSubsonicVersion(version);
+      setServerUrl(url);
+      setUsername(user);
+
+      try {
+        const conn = await getServerConnectionState();
+        setServerUrls(conn.serverUrls);
+        if (conn.activeUrl) {
+          setServerUrl(conn.activeUrl);
+        }
+      } catch (e) {
+        console.error("failed to load connection state in settings:", e);
+      }
+
+      try {
+        const sections = await getHomeSections();
+        setHomeSections(sections);
+      } catch (e) {
+        console.error("failed to load home sections in settings:", e);
+      }
+
+      try {
+        const legacyCache = await checkLegacyOfflineCache();
+        if (legacyCache.exists) {
+          setLegacyCacheBytes(legacyCache.sizeBytes);
+        }
+      } catch (e) {
+        console.error("failed to check legacy cache in settings:", e);
+      }
+    }
+
+    loadData();
+  }, []);
+
+  useEffect(() => {
     return subscribeLyricsMode((mode) => {
       setLyricsModeState(mode);
     });
@@ -135,6 +193,125 @@ export default function SettingsScreen() {
     if (nextValue) {
       triggerHapticSelection();
     }
+  }
+
+  async function handlePingUrl(targetUrl: string) {
+    setPingLatencies((prev) => ({
+      ...prev,
+      [targetUrl]: { testing: true },
+    }));
+
+    try {
+      const result = await pingServerUrl(targetUrl);
+      setPingLatencies((prev) => ({
+        ...prev,
+        [targetUrl]: { latencyMs: result.latencyMs, testing: false },
+      }));
+    } catch {
+      setPingLatencies((prev) => ({
+        ...prev,
+        [targetUrl]: { error: "unreachable", testing: false },
+      }));
+    }
+  }
+
+  function handlePingAll() {
+    serverUrls.forEach((item) => {
+      handlePingUrl(item.url);
+    });
+  }
+
+  async function handleSwitchActiveUrl(target: ServerUrlItem) {
+    try {
+      await switchActiveServerUrl(target.url, target.label);
+      setServerUrl(target.url);
+      triggerHapticSelection();
+      Alert.alert(
+        "connection",
+        `switched active server to ${target.label || target.url}`,
+      );
+    } catch (err: any) {
+      Alert.alert("error", err?.message || "failed to switch active server");
+    }
+  }
+
+  async function handleAddServerUrl() {
+    if (!newServerUrl.trim()) {
+      Alert.alert("error", "please enter a valid server url");
+      return;
+    }
+
+    try {
+      const updated = await addServerUrl(newServerUrl, newServerLabel);
+      setServerUrls(updated);
+      setNewServerUrl("");
+      setNewServerLabel("");
+      setShowAddServer(false);
+      triggerHapticSelection();
+    } catch (err: any) {
+      Alert.alert("error", err?.message || "failed to add server url");
+    }
+  }
+
+  function handleRemoveServerUrl(targetUrl: string) {
+    Alert.alert(
+      "remove server url",
+      "are you sure you want to remove this server url?",
+      [
+        { text: "cancel", style: "cancel" },
+        {
+          text: "remove",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const updated = await removeServerUrl(targetUrl);
+              setServerUrls(updated);
+              triggerHapticSelection();
+            } catch (err: any) {
+              Alert.alert(
+                "error",
+                err?.message || "failed to remove server url",
+              );
+            }
+          },
+        },
+      ],
+    );
+  }
+
+  async function handleMoveServerUrl(index: number, direction: "up" | "down") {
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= serverUrls.length) return;
+
+    const copy = [...serverUrls];
+    const [moved] = copy.splice(index, 1);
+    copy.splice(targetIndex, 0, moved);
+
+    setServerUrls(copy);
+    await saveServerUrls(copy);
+    triggerHapticSelection();
+  }
+
+  async function handleToggleSectionVisibility(id: string) {
+    const updated = homeSections.map((sec) =>
+      sec.id === id ? { ...sec, visible: !sec.visible } : sec,
+    );
+    setHomeSections(updated);
+    await saveHomeSections(updated);
+    triggerHapticSelection();
+  }
+
+  async function handleMoveSection(index: number, direction: "up" | "down") {
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= homeSections.length) return;
+
+    const copy = [...homeSections];
+    const [moved] = copy.splice(index, 1);
+    copy.splice(targetIndex, 0, moved);
+
+    setHomeSections(copy);
+    await saveHomeSections(copy);
+    triggerHapticSelection();
   }
 
 
@@ -183,6 +360,45 @@ export default function SettingsScreen() {
       setAutoCacheEnabledState(false);
       setAutoCacheUsageBytes(0);
     }
+  }
+
+  async function handleCleanLegacyCache() {
+    Alert.alert(
+      "delete legacy offline downloads",
+      `delete ${formatSize(legacyCacheBytes)} of legacy downloads? this cannot be undone.`,
+      [
+        { text: "cancel", style: "cancel" },
+        {
+          text: "delete",
+          style: "destructive",
+          onPress: async () => {
+            setClearingLegacyCache(true);
+            try {
+              const res = await deleteLegacyOfflineCache();
+              if (res.success) {
+                setLegacyCacheBytes(0);
+                Alert.alert(
+                  "success",
+                  "legacy offline downloads removed successfully",
+                );
+              } else {
+                Alert.alert(
+                  "error",
+                  "failed to delete legacy offline downloads",
+                );
+              }
+            } catch (error: any) {
+              Alert.alert(
+                "error",
+                error?.message || "failed to delete legacy offline downloads",
+              );
+            } finally {
+              setClearingLegacyCache(false);
+            }
+          },
+        },
+      ],
+    );
   }
 
   function handleLimitChange(text: string) {
@@ -297,7 +513,7 @@ export default function SettingsScreen() {
             { backgroundColor: theme.colors.surfaceContainerHighest },
           ]}
         >
-          <Text variant="titleMedium">connection</Text>
+          <Text variant="titleMedium">account</Text>
           <View style={settingsStyles.infoRow}>
             <Text
               variant="labelLarge"
@@ -359,6 +575,207 @@ export default function SettingsScreen() {
               {audioDevice.name} ({audioDevice.type})
             </Text>
           </View>
+        </Surface>
+
+        <Surface
+          elevation={0}
+          style={[
+            settingsStyles.sectionCard,
+            { backgroundColor: theme.colors.surfaceContainerHighest },
+          ]}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <Text variant="titleMedium">connection</Text>
+            {serverUrls.length > 0 && (
+              <Button mode="text" compact onPress={handlePingAll}>
+                test all
+              </Button>
+            )}
+          </View>
+          <Text
+            variant="bodyMedium"
+            style={{ color: theme.colors.onSurfaceVariant }}
+          >
+            manage server urls and test connectivity
+          </Text>
+
+          {serverUrls.map((item, index) => {
+            const isActive = item.url === serverUrl;
+            const pingStatus = pingLatencies[item.url];
+
+            return (
+              <Surface
+                key={item.url}
+                elevation={1}
+                style={{
+                  padding: spacing.md,
+                  borderRadius: 12,
+                  backgroundColor: theme.colors.surfaceContainerLow,
+                  gap: spacing.xs,
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <View style={{ flex: 1, gap: 2, marginRight: spacing.sm }}>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: spacing.xs,
+                      }}
+                    >
+                      <Text variant="titleSmall" style={{ fontWeight: "600" }}>
+                        {item.label || "server url"}
+                      </Text>
+                      {isActive && (
+                        <Chip compact textStyle={{ fontSize: 10 }}>
+                          active
+                        </Chip>
+                      )}
+                    </View>
+                    <Text
+                      variant="bodySmall"
+                      numberOfLines={1}
+                      ellipsizeMode="middle"
+                      style={{ color: theme.colors.onSurfaceVariant }}
+                    >
+                      {item.url}
+                    </Text>
+                  </View>
+
+                  {pingStatus?.testing ? (
+                    <Text
+                      variant="labelSmall"
+                      style={{ color: theme.colors.primary }}
+                    >
+                      pinging...
+                    </Text>
+                  ) : pingStatus?.latencyMs !== undefined ? (
+                    <Text
+                      variant="labelSmall"
+                      style={{ color: theme.colors.primary }}
+                    >
+                      {pingStatus.latencyMs} ms
+                    </Text>
+                  ) : pingStatus?.error ? (
+                    <Text
+                      variant="labelSmall"
+                      style={{ color: theme.colors.error }}
+                    >
+                      {pingStatus.error}
+                    </Text>
+                  ) : null}
+                </View>
+
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                    gap: 4,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <IconButton
+                    icon="arrow-up"
+                    size={18}
+                    disabled={index === 0}
+                    onPress={() => handleMoveServerUrl(index, "up")}
+                    accessibilityLabel="move up"
+                  />
+                  <IconButton
+                    icon="arrow-down"
+                    size={18}
+                    disabled={index === serverUrls.length - 1}
+                    onPress={() => handleMoveServerUrl(index, "down")}
+                    accessibilityLabel="move down"
+                  />
+                  <Button
+                    mode="outlined"
+                    compact
+                    loading={pingStatus?.testing}
+                    onPress={() => handlePingUrl(item.url)}
+                  >
+                    test ping
+                  </Button>
+                  {!isActive && (
+                    <Button
+                      mode="contained-tonal"
+                      compact
+                      onPress={() => handleSwitchActiveUrl(item)}
+                    >
+                      set active
+                    </Button>
+                  )}
+                  {!isActive && serverUrls.length > 1 && (
+                    <IconButton
+                      icon="delete-outline"
+                      size={18}
+                      iconColor={theme.colors.error}
+                      onPress={() => handleRemoveServerUrl(item.url)}
+                      accessibilityLabel="remove"
+                    />
+                  )}
+                </View>
+              </Surface>
+            );
+          })}
+
+          {showAddServer ? (
+            <View style={{ gap: spacing.sm, marginTop: spacing.xs }}>
+              <TextInput
+                mode="outlined"
+                label="server url"
+                placeholder="http://..."
+                value={newServerUrl}
+                onChangeText={setNewServerUrl}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TextInput
+                mode="outlined"
+                label="label (optional)"
+                placeholder="home wifi"
+                value={newServerLabel}
+                onChangeText={setNewServerLabel}
+                autoCapitalize="none"
+              />
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "flex-end",
+                  gap: spacing.sm,
+                }}
+              >
+                <Button mode="text" onPress={() => setShowAddServer(false)}>
+                  cancel
+                </Button>
+                <Button mode="contained" onPress={handleAddServerUrl}>
+                  add
+                </Button>
+              </View>
+            </View>
+          ) : (
+            <Button
+              mode="outlined"
+              icon="plus"
+              onPress={() => setShowAddServer(true)}
+              style={{ marginTop: spacing.xs }}
+            >
+              add alternative url
+            </Button>
+          )}
         </Surface>
 
         <Surface
@@ -456,6 +873,45 @@ export default function SettingsScreen() {
             disabled={!autoCacheEnabled || clearingAutoCache}
           />
         </Surface>
+
+        {legacyCacheBytes > 0 && (
+          <Surface
+            elevation={0}
+            style={[
+              settingsStyles.sectionCard,
+              { backgroundColor: theme.colors.surfaceContainerHighest },
+            ]}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <View style={{ flex: 1, paddingRight: spacing.sm }}>
+                <Text variant="titleMedium">legacy offline downloads</Text>
+                <Text
+                  variant="bodyMedium"
+                  style={{ color: theme.colors.onSurfaceVariant }}
+                >
+                  {formatSize(legacyCacheBytes)} of downloaded music from the previous version of the app. these downloads cannot be played in this version.
+                </Text>
+              </View>
+            </View>
+
+            <Button
+              mode="contained-tonal"
+              icon="delete-outline"
+              textColor={theme.colors.error}
+              onPress={handleCleanLegacyCache}
+              loading={clearingLegacyCache}
+              disabled={clearingLegacyCache}
+            >
+              delete legacy downloads
+            </Button>
+          </Surface>
+        )}
 
         <Surface
           elevation={0}
@@ -565,6 +1021,77 @@ export default function SettingsScreen() {
               accessibilityLabel="haptic feedback"
             />
           </View>
+        </Surface>
+
+        <Surface
+          elevation={0}
+          style={[
+            settingsStyles.sectionCard,
+            { backgroundColor: theme.colors.surfaceContainerHighest },
+          ]}
+        >
+          <Text variant="titleMedium">home sections</Text>
+          <Text
+            variant="bodyMedium"
+            style={{ color: theme.colors.onSurfaceVariant }}
+          >
+            customize order and visibility of sections on the home screen
+          </Text>
+
+          {homeSections.map((section, index) => {
+            const label = HOME_SECTION_LABELS[section.id] ?? section.id;
+            return (
+              <View
+                key={section.id}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  paddingVertical: 2,
+                }}
+              >
+                <View
+                  style={{
+                    flex: 1,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: spacing.sm,
+                  }}
+                >
+                  <Switch
+                    value={section.visible}
+                    onValueChange={() =>
+                      handleToggleSectionVisibility(section.id)
+                    }
+                  />
+                  <Text
+                    variant="bodyMedium"
+                    style={{
+                      opacity: section.visible ? 1 : 0.5,
+                    }}
+                  >
+                    {label}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <IconButton
+                    icon="arrow-up"
+                    size={18}
+                    disabled={index === 0}
+                    onPress={() => handleMoveSection(index, "up")}
+                    accessibilityLabel="move up"
+                  />
+                  <IconButton
+                    icon="arrow-down"
+                    size={18}
+                    disabled={index === homeSections.length - 1}
+                    onPress={() => handleMoveSection(index, "down")}
+                    accessibilityLabel="move down"
+                  />
+                </View>
+              </View>
+            );
+          })}
         </Surface>
 
         <Surface

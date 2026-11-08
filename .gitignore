@@ -50,3 +50,6 @@ coverage
 
 # generated artifacts
 assets/changelog.json
+
+# local migration-test APKs and notes (see local-artifacts/NOTES.md)
+/local-artifacts/

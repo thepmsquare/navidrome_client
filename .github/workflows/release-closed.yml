@@ -1,0 +1,106 @@
+name: Promote to Closed Testing Track
+
+on:
+  push:
+    tags:
+      - '*-closed'
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: 'Version code to promote from internal track (leave empty for latest)'
+        required: false
+        default: ''
+      target_track:
+        description: 'Target closed testing track name (default: alpha)'
+        required: false
+        default: 'alpha'
+
+concurrency:
+  group: release-closed
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Promote Release to Closed Track
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.1"
+          cache: "npm"
+
+      - name: Ensure npm version
+        run: npm install -g npm@11.16.0
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Determine Version Code & Release Notes
+        id: parse_release
+        run: |
+          node << 'EOF'
+          const fs = require('fs');
+
+          let versionCode = '${{ inputs.version_code }}'.trim();
+          const targetTrack = '${{ inputs.target_track }}'.trim() || 'alpha';
+
+          if (!versionCode && process.env.GITHUB_REF_TYPE === 'tag') {
+            const tagName = process.env.GITHUB_REF_NAME;
+            // e.g. v2.35.0+70-closed -> extract 70
+            const match = tagName.match(/\+(\d+)-closed$/);
+            if (match) {
+              versionCode = match[1];
+            }
+          }
+
+          if (!versionCode) {
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            versionCode = String(pkg.versionCode);
+          }
+
+          console.log(`Promoting versionCode: ${versionCode} to track: ${targetTrack}`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version_code=${versionCode}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `target_track=${targetTrack}\n`);
+
+          // Extract changelog notes if available
+          const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
+          const sections = changelog.split(/^## /m);
+          let notes = '';
+          if (sections.length >= 2) {
+            const topSection = sections[1];
+            const userNotesMatch = topSection.match(/### user release notes\n([\s\S]*?)(?=\n### |$)/);
+            if (userNotesMatch) {
+              notes = userNotesMatch[1].trim();
+            }
+          }
+
+          const delimiter = 'EOF_NOTES_' + Date.now();
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `release_notes<<${delimiter}\n${notes}\n${delimiter}\n`);
+          EOF
+
+      - name: Write Fastlane Release Notes
+        if: steps.parse_release.outputs.release_notes != ''
+        run: |
+          mkdir -p fastlane/metadata/android/en-US/changelogs
+          cat << 'EOF' > fastlane/metadata/android/en-US/changelogs/${{ steps.parse_release.outputs.version_code }}.txt
+          ${{ steps.parse_release.outputs.release_notes }}
+          EOF
+          echo "Release notes written to fastlane/metadata/android/en-US/changelogs/${{ steps.parse_release.outputs.version_code }}.txt"
+
+      - name: Promote Release via Fastlane
+        env:
+          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          echo "$PLAY_STORE_SERVICE_ACCOUNT_JSON" > /tmp/service-account.json
+          export SUPPLY_JSON_KEY=/tmp/service-account.json
+          bundle exec fastlane android promote_to_closed \
+            from_track:internal \
+            to_track:${{ steps.parse_release.outputs.target_track }} \
+            version_code:${{ steps.parse_release.outputs.version_code }}

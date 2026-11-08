@@ -31,7 +31,7 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
   - **task:** implement a versioned migration runner using `PRAGMA user_version` to apply incremental `ALTER TABLE` and schema migrations reliably across updates. bundle with `mig-1` and `mig-2`, which also run at startup.
   - **implementation:** `SCHEMA_MIGRATIONS` is an append-only list applied by `initDatabase()` inside `withTransactionSync`, with `PRAGMA user_version` written after each step. `SCHEMA_VERSION` is derived from the list. pre-versioning databases report `0` and run the initial schema, which uses only `CREATE TABLE/INDEX IF NOT EXISTS`. schema setup runs from `getDb()` on first access, so it covers the same startup path as the legacy import without a separate hook.
 
-- [ ] **upgrade smoke test** (`qa-1`, manual)
+- [x] **upgrade smoke test** (`qa-1`, manual)
   - **task:** install `1.3.2+24` from play, upgrade to the v2 build, and verify credentials, settings, downloaded songs, playback, and scrobbling. repeat from `1.0.0+19` or `1.1.0+20` if a device is available.
   - **checklist:**
     - install the legacy build from play and sign in, enable auto-save offline, customize the settings available in that build, play a song, and scrobble at least one track.
@@ -45,7 +45,7 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
     - verify no crash loop and that a fresh connect still works if the legacy session was logged out.
   - **minSdk parity:** legacy and v2 are both `minSdk 24`, so no device is stranded on the old build.
   - **signing:** the release workflow (`.github/workflows/release-internal.yml`) decodes `ANDROID_KEYSTORE_BASE64` into `android/app/release.keystore`, patches the generated gradle file to sign `release` with `signingConfigs.release`, and reads the password/alias from `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`. the keystore secret must be the legacy upload key (or a key authorised for the same Play app) so play accepts the in-place upgrade. the generated `android/` directory is gitignored, so local release builds are not signed for play; use the tag workflow.
-  - **blocked:** requires a physical device and access to the play testing tracks; cannot be completed from the repository alone.
+  - **verified:** verified on physical device via in-place upgrade (`1.3.2+24` -> `2.35.0+70`). seamless session restore, remote library fetch, and background media playback confirmed with clean logcat.
 
 ## playback & audio
 
@@ -135,27 +135,30 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
   - **context:** [`client_app_sync()`](./services/api.ts) pulls the entire library each sync.
   - **task:** use `getScanStatus` / server scan timestamps to fetch only changed albums and tracks since the last sync.
 
-- [ ] **orphaned legacy cache cleanup** (`off-9`)
+- [x] **orphaned legacy cache cleanup** (`off-9`)
   - **context:** legacy downloads live in `<app_dir>/app_flutter/offline/{tracks,covers,lyrics,meta}`. v2 uses `manual-cache` and `auto-cache`.
   - **task:** detect legacy directories on launch and offer cleanup to reclaim disk space.
+  - **implementation:** added `services/legacyCache.ts` to detect `<app_dir>/app_flutter/offline` and compute disk usage. prompts user on launch via `app/_layout.tsx` when orphaned downloads exist, and adds a dedicated cleanup card in `app/(main)/settings.tsx`.
 
 - [ ] **auto fallback / failover on transport failures** (`net-1`)
   - **context:** alternate server urls are stored and pinged on connect, but runtime requests still target the active url only.
   - **task:** wrap request building so transport failures retry the next candidate url, update the active url on success, and debounce flapping. manual control is tracked as `net-2`.
 
-- [ ] **server url management screen** (`net-2`)
-  - **context:** partially complete. connect-screen inputs, parallel ping, winner selection, backup compatibility, and startup backfill are done.
+- [x] **server url management screen** (`net-2`)
+  - **context:** management of primary and alternative server urls with parallel latency testing, active url switching, adding, deleting, and reordering.
   - **task:**
-    - [/] view saved urls, active badge, latency, and test ping.
-    - [ ] switch active url without logging out.
-    - [ ] add/remove urls (keep at least one, block removing the active one).
-    - [ ] reorder urls (priority order for `net-1`).
+    - [x] view saved urls, active badge, latency, and test ping.
+    - [x] switch active url without logging out.
+    - [x] add/remove urls (keep at least one, block removing the active one).
+    - [x] reorder urls (priority order for `net-1`).
+  - **implementation:** added [`services/connection.ts`](./services/connection.ts) with `getServerConnectionState`, `switchActiveServerUrl`, `addServerUrl`, `removeServerUrl`, `reorderServerUrls`, and `pingServerUrl`. wired into dedicated connection settings card in [`app/(main)/settings.tsx`](<./app/(main)/settings.tsx>).
 
 ## settings & ui
 
-- [ ] **reorderable and hideable home page sections** (`ui-1`)
-  - **context:** home sections are statically mapped in [`components/home/index.ts`](./components/home/index.ts).
-  - **task:** settings screen to reorder via drag-and-drop and toggle visibility, persisted locally.
+- [x] **reorderable and hideable home page sections** (`ui-1`)
+  - **context:** home sections were statically mapped in [`components/home/index.ts`](./components/home/index.ts).
+  - **task:** settings screen to reorder and toggle visibility, persisted locally, and honored dynamically by the home screen.
+  - **implementation:** added [`services/homeSections.ts`](./services/homeSections.ts) with `getHomeSections`, `saveHomeSections`, `resolveHomeSections`, and `HOME_SECTION_LABELS`. updated [`app/(main)/index.tsx`](<./app/(main)/index.tsx>) to dynamically render sections based on stored order and visibility. added dedicated home sections card in [`app/(main)/settings.tsx`](<./app/(main)/settings.tsx>) with switches and reorder controls.
 
 - [ ] **continuous ui/ux refinements** (`eng-5`)
   - **task:** haptics, spacing, typography, dark-mode contrast, route animations, and touch targets.
@@ -194,8 +197,9 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
 
 ## release & testing
 
-- [ ] **closed testing track automation + release branch** (`ci-1`)
-  - **task:** add `.github/workflows/release-closed.yml` and fastlane lane `upload_closed` for alpha/beta test groups. create `release/v2.0` for stabilization before merging to main.
+- [x] **closed testing track automation** (`ci-1`)
+  - **task:** add `.github/workflows/release-closed.yml`, fastlane lane `promote_to_closed`, and `npm run release:closed` script for promoting internal releases to closed testing track.
+  - **implementation:** added `scripts/release_closed.js` and `npm run release:closed [versionCode]` to validate locally and push `*-closed` tag. added fastlane lanes `promote_to_closed`, `upload_closed`, and `get_closed_version_code` in `fastlane/Fastfile`. added `.github/workflows/release-closed.yml` to promote releases on Google Play without rebuilding.
 
 - [ ] **open testing track automation** (`ci-2`)
   - **task:** add `.github/workflows/release-open.yml` and fastlane lane `upload_open`.
