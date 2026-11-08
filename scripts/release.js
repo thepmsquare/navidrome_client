@@ -12,8 +12,8 @@ function run(cmd, desc) {
   }
 }
 
-function releaseInternal() {
-  console.log('=== release:internal pre-flight checks ===');
+function release() {
+  console.log('=== release pre-flight checks ===');
 
   // 1. Check clean working directory
   const status = execSync('git status --porcelain', { encoding: 'utf8' }).trim();
@@ -105,4 +105,4 @@ function releaseInternal() {
   console.log('after internal upload, approve in github actions to promote to closed, open, and production tracks.');
 }
 
-releaseInternal();
+release();

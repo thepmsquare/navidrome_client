@@ -87,7 +87,7 @@ releases are a fully manually triggered process with no plans of automating the 
 releases are never triggered automatically on branch pushes or pull request merges. instead, an authorized maintainer manually triggers a release from the `main` branch using:
 
 ```bash
-npm run release:internal
+npm run release
 ```
 
-this script executes all automated quality gates (type checking, linting, tests, strict changelog validation with no unreleased sections allowed), tags the commit as `v<version>+<version_code>`, and pushes the tag to trigger deployment.
+this script executes all automated quality gates (type checking, linting, tests, strict changelog validation with no unreleased sections allowed), tags the commit as `v<version>+<version_code>`, and pushes the tag to trigger the unified release pipeline. the pipeline uploads the aab to the google play internal track and pauses at github environment gates (`closed-testing`, `open-testing`, `production`) for 1-click approvals.

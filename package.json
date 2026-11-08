@@ -1,8 +1,8 @@
 {
   "name": "navidrome_client",
   "main": "expo-router/entry",
-  "version": "2.36.0",
-  "versionCode": 71,
+  "version": "2.36.1",
+  "versionCode": 73,
   "repository": "https://github.com/thepmsquare/navidrome_client",
   "scripts": {
     "start": "node scripts/dev.js start",
@@ -13,8 +13,7 @@
     "lint": "expo lint",
     "lint:changelog": "node scripts/validate_changelog.js",
     "postinstall": "node scripts/validate_changelog.js",
-    "release": "node scripts/release_internal.js",
-    "release:internal": "node scripts/release_internal.js",
+    "release": "node scripts/release.js",
     "test": "jest",
     "pretest": "node scripts/validate_changelog.js"
   },
