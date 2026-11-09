@@ -187,9 +187,10 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
 - [ ] **performance & render optimization** (`eng-3`)
   - **task:** profile list rendering (`getItemLayout`, window size, memoization), tune `expo-image` cache, and reduce re-renders from player and download progress.
 
-- [ ] **build pipeline optimization** (`eng-4`)
+- [x] **build pipeline optimization** (`eng-4`)
   - **context:** release builds take 20+ minutes because the aab and apk are built separately and gradle caching is absent.
   - **task:** build the universal apk from the aab with `bundletool` instead of a second `assembleRelease`, add gradle caching and configuration cache, and enable parallel builds.
+  - **implementation:** replaced redundant `assembleRelease` build with fast `bundletool` universal apk extraction from signed aab, increased runner jvm heap to 6gb with g1gc and parallel workers, optimized debug symbols to `SYMBOL_TABLE`, and enabled gradle caching.
 
 - [ ] **local js error log + export** (`dbg-1`)
   - **context:** play vitals only surfaces native crashes and anrs.

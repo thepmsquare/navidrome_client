@@ -203,9 +203,18 @@ jobs:
           sed -i 's|distributionUrl=.*|distributionUrl=file\\:/tmp/gradle-9.3.1-bin.zip|' android/gradle/wrapper/gradle-wrapper.properties
           sed -i 's/validateDistributionUrl=.*/validateDistributionUrl=false/' android/gradle/wrapper/gradle-wrapper.properties
 
-          # 4. Increase dependency download timeouts and retries
+          # 4. Configure high-performance Gradle properties and network timeouts
           mkdir -p ~/.gradle
-          printf 'systemProp.org.gradle.internal.http.connectionTimeout=120000\nsystemProp.org.gradle.internal.http.socketTimeout=120000\nsystemProp.org.gradle.internal.repository.max.retries=10\nsystemProp.org.gradle.internal.repository.initial.backoff=1000\n' > ~/.gradle/gradle.properties
+          cat > ~/.gradle/gradle.properties << 'EOF'
+          systemProp.org.gradle.internal.http.connectionTimeout=120000
+          systemProp.org.gradle.internal.http.socketTimeout=120000
+          systemProp.org.gradle.internal.repository.max.retries=10
+          systemProp.org.gradle.internal.repository.initial.backoff=1000
+          org.gradle.jvmargs=-Xmx6144m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC
+          org.gradle.parallel=true
+          org.gradle.caching=true
+          org.gradle.vfs.watch=false
+          EOF
 
           # 5. Init script: insert aliyun maven mirrors before maven central for all projects
           #    This bypasses jetbrains cdn (which redirects from maven central and returns 504)
@@ -262,18 +271,23 @@ jobs:
             '$1signingConfig signingConfigs.release'
           );
 
-          // 3. Ensure ndk debugSymbolLevel 'FULL' is present in release buildType
+          // 3. Ensure ndk debugSymbolLevel 'SYMBOL_TABLE' is present in release buildType
           if (!content.includes('debugSymbolLevel')) {
             content = content.replace(
               /(buildTypes\s*\{[\s\S]*?release\s*\{)/,
-              '$1\n            ndk {\n                debugSymbolLevel "FULL"\n            }'
+              '$1\n            ndk {\n                debugSymbolLevel "SYMBOL_TABLE"\n            }'
+            );
+          } else {
+            content = content.replace(
+              /debugSymbolLevel\s+['"][^'"]+['"]/,
+              'debugSymbolLevel "SYMBOL_TABLE"'
             );
           }
 
           fs.writeFileSync(gradleFile, content);
           console.log('Successfully patched android/app/build.gradle for release signing and native debug symbols.');
 
-          // 4. Ensure gradle.properties enables minification
+          // 4. Ensure gradle.properties enables minification and allocates sufficient heap
           const propsFile = 'android/gradle.properties';
           if (fs.existsSync(propsFile)) {
             let props = fs.readFileSync(propsFile, 'utf8');
@@ -283,8 +297,9 @@ jobs:
             if (!props.includes('android.enableShrinkResourcesInReleaseBuilds')) {
               props += 'android.enableShrinkResourcesInReleaseBuilds=true\n';
             }
+            props = props.replace(/org\.gradle\.jvmargs=.*/, 'org.gradle.jvmargs=-Xmx6144m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC');
             fs.writeFileSync(propsFile, props);
-            console.log('Successfully verified android.enableMinifyInReleaseBuilds in gradle.properties.');
+            console.log('Successfully verified android.enableMinifyInReleaseBuilds and jvmargs in gradle.properties.');
           }
           EOF
 
@@ -305,6 +320,12 @@ jobs:
             | grep -E "Alias name:|SHA1:|SHA256:"
           echo "Compare these fingerprints with the legacy upload key in Play Console → App integrity."
 
+      - name: Setup Bundletool
+        run: |
+          mkdir -p /opt/bundletool
+          curl -fL --retry 3 --connect-timeout 20 -o /opt/bundletool/bundletool.jar \
+            https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar
+
       - name: Write Fastlane Release Notes
         env:
           RELEASE_NOTES: ${{ needs.check_release.outputs.release_notes }}
@@ -314,14 +335,42 @@ jobs:
           node -e 'fs.writeFileSync(`fastlane/metadata/android/en-US/changelogs/${process.env.VERSION_CODE}.txt`, process.env.RELEASE_NOTES || "");'
           echo "Release notes written to fastlane/metadata/android/en-US/changelogs/${{ needs.check_release.outputs.version_code }}.txt"
 
-      - name: Build Android Release AAB and APK
+      - name: Build Android Release AAB
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           cd android
-          ./gradlew bundleRelease assembleRelease --no-daemon
+          ./gradlew bundleRelease --max-workers=4
+
+      - name: Generate Universal APK with Bundletool
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$ANDROID_KEYSTORE_PASSWORD" > /tmp/ks-pass.txt
+          echo "$ANDROID_KEY_PASSWORD" > /tmp/key-pass.txt
+
+          AAB_FILE="android/app/build/outputs/bundle/release/app-release.aab"
+          APKS_FILE="android/app/build/outputs/bundle/release/app-release.apks"
+          APK_DIR="android/app/build/outputs/apk/release"
+
+          mkdir -p "$APK_DIR"
+          java -jar /opt/bundletool/bundletool.jar build-apks \
+            --bundle="$AAB_FILE" \
+            --output="$APKS_FILE" \
+            --mode=universal \
+            --ks="android/app/release.keystore" \
+            --ks-pass=file:/tmp/ks-pass.txt \
+            --ks-key-alias="$ANDROID_KEY_ALIAS" \
+            --key-pass=file:/tmp/key-pass.txt
+
+          rm -f /tmp/ks-pass.txt /tmp/key-pass.txt
+
+          unzip -p "$APKS_FILE" universal.apk > "$APK_DIR/app-release.apk"
+          echo "Universal APK generated successfully at $APK_DIR/app-release.apk"
 
       - name: Verify Release Build Outputs & Debug Symbols
         run: |
@@ -331,13 +380,22 @@ jobs:
           ls -la android/app/build/outputs/mapping/release/ || true
           ls -la android/app/build/outputs/native-debug-symbols/release/ || true
 
-          # Fallback: if native-debug-symbols.zip was not automatically created by AGP, zip merged unstripped native libs
+          # If native-debug-symbols.zip was not automatically output, extract from AAB metadata or merged libs
           if [ ! -f android/app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip ]; then
-            MERGED_LIBS_DIR=$(find android/app/build/intermediates/merged_native_libs/release -type d -name "lib" 2>/dev/null | head -n 1)
-            if [ -n "$MERGED_LIBS_DIR" ] && [ -d "$MERGED_LIBS_DIR" ]; then
-              echo "Packaging native-debug-symbols.zip from $MERGED_LIBS_DIR..."
-              mkdir -p android/app/build/outputs/native-debug-symbols/release
-              (cd "$MERGED_LIBS_DIR" && zip -r ../../../../../outputs/native-debug-symbols/release/native-debug-symbols.zip .)
+            mkdir -p android/app/build/outputs/native-debug-symbols/release
+            AAB="android/app/build/outputs/bundle/release/app-release.aab"
+            if [ -f "$AAB" ] && unzip -l "$AAB" | grep -q "BUNDLE-METADATA/com.android.tools.build.debugsymbols/"; then
+              echo "Extracting native debug symbols from AAB metadata..."
+              TEMP_SYM_DIR=$(mktemp -d)
+              unzip -q "$AAB" "BUNDLE-METADATA/com.android.tools.build.debugsymbols/*" -d "$TEMP_SYM_DIR"
+              (cd "$TEMP_SYM_DIR/BUNDLE-METADATA/com.android.tools.build.debugsymbols" && zip -r - .) > android/app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip
+              rm -rf "$TEMP_SYM_DIR"
+            else
+              MERGED_LIBS_DIR=$(find android/app/build/intermediates/merged_native_libs/release -type d -name "lib" 2>/dev/null | head -n 1)
+              if [ -n "$MERGED_LIBS_DIR" ] && [ -d "$MERGED_LIBS_DIR" ]; then
+                echo "Packaging native-debug-symbols.zip from $MERGED_LIBS_DIR..."
+                (cd "$MERGED_LIBS_DIR" && zip -r - .) > android/app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip
+              fi
             fi
           fi
 
