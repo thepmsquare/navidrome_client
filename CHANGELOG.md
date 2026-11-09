@@ -64,6 +64,12 @@
 - add fastlane promotion lanes for open testing (`promote_to_open`) and production (`promote_to_production`).
 - remove obsolete `release:closed` script and dedicated closed release workflow.
 
+## 2.36.1+72
+
+### user release notes
+
+- skipped by accident
+
 ## 2.36.0+71
 
 ### user release notes
