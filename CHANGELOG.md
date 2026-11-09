@@ -1,5 +1,15 @@
 # changelog
 
+## 2.37.3+81
+
+### user release notes
+
+- deployment streamlining.
+
+### internal notes
+
+- add cache across runs.
+
 ## 2.37.2+80
 
 ### user release notes
@@ -8,7 +18,7 @@
 
 ### internal notes
 
-- fix ci: restore official google() and mavenCentral() as primary maven repositories with aliyun as fallback to prevent 502 failures on com.android.tools.* artifacts.
+- fix ci: restore official google() and mavenCentral() as primary maven repositories with aliyun as fallback to prevent 502 failures on com.android.tools.\* artifacts.
 
 ## 2.37.1+79
 
