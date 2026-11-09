@@ -1,10 +1,11 @@
 # changelog
 
-## 2.36.6+78
+## 2.37.0+78
 
 ### user release notes
 
 - improvements to crash reporting.
+- improvements to song caching (use background service).
 
 ### internal notes
 

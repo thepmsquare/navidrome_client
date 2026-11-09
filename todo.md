@@ -109,13 +109,13 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
 - [ ] **graceful offline error feedback** (`off-2`)
   - **task:** show non-blocking snackbars when an action requires internet (streaming an uncached song, manual sync while offline). avoid blocking modals or global state flips during transient drops.
 
-- [ ] **download keep-awake mitigation** (`off-3`)
-  - **context:** bulk caching runs in the js runtime and stalls when the app is backgrounded. a foreground service is tracked as `off-4`.
-  - **task:** keep the screen awake during active downloads and display a banner requesting that the app remain open. rely on the existing `resumePendingDownloadsAfterRestart()` for process death.
+- [x] **android foreground service for downloads & caching** (`off-3`)
+  - **context:** bulk caching runs in the js runtime and stalls when the app is backgrounded without an active foreground service.
+  - **task:** attach downloads to an android foreground service (`dataSync`) with an ongoing notification showing progress, song details, and a cancel button, while holding a partial wake lock so downloads finish reliably with the screen off.
 
-- [ ] **android foreground service for downloads & sync** (`off-4`)
-  - **context:** bulk caching and library sync run in the js runtime and stall when the app is suspended.
-  - **task:** attach downloads and sync to a foreground service / workmanager with an ongoing notification showing progress, counts, and cancel.
+- [ ] **android foreground service / workmanager for library sync** (`off-4`)
+  - **context:** large library sync runs in the js runtime and can stall when the app is suspended during initial onboarding or bulk refresh.
+  - **task:** attach library sync to a background worker or foreground service with progress notification.
 
 - [ ] **offline user experience & state transitions** (`off-5`)
   - **task:**

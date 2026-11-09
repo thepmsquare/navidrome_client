@@ -33,6 +33,13 @@ import {
 } from "@/services/songCache";
 import { SongCacheType } from "@/types";
 
+jest.mock("@/modules/download-service", () => ({
+  addDownloadCancelListener: jest.fn(() => ({ remove: jest.fn() })),
+  startDownloadForegroundService: jest.fn(),
+  updateDownloadProgress: jest.fn(),
+  stopDownloadForegroundService: jest.fn(),
+}));
+
 jest.mock("@/services/api", () => ({
   getSongStreamUrl: jest.fn(),
 }));
@@ -960,6 +967,71 @@ describe("songCache service", () => {
       expect(markDownloadActive).toHaveBeenCalledWith("song-reverted-1");
 
       unsub();
+    });
+
+    it("should stop foreground service and clear queue on cancelAllDownloads", () => {
+      const {
+        cancelAllDownloads,
+      } = require("@/services/songCache");
+      const {
+        getDownloadQueueState,
+        removeFromDownloadQueue,
+        clearAllRequestersForSong,
+      } = require("@/services/db");
+      const {
+        stopDownloadForegroundService,
+      } = require("@/modules/download-service");
+
+      (getDownloadQueueState as jest.Mock).mockReturnValue({
+        active: "active-1",
+        pending: ["pending-1", "pending-2"],
+      });
+
+      cancelAllDownloads();
+
+      expect(removeFromDownloadQueue).toHaveBeenCalledWith("active-1");
+      expect(clearAllRequestersForSong).toHaveBeenCalledWith("active-1");
+      expect(removeFromDownloadQueue).toHaveBeenCalledWith("pending-1");
+      expect(removeFromDownloadQueue).toHaveBeenCalledWith("pending-2");
+      expect(stopDownloadForegroundService).toHaveBeenCalled();
+    });
+
+    it("should update foreground service progress when download starts and stop when queue completes", () => {
+      const {
+        updateDownloadProgress,
+        stopDownloadForegroundService,
+      } = require("@/modules/download-service");
+      const {
+        getNextPendingDownload,
+        getDownloadQueueState,
+        getSongById,
+      } = require("@/services/db");
+
+      (getNextPendingDownload as jest.Mock)
+        .mockReturnValueOnce("song-fg-1")
+        .mockReturnValue(null);
+      (getDownloadQueueState as jest.Mock).mockReturnValue({
+        active: "song-fg-1",
+        pending: [],
+      });
+      (getSongById as jest.Mock).mockReturnValue({
+        id: "song-fg-1",
+        title: "Test Song",
+        artist: "Test Artist",
+      });
+
+      tryStartNextDownload();
+
+      expect(updateDownloadProgress).toHaveBeenCalledWith(
+        "downloading song",
+        "Test Song • Test Artist",
+        0,
+        100
+      );
+
+      // When queue has no more downloads, tryStartNextDownload stops service
+      tryStartNextDownload();
+      expect(stopDownloadForegroundService).toHaveBeenCalled();
     });
   });
 });
