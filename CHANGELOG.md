@@ -1,5 +1,15 @@
 # changelog
 
+## 2.37.1+79
+
+### user release notes
+
+- deployment streamlining.
+
+### internal notes
+
+- optimize release build pipeline: generate universal apk with bundletool from signed aab, increase runner jvm heap to 6gb with g1gc, and optimize native debug symbol extraction to symbol_table.
+
 ## 2.37.0+78
 
 ### user release notes
