@@ -1,5 +1,10 @@
 import { Directory, File, Paths } from "expo-file-system";
 
+import {
+  addDownloadCancelListener,
+  stopDownloadForegroundService,
+  updateDownloadProgress,
+} from "@/modules/download-service";
 import { getSongStreamUrl } from "@/services/api";
 import {
   deleteAutoSongCacheEntries,
@@ -141,10 +146,83 @@ const activeControllers = new Map<string, AbortController>();
 const activeAutoControllers = new Map<string, AbortController>();
 let isQueueAdvancing = false;
 
+let lastNotificationUpdateTime = 0;
+let lastReportedPercent = -1;
+
+function syncDownloadNotification(
+  songId: string,
+  progressFraction: number,
+): void {
+  const song = getSongById(songId);
+  const queueState = getDownloadQueueState();
+  const totalRemaining =
+    (queueState.active ? 1 : 0) + queueState.pending.length;
+
+  const title =
+    totalRemaining > 1
+      ? `downloading ${totalRemaining} songs`
+      : "downloading song";
+
+  const songTitle = song?.title || "song";
+  const artist = song?.artist ? ` • ${song.artist}` : "";
+  const text = `${songTitle}${artist}`;
+
+  const progress =
+    progressFraction >= 0 ? Math.round(progressFraction * 100) : 0;
+  const max = progressFraction >= 0 ? 100 : 0;
+
+  updateDownloadProgress(title, text, progress, max);
+}
+
+function updateForegroundProgressThrottled(
+  songId: string,
+  progressFraction: number,
+): void {
+  const now = Date.now();
+  const percent =
+    progressFraction >= 0 ? Math.floor(progressFraction * 100) : -1;
+
+  if (
+    now - lastNotificationUpdateTime < 500 &&
+    Math.abs(percent - lastReportedPercent) < 5
+  ) {
+    return;
+  }
+
+  lastNotificationUpdateTime = now;
+  lastReportedPercent = percent;
+  syncDownloadNotification(songId, progressFraction);
+}
+
+export function cancelAllDownloads(): void {
+  for (const songId of Array.from(activeControllers.keys())) {
+    cancelSongCaching(songId);
+  }
+  const queueState = getDownloadQueueState();
+  if (queueState.active) {
+    removeFromDownloadQueue(queueState.active);
+    clearAllRequestersForSong(queueState.active);
+  }
+  for (const songId of queueState.pending) {
+    removeFromDownloadQueue(songId);
+    clearAllRequestersForSong(songId);
+  }
+  stopDownloadForegroundService();
+  notifyCacheQueueUpdated();
+}
+
+addDownloadCancelListener(() => {
+  cancelAllDownloads();
+});
+
 export function dequeuePendingSong(songId: string): void {
   removeFromDownloadQueue(songId);
   clearAllRequestersForSong(songId);
   notifyCacheQueueUpdated();
+  const queueState = getDownloadQueueState();
+  if (!queueState.active && queueState.pending.length === 0) {
+    stopDownloadForegroundService();
+  }
 }
 
 export function tryStartNextDownload(): void {
@@ -153,11 +231,16 @@ export function tryStartNextDownload(): void {
   }
   const nextSongId = getNextPendingDownload();
   if (!nextSongId) {
+    stopDownloadForegroundService();
     return;
   }
   isQueueAdvancing = true;
   markDownloadActive(nextSongId);
   notifyCacheQueueUpdated();
+
+  lastNotificationUpdateTime = 0;
+  lastReportedPercent = -1;
+  syncDownloadNotification(nextSongId, 0);
 
   (async () => {
     try {
@@ -277,6 +360,7 @@ export async function cacheSongManually(
           }
           notifySongCacheProgress(songId, progressFraction);
           onProgress?.(progressFraction);
+          updateForegroundProgressThrottled(songId, progressFraction);
         },
       },
     );
@@ -492,6 +576,7 @@ export async function clearAllAutoCachedSongs(): Promise<void> {
 }
 
 export async function clearAllCachedSongs(): Promise<void> {
+  stopDownloadForegroundService();
   // Cancel and abort all in-flight caching operations
   activeControllers.forEach((controller) => {
     try {

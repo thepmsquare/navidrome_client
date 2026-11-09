@@ -1,0 +1,9 @@
+{
+  "name": "download-service",
+  "platforms": ["android"],
+  "android": {
+    "package": "expo.modules.downloadservice",
+    "modules": ["expo.modules.downloadservice.DownloadServiceModule"]
+  }
+}
+
