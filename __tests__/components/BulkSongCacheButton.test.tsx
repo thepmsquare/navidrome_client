@@ -1,6 +1,6 @@
 import React from "react";
 import { Alert } from "react-native";
-import { Button } from "react-native-paper";
+import { Button, IconButton } from "react-native-paper";
 import renderer from "react-test-renderer";
 
 import { BulkSongCacheButton } from "@/components/BulkSongCacheButton";
@@ -629,6 +629,90 @@ describe("BulkSongCacheButton", () => {
     renderer.act(() => {
       componentA.unmount();
       componentB.unmount();
+    });
+  });
+
+  describe("compact mode", () => {
+    it("renders compact IconButton with download-outline when uncached", () => {
+      let component: any;
+      renderer.act(() => {
+        component = renderer.create(
+          <BulkSongCacheButton
+            compact
+            sourceKey="album:123"
+            songIds={["song-1", "song-2"]}
+            cacheEntries={new Map()}
+          />,
+        );
+      });
+
+      const iconBtn = component.root.findByType(IconButton);
+      expect(iconBtn).toBeDefined();
+      expect(iconBtn.props.icon).toBe("download-outline");
+      expect(iconBtn.props.accessibilityLabel).toBe("make available offline");
+
+      renderer.act(() => {
+        component.unmount();
+      });
+    });
+
+    it("renders compact IconButton with check-circle when fully cached", () => {
+      const cacheEntries = new Map<string, SongCacheRow>([
+        [
+          "song-1",
+          {
+            songId: "song-1",
+            cacheType: SongCacheType.Manual,
+            filePath: "/test/1.mp3",
+            fileSizeBytes: 100,
+            addedAt: "2026-01-01",
+            lastAccessedAt: null,
+          },
+        ],
+      ]);
+
+      let component: any;
+      renderer.act(() => {
+        component = renderer.create(
+          <BulkSongCacheButton
+            compact
+            sourceKey="album:123"
+            songIds={["song-1"]}
+            cacheEntries={cacheEntries}
+          />,
+        );
+      });
+
+      const iconBtn = component.root.findByType(IconButton);
+      expect(iconBtn).toBeDefined();
+      expect(iconBtn.props.icon).toBe("check-circle");
+      expect(iconBtn.props.accessibilityLabel).toBe("available offline");
+
+      renderer.act(() => {
+        component.unmount();
+      });
+    });
+
+    it("renders disabled compact IconButton when songIds is empty", () => {
+      let component: any;
+      renderer.act(() => {
+        component = renderer.create(
+          <BulkSongCacheButton
+            compact
+            sourceKey="album:123"
+            songIds={[]}
+            cacheEntries={new Map()}
+          />,
+        );
+      });
+
+      const iconBtn = component.root.findByType(IconButton);
+      expect(iconBtn).toBeDefined();
+      expect(iconBtn.props.disabled).toBe(true);
+
+      renderer.act(() => {
+        component.unmount();
+      });
     });
   });
 });

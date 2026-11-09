@@ -34,6 +34,10 @@ jest.mock("expo-image", () => ({
   Image: "Image",
 }));
 
+jest.mock("@/components/BulkSongCacheButton", () => ({
+  BulkSongCacheButton: "BulkSongCacheButton",
+}));
+
 jest.mock("@/components/SongCacheButton", () => ({
   SongCacheButton: "SongCacheButton",
 }));
@@ -56,6 +60,7 @@ jest.mock("@/services/db", () => ({
   getArtistById: jest.fn(),
   getAlbumsByArtistId: jest.fn(),
   getSongsByArtistId: jest.fn(),
+  getSongsByAlbumId: jest.fn(() => []),
   updateArtistStarred: jest.fn(),
   getAllSongCacheEntries: jest.fn(() => new Map()),
   getSyncMeta: jest.fn().mockReturnValue("2026-10-07T12:00:00.000Z"),
@@ -63,6 +68,8 @@ jest.mock("@/services/db", () => ({
 
 jest.mock("@/services/songCache", () => ({
   subscribeSongCache: jest.fn(() => () => {}),
+  subscribeCacheQueue: jest.fn(() => () => {}),
+  getDownloadQueueState: jest.fn(() => ({ pending: [], active: null })),
 }));
 
 jest.mock("@/services/player", () => ({

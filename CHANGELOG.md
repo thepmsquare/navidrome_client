@@ -6,6 +6,7 @@
 
 - improvements to crash reporting.
 - improvements to song caching (use background service).
+- add play, shuffle and offline buttons on album details, playlist details and artist details screens.
 
 ### internal notes
 

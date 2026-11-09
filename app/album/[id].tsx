@@ -5,7 +5,7 @@ import { FlatList, RefreshControl, View } from "react-native";
 import { Appbar, Avatar, Surface, Text } from "react-native-paper";
 
 import { AppBottomBar, TabKey } from "@/components/AppBottomBar";
-import { BulkSongCacheButton } from "@/components/BulkSongCacheButton";
+import { DetailActionsRow } from "@/components/DetailActionsRow";
 import { SongRow } from "@/components/SongRow";
 import { getAlbum, getCoverArtBaseUrl } from "@/services/api";
 import {
@@ -179,9 +179,9 @@ export default function AlbumDetailScreen() {
                   .filter(Boolean)
                   .join(" • ")}
               </Text>
-              <BulkSongCacheButton
+              <DetailActionsRow
+                songs={songs}
                 sourceKey={`album:${album.id}`}
-                songIds={songs.map((s) => s.id)}
                 cacheEntries={cacheEntries}
               />
             </View>
