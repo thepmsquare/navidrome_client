@@ -236,7 +236,7 @@ jobs:
           # 1. Decode keystore into android/app/
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
 
-          # 2. Patch android/app/build.gradle to wire release signing from environment
+          # 2. Patch android/app/build.gradle to wire release signing and native debug symbols
           node << 'EOF'
           const fs = require('fs');
           const gradleFile = 'android/app/build.gradle';
@@ -262,8 +262,30 @@ jobs:
             '$1signingConfig signingConfigs.release'
           );
 
+          // 3. Ensure ndk debugSymbolLevel 'FULL' is present in release buildType
+          if (!content.includes('debugSymbolLevel')) {
+            content = content.replace(
+              /(buildTypes\s*\{[\s\S]*?release\s*\{)/,
+              '$1\n            ndk {\n                debugSymbolLevel "FULL"\n            }'
+            );
+          }
+
           fs.writeFileSync(gradleFile, content);
-          console.log('Successfully patched android/app/build.gradle for release signing.');
+          console.log('Successfully patched android/app/build.gradle for release signing and native debug symbols.');
+
+          // 4. Ensure gradle.properties enables minification
+          const propsFile = 'android/gradle.properties';
+          if (fs.existsSync(propsFile)) {
+            let props = fs.readFileSync(propsFile, 'utf8');
+            if (!props.includes('android.enableMinifyInReleaseBuilds')) {
+              props += '\nandroid.enableMinifyInReleaseBuilds=true\n';
+            }
+            if (!props.includes('android.enableShrinkResourcesInReleaseBuilds')) {
+              props += 'android.enableShrinkResourcesInReleaseBuilds=true\n';
+            }
+            fs.writeFileSync(propsFile, props);
+            console.log('Successfully verified android.enableMinifyInReleaseBuilds in gradle.properties.');
+          }
           EOF
 
       - name: Verify Release Keystore
@@ -301,13 +323,33 @@ jobs:
           cd android
           ./gradlew bundleRelease assembleRelease --no-daemon
 
+      - name: Verify Release Build Outputs & Debug Symbols
+        run: |
+          echo "Checking build outputs..."
+          ls -la android/app/build/outputs/bundle/release/ || true
+          ls -la android/app/build/outputs/apk/release/ || true
+          ls -la android/app/build/outputs/mapping/release/ || true
+          ls -la android/app/build/outputs/native-debug-symbols/release/ || true
+
+          # Fallback: if native-debug-symbols.zip was not automatically created by AGP, zip merged unstripped native libs
+          if [ ! -f android/app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip ]; then
+            MERGED_LIBS_DIR=$(find android/app/build/intermediates/merged_native_libs/release -type d -name "lib" 2>/dev/null | head -n 1)
+            if [ -n "$MERGED_LIBS_DIR" ] && [ -d "$MERGED_LIBS_DIR" ]; then
+              echo "Packaging native-debug-symbols.zip from $MERGED_LIBS_DIR..."
+              mkdir -p android/app/build/outputs/native-debug-symbols/release
+              (cd "$MERGED_LIBS_DIR" && zip -r ../../../../../outputs/native-debug-symbols/release/native-debug-symbols.zip .)
+            fi
+          fi
+
       - name: Upload AAB to Google Play Store Internal Track
         env:
           PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
         run: |
           echo "$PLAY_STORE_SERVICE_ACCOUNT_JSON" > /tmp/service-account.json
           export SUPPLY_JSON_KEY=/tmp/service-account.json
-          bundle exec fastlane android upload_internal aab_path:android/app/build/outputs/bundle/release/app-release.aab
+          bundle exec fastlane android upload_internal \
+            aab_path:android/app/build/outputs/bundle/release/app-release.aab \
+            mapping_paths:android/app/build/outputs/mapping/release/mapping.txt,android/app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip
 
       - name: Upload Release APK Build Artifact
         uses: actions/upload-artifact@v4
@@ -315,6 +357,22 @@ jobs:
           name: app-release-v${{ needs.check_release.outputs.version_code }}.apk
           path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 90
+
+      - name: Upload R8 Mapping File Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mapping-v${{ needs.check_release.outputs.version_code }}.txt
+          path: android/app/build/outputs/mapping/release/mapping.txt
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Upload Native Debug Symbols Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-debug-symbols-v${{ needs.check_release.outputs.version_code }}.zip
+          path: android/app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip
+          retention-days: 90
+          if-no-files-found: warn
 
   promote_to_closed:
     name: Promote to Closed Testing (Alpha)

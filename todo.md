@@ -215,9 +215,10 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
 - [ ] **store listing & compliance** (`store-1`)
   - **task:** update the play store listing (description, screenshots, feature graphic), data safety form, and content rating. confirm [`privacy_policy.html`](./privacy_policy.html) is published.
 
-- [ ] **crash visibility** (`store-2`)
+- [x] **crash visibility** (`store-2`)
   - **context:** crash visibility relies on google play android vitals.
   - **task:** upload the r8 mapping file and native debug symbols during release builds so vitals show readable stack traces.
+  - **implementation:** enabled release r8 minification and native debug symbols (`debugSymbolLevel 'FULL'`), updated fastlane `upload_internal` and `upload_closed` to pass r8 mapping files and native debug symbol archives to fastlane supply, and archived them as github action artifacts in `.github/workflows/release.yml`.
 
 - [ ] **final privacy & data-safety review** (`store-3`)
   - **task:** re-check the data safety form against the shipped build (network calls, local storage, exports) and confirm the privacy policy covers everything.
