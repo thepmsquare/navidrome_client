@@ -1,5 +1,15 @@
 # changelog
 
+## 2.36.6+78
+
+### user release notes
+
+- improvements to crash reporting.
+
+### internal notes
+
+- upload r8 mapping file and native debug symbols in release pipeline.
+
 ## 2.36.5+77
 
 ### user release notes

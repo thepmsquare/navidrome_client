@@ -62,9 +62,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       {
         android: {
           usesCleartextTraffic: true,
+          enableMinifyInReleaseBuilds: true,
+          enableShrinkResourcesInReleaseBuilds: true,
         },
       },
     ],
+    './plugins/withAndroidDebugSymbols',
   ],
   experiments: {
     typedRoutes: true,

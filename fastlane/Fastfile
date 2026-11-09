@@ -24,7 +24,21 @@ platform :android do
     aab_path = options[:aab_path] || "android/app/build/outputs/bundle/release/app-release.aab"
     json_key = ENV["SUPPLY_JSON_KEY"]
 
-    supply(
+    mapping_paths = []
+    if options[:mapping_paths]
+      if options[:mapping_paths].is_a?(Array)
+        mapping_paths = options[:mapping_paths]
+      else
+        mapping_paths = options[:mapping_paths].to_s.split(",").map(&:strip)
+      end
+    else
+      r8_mapping = options[:mapping_path] || "android/app/build/outputs/mapping/release/mapping.txt"
+      symbols = options[:symbols_path] || "android/app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip"
+      mapping_paths << r8_mapping if File.exist?(r8_mapping)
+      mapping_paths << symbols if File.exist?(symbols)
+    end
+
+    supply_args = {
       track: "internal",
       aab: aab_path,
       json_key: json_key,
@@ -35,7 +49,15 @@ platform :android do
       skip_upload_screenshots: true,
       validate_only: false,
       check_superseded_tracks: false
-    )
+    }
+
+    existing_paths = mapping_paths.select { |p| File.exist?(p) }
+    if existing_paths.any?
+      UI.message("Attaching mapping / symbol paths to supply: #{existing_paths.join(', ')}")
+      supply_args[:mapping_paths] = existing_paths
+    end
+
+    supply(supply_args)
   end
 
   desc "Get highest version code on closed track"
@@ -63,7 +85,21 @@ platform :android do
     track_name = options[:track] || "alpha"
     json_key = ENV["SUPPLY_JSON_KEY"]
 
-    supply(
+    mapping_paths = []
+    if options[:mapping_paths]
+      if options[:mapping_paths].is_a?(Array)
+        mapping_paths = options[:mapping_paths]
+      else
+        mapping_paths = options[:mapping_paths].to_s.split(",").map(&:strip)
+      end
+    else
+      r8_mapping = options[:mapping_path] || "android/app/build/outputs/mapping/release/mapping.txt"
+      symbols = options[:symbols_path] || "android/app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip"
+      mapping_paths << r8_mapping if File.exist?(r8_mapping)
+      mapping_paths << symbols if File.exist?(symbols)
+    end
+
+    supply_args = {
       track: track_name,
       aab: aab_path,
       json_key: json_key,
@@ -74,7 +110,15 @@ platform :android do
       skip_upload_screenshots: true,
       validate_only: false,
       check_superseded_tracks: false
-    )
+    }
+
+    existing_paths = mapping_paths.select { |p| File.exist?(p) }
+    if existing_paths.any?
+      UI.message("Attaching mapping / symbol paths to supply: #{existing_paths.join(', ')}")
+      supply_args[:mapping_paths] = existing_paths
+    end
+
+    supply(supply_args)
   end
 
   desc "Promote existing release from internal track to closed testing track"
