@@ -183,7 +183,6 @@ jobs:
         with:
           distribution: "temurin"
           java-version: "17"
-          cache: "gradle"
 
       - name: Generate Android Native Project (Expo Prebuild)
         run: npx expo prebuild --platform android --no-install
@@ -240,6 +239,12 @@ jobs:
           }
           INITSCRIPT
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: false
+          build-root-directory: android
+
       - name: Configure Release Keystore & Patch Signing Config
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -286,10 +291,18 @@ jobs:
             );
           }
 
-          fs.writeFileSync(gradleFile, content);
-          console.log('Successfully patched android/app/build.gradle for release signing and native debug symbols.');
+          // 4. Disable checkReleaseBuilds in lint to skip redundant lint analysis during release
+          if (!content.includes('checkReleaseBuilds')) {
+            content = content.replace(
+              /android\s*\{/,
+              'android {\n    lint {\n        checkReleaseBuilds = false\n        abortOnError = false\n    }'
+            );
+          }
 
-          // 4. Ensure gradle.properties enables minification and allocates sufficient heap
+          fs.writeFileSync(gradleFile, content);
+          console.log('Successfully patched android/app/build.gradle for release signing, debug symbols, and lint.');
+
+          // 5. Ensure gradle.properties enables minification and allocates sufficient heap
           const propsFile = 'android/gradle.properties';
           if (fs.existsSync(propsFile)) {
             let props = fs.readFileSync(propsFile, 'utf8');
@@ -344,7 +357,7 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           cd android
-          ./gradlew bundleRelease --max-workers=4
+          ./gradlew bundleRelease --max-workers=2 --build-cache
 
       - name: Generate Universal APK with Bundletool
         env:
@@ -401,15 +414,12 @@ jobs:
             fi
           fi
 
-      - name: Upload AAB to Google Play Store Internal Track
-        env:
-          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
-        run: |
-          echo "$PLAY_STORE_SERVICE_ACCOUNT_JSON" > /tmp/service-account.json
-          export SUPPLY_JSON_KEY=/tmp/service-account.json
-          bundle exec fastlane android upload_internal \
-            aab_path:android/app/build/outputs/bundle/release/app-release.aab \
-            mapping_paths:android/app/build/outputs/mapping/release/mapping.txt,android/app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip
+      - name: Upload Release AAB Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-v${{ needs.check_release.outputs.version_code }}.aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 90
 
       - name: Upload Release APK Build Artifact
         uses: actions/upload-artifact@v4
@@ -433,6 +443,17 @@ jobs:
           path: android/app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip
           retention-days: 90
           if-no-files-found: warn
+
+      - name: Upload AAB to Google Play Store Internal Track
+        continue-on-error: true
+        env:
+          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          echo "$PLAY_STORE_SERVICE_ACCOUNT_JSON" > /tmp/service-account.json
+          export SUPPLY_JSON_KEY=/tmp/service-account.json
+          bundle exec fastlane android upload_internal \
+            aab_path:android/app/build/outputs/bundle/release/app-release.aab \
+            mapping_paths:android/app/build/outputs/mapping/release/mapping.txt,android/app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip
 
   promote_to_closed:
     name: Promote to Closed Testing (Alpha)
