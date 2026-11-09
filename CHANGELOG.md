@@ -1,5 +1,15 @@
 # changelog
 
+## 2.37.2+80
+
+### user release notes
+
+- deployment streamlining.
+
+### internal notes
+
+- fix ci: restore official google() and mavenCentral() as primary maven repositories with aliyun as fallback to prevent 502 failures on com.android.tools.* artifacts.
+
 ## 2.37.1+79
 
 ### user release notes
