@@ -3,13 +3,13 @@ name: Release Pipeline
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
     inputs:
       production_rollout:
-        description: 'Production rollout fraction (e.g. 0.1 for 10%, 1.0 for full rollout)'
+        description: "Production rollout fraction (e.g. 0.1 for 10%, 1.0 for full rollout)"
         required: false
-        default: '0.1'
+        default: "0.1"
 
 concurrency:
   group: release-${{ github.ref }}
@@ -445,7 +445,6 @@ jobs:
           if-no-files-found: warn
 
       - name: Upload AAB to Google Play Store Internal Track
-        continue-on-error: true
         env:
           PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
         run: |
