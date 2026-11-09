@@ -11,7 +11,7 @@
  */
 import { useEffect, useState } from "react";
 import { Alert, StyleProp, ViewStyle } from "react-native";
-import { Button } from "react-native-paper";
+import { Button, IconButton } from "react-native-paper";
 
 import {
   cancelSongCaching,
@@ -37,6 +37,7 @@ export interface BulkSongCacheButtonProps {
   songIds: string[];
   cacheEntries: Map<string, SongCacheRow>;
   style?: StyleProp<ViewStyle>;
+  compact?: boolean;
 }
 
 export function BulkSongCacheButton({
@@ -44,6 +45,7 @@ export function BulkSongCacheButton({
   songIds,
   cacheEntries,
   style,
+  compact = false,
 }: BulkSongCacheButtonProps) {
   const theme = useAppTheme();
 
@@ -87,6 +89,18 @@ export function BulkSongCacheButton({
   );
 
   if (totalCount === 0) {
+    if (compact) {
+      return (
+        <IconButton
+          mode="contained-tonal"
+          icon="download-outline"
+          disabled
+          size={24}
+          style={[{ margin: 0 }, style]}
+          accessibilityLabel="make available offline"
+        />
+      );
+    }
     return null;
   }
 
@@ -196,7 +210,22 @@ export function BulkSongCacheButton({
       ? "check-circle"
       : "download-outline";
 
-  const textColor = fullyManual ? theme.colors.primary : undefined;
+  const textColor =
+    isRunning || fullyManual ? theme.colors.primary : undefined;
+
+  if (compact) {
+    return (
+      <IconButton
+        mode="contained-tonal"
+        icon={icon}
+        iconColor={textColor}
+        size={24}
+        onPress={handlePress}
+        style={[{ margin: 0 }, style]}
+        accessibilityLabel={label}
+      />
+    );
+  }
 
   return (
     <Button

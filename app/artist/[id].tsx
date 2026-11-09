@@ -2,16 +2,11 @@ import { Image } from "expo-image";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, RefreshControl, TouchableOpacity, View } from "react-native";
-import {
-  Appbar,
-  Avatar,
-  Button,
-  Surface,
-  Text,
-} from "react-native-paper";
+import { Appbar, Avatar, Surface, Text } from "react-native-paper";
 
-import { AppBottomBar, TabKey } from "@/components/AppBottomBar";
 import { AlbumCard } from "@/components/AlbumCard";
+import { AppBottomBar, TabKey } from "@/components/AppBottomBar";
+import { DetailActionsRow } from "@/components/DetailActionsRow";
 import { RichHtmlText } from "@/components/RichHtmlText";
 import { SongRow } from "@/components/SongRow";
 import {
@@ -152,18 +147,6 @@ export default function ArtistDetailScreen() {
     }
   };
 
-  const handleShufflePlay = () => {
-    if (!songs.length) return;
-    const shuffled = [...songs];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      const temp = shuffled[i];
-      shuffled[i] = shuffled[j];
-      shuffled[j] = temp;
-    }
-    playPlaylist(shuffled, 0);
-  };
-
   const isStarred = !!artist?.starred;
 
   let artistArtUri: string | null = null;
@@ -237,7 +220,10 @@ export default function ArtistDetailScreen() {
                 />
               )}
 
-              <Text variant="headlineMedium" style={artistDetailStyles.artistName}>
+              <Text
+                variant="headlineMedium"
+                style={artistDetailStyles.artistName}
+              >
                 {artist?.name || "unknown artist"}
               </Text>
 
@@ -251,31 +237,11 @@ export default function ArtistDetailScreen() {
                 {`${albums.length} ${albums.length === 1 ? "album" : "albums"} • ${songs.length} ${songs.length === 1 ? "song" : "songs"}`}
               </Text>
 
-              <View style={artistDetailStyles.actionsRow}>
-                <Button
-                  mode="contained"
-                  icon="play"
-                  style={artistDetailStyles.actionButton}
-                  onPress={() => {
-                    if (songs.length > 0) {
-                      playPlaylist(songs, 0);
-                    }
-                  }}
-                  disabled={songs.length === 0}
-                >
-                  play all
-                </Button>
-
-                <Button
-                  mode="contained-tonal"
-                  icon="shuffle"
-                  style={artistDetailStyles.actionButton}
-                  onPress={handleShufflePlay}
-                  disabled={songs.length === 0}
-                >
-                  shuffle
-                </Button>
-              </View>
+              <DetailActionsRow
+                songs={songs}
+                sourceKey={`artist:${artist?.id ?? id}`}
+                cacheEntries={cacheEntries}
+              />
             </View>
 
             {artistInfo?.biography ? (
@@ -318,7 +284,10 @@ export default function ArtistDetailScreen() {
             {albums.length > 0 ? (
               <View>
                 <View style={artistDetailStyles.sectionHeader}>
-                  <Text variant="titleMedium" style={artistDetailStyles.sectionTitle}>
+                  <Text
+                    variant="titleMedium"
+                    style={artistDetailStyles.sectionTitle}
+                  >
                     albums
                   </Text>
                 </View>
@@ -336,7 +305,10 @@ export default function ArtistDetailScreen() {
             ) : null}
 
             <View style={artistDetailStyles.sectionHeader}>
-              <Text variant="titleMedium" style={artistDetailStyles.sectionTitle}>
+              <Text
+                variant="titleMedium"
+                style={artistDetailStyles.sectionTitle}
+              >
                 songs
               </Text>
             </View>

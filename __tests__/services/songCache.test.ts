@@ -996,7 +996,7 @@ describe("songCache service", () => {
       expect(stopDownloadForegroundService).toHaveBeenCalled();
     });
 
-    it("should update foreground service progress when download starts and stop when queue completes", () => {
+    it("should update foreground service progress when download starts and stop when queue completes", async () => {
       const {
         updateDownloadProgress,
         stopDownloadForegroundService,
@@ -1029,8 +1029,8 @@ describe("songCache service", () => {
         100
       );
 
-      // When queue has no more downloads, tryStartNextDownload stops service
-      tryStartNextDownload();
+      // Wait for async worker IIFE to finish and advance to empty queue
+      await new Promise((resolve) => setTimeout(resolve, 10));
       expect(stopDownloadForegroundService).toHaveBeenCalled();
     });
   });

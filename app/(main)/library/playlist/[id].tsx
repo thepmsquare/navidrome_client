@@ -10,7 +10,7 @@ import {
   Text,
 } from "react-native-paper";
 
-import { BulkSongCacheButton } from "@/components/BulkSongCacheButton";
+import { DetailActionsRow } from "@/components/DetailActionsRow";
 import { SongRow } from "@/components/SongRow";
 import { getCoverArtBaseUrl, getPlaylist } from "@/services/api";
 import { getAllSongCacheEntries, getPlaylistById } from "@/services/db";
@@ -186,9 +186,9 @@ export default function PlaylistDetailScreen() {
                   .filter(Boolean)
                   .join(" • ")}
               </Text>
-              <BulkSongCacheButton
+              <DetailActionsRow
+                songs={songs}
                 sourceKey={`playlist:${playlist.id}`}
-                songIds={songs.map((s) => s.id)}
                 cacheEntries={cacheEntries}
               />
             </View>
