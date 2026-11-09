@@ -216,24 +216,26 @@ jobs:
           org.gradle.vfs.watch=false
           EOF
 
-          # 5. Init script: insert aliyun maven mirrors before maven central for all projects
-          #    This bypasses jetbrains cdn (which redirects from maven central and returns 504)
+          # 5. Init script: use official google() and mavenCentral() as primary repositories,
+          #    with aliyun mirrors as fallback for jetbrains/maven-central CDN outages.
+          #    google() must come first so com.android.tools.* and com.google.* artifacts
+          #    resolve directly instead of hitting aliyun with a 502.
           mkdir -p ~/.gradle/init.d
           cat > ~/.gradle/init.d/mirrors.init.gradle << 'INITSCRIPT'
           allprojects {
             buildscript {
               repositories {
-                maven { url 'https://maven.aliyun.com/repository/central' }
-                maven { url 'https://maven.aliyun.com/repository/google' }
                 google()
                 mavenCentral()
+                maven { url 'https://maven.aliyun.com/repository/google' }
+                maven { url 'https://maven.aliyun.com/repository/central' }
               }
             }
             repositories {
-              maven { url 'https://maven.aliyun.com/repository/central' }
-              maven { url 'https://maven.aliyun.com/repository/google' }
               google()
               mavenCentral()
+              maven { url 'https://maven.aliyun.com/repository/google' }
+              maven { url 'https://maven.aliyun.com/repository/central' }
             }
           }
           INITSCRIPT
