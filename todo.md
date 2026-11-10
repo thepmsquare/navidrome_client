@@ -49,9 +49,10 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
 
 ## playback & audio
 
-- [ ] **audio focus ducking & transient loss recovery** (`pb-1`)
+- [x] **audio focus ducking & transient loss recovery** (`pb-1`)
   - **context:** `setHandleAudioBecomingNoisy(true)` handles headphone disconnects, but transient focus losses (navigation prompts, alarms, calls) require explicit ducking and pause/resume logic.
   - **task:** audit transient vs exclusive focus loss in `AudioPlaybackService.kt`. duck volume during transient loss. pause and resume cleanly after calls.
+  - **implementation:** audited transient vs exclusive audio focus loss with `AudioManager.OnAudioFocusChangeListener`, ducking volume to 20% on transient loss with ducking (`AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK`), and pausing with automatic resumption on phone call interruptions and transient loss (`AUDIOFOCUS_LOSS_TRANSIENT`).
 
 - [ ] **resumable playback after notification dismissal** (`pb-2`)
   - **context:** tapping the close icon on the android media notification stops the native playback service. returning to the app leaves the mini player visible, but play fails to resume.
