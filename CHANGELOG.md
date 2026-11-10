@@ -1,5 +1,15 @@
 # changelog
 
+## 2.38.0+82
+
+### user release notes
+
+- add audio focus ducking and transient loss recovery during interruptions.
+
+### internal notes
+
+- audit transient vs exclusive focus loss in audioplaybackservice: duck volume to 20% on transient loss with ducking and pause with auto-resume on calls.
+
 ## 2.37.3+81
 
 ### user release notes
