@@ -64,6 +64,7 @@ import { Child } from "@/types";
 
 let stateListenerCb: ((status: any) => void) | null = null;
 let trackEndedCb: (() => void) | null = null;
+let playbackStoppedCb: (() => void) | null = null;
 let nextTrackCb: (() => void) | null = null;
 let prevTrackCb: (() => void) | null = null;
 let playbackErrorCb: ((err: any) => void) | null = null;
@@ -122,6 +123,9 @@ jest.mock("@/modules/audio-playback", () => ({
   }),
   addPlaybackStateListener: jest.fn((cb) => {
     stateListenerCb = cb;
+  }),
+  addPlaybackStoppedListener: jest.fn((cb) => {
+    playbackStoppedCb = cb;
   }),
   addTrackEndedListener: jest.fn((cb) => {
     trackEndedCb = cb;
@@ -808,6 +812,41 @@ describe("player service", () => {
 
       repeatModeCb?.({ mode: "all" });
       expect(getCurrentRepeatMode()).toBe("all");
+    });
+
+    it("should reload track and resume from last position when resumed after notification dismissal (playback stopped)", async () => {
+      await playPlaylist([sampleSong1], 0);
+
+      // Playback is playing at position 45
+      stateListenerCb?.({
+        isPlaying: true,
+        isBuffering: false,
+        duration: 200,
+        position: 45,
+        repeatMode: "off",
+      });
+      expect(getPlayerState().position).toBe(45);
+      expect(getPlayerState().isPlaying).toBe(true);
+
+      // System notification is dismissed -> onPlaybackStopped event fired
+      playbackStoppedCb?.();
+
+      expect(getPlayerState().isPlaying).toBe(false);
+      expect(getPlayerState().position).toBe(45);
+
+      (audioPlayback.loadTrack as jest.Mock).mockClear();
+      (audioPlayback.seekTo as jest.Mock).mockClear();
+
+      // User taps play on mini player
+      await togglePlayback();
+
+      // Should reload track and restore position
+      expect(audioPlayback.loadTrack).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Song One",
+        }),
+      );
+      expect(audioPlayback.seekTo).toHaveBeenCalledWith(45);
     });
 
     it("repeat all should wrap around to first track when last track ends", async () => {

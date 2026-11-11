@@ -54,9 +54,10 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
   - **task:** audit transient vs exclusive focus loss in `AudioPlaybackService.kt`. duck volume during transient loss. pause and resume cleanly after calls.
   - **verified:** audited audio focus in `AudioPlaybackService.kt`. verified on physical device that exoplayer's native `setAudioAttributes(audioAttributes, true)` already ducks volume to 20% during transient loss and cleanly pauses and resumes across incoming and outgoing phone calls without custom audio focus overrides.
 
-- [ ] **resumable playback after notification dismissal** (`pb-2`)
+- [x] **resumable playback after notification dismissal** (`pb-2`)
   - **context:** tapping the close icon on the android media notification stops the native playback service. returning to the app leaves the mini player visible, but play fails to resume.
   - **task:** audit the player state lifecycle when the notification is closed. either re-instantiate the audio session from the current track on play, or hide the mini player when playback is closed.
+  - **verified:** added `onPlaybackStopped` event dispatched when the native playback service stops (e.g. notification dismissed or closed). in `player.ts`, preserved the track's last known playback position and cleared `activePlaybackTrackId`, enabling `resumePlayback` to seamlessly reload the track and seek to the saved position when tapping play on the mini player. also ensured exoplayer prepares on play if in idle state.
 
 - [ ] **gapless playback** (`pb-3`)
   - **context:** native exoplayer loads one track at a time, causing brief silence between songs.

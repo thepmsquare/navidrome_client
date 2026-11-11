@@ -71,6 +71,7 @@ class AudioPlaybackService : MediaSessionService() {
     fun onPreviousTrack()
     fun onPlaybackError(errorCode: String, message: String)
     fun onRepeatModeChanged(mode: String)
+    fun onPlaybackStopped()
   }
 
   inner class LocalBinder : Binder() {
@@ -83,6 +84,7 @@ class AudioPlaybackService : MediaSessionService() {
   private var mediaSession: MediaSession? = null
   private var notificationManager: NotificationManager? = null
   private val mainHandler = Handler(Looper.getMainLooper())
+  private var lastKnownPositionSeconds: Double = 0.0
 
   private var currentTitle: String = ""
   private var currentArtist: String = ""
@@ -526,6 +528,7 @@ class AudioPlaybackService : MediaSessionService() {
     p.setMediaItem(mediaItem)
     p.setPlaybackSpeed(currentPlaybackSpeed)
     p.prepare()
+    lastKnownPositionSeconds = 0.0
     p.playWhenReady = playWhenReady
 
     if (!artworkUrl.isNullOrBlank()) {
@@ -551,6 +554,9 @@ class AudioPlaybackService : MediaSessionService() {
 
   fun playPlayback() {
     val p = player ?: return
+    if (p.playbackState == Player.STATE_IDLE) {
+      p.prepare()
+    }
     p.play()
     startAsForegroundService()
   }
@@ -564,8 +570,13 @@ class AudioPlaybackService : MediaSessionService() {
   fun stopPlayback() {
     stopProgressUpdates()
     val p = player ?: return
+    val currentPosSec = p.currentPosition / 1000.0
+    if (currentPosSec > 0.0) {
+      lastKnownPositionSeconds = currentPosSec
+    }
     p.stop()
     stopForegroundService()
+    eventListener?.onPlaybackStopped()
   }
 
   fun seekTo(positionSeconds: Double) {
@@ -608,11 +619,16 @@ class AudioPlaybackService : MediaSessionService() {
 
   fun getPlaybackStatusMap(): Map<String, Any?> {
     val p = player
+    val pos = if (p?.playbackState == Player.STATE_IDLE && lastKnownPositionSeconds > 0.0) {
+      lastKnownPositionSeconds
+    } else {
+      (p?.currentPosition ?: 0L) / 1000.0
+    }
     return mapOf(
       "isPlaying" to (p?.isPlaying ?: false),
       "isBuffering" to (p?.playbackState == Player.STATE_BUFFERING),
       "duration" to ((p?.duration ?: 0L).takeIf { it > 0 }?.let { it / 1000.0 } ?: 0.0),
-      "position" to ((p?.currentPosition ?: 0L) / 1000.0),
+      "position" to pos,
       "repeatMode" to currentRepeatMode,
       "playbackSpeed" to (p?.playbackParameters?.speed ?: currentPlaybackSpeed)
     )
@@ -744,6 +760,7 @@ class AudioPlaybackService : MediaSessionService() {
       .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
       .setOngoing(isPlaying)
       .setContentIntent(contentPendingIntent)
+      .setDeleteIntent(stopPending)
       .addAction(android.R.drawable.ic_media_previous, "previous", prevPending)
       .addAction(playPauseIcon, if (isPlaying) "pause" else "play", playPausePending)
       .addAction(android.R.drawable.ic_media_next, "next", nextPending)
