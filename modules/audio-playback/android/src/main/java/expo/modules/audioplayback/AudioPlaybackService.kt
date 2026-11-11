@@ -13,9 +13,6 @@ import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.media.AudioAttributes as AndroidAudioAttributes
-import android.media.AudioFocusRequest
-import android.media.AudioManager
 import android.net.Uri
 import android.os.Binder
 import android.os.Build
@@ -103,124 +100,6 @@ class AudioPlaybackService : MediaSessionService() {
   private var isForegroundServiceStarted = false
   private var progressRunnable: Runnable? = null
 
-  private var audioManager: AudioManager? = null
-  private var audioFocusRequest: AudioFocusRequest? = null
-  private var userVolume: Float = 1.0f
-  private var isDucked: Boolean = false
-  private var resumeOnFocusGain: Boolean = false
-
-  private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
-    mainHandler.post {
-      val p = player ?: return@post
-      when (focusChange) {
-        AudioManager.AUDIOFOCUS_GAIN -> {
-          if (isDucked) {
-            isDucked = false
-            p.volume = userVolume
-          }
-          if (resumeOnFocusGain) {
-            resumeOnFocusGain = false
-            playPlayback()
-          }
-        }
-        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-          val isPhoneCall = audioManager?.let {
-            it.mode == AudioManager.MODE_IN_CALL ||
-            it.mode == AudioManager.MODE_IN_COMMUNICATION ||
-            it.mode == AudioManager.MODE_RINGTONE
-          } ?: false
-
-          if (isPhoneCall) {
-            handleTransientLoss(p)
-          } else {
-            handleDucking(p)
-          }
-        }
-        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-          handleTransientLoss(p)
-        }
-        AudioManager.AUDIOFOCUS_LOSS -> {
-          handleExclusiveLoss(p)
-        }
-      }
-    }
-  }
-
-  private fun handleDucking(p: ExoPlayer) {
-    if (p.isPlaying) {
-      isDucked = true
-      p.volume = (userVolume * 0.2f).coerceIn(0f, 1f)
-    }
-  }
-
-  private fun handleTransientLoss(p: ExoPlayer) {
-    val wasPlaying = p.isPlaying || isDucked
-    if (isDucked) {
-      isDucked = false
-      p.volume = userVolume
-    }
-    if (wasPlaying) {
-      resumeOnFocusGain = true
-    }
-    if (p.isPlaying) {
-      p.pause()
-      updateNotification()
-    }
-  }
-
-  private fun handleExclusiveLoss(p: ExoPlayer) {
-    resumeOnFocusGain = false
-    if (isDucked) {
-      isDucked = false
-      p.volume = userVolume
-    }
-    if (p.isPlaying) {
-      p.pause()
-      updateNotification()
-    }
-    abandonAudioFocus()
-  }
-
-  private fun requestAudioFocus(): Boolean {
-    val am = audioManager ?: return true
-    val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      val request = audioFocusRequest ?: AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-        .setAudioAttributes(
-          AndroidAudioAttributes.Builder()
-            .setUsage(AndroidAudioAttributes.USAGE_MEDIA)
-            .setContentType(AndroidAudioAttributes.CONTENT_TYPE_MUSIC)
-            .build()
-        )
-        .setAcceptsDelayedFocusGain(false)
-        .setWillPauseWhenDucked(false)
-        .setOnAudioFocusChangeListener(audioFocusChangeListener, mainHandler)
-        .build().also { audioFocusRequest = it }
-      am.requestAudioFocus(request)
-    } else {
-      @Suppress("DEPRECATION")
-      am.requestAudioFocus(
-        audioFocusChangeListener,
-        AudioManager.STREAM_MUSIC,
-        AudioManager.AUDIOFOCUS_GAIN
-      )
-    }
-    return result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-  }
-
-  private fun abandonAudioFocus() {
-    val am = audioManager ?: return
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      audioFocusRequest?.let {
-        am.abandonAudioFocusRequest(it)
-      }
-    } else {
-      @Suppress("DEPRECATION")
-      am.abandonAudioFocus(audioFocusChangeListener)
-    }
-    resumeOnFocusGain = false
-    isDucked = false
-  }
-
   private fun startProgressUpdates() {
     stopProgressUpdates()
     val runnable = object : Runnable {
@@ -279,7 +158,6 @@ class AudioPlaybackService : MediaSessionService() {
   override fun onCreate() {
     super.onCreate()
     instance = this
-    audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
     setupPlayer()
     setupReceiver()
   }
@@ -304,7 +182,6 @@ class AudioPlaybackService : MediaSessionService() {
     super.onTaskRemoved(rootIntent)
     if (shouldStopOnAppDismissed()) {
       stopProgressUpdates()
-      abandonAudioFocus()
       val p = player
       p?.stop()
       stopForegroundService()
@@ -356,17 +233,11 @@ class AudioPlaybackService : MediaSessionService() {
 
     val exoPlayer = ExoPlayer.Builder(this)
       .setLooper(Looper.getMainLooper())
-      .setAudioAttributes(audioAttributes, false)
+      .setAudioAttributes(audioAttributes, true)
       .setHandleAudioBecomingNoisy(true)
       .build()
 
     exoPlayer.addListener(object : Player.Listener {
-      override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-        if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST) {
-          resumeOnFocusGain = false
-        }
-      }
-
       override fun onIsPlayingChanged(isPlaying: Boolean) {
         if (isPlaying) {
           startProgressUpdates()
@@ -655,21 +526,7 @@ class AudioPlaybackService : MediaSessionService() {
     p.setMediaItem(mediaItem)
     p.setPlaybackSpeed(currentPlaybackSpeed)
     p.prepare()
-    if (playWhenReady) {
-      if (requestAudioFocus()) {
-        if (isDucked) {
-          p.volume = (userVolume * 0.2f).coerceIn(0f, 1f)
-        } else {
-          p.volume = userVolume
-        }
-        p.playWhenReady = true
-        startAsForegroundService()
-      } else {
-        p.playWhenReady = false
-      }
-    } else {
-      p.playWhenReady = false
-    }
+    p.playWhenReady = playWhenReady
 
     if (!artworkUrl.isNullOrBlank()) {
       artworkLoadJob?.cancel()
@@ -694,23 +551,11 @@ class AudioPlaybackService : MediaSessionService() {
 
   fun playPlayback() {
     val p = player ?: return
-    if (requestAudioFocus()) {
-      if (isDucked) {
-        p.volume = (userVolume * 0.2f).coerceIn(0f, 1f)
-      } else {
-        p.volume = userVolume
-      }
-      p.play()
-      startAsForegroundService()
-    }
+    p.play()
+    startAsForegroundService()
   }
 
   fun pausePlayback() {
-    resumeOnFocusGain = false
-    if (isDucked) {
-      isDucked = false
-      player?.volume = userVolume
-    }
     val p = player ?: return
     p.pause()
     updateNotification()
@@ -718,11 +563,6 @@ class AudioPlaybackService : MediaSessionService() {
 
   fun stopPlayback() {
     stopProgressUpdates()
-    abandonAudioFocus()
-    if (isDucked) {
-      isDucked = false
-      player?.volume = userVolume
-    }
     val p = player ?: return
     p.stop()
     stopForegroundService()
@@ -734,12 +574,7 @@ class AudioPlaybackService : MediaSessionService() {
   }
 
   fun setVolume(volume: Float) {
-    userVolume = volume.coerceIn(0f, 1f)
-    if (isDucked) {
-      player?.volume = (userVolume * 0.2f).coerceIn(0f, 1f)
-    } else {
-      player?.volume = userVolume
-    }
+    player?.volume = volume.coerceIn(0f, 1f)
   }
 
   fun setRepeatMode(mode: String) {
@@ -1075,7 +910,6 @@ class AudioPlaybackService : MediaSessionService() {
 
   private fun releasePlayer() {
     try {
-      abandonAudioFocus()
       stopForegroundService()
       mediaSession?.let {
         removeSession(it)
