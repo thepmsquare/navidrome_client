@@ -1,5 +1,15 @@
 # changelog
 
+## 2.38.1+83
+
+### user release notes
+
+- fix audio focus ducking and phone call resumption regression.
+
+### internal notes
+
+- revert custom audio focus change listener to restore exoplayer native focus management.
+
 ## 2.38.0+82
 
 ### user release notes
