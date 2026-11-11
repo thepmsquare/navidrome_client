@@ -1,5 +1,17 @@
 # changelog
 
+## 2.38.2+84
+
+### user release notes
+
+- fix resumable playback when tapping play on mini player after dismissing system media notification.
+
+### internal notes
+
+- dispatch onPlaybackStopped from native audio playback module when playback service stops.
+- clear activePlaybackTrackId and preserve position in player service so tapping play reloads track and resumes from last position.
+- ensure native exoplayer prepares if idle on play.
+
 ## 2.38.1+83
 
 ### user release notes

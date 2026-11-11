@@ -34,6 +34,7 @@ type AudioPlaybackEvents = {
   onPreviousTrack: () => void;
   onPlaybackError: (error: PlaybackError) => void;
   onRepeatModeChanged: (data: RepeatModeChanged) => void;
+  onPlaybackStopped: () => void;
 };
 
 declare class AudioPlaybackNativeModule extends NativeModule<AudioPlaybackEvents> {
@@ -179,6 +180,11 @@ export function addRepeatModeListener(
 ) {
   if (!AudioPlayback) return { remove: () => {} };
   return AudioPlayback.addListener("onRepeatModeChanged", listener);
+}
+
+export function addPlaybackStoppedListener(listener: () => void) {
+  if (!AudioPlayback) return { remove: () => {} };
+  return AudioPlayback.addListener("onPlaybackStopped", listener);
 }
 
 export default AudioPlayback;

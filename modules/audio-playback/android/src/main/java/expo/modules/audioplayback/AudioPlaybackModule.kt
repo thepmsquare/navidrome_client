@@ -95,6 +95,10 @@ class AudioPlaybackModule : Module() {
     override fun onRepeatModeChanged(mode: String) {
       sendEvent("onRepeatModeChanged", mapOf("mode" to mode))
     }
+
+    override fun onPlaybackStopped() {
+      sendEvent("onPlaybackStopped", emptyMap<String, Any>())
+    }
   }
 
   override fun definition() = ModuleDefinition {
@@ -106,7 +110,8 @@ class AudioPlaybackModule : Module() {
       "onNextTrack",
       "onPreviousTrack",
       "onPlaybackError",
-      "onRepeatModeChanged"
+      "onRepeatModeChanged",
+      "onPlaybackStopped"
     )
 
     OnCreate {

@@ -5,6 +5,7 @@ import {
   addNextTrackListener,
   addPlaybackErrorListener,
   addPlaybackStateListener,
+  addPlaybackStoppedListener,
   addPreviousTrackListener,
   addRepeatModeListener,
   addTrackEndedListener,
@@ -403,7 +404,15 @@ function ensureListenersInitialized(): void {
       currentPlaybackSpeed = status.playbackSpeed;
     }
 
-    lastPlaybackStatus = status;
+    const preservedPosition =
+      !status.isPlaying && status.position === 0 && lastPlaybackStatus.position > 0
+        ? lastPlaybackStatus.position
+        : status.position;
+
+    lastPlaybackStatus = {
+      ...status,
+      position: preservedPosition,
+    };
     checkAndScrobble();
     notifyStateChanged();
 
@@ -415,13 +424,31 @@ function ensureListenersInitialized(): void {
     }
   });
 
+  addPlaybackStoppedListener(() => {
+    activePlaybackTrackId = null;
+    lastPlaybackStatus = {
+      ...lastPlaybackStatus,
+      isPlaying: false,
+      isBuffering: false,
+    };
+    persistCurrentSession();
+    notifyStateChanged();
+  });
+
   // Ensure playback state and scrobble status sync when returning from background,
   // and persist session state when entering background
   AppState.addEventListener("change", async (nextAppState) => {
     if (nextAppState === "active") {
       try {
         const latest = await getPlaybackStatus();
-        lastPlaybackStatus = latest;
+        const preservedPosition =
+          !latest.isPlaying && latest.position === 0 && lastPlaybackStatus.position > 0
+            ? lastPlaybackStatus.position
+            : latest.position;
+        lastPlaybackStatus = {
+          ...latest,
+          position: preservedPosition,
+        };
         await checkAndScrobble();
         notifyStateChanged();
       } catch {
