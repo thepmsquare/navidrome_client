@@ -1,6 +1,7 @@
 import {
   client_app_sync,
   getCoverArtBaseUrl,
+  getCoverArtUrl,
   getPlaylist,
   getPlaylists,
   getScanStatus,
@@ -20,6 +21,7 @@ import {
 } from "@/services/api";
 import * as db from "@/services/db";
 import * as SecureStore from "expo-secure-store";
+import { getCachedCoverArtUri } from "@/services/coverArtCache";
 
 declare let global: any;
 
@@ -31,6 +33,10 @@ jest.mock("expo-secure-store", () => ({
 jest.mock("@/utils/crypto", () => ({
   generateSalt: jest.fn(() => "mockSalt123"),
   createAuthToken: jest.fn(async () => "mockAuthToken456"),
+}));
+
+jest.mock("@/services/coverArtCache", () => ({
+  getCachedCoverArtUri: jest.fn(() => null),
 }));
 
 jest.mock("@/services/player", () => ({
@@ -570,6 +576,24 @@ describe("api service", () => {
 
       const get600ArtUrl = await getCoverArtBaseUrl(600);
       expect(get600ArtUrl("cover-123")).toContain("size=600");
+    });
+
+    it("getCoverArtBaseUrl resolves cached local cover URI before network URL", async () => {
+      (getCachedCoverArtUri as jest.Mock).mockReturnValueOnce(
+        "file:///data/user/0/com.thepmsquare.navidrome_client/files/cover-cache/cached-cover.jpg",
+      );
+      const getArtUrl = await getCoverArtBaseUrl();
+      const result = getArtUrl("cached-cover");
+      expect(result).toBe(
+        "file:///data/user/0/com.thepmsquare.navidrome_client/files/cover-cache/cached-cover.jpg",
+      );
+    });
+
+    it("getCoverArtUrl returns formatted subsonic url for given cover id", async () => {
+      const url = await getCoverArtUrl("art-999", 500);
+      expect(url).toContain("/rest/getCoverArt.view?u=demo_user");
+      expect(url).toContain("id=art-999");
+      expect(url).toContain("size=500");
     });
 
     it("getSongStreamUrl returns url with songId", async () => {

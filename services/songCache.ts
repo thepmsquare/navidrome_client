@@ -5,7 +5,13 @@ import {
   stopDownloadForegroundService,
   updateDownloadProgress,
 } from "@/modules/download-service";
-import { getSongStreamUrl } from "@/services/api";
+import { getCoverArtUrl, getSongStreamUrl } from "@/services/api";
+import {
+  clearAllCachedCoverArt,
+  deleteCachedCoverArt,
+  getCachedCoverArtUri,
+  saveCoverArt,
+} from "@/services/coverArtCache";
 import {
   deleteAutoSongCacheEntries,
   deleteSongCacheEntry,
@@ -17,6 +23,7 @@ import {
   getSongById,
   getSongCacheEntry,
   insertSongCacheEntryIfNotExists,
+  isCoverArtUsedByOtherCachedSongs,
   updateSongCacheLastAccessed,
   upsertSongCacheEntry,
   clearAllRequestersForSong,
@@ -28,7 +35,12 @@ import {
 } from "@/services/db";
 import { DownloadQueueState, SongCacheRow, SongCacheType } from "@/types";
 
-export { getDownloadQueueState };
+export {
+  clearAllCachedCoverArt,
+  deleteCachedCoverArt,
+  getCachedCoverArtUri,
+  getDownloadQueueState,
+};
 
 export function getCachedSongPlaybackUri(songId: string): string | null {
   const entry = getSongCacheEntry(songId);
@@ -110,6 +122,9 @@ export function notifySongCacheUpdated(
 }
 
 export async function deleteSongFromCache(songId: string): Promise<void> {
+  const song = getSongById(songId);
+  const coverArtId = song?.coverArt || song?.id;
+
   const entry = getSongCacheEntry(songId);
   if (entry?.filePath) {
     try {
@@ -125,8 +140,33 @@ export async function deleteSongFromCache(songId: string): Promise<void> {
   deleteSongCacheEntry(songId);
   removeFromDownloadQueue(songId);
   clearAllRequestersForSong(songId);
+
+  if (coverArtId && !isCoverArtUsedByOtherCachedSongs(coverArtId)) {
+    deleteCachedCoverArt(coverArtId);
+  }
+
   notifyCacheQueueUpdated();
   notifySongCacheUpdated(songId, null);
+}
+
+async function cacheSongCoverArt(
+  song: { coverArt?: string | null; albumId?: string | null; id: string },
+  signal?: AbortSignal,
+): Promise<string | null> {
+  const coverArtId = song.coverArt || song.albumId || song.id;
+  if (!coverArtId) {
+    return null;
+  }
+  try {
+    const coverUrl = await getCoverArtUrl(coverArtId, 600);
+    if (!coverUrl) {
+      return null;
+    }
+    return await saveCoverArt(coverArtId, coverUrl, signal);
+  } catch (error) {
+    console.warn("failed to cache cover art for song:", song.id, error);
+    return null;
+  }
 }
 
 export function notifySongCacheProgress(
@@ -339,6 +379,7 @@ export async function cacheSongManually(
   onProgress?.(0);
 
   const destination = new File(cacheDir, `${songId}.${suffix}`);
+  const coverPromise = cacheSongCoverArt(song, controller.signal);
 
   try {
     const downloadedFile = await File.downloadFileAsync(
@@ -382,6 +423,12 @@ export async function cacheSongManually(
 
     upsertSongCacheEntry(songId, SongCacheType.Manual, filePath, fileSizeBytes);
 
+    try {
+      await coverPromise;
+    } catch {
+      // Cover art failure does not fail manual song caching
+    }
+
     const entry = getSongCacheEntry(songId);
     if (entry) {
       notifySongCacheUpdated(songId, entry);
@@ -423,6 +470,7 @@ export async function autoCacheSong(songId: string): Promise<void> {
 
   const suffix = song.suffix || "mp3";
   let destination: File | null = null;
+  const coverPromise = cacheSongCoverArt(song, controller.signal);
 
   try {
     const streamUrl = await getSongStreamUrl(songId);
@@ -478,7 +526,12 @@ export async function autoCacheSong(songId: string): Promise<void> {
         } catch (e) {
           console.error("failed to delete evicted auto-cache file:", e);
         }
+        const victimSong = getSongById(victim.songId);
+        const victimCoverId = victimSong?.coverArt || victimSong?.id;
         deleteSongCacheEntry(victim.songId);
+        if (victimCoverId && !isCoverArtUsedByOtherCachedSongs(victimCoverId)) {
+          deleteCachedCoverArt(victimCoverId);
+        }
         notifySongCacheUpdated(victim.songId, null);
         currentTotal -= victim.fileSizeBytes;
       }
@@ -504,6 +557,11 @@ export async function autoCacheSong(songId: string): Promise<void> {
     );
 
     if (inserted) {
+      try {
+        await coverPromise;
+      } catch {
+        // Ignore cover art failure
+      }
       const entry = getSongCacheEntry(songId);
       if (entry) {
         notifySongCacheUpdated(songId, entry);
@@ -569,6 +627,19 @@ export async function clearAllAutoCachedSongs(): Promise<void> {
     console.error("failed to delete auto song cache entries from db:", error);
   }
 
+  // Clean up any cover art files that are no longer used by remaining manual cache songs
+  for (const songId of autoSongIds) {
+    try {
+      const song = getSongById(songId);
+      const coverArtId = song?.coverArt || song?.id;
+      if (coverArtId && !isCoverArtUsedByOtherCachedSongs(coverArtId)) {
+        deleteCachedCoverArt(coverArtId);
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
   // Notify listeners that songs were removed from cache
   autoSongIds.forEach((songId) => {
     notifySongCacheUpdated(songId, null);
@@ -615,4 +686,7 @@ export async function clearAllCachedSongs(): Promise<void> {
   } catch (error) {
     console.error("failed to delete auto cache directory:", error);
   }
+
+  // Delete cover art cache folder and its contents
+  clearAllCachedCoverArt();
 }

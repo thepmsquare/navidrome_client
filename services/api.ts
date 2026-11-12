@@ -47,6 +47,7 @@ import {
 import { APP_FULL_NAME } from "@/utils/constants";
 import { createAuthToken, generateSalt } from "@/utils/crypto";
 import * as SecureStore from "expo-secure-store";
+import { getCachedCoverArtUri } from "@/services/coverArtCache";
 
 function getRestBaseUrl(rawUrl: string): string {
   const cleanUrl = rawUrl.replace(/\/+$/, "");
@@ -484,14 +485,44 @@ export async function client_app_sync(
 }
 
 
+export async function getCoverArtUrl(
+  id: string,
+  size: number = 600,
+): Promise<string | null> {
+  if (!id) return null;
+  try {
+    const creds = await getStoredCredentials();
+    const restBase = getRestBaseUrl(creds.serverUrl);
+    const authQuery = await buildAuthParams(creds);
+    return `${restBase}/getCoverArt.view?${authQuery}&id=${encodeURIComponent(id)}&size=${size}`;
+  } catch {
+    return null;
+  }
+}
+
 export async function getCoverArtBaseUrl(defaultSize: number = 300): Promise<
   (id?: string | null, size?: number) => string | null
 > {
-  const creds = await getStoredCredentials();
-  const restBase = getRestBaseUrl(creds.serverUrl);
-  const authQuery = await buildAuthParams(creds);
+  let restBase: string | null = null;
+  let authQuery: string | null = null;
+
+  try {
+    const creds = await getStoredCredentials();
+    restBase = getRestBaseUrl(creds.serverUrl);
+    authQuery = await buildAuthParams(creds);
+  } catch {
+    // Offline or credentials unavailable
+  }
+
   return (id?: string | null, size?: number) => {
     if (!id) return null;
+    const cachedUri = getCachedCoverArtUri(id);
+    if (cachedUri) {
+      return cachedUri;
+    }
+    if (!restBase || !authQuery) {
+      return null;
+    }
     const targetSize = size ?? defaultSize;
     return `${restBase}/getCoverArt.view?${authQuery}&id=${encodeURIComponent(id)}&size=${targetSize}`;
   };

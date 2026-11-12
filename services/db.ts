@@ -922,6 +922,29 @@ export function deleteSongCacheEntry(songId: string): void {
   db.runSync("DELETE FROM song_cache WHERE songId = ?", [songId]);
 }
 
+export function isCoverArtUsedByOtherCachedSongs(
+  coverArtId: string,
+  excludeSongId?: string,
+): boolean {
+  const db = getDb();
+  const sql = excludeSongId
+    ? `SELECT COUNT(*) AS count 
+       FROM song_cache sc 
+       JOIN songs s ON sc.songId = s.id 
+       WHERE (s.coverArt = ? OR s.id = ?) AND sc.songId != ?`
+    : `SELECT COUNT(*) AS count 
+       FROM song_cache sc 
+       JOIN songs s ON sc.songId = s.id 
+       WHERE (s.coverArt = ? OR s.id = ?)`;
+
+  const params = excludeSongId
+    ? [coverArtId, coverArtId, excludeSongId]
+    : [coverArtId, coverArtId];
+
+  const row = db.getFirstSync<{ count: number }>(sql, params);
+  return (row?.count ?? 0) > 0;
+}
+
 export function getAutoCacheMaxBytes(): number {
   const val = getSyncMeta("auto_cache_max_bytes");
   if (!val) {
