@@ -34,6 +34,7 @@ import {
   upsertSongsBatch,
   deleteSongCacheEntry,
   insertSongCacheEntryIfNotExists,
+  isCoverArtUsedByOtherCachedSongs,
   getAutoCacheMaxBytes,
   setAutoCacheMaxBytes,
   getAutoCacheTotalSize,
@@ -843,6 +844,26 @@ describe("db service", () => {
       expect(mockRunSync).toHaveBeenCalledWith(
         "DELETE FROM song_cache WHERE songId = ?",
         ["track-1"],
+      );
+    });
+
+    it("isCoverArtUsedByOtherCachedSongs should return true if count > 0", () => {
+      mockGetFirstSync.mockReturnValue({ count: 2 });
+      const result = isCoverArtUsedByOtherCachedSongs("al-1", "track-1");
+      expect(result).toBe(true);
+      expect(mockGetFirstSync).toHaveBeenCalledWith(
+        expect.stringContaining("WHERE (s.coverArt = ? OR s.id = ?) AND sc.songId != ?"),
+        ["al-1", "al-1", "track-1"],
+      );
+    });
+
+    it("isCoverArtUsedByOtherCachedSongs should return false if count is 0", () => {
+      mockGetFirstSync.mockReturnValue({ count: 0 });
+      const result = isCoverArtUsedByOtherCachedSongs("al-unused");
+      expect(result).toBe(false);
+      expect(mockGetFirstSync).toHaveBeenCalledWith(
+        expect.stringContaining("WHERE (s.coverArt = ? OR s.id = ?)"),
+        ["al-unused", "al-unused"],
       );
     });
 

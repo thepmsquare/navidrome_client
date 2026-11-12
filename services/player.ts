@@ -54,6 +54,7 @@ import {
 } from "@/services/scrobbleQueue";
 import {
   autoCacheSong,
+  getCachedCoverArtUri,
   getCachedSongPlaybackUri,
   subscribeSongCache,
 } from "@/services/songCache";
@@ -287,8 +288,13 @@ async function switchToRemoteStream(songId: string): Promise<void> {
     const savedPosition = lastPlaybackStatus.position;
     const shouldPlay = lastPlaybackStatus.isPlaying;
     const streamUrl = await getSongStreamUrl(songId);
-    const getArtUrl = await getCoverArtBaseUrl();
-    const artworkUrl = getArtUrl(currentSong.coverArt);
+    let artworkUrl: string | null = null;
+    try {
+      const getArtUrl = await getCoverArtBaseUrl();
+      artworkUrl = getArtUrl(currentSong.coverArt || currentSong.id);
+    } catch {
+      artworkUrl = getCachedCoverArtUri(currentSong.coverArt || currentSong.id);
+    }
 
     currentPlaybackSource = { songId, isFromCache: false };
 
@@ -575,8 +581,13 @@ export async function playTrackAtIndex(index: number): Promise<void> {
     const cachedUri = getCachedSongPlaybackUri(song.id);
     const isFromCache = !!cachedUri;
     const playbackUrl = cachedUri ?? (await getSongStreamUrl(song.id));
-    const getArtUrl = await getCoverArtBaseUrl();
-    const artworkUrl = getArtUrl(song.coverArt);
+    let artworkUrl: string | null = null;
+    try {
+      const getArtUrl = await getCoverArtBaseUrl();
+      artworkUrl = getArtUrl(song.coverArt || song.id);
+    } catch {
+      artworkUrl = getCachedCoverArtUri(song.coverArt || song.id);
+    }
 
     currentPlaybackSource = { songId: song.id, isFromCache };
 

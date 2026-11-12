@@ -1,12 +1,19 @@
 import { File } from "expo-file-system";
 
-import { getSongStreamUrl } from "@/services/api";
+import { getCoverArtUrl, getSongStreamUrl } from "@/services/api";
+import {
+  clearAllCachedCoverArt,
+  deleteCachedCoverArt,
+  getCachedCoverArtUri,
+  saveCoverArt,
+} from "@/services/coverArtCache";
 import {
   clearAllRequestersForSong,
   deleteSongCacheEntry,
   getSongById,
   getSongCacheEntry,
   insertSongCacheEntryIfNotExists,
+  isCoverArtUsedByOtherCachedSongs,
   removeFromDownloadQueue,
   updateSongCacheLastAccessed,
   upsertSongCacheEntry,
@@ -40,7 +47,21 @@ jest.mock("@/modules/download-service", () => ({
   stopDownloadForegroundService: jest.fn(),
 }));
 
+jest.mock("@/services/coverArtCache", () => ({
+  clearAllCachedCoverArt: jest.fn(),
+  deleteCachedCoverArt: jest.fn(),
+  getCachedCoverArtUri: jest.fn(),
+  saveCoverArt: jest.fn(() =>
+    Promise.resolve(
+      "file:///data/user/0/com.thepmsquare.navidrome_client/files/cover-cache/art.jpg",
+    ),
+  ),
+}));
+
 jest.mock("@/services/api", () => ({
+  getCoverArtUrl: jest.fn(() =>
+    Promise.resolve("https://example.com/cover.jpg"),
+  ),
   getSongStreamUrl: jest.fn(),
 }));
 
@@ -61,6 +82,7 @@ jest.mock("@/services/db", () => ({
   getSongById: jest.fn(),
   getSongCacheEntry: jest.fn(),
   insertSongCacheEntryIfNotExists: jest.fn(),
+  isCoverArtUsedByOtherCachedSongs: jest.fn(() => false),
   markDownloadActive: jest.fn(),
   removeFromDownloadQueue: jest.fn(),
   revertActiveDownloadsToPending: jest.fn(() => []),
@@ -172,6 +194,56 @@ describe("songCache service", () => {
       SongCacheType.Manual,
       "file:///data/user/0/com.thepmsquare.navidrome_client/files/manual-cache/song-123.flac",
       15728640,
+    );
+    expect(saveCoverArt).toHaveBeenCalledWith(
+      "song-123",
+      "https://example.com/cover.jpg",
+      expect.any(Object),
+    );
+  });
+
+  it("should download cover art alongside manual song cache when coverArt is present", async () => {
+    (getSongById as jest.Mock).mockReturnValue({
+      id: "song-with-cover",
+      coverArt: "al-42",
+      suffix: "mp3",
+    });
+    (getSongStreamUrl as jest.Mock).mockResolvedValue("https://example.com/stream");
+    (getCoverArtUrl as jest.Mock).mockResolvedValue("https://example.com/cover-42.jpg");
+    (File.downloadFileAsync as jest.Mock).mockResolvedValue({
+      uri: "file:///manual-cache/song-with-cover.mp3",
+      size: 1000,
+    });
+
+    await cacheSongManually("song-with-cover");
+
+    expect(getCoverArtUrl).toHaveBeenCalledWith("al-42", 600);
+    expect(saveCoverArt).toHaveBeenCalledWith(
+      "al-42",
+      "https://example.com/cover-42.jpg",
+      expect.any(Object),
+    );
+  });
+
+  it("should not fail manual song cache if cover art download fails", async () => {
+    (getSongById as jest.Mock).mockReturnValue({
+      id: "song-cover-fail",
+      coverArt: "al-fail",
+      suffix: "mp3",
+    });
+    (getSongStreamUrl as jest.Mock).mockResolvedValue("https://example.com/stream");
+    (getCoverArtUrl as jest.Mock).mockRejectedValue(new Error("cover art 404"));
+    (File.downloadFileAsync as jest.Mock).mockResolvedValue({
+      uri: "file:///manual-cache/song-cover-fail.mp3",
+      size: 1000,
+    });
+
+    await expect(cacheSongManually("song-cover-fail")).resolves.not.toThrow();
+    expect(upsertSongCacheEntry).toHaveBeenCalledWith(
+      "song-cover-fail",
+      SongCacheType.Manual,
+      "file:///manual-cache/song-cover-fail.mp3",
+      1000,
     );
   });
 
@@ -516,6 +588,42 @@ describe("songCache service", () => {
 
       await expect(deleteSongFromCache("song-del-err")).resolves.not.toThrow();
       expect(deleteSongCacheEntry).toHaveBeenCalledWith("song-del-err");
+    });
+
+    it("should delete cover art when song is deleted and no other song uses it", async () => {
+      (getSongById as jest.Mock).mockReturnValue({
+        id: "song-del-cover",
+        coverArt: "al-del-cover",
+      });
+      (getSongCacheEntry as jest.Mock).mockReturnValue({
+        songId: "song-del-cover",
+        cacheType: SongCacheType.Manual,
+        filePath: "file:///manual-cache/song-del-cover.mp3",
+      });
+      (isCoverArtUsedByOtherCachedSongs as jest.Mock).mockReturnValue(false);
+
+      await deleteSongFromCache("song-del-cover");
+
+      expect(deleteSongCacheEntry).toHaveBeenCalledWith("song-del-cover");
+      expect(deleteCachedCoverArt).toHaveBeenCalledWith("al-del-cover");
+    });
+
+    it("should preserve cover art when song is deleted but another cached song uses it", async () => {
+      (getSongById as jest.Mock).mockReturnValue({
+        id: "song-del-shared",
+        coverArt: "al-shared",
+      });
+      (getSongCacheEntry as jest.Mock).mockReturnValue({
+        songId: "song-del-shared",
+        cacheType: SongCacheType.Manual,
+        filePath: "file:///manual-cache/song-del-shared.mp3",
+      });
+      (isCoverArtUsedByOtherCachedSongs as jest.Mock).mockReturnValue(true);
+
+      await deleteSongFromCache("song-del-shared");
+
+      expect(deleteSongCacheEntry).toHaveBeenCalledWith("song-del-shared");
+      expect(deleteCachedCoverArt).not.toHaveBeenCalled();
     });
   });
 
@@ -863,6 +971,7 @@ describe("songCache service", () => {
       mockDirectoryExists.current = true;
       await clearAllCachedSongs();
       expect(mockDirectoryDelete).toHaveBeenCalled();
+      expect(clearAllCachedCoverArt).toHaveBeenCalled();
     });
 
     it("should not crash if cache directory does not exist", async () => {

@@ -104,7 +104,7 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
 
 ## offline & network
 
-- [ ] **persist album art for offline cached songs** (`off-1`)
+- [x] **persist album art for offline cached songs** (`off-1`)
   - **context:** [`services/songCache.ts`](./services/songCache.ts) saves audio but not artwork, so covers are missing offline.
   - **task:** download and persist cover art alongside cached songs. resolve cached covers before network urls.
 

@@ -1,5 +1,16 @@
 # changelog
 
+## unreleased
+
+### user release notes
+
+- persist album artwork for offline cached songs.
+
+### internal notes
+
+- download and persist album cover art locally during track caching and resolve cached covers before network urls.
+- delete cached cover art files when the last associated cached song is removed.
+
 ## 2.38.2+84
 
 ### user release notes
