@@ -64,6 +64,7 @@ import {
   registerPauseExecutor,
 } from "@/services/sleepTimer";
 import { Child } from "@/types";
+import { handleNetworkOrOfflineError } from "@/utils/network";
 
 export interface ActiveTrackInfo {
   id: string;
@@ -312,6 +313,7 @@ async function switchToRemoteStream(songId: string): Promise<void> {
     }
   } catch (error) {
     console.error("failed to switch to remote stream:", error);
+    handleNetworkOrOfflineError(error);
   }
 }
 
@@ -496,6 +498,8 @@ function ensureListenersInitialized(): void {
       currentPlaybackSource.isFromCache
     ) {
       await switchToRemoteStream(currentTrack.id);
+    } else {
+      handleNetworkOrOfflineError(error);
     }
   });
 
@@ -623,6 +627,7 @@ export async function playTrackAtIndex(index: number): Promise<void> {
     }
   } catch (error) {
     console.error("failed to play track:", error);
+    handleNetworkOrOfflineError(error);
   }
 }
 

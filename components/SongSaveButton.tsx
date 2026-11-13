@@ -19,6 +19,7 @@ import {
   subscribeSongExportProgress,
 } from "@/services/songExport";
 import { useAppTheme } from "@/types";
+import { handleNetworkOrOfflineError } from "@/utils/network";
 
 export interface SongSaveButtonProps {
   songId?: string | null;
@@ -157,10 +158,14 @@ export function SongSaveButton({
       } else if (result.success) {
         onSaveSuccess?.(result.fileName || "");
       } else {
+        if (result.error) {
+          handleNetworkOrOfflineError(result.error);
+        }
         onSaveError?.(result.error || "failed to save file");
       }
     } catch (err) {
       console.error("failed to save song to files:", err);
+      handleNetworkOrOfflineError(err);
       onSaveError?.(err);
     } finally {
       setIsExporting(false);

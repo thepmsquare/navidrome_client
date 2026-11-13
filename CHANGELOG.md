@@ -1,15 +1,18 @@
 # changelog
 
-## unreleased
+## 2.38.3+85
 
 ### user release notes
 
 - persist album artwork for offline cached songs.
+- show dismissible offline snackbar when attempting internet-required actions while offline.
 
 ### internal notes
 
 - download and persist album cover art locally during track caching and resolve cached covers before network urls.
 - delete cached cover art files when the last associated cached song is removed.
+- add global snackbar emitter in services/snackbar.ts and mount dismissible snackbar in app/\_layout.tsx.
+- handle network failures and playback connection errors with non-blocking "unable to connect to server" feedback across streaming, sync, and downloads.
 
 ## 2.38.2+84
 

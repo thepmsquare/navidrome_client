@@ -3,7 +3,8 @@ import renderer from "react-test-renderer";
 
 import { SongCacheButton } from "@/components/SongCacheButton";
 import { getSongCacheEntry } from "@/services/db";
-import { isSongCaching } from "@/services/songCache";
+import * as snackbarModule from "@/services/snackbar";
+import { cacheSongManually, isSongCaching } from "@/services/songCache";
 import { SongCacheRow, SongCacheType } from "@/types";
 
 let cacheListener:
@@ -407,6 +408,37 @@ describe("SongCacheButton", () => {
       });
 
       expect(onAction).toHaveBeenCalledTimes(1);
+
+      renderer.act(() => {
+        component.unmount();
+      });
+    });
+
+    it("triggers offline snackbar when cacheSongManually fails with network error", async () => {
+      const snackbarSpy = jest
+        .spyOn(snackbarModule, "showOfflineSnackbar")
+        .mockImplementation(() => {});
+      (cacheSongManually as jest.Mock).mockRejectedValueOnce(
+        new TypeError("Network request failed"),
+      );
+
+      let component: any;
+      renderer.act(() => {
+        component = renderer.create(
+          <SongCacheButton songId="song-err-1" variant="menu-item" />,
+        );
+      });
+
+      const button = component.root.findByProps({
+        accessibilityLabel: "download",
+      });
+
+      await renderer.act(async () => {
+        await button.props.onPress();
+      });
+
+      expect(snackbarSpy).toHaveBeenCalledTimes(1);
+      snackbarSpy.mockRestore();
 
       renderer.act(() => {
         component.unmount();

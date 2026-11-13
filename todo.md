@@ -108,8 +108,9 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
   - **context:** [`services/songCache.ts`](./services/songCache.ts) saves audio but not artwork, so covers are missing offline.
   - **task:** download and persist cover art alongside cached songs. resolve cached covers before network urls.
 
-- [ ] **graceful offline error feedback** (`off-2`)
+- [x] **graceful offline error feedback** (`off-2`)
   - **task:** show non-blocking snackbars when an action requires internet (streaming an uncached song, manual sync while offline). avoid blocking modals or global state flips during transient drops.
+  - **implementation:** added global snackbar service (`services/snackbar.ts`) and network error utility (`utils/network.ts`). mounted a dismissible snackbar in root layout (`app/_layout.tsx`) showing "unable to connect to server" when streaming uncached songs, syncing library, downloading tracks, or exporting offline fails.
 
 - [x] **android foreground service for downloads & caching** (`off-3`)
   - **context:** bulk caching runs in the js runtime and stalls when the app is backgrounded without an active foreground service.

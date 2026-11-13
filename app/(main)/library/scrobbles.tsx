@@ -36,6 +36,7 @@ import {
 } from "@/services/scrobbleQueue";
 import { songsStyles } from "@/stylesheets";
 import { Child, PendingScrobble, useAppTheme } from "@/types";
+import { handleNetworkOrOfflineError } from "@/utils/network";
 
 function formatTimestamp(timestamp: number): string {
   const date = new Date(timestamp);
@@ -159,7 +160,9 @@ export default function PendingScrobblesScreen() {
     setIsSyncing(true);
     try {
       const result = await syncPendingScrobbles();
-      if (result.synced > 0 || result.failed > 0) {
+      if (result.synced === 0 && result.failed > 0) {
+        handleNetworkOrOfflineError("unable to connect to server");
+      } else if (result.synced > 0 || result.failed > 0) {
         Alert.alert(
           "sync completed",
           `synced ${result.synced} scrobbles${
@@ -167,6 +170,8 @@ export default function PendingScrobblesScreen() {
           }`,
         );
       }
+    } catch (e) {
+      handleNetworkOrOfflineError(e);
     } finally {
       setIsSyncing(false);
       reloadData();
@@ -188,8 +193,10 @@ export default function PendingScrobblesScreen() {
     try {
       const success = await syncSinglePendingScrobble(item.id);
       if (!success) {
-        Alert.alert("sync failed", "could not sync scrobble to server");
+        handleNetworkOrOfflineError("unable to connect to server");
       }
+    } catch (e) {
+      handleNetworkOrOfflineError(e);
     } finally {
       setSyncingItemId(null);
       reloadData();

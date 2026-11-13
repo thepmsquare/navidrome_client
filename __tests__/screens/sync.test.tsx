@@ -1,10 +1,10 @@
-import React from "react";
-import renderer, { act } from "react-test-renderer";
 import { Button, Text } from "react-native-paper";
+import renderer, { act } from "react-test-renderer";
 
 import SyncScreen from "@/app/(main)/sync";
 import * as api from "@/services/api";
 import * as db from "@/services/db";
+import * as snackbarModule from "@/services/snackbar";
 
 const mockReplace = jest.fn();
 let mockSearchParams: { initial?: string } = {};
@@ -118,7 +118,9 @@ describe("SyncScreen", () => {
     const root = tree.root;
     const buttons = root.findAllByType(Button);
     const syncBtn = buttons.find((b: any) => b.props.children === "sync");
-    const forceSyncBtn = buttons.find((b: any) => b.props.children === "force sync");
+    const forceSyncBtn = buttons.find(
+      (b: any) => b.props.children === "force sync",
+    );
     const homeBtn = buttons.find((b: any) => b.props.children === "go to home");
 
     expect(syncBtn).toBeDefined();
@@ -151,7 +153,9 @@ describe("SyncScreen", () => {
 
     const root = tree.root;
     const buttons = root.findAllByType(Button);
-    const forceSyncBtn = buttons.find((b: any) => b.props.children === "force sync");
+    const forceSyncBtn = buttons.find(
+      (b: any) => b.props.children === "force sync",
+    );
 
     await act(async () => {
       forceSyncBtn.props.onPress();
@@ -193,5 +197,30 @@ describe("SyncScreen", () => {
     });
 
     expect(api.client_app_sync).toHaveBeenCalledWith(false);
+  });
+
+  it("triggers offline snackbar when manual sync fails with network error", async () => {
+    const snackbarSpy = jest
+      .spyOn(snackbarModule, "showOfflineSnackbar")
+      .mockImplementation(() => {});
+    (api.client_app_sync as jest.Mock).mockRejectedValueOnce(
+      new TypeError("Network request failed"),
+    );
+
+    let tree: any;
+    await act(async () => {
+      tree = renderer.create(<SyncScreen />);
+    });
+
+    const root = tree.root;
+    const buttons = root.findAllByType(Button);
+    const syncBtn = buttons.find((b: any) => b.props.children === "sync");
+
+    await act(async () => {
+      await syncBtn.props.onPress();
+    });
+
+    expect(snackbarSpy).toHaveBeenCalledTimes(1);
+    snackbarSpy.mockRestore();
   });
 });

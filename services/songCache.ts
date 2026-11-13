@@ -34,6 +34,7 @@ import {
   revertActiveDownloadsToPending,
 } from "@/services/db";
 import { DownloadQueueState, SongCacheRow, SongCacheType } from "@/types";
+import { handleNetworkOrOfflineError } from "@/utils/network";
 
 export {
   clearAllCachedCoverArt,
@@ -285,7 +286,8 @@ export function tryStartNextDownload(): void {
   (async () => {
     try {
       await cacheSongManually(nextSongId);
-    } catch {
+    } catch (err) {
+      handleNetworkOrOfflineError(err);
       // Failed or cancelled downloads are dropped from queue
     } finally {
       removeFromDownloadQueue(nextSongId);
