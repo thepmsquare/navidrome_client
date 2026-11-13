@@ -213,8 +213,9 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
   - **task:** add fastlane lane `promote_to_production` with staged rollout percentages (e.g. 10%, 20%, 50%, 100%).
   - **implementation:** added fastlane `promote_to_production` in `fastlane/Fastfile` with configurable `rollout` percentage and integrated into unified `.github/workflows/release.yml` with `production` environment gate.
 
-- [ ] **github release with apk asset on open testing promotion** (`ci-4`)
+- [x] **github release with apk asset on open testing promotion** (`ci-4`)
   - **task:** modify `.github/workflows/release.yml` so that upon successful promotion to the open testing track (`open-testing`), a github release is automatically published with the release changelog and the built release apk attached.
+  - **implementation:** updated `promote_to_open` in `.github/workflows/release.yml` with `contents: write` permissions, artifact download for the built release apk, node extraction of the version changelog from `CHANGELOG.md`, and automated github release creation/asset attachment via `gh release`.
 
 - [ ] **store listing & compliance** (`store-1`)
   - **task:** update the play store listing (description, screenshots, feature graphic), data safety form, and content rating. confirm [`privacy_policy.html`](./privacy_policy.html) is published.
