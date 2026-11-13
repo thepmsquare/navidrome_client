@@ -493,10 +493,12 @@ jobs:
 
   promote_to_open:
     name: Promote to Open Testing (Beta)
-    needs: [check_release, promote_to_closed]
+    needs: [check_release, build_and_upload_internal, promote_to_closed]
     if: needs.check_release.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     environment: open-testing
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -527,6 +529,82 @@ jobs:
           echo "$PLAY_STORE_SERVICE_ACCOUNT_JSON" > /tmp/service-account.json
           export SUPPLY_JSON_KEY=/tmp/service-account.json
           bundle exec fastlane android promote_to_open version_code:${{ needs.check_release.outputs.version_code }}
+
+      - name: Download Release APK Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-release-v${{ needs.check_release.outputs.version_code }}.apk
+          path: release-apk
+
+      - name: Extract Release Changelog
+        env:
+          APP_VERSION: ${{ needs.check_release.outputs.app_version }}
+          VERSION_CODE: ${{ needs.check_release.outputs.version_code }}
+        run: |
+          node << 'EOF'
+          const fs = require('fs');
+
+          const appVersion = process.env.APP_VERSION;
+          const versionCode = process.env.VERSION_CODE;
+          const targetHeading = `${appVersion}+${versionCode}`;
+
+          console.log(`Extracting changelog for version heading: ${targetHeading}`);
+
+          const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
+          const sections = changelog.split(/^## /m);
+
+          let releaseNotes = '';
+          for (let i = 1; i < sections.length; i++) {
+            const section = sections[i];
+            const lines = section.split('\n');
+            const heading = lines[0].trim();
+            if (heading === targetHeading) {
+              releaseNotes = lines.slice(1).join('\n').trim();
+              break;
+            }
+          }
+
+          if (!releaseNotes && sections.length > 1) {
+            console.log(`Heading ${targetHeading} not found; falling back to top changelog section.`);
+            releaseNotes = sections[1].split('\n').slice(1).join('\n').trim();
+          }
+
+          if (!releaseNotes) {
+            console.warn('Warning: no changelog notes found. Using fallback release notes.');
+            releaseNotes = `Release v${appVersion}+${versionCode}`;
+          }
+
+          fs.writeFileSync('release-changelog.md', releaseNotes + '\n');
+          console.log('--- Extracted Release Changelog ---');
+          console.log(releaseNotes);
+          EOF
+
+      - name: Publish GitHub Release with APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: v${{ needs.check_release.outputs.app_version }}+${{ needs.check_release.outputs.version_code }}
+        run: |
+          APK_FILE=$(find release-apk -type f -name "*.apk" | head -n 1)
+          if [ -z "$APK_FILE" ] || [ ! -f "$APK_FILE" ]; then
+            echo "error: release apk not found in release-apk directory" >&2
+            exit 1
+          fi
+
+          echo "Found release APK asset: $APK_FILE"
+          echo "Target release tag: $TAG_NAME"
+
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Release $TAG_NAME already exists, updating notes and uploading asset..."
+            gh release edit "$TAG_NAME" --title "$TAG_NAME" --notes-file release-changelog.md
+            gh release upload "$TAG_NAME" "$APK_FILE" --clobber
+          else
+            echo "Creating GitHub release $TAG_NAME..."
+            gh release create "$TAG_NAME" "$APK_FILE" \
+              --title "$TAG_NAME" \
+              --notes-file release-changelog.md \
+              --target "${{ github.sha }}"
+          fi
+          echo "Successfully published GitHub release $TAG_NAME with release APK asset."
 
   promote_to_production:
     name: Promote to Production

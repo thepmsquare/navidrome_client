@@ -1,5 +1,16 @@
 # changelog
 
+## unreleased
+
+### user release notes
+
+- n/a
+
+### internal notes
+
+- publish github release with version changelog notes and built apk asset upon open testing promotion in release pipeline.
+- add release apk artifact download and changelog extraction steps to promote_to_open job in .github/workflows/release.yml.
+
 ## 2.38.3+85
 
 ### user release notes
