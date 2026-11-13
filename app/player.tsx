@@ -45,6 +45,7 @@ import {
 } from "@/services/player";
 import { useSleepTimer } from "@/services/sleepTimer";
 import { playerStyles } from "@/stylesheets";
+import { handleNetworkOrOfflineError } from "@/utils/network";
 import {
   LyricsMode,
   LyricsTrackMetadata,
@@ -252,16 +253,20 @@ export default function PlayerScreen() {
       showSnackbar(
         nowStarred ? "added to favorites" : "removed from favorites",
       );
-    } catch {
-      showSnackbar("failed to update favorite");
+    } catch (e: any) {
+      if (!handleNetworkOrOfflineError(e)) {
+        showSnackbar("failed to update favorite");
+      }
     }
   };
 
   const handleSetRating = async (ratingVal: number) => {
     try {
       await setRatingCurrentTrack(ratingVal);
-    } catch {
-      showSnackbar("failed to update rating");
+    } catch (e: any) {
+      if (!handleNetworkOrOfflineError(e)) {
+        showSnackbar("failed to update rating");
+      }
     }
   };
 
@@ -1062,6 +1067,10 @@ export default function PlayerScreen() {
         visible={snackbarVisible}
         onDismiss={() => setSnackbarVisible(false)}
         duration={3000}
+        action={{
+          label: "dismiss",
+          onPress: () => setSnackbarVisible(false),
+        }}
       >
         {snackbarMessage}
       </Snackbar>

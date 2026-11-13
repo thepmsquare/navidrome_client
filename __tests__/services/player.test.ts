@@ -4,6 +4,7 @@ import renderer from "react-test-renderer";
 
 import * as audioPlayback from "@/modules/audio-playback";
 import * as api from "@/services/api";
+import * as snackbarModule from "@/services/snackbar";
 import {
   addToQueue,
   clearQueue,
@@ -961,6 +962,18 @@ describe("player service", () => {
         new Error("load failed"),
       );
       await expect(playPlaylist([sampleSong1], 0)).resolves.not.toThrow();
+    });
+
+    it("should trigger offline snackbar when playTrackAtIndex encounters network error", async () => {
+      const snackbarSpy = jest
+        .spyOn(snackbarModule, "showOfflineSnackbar")
+        .mockImplementation(() => {});
+      (audioPlayback.loadTrack as jest.Mock).mockRejectedValueOnce(
+        new TypeError("Network request failed"),
+      );
+      await expect(playPlaylist([sampleSong1], 0)).resolves.not.toThrow();
+      expect(snackbarSpy).toHaveBeenCalledTimes(1);
+      snackbarSpy.mockRestore();
     });
   });
 

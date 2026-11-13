@@ -7,7 +7,9 @@ import {
   ActivityIndicator,
   MD3DarkTheme,
   MD3LightTheme,
+  Portal,
   Provider as PaperProvider,
+  Snackbar,
 } from "react-native-paper";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
@@ -19,6 +21,7 @@ import {
   formatBytes,
 } from "@/services/legacyCache";
 import { runLegacyMigration } from "@/services/migration";
+import { SnackbarPayload, subscribeSnackbar } from "@/services/snackbar";
 import { resumePendingDownloadsAfterRestart } from "@/services/songCache";
 import { layoutStyles } from "@/stylesheets";
 import { APP_VERSION_CODE } from "@/utils/constants";
@@ -28,12 +31,21 @@ export default function RootLayout() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showWhatsNew, setShowWhatsNew] = useState(false);
+  const [snackbarPayload, setSnackbarPayload] = useState<SnackbarPayload | null>(
+    null,
+  );
   const needsInitialSyncRef = useRef(false);
 
   const router = useRouter();
   const segments = useSegments();
   const colorScheme = useColorScheme();
   const { theme } = useMaterial3Theme();
+
+  useEffect(() => {
+    return subscribeSnackbar((payload) => {
+      setSnackbarPayload(payload);
+    });
+  }, []);
 
   useEffect(() => {
     async function checkToken() {
@@ -218,6 +230,22 @@ export default function RootLayout() {
               onDismiss={() => setShowWhatsNew(false)}
               title="what's new"
             />
+            <Portal>
+              <Snackbar
+                visible={!!snackbarPayload}
+                onDismiss={() => setSnackbarPayload(null)}
+                duration={snackbarPayload?.duration ?? 3000}
+                action={{
+                  label: snackbarPayload?.actionLabel ?? "dismiss",
+                  onPress: () => {
+                    snackbarPayload?.onAction?.();
+                    setSnackbarPayload(null);
+                  },
+                }}
+              >
+                {snackbarPayload?.message ?? ""}
+              </Snackbar>
+            </Portal>
           </SafeAreaView>
         </PaperProvider>
       </GestureHandlerRootView>

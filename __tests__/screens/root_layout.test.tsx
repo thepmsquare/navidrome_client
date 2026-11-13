@@ -3,6 +3,7 @@ import renderer, { act } from "react-test-renderer";
 
 import RootLayout from "@/app/_layout";
 import { runLegacyMigration } from "@/services/migration";
+import { showSnackbar } from "@/services/snackbar";
 import * as SecureStore from "expo-secure-store";
 
 jest.mock("expo-secure-store", () => ({
@@ -222,5 +223,21 @@ describe("RootLayout credential migration", () => {
     });
 
     alertSpy.mockRestore();
+  });
+
+  it("subscribes to global snackbar on mount and unsubscribes on unmount", async () => {
+    let tree: renderer.ReactTestRenderer;
+
+    await act(async () => {
+      tree = renderer.create(<RootLayout />);
+    });
+
+    await act(async () => {
+      showSnackbar("unable to connect to server");
+    });
+
+    await act(async () => {
+      tree!.unmount();
+    });
   });
 });

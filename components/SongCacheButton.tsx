@@ -35,6 +35,7 @@ import {
   subscribeSongCacheProgress,
 } from "@/services/songCache";
 import { SongCacheRow, SongCacheType, useAppTheme } from "@/types";
+import { handleNetworkOrOfflineError } from "@/utils/network";
 import { spacing } from "@/utils/spacing";
 
 export interface SongCacheButtonProps {
@@ -257,6 +258,7 @@ export function SongCacheButton({
         return;
       }
       console.error("failed to cache song manually:", err);
+      handleNetworkOrOfflineError(err);
       onCacheError?.(err);
     } finally {
       setIsCaching(false);

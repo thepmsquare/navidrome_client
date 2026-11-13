@@ -11,6 +11,7 @@ import {
 } from "@/services/api";
 import { getLocalCounts, getSyncMeta } from "@/services/db";
 import { useAppTheme } from "@/types";
+import { handleNetworkOrOfflineError } from "@/utils/network";
 import { spacing } from "@/utils/spacing";
 
 type SyncPhase = "idle" | "syncing" | "done" | "error";
@@ -127,10 +128,15 @@ export default function SyncScreen() {
       setHasSyncedOnce(true);
       setPhase("done");
     } catch (e: any) {
-      setErrorMessage(e?.message || "sync failed");
-      setPhase("error");
+      if (handleNetworkOrOfflineError(e)) {
+        setPhase(hasSyncedOnce ? "idle" : "error");
+        setErrorMessage(hasSyncedOnce ? null : (e?.message || "sync failed"));
+      } else {
+        setErrorMessage(e?.message || "sync failed");
+        setPhase("error");
+      }
     }
-  }, []);
+  }, [hasSyncedOnce]);
 
   // auto start sync only on first sync / initial setup after login
   useEffect(() => {
@@ -152,6 +158,7 @@ export default function SyncScreen() {
       })
       .catch((e: any) => {
         if (!isMounted) return;
+        handleNetworkOrOfflineError(e);
         setErrorMessage(e?.message || "sync failed");
         setPhase("error");
       });
