@@ -1,7 +1,8 @@
 import { useRouter } from "expo-router";
-import { Alert, Linking, ScrollView, View } from "react-native";
+import { Linking, ScrollView, View } from "react-native";
 import { Appbar, Button, Surface, Text } from "react-native-paper";
 
+import { showSnackbar } from "@/services/snackbar";
 import { learnMoreStyles } from "@/stylesheets";
 import { useAppTheme } from "@/types";
 
@@ -13,7 +14,7 @@ export default function LearnMoreScreen() {
     try {
       await Linking.openURL(url);
     } catch {
-      Alert.alert("error", "could not open link");
+      showSnackbar("could not open link");
     }
   }
 

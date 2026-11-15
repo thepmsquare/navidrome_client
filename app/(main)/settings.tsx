@@ -62,10 +62,12 @@ import {
   deleteLegacyOfflineCache,
 } from "@/services/legacyCache";
 import { ChangelogModal } from "@/components/ChangelogModal";
+import { showSnackbar } from "@/services/snackbar";
 import { settingsStyles } from "@/stylesheets";
 import { LyricsMode, useAppTheme } from "@/types";
 import { useAudioOutputDevice } from "@/utils/audioOutput";
 import { APP_VERSION, APP_VERSION_CODE } from "@/utils/constants";
+import { handleNetworkOrOfflineError } from "@/utils/network";
 import { spacing } from "@/utils/spacing";
 
 function formatSize(bytes: number): string {
@@ -226,18 +228,20 @@ export default function SettingsScreen() {
       await switchActiveServerUrl(target.url, target.label);
       setServerUrl(target.url);
       triggerHapticSelection();
-      Alert.alert(
-        "connection",
-        `switched active server to ${target.label || target.url}`,
-      );
     } catch (err: any) {
-      Alert.alert("error", err?.message || "failed to switch active server");
+      if (!handleNetworkOrOfflineError(err)) {
+        showSnackbar(
+          err?.message
+            ? err.message.toLowerCase()
+            : "failed to switch active server",
+        );
+      }
     }
   }
 
   async function handleAddServerUrl() {
     if (!newServerUrl.trim()) {
-      Alert.alert("error", "please enter a valid server url");
+      showSnackbar("please enter a valid server url");
       return;
     }
 
@@ -249,7 +253,9 @@ export default function SettingsScreen() {
       setShowAddServer(false);
       triggerHapticSelection();
     } catch (err: any) {
-      Alert.alert("error", err?.message || "failed to add server url");
+      showSnackbar(
+        err?.message ? err.message.toLowerCase() : "failed to add server url",
+      );
     }
   }
 
@@ -268,9 +274,10 @@ export default function SettingsScreen() {
               setServerUrls(updated);
               triggerHapticSelection();
             } catch (err: any) {
-              Alert.alert(
-                "error",
-                err?.message || "failed to remove server url",
+              showSnackbar(
+                err?.message
+                  ? err.message.toLowerCase()
+                  : "failed to remove server url",
               );
             }
           },
@@ -346,7 +353,11 @@ export default function SettingsScreen() {
                 await clearAllAutoCachedSongs();
                 setAutoCacheUsageBytes(0);
               } catch (error: any) {
-                Alert.alert("error", error?.message || "failed to remove offline songs");
+                showSnackbar(
+                  error?.message
+                    ? error.message.toLowerCase()
+                    : "failed to remove offline songs",
+                );
               } finally {
                 setClearingAutoCache(false);
               }
@@ -377,20 +388,19 @@ export default function SettingsScreen() {
               const res = await deleteLegacyOfflineCache();
               if (res.success) {
                 setLegacyCacheBytes(0);
-                Alert.alert(
-                  "success",
+                showSnackbar(
                   "legacy offline downloads removed successfully",
                 );
               } else {
-                Alert.alert(
-                  "error",
+                showSnackbar(
                   "failed to delete legacy offline downloads",
                 );
               }
             } catch (error: any) {
-              Alert.alert(
-                "error",
-                error?.message || "failed to delete legacy offline downloads",
+              showSnackbar(
+                error?.message
+                  ? error.message.toLowerCase()
+                  : "failed to delete legacy offline downloads",
               );
             } finally {
               setClearingLegacyCache(false);
@@ -460,7 +470,9 @@ export default function SettingsScreen() {
       await logout();
       router.replace("/connect");
     } catch (error: any) {
-      Alert.alert("error", error?.message || "failed to log out");
+      showSnackbar(
+        error?.message ? error.message.toLowerCase() : "failed to log out",
+      );
     } finally {
       setLoggingOut(false);
     }
@@ -490,12 +502,16 @@ export default function SettingsScreen() {
     try {
       const result = await exportBackupToFile();
       if (result.success) {
-        Alert.alert("success", "backup exported successfully");
+        showSnackbar("backup exported successfully");
       } else if (!result.cancelled) {
-        Alert.alert("error", result.error || "failed to export backup");
+        showSnackbar(
+          result.error ? result.error.toLowerCase() : "failed to export backup",
+        );
       }
     } catch (error: any) {
-      Alert.alert("error", error?.message || "failed to export backup");
+      showSnackbar(
+        error?.message ? error.message.toLowerCase() : "failed to export backup",
+      );
     } finally {
       setExporting(false);
     }

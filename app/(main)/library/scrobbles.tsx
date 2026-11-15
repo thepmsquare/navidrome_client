@@ -36,6 +36,7 @@ import {
 } from "@/services/scrobbleQueue";
 import { songsStyles } from "@/stylesheets";
 import { Child, PendingScrobble, useAppTheme } from "@/types";
+import { showSnackbar } from "@/services/snackbar";
 import { handleNetworkOrOfflineError } from "@/utils/network";
 
 function formatTimestamp(timestamp: number): string {
@@ -162,13 +163,12 @@ export default function PendingScrobblesScreen() {
       const result = await syncPendingScrobbles();
       if (result.synced === 0 && result.failed > 0) {
         handleNetworkOrOfflineError("unable to connect to server");
-      } else if (result.synced > 0 || result.failed > 0) {
-        Alert.alert(
-          "sync completed",
-          `synced ${result.synced} scrobbles${
-            result.failed > 0 ? `, ${result.failed} failed` : ""
-          }`,
+      } else if (result.failed > 0) {
+        showSnackbar(
+          `synced ${result.synced} scrobbles, ${result.failed} failed`,
         );
+      } else if (result.synced > 0) {
+        showSnackbar(`synced ${result.synced} scrobbles`);
       }
     } catch (e) {
       handleNetworkOrOfflineError(e);
