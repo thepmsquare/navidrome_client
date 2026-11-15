@@ -15,6 +15,7 @@ import {
   syncSinglePendingScrobble,
 } from "@/services/scrobbleQueue";
 import { Child, PendingScrobble } from "@/types";
+import * as snackbarModule from "@/services/snackbar";
 
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -141,7 +142,9 @@ describe("PendingScrobblesScreen", () => {
   });
 
   it("triggers sync all when sync button is pressed", async () => {
-    jest.spyOn(Alert, "alert");
+    const snackbarSpy = jest
+      .spyOn(snackbarModule, "showSnackbar")
+      .mockImplementation(() => {});
     (getPendingScrobbles as jest.Mock).mockReturnValue(mockScrobbles);
     (getSongsByIds as jest.Mock).mockReturnValue(mockSongs);
 
@@ -160,10 +163,8 @@ describe("PendingScrobblesScreen", () => {
     });
 
     expect(syncPendingScrobbles).toHaveBeenCalledTimes(1);
-    expect(Alert.alert).toHaveBeenCalledWith(
-      "sync completed",
-      "synced 1 scrobbles",
-    );
+    expect(snackbarSpy).toHaveBeenCalledWith("synced 1 scrobbles");
+    snackbarSpy.mockRestore();
   });
 
   it("triggers individual item deletion with confirmation alert", async () => {

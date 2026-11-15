@@ -1,13 +1,14 @@
 # changelog
 
-## unreleased
+## 2.38.4+86
 
 ### user release notes
 
-- n/a
+- replace alert popups with dismissible snackbars.
 
 ### internal notes
 
+- replace native alert.alert calls across connect, learn-more, scrobbles, settings, and root layout with global snackbars, preserving alert dialogs exclusively for destructive confirmations.
 - publish github release with version changelog notes and built apk asset upon open testing promotion in release pipeline.
 - add release apk artifact download and changelog extraction steps to promote_to_open job in .github/workflows/release.yml.
 

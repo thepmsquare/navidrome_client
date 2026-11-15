@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useRef, useState } from "react";
-import { Alert, Linking, ScrollView, View } from "react-native";
+import { Linking, ScrollView, View } from "react-native";
 import {
   Button,
   Icon,
@@ -27,6 +27,7 @@ import { setLyricsMode } from "@/services/lyrics";
 import { updateKeepPlayingOnAppDismissed } from "@/services/player";
 import { connectStyles } from "@/stylesheets";
 import { ConnectStage, ServerUrlItem, useAppTheme } from "@/types";
+import { handleNetworkOrOfflineError } from "@/utils/network";
 import { APP_SHORT_NAME, APP_SUBTITLE } from "@/utils/constants";
 
 const MAX_ALTERNATIVE_URLS = 4;
@@ -141,7 +142,7 @@ export default function ConnectScreen() {
     });
 
     if (candidateUrls.length === 0) {
-      Alert.alert("error", "please enter a valid server url");
+      showSnackbar("please enter a valid server url");
       return;
     }
 
@@ -167,7 +168,9 @@ export default function ConnectScreen() {
       );
       setConnectStage("login");
     } catch (error: any) {
-      Alert.alert("ping failed", error.message || "could not ping");
+      if (!handleNetworkOrOfflineError(error)) {
+        showSnackbar(error?.message ? error.message.toLowerCase() : "ping failed");
+      }
     } finally {
       setLoading(false);
     }
@@ -175,7 +178,7 @@ export default function ConnectScreen() {
 
   async function handleLogin() {
     if (!username || !password) {
-      Alert.alert("error", "please fill in all fields");
+      showSnackbar("please fill in all fields");
       return;
     }
     setLoading(true);
@@ -193,7 +196,9 @@ export default function ConnectScreen() {
       notifyAuthState(true);
       router.replace({ pathname: "/sync", params: { initial: "true" } });
     } catch (error: any) {
-      Alert.alert("login failed", error.message || "could not login");
+      if (!handleNetworkOrOfflineError(error)) {
+        showSnackbar(error?.message ? error.message.toLowerCase() : "login failed");
+      }
     } finally {
       setLoading(false);
     }
@@ -309,10 +314,7 @@ export default function ConnectScreen() {
       notifyAuthState(true);
       router.replace({ pathname: "/sync", params: { initial: "true" } });
     } catch (error: any) {
-      Alert.alert(
-        "import failed",
-        error?.message || "could not import profile",
-      );
+      showSnackbar(error?.message ? error.message.toLowerCase() : "could not import profile");
     } finally {
       setImporting(false);
     }
@@ -352,10 +354,13 @@ export default function ConnectScreen() {
       notifyAuthState(true);
       router.replace({ pathname: "/sync", params: { initial: "true" } });
     } catch (error: any) {
-      Alert.alert(
-        "demo login failed",
-        error?.message || "could not connect to demo server",
-      );
+      if (!handleNetworkOrOfflineError(error)) {
+        showSnackbar(
+          error?.message
+            ? error.message.toLowerCase()
+            : "could not connect to demo server",
+        );
+      }
     } finally {
       setDemoLoading(false);
     }
@@ -365,7 +370,7 @@ export default function ConnectScreen() {
     try {
       await Linking.openURL("https://www.navidrome.org");
     } catch {
-      Alert.alert("error", "could not open website");
+      showSnackbar("could not open website");
     }
   }
 

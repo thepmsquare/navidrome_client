@@ -21,7 +21,11 @@ import {
   formatBytes,
 } from "@/services/legacyCache";
 import { runLegacyMigration } from "@/services/migration";
-import { SnackbarPayload, subscribeSnackbar } from "@/services/snackbar";
+import {
+  showSnackbar,
+  SnackbarPayload,
+  subscribeSnackbar,
+} from "@/services/snackbar";
 import { resumePendingDownloadsAfterRestart } from "@/services/songCache";
 import { layoutStyles } from "@/stylesheets";
 import { APP_VERSION_CODE } from "@/utils/constants";
@@ -163,8 +167,7 @@ export default function RootLayout() {
                 onPress: async () => {
                   const res = await deleteLegacyOfflineCache();
                   if (!res.success) {
-                    Alert.alert(
-                      "error",
+                    showSnackbar(
                       "failed to delete legacy offline downloads",
                     );
                   }
