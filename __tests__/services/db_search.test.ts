@@ -10,6 +10,9 @@ import {
   searchCachedSongs,
   searchPlaylists,
   searchSongs,
+  searchStarredAlbums,
+  searchStarredArtists,
+  searchStarredSongs,
 } from "@/services/db";
 import { AlbumID3, ArtistID3, Child, Playlist } from "@/types";
 
@@ -106,6 +109,38 @@ describe("services/db search functions", () => {
         expect.any(String),
         expect.arrayContaining([100]),
       );
+    });
+  });
+
+  describe("searchStarredSongs", () => {
+    it("returns empty array when query is empty or only whitespace", () => {
+      expect(searchStarredSongs("")).toEqual([]);
+      expect(searchStarredSongs("   ")).toEqual([]);
+      expect(mockGetAllSync).not.toHaveBeenCalled();
+    });
+
+    it("queries SQLite with starred filter", () => {
+      const mockResult: Child[] = [
+        {
+          id: "s1",
+          title: "favorite track",
+          artist: "artist 1",
+          album: "album 1",
+          duration: 200,
+          size: 1000,
+          contentType: "audio/mp3",
+          suffix: "mp3",
+          starred: "2026-01-01",
+        },
+      ];
+      mockGetAllSync.mockReturnValue(mockResult);
+
+      const res = searchStarredSongs("track");
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        expect.stringContaining("starred IS NOT NULL"),
+        expect.any(Array),
+      );
+      expect(res).toEqual(mockResult);
     });
   });
 
@@ -219,6 +254,59 @@ describe("services/db search functions", () => {
       const res = searchPlaylists("classics");
       expect(mockGetAllSync).toHaveBeenCalled();
       expect(res).toEqual(mockPlaylists);
+    });
+  });
+
+  describe("searchStarredAlbums", () => {
+    it("returns empty array for empty query", () => {
+      expect(searchStarredAlbums("")).toEqual([]);
+      expect(searchStarredAlbums("   ")).toEqual([]);
+      expect(mockGetAllSync).not.toHaveBeenCalled();
+    });
+
+    it("queries albums with starred filter", () => {
+      const mockAlbums: AlbumID3[] = [
+        {
+          id: "a1",
+          name: "dark side of the moon",
+          artist: "pink floyd",
+          starred: "2026-01-01",
+        },
+      ];
+      mockGetAllSync.mockReturnValue(mockAlbums);
+
+      const res = searchStarredAlbums("dark");
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        expect.stringContaining("starred IS NOT NULL"),
+        expect.any(Array),
+      );
+      expect(res).toEqual(mockAlbums);
+    });
+  });
+
+  describe("searchStarredArtists", () => {
+    it("returns empty array for empty query", () => {
+      expect(searchStarredArtists("")).toEqual([]);
+      expect(searchStarredArtists("   ")).toEqual([]);
+      expect(mockGetAllSync).not.toHaveBeenCalled();
+    });
+
+    it("queries artists with starred filter", () => {
+      const mockArtists: ArtistID3[] = [
+        {
+          id: "ar1",
+          name: "pink floyd",
+          starred: "2026-01-01",
+        },
+      ];
+      mockGetAllSync.mockReturnValue(mockArtists);
+
+      const res = searchStarredArtists("pink");
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        expect.stringContaining("starred IS NOT NULL"),
+        expect.any(Array),
+      );
+      expect(res).toEqual(mockArtists);
     });
   });
 

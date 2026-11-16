@@ -9,6 +9,9 @@ import {
   getAllArtists,
   getAllPlaylists,
   getAllSongs,
+  getStarredAlbums,
+  getStarredArtists,
+  getStarredSongs,
   getCachedSongs,
   getDb,
   getLocalCounts,
@@ -549,6 +552,33 @@ describe("db service", () => {
       const res = getAllSongs();
       expect(mockGetAllSync).toHaveBeenCalledWith(
         "SELECT * FROM songs ORDER BY title COLLATE NOCASE ASC",
+      );
+      expect(res).toHaveLength(1);
+    });
+
+    it("getStarredSongs should query starred songs", () => {
+      mockGetAllSync.mockReturnValue([{ id: "s-1", title: "C", starred: "2026-01-01" }]);
+      const res = getStarredSongs();
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        "SELECT * FROM songs WHERE starred IS NOT NULL AND starred != '' ORDER BY title COLLATE NOCASE ASC",
+      );
+      expect(res).toHaveLength(1);
+    });
+
+    it("getStarredAlbums should query starred albums", () => {
+      mockGetAllSync.mockReturnValue([{ id: "a-1", name: "A", starred: "2026-01-01" }]);
+      const res = getStarredAlbums();
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        "SELECT * FROM albums WHERE starred IS NOT NULL AND starred != '' ORDER BY name COLLATE NOCASE ASC",
+      );
+      expect(res).toHaveLength(1);
+    });
+
+    it("getStarredArtists should query starred artists", () => {
+      mockGetAllSync.mockReturnValue([{ id: "ar-1", name: "Ar", starred: "2026-01-01" }]);
+      const res = getStarredArtists();
+      expect(mockGetAllSync).toHaveBeenCalledWith(
+        "SELECT * FROM artists WHERE starred IS NOT NULL AND starred != '' ORDER BY name COLLATE NOCASE ASC",
       );
       expect(res).toHaveLength(1);
     });

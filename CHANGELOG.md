@@ -1,12 +1,17 @@
 # changelog
 
-## unreleased
+## 2.39.0+87
 
 ### user release notes
 
 - replace all mentions of "song(s)" with "track(s)".
+- add favorites screen in library.
 
 ### internal notes
+
+- update user-facing text from song/songs to track/tracks across all screens and components while preserving internal schemas, identifiers, and routes.
+- add app/(main)/library/favorites.tsx with filter chips for tracks, albums, and artists with search and sort options.
+- add getStarredSongs, getStarredAlbums, getStarredArtists, and their search functions in services/db.ts.
 
 ## 2.38.4+86
 

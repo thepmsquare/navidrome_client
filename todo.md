@@ -96,8 +96,8 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
   - **context:** [`app/(main)/library/playlist/[id].tsx`](<./app/(main)/library/playlist/[id].tsx>) fetches songs from the network on every open.
   - **task:** persist playlist songs into sqlite during sync and cache on demand so details open instantly and browse offline.
 
-- [ ] **starred / favorites screen** (`lib-3`)
-  - **task:** `app/(main)/library/starred.tsx` with tabs/filters for starred songs, albums, and artists, integrated with subsonic `getStarred` and local sqlite.
+- [x] **starred / favorites screen** (`lib-3`)
+  - **task:** `app/(main)/library/favorites.tsx` with chips/filters for favorite tracks, albums, and artists with search and sort options, integrated with local sqlite.
 
 - [ ] **audit & placement of cache button** (`lib-4`)
   - **task:** document every surface where the "make available offline" button should appear (song rows, album, playlist, artist, player, search) and implement the missing placements.
