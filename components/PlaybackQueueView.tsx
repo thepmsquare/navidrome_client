@@ -87,7 +87,7 @@ export function PlaybackQueueView({
 
   const statsText = useMemo(() => {
     if (upcomingSongs.length === 0) return "";
-    const countStr = `${upcomingSongs.length} song${upcomingSongs.length === 1 ? "" : "s"}`;
+    const countStr = `${upcomingSongs.length} track${upcomingSongs.length === 1 ? "" : "s"}`;
     if (totalRemainingSeconds > 0) {
       const minutes = Math.ceil(totalRemainingSeconds / 60);
       return `${countStr} • ${minutes}m`;
@@ -210,7 +210,7 @@ export function PlaybackQueueView({
           onPress={() => setShowHistory((prev) => !prev)}
           style={playbackQueueStyles.historyHeaderRow}
           accessibilityRole="button"
-          accessibilityLabel={`history, ${historySongs.length} songs`}
+          accessibilityLabel={`history, ${historySongs.length} tracks`}
         >
           <Text
             variant="labelMedium"

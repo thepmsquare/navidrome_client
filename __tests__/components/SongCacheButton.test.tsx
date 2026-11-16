@@ -254,7 +254,7 @@ describe("SongCacheButton", () => {
 
     expect(Alert.alert).toHaveBeenCalledWith(
       "cancel download",
-      "are you sure you want to cancel downloading this song?",
+      "are you sure you want to cancel downloading this track?",
       expect.any(Array),
     );
 
@@ -308,8 +308,8 @@ describe("SongCacheButton", () => {
     });
 
     expect(Alert.alert).toHaveBeenCalledWith(
-      "remove offline song",
-      "are you sure you want to remove this offline song?",
+      "remove offline track",
+      "are you sure you want to remove this offline track?",
       expect.any(Array),
     );
 

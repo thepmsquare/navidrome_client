@@ -132,7 +132,7 @@ describe("SearchScreen", () => {
     const searchbars = component.root.findAllByType(Searchbar);
     expect(searchbars.length).toBe(1);
     expect(searchbars[0].props.placeholder).toBe(
-      "search songs, albums, artists...",
+      "search tracks, albums, artists...",
     );
 
     const texts = component.root.findAllByType(Text);

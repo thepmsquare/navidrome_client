@@ -1,9 +1,12 @@
-import React from "react";
 import renderer from "react-test-renderer";
 
 import PlaylistsScreen from "@/app/(main)/library/playlists";
 import { getCoverArtBaseUrl, getPlaylists } from "@/services/api";
-import { getAllPlaylists, searchPlaylists, upsertPlaylistsBatch } from "@/services/db";
+import {
+  getAllPlaylists,
+  searchPlaylists,
+  upsertPlaylistsBatch,
+} from "@/services/db";
 import { Playlist } from "@/types";
 
 const mockBack = jest.fn();
@@ -25,10 +28,19 @@ jest.mock("react-native-paper", () => {
   const React = require("react");
   const { View } = require("react-native");
   const MockMenu = ({ visible, children, anchor }: any) => {
-    return React.createElement(View, null, anchor, visible ? children : children);
+    return React.createElement(
+      View,
+      null,
+      anchor,
+      visible ? children : children,
+    );
   };
   MockMenu.Item = ({ title, onPress }: any) => {
-    return React.createElement(View, { testID: `menu-item-${title}`, onPress, title }, null);
+    return React.createElement(
+      View,
+      { testID: `menu-item-${title}`, onPress, title },
+      null,
+    );
   };
   return {
     ...actual,
@@ -81,8 +93,8 @@ const mockPlaylists: Playlist[] = [
 describe("PlaylistsScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (getCoverArtBaseUrl as jest.Mock).mockResolvedValue(
-      (id?: string | null) => (id ? `https://art/${id}` : null),
+    (getCoverArtBaseUrl as jest.Mock).mockResolvedValue((id?: string | null) =>
+      id ? `https://art/${id}` : null,
     );
     (getAllPlaylists as jest.Mock).mockReturnValue(mockPlaylists);
     (searchPlaylists as jest.Mock).mockReturnValue([]);
@@ -167,7 +179,7 @@ describe("PlaylistsScreen", () => {
     const { Menu, IconButton, List } = require("react-native-paper");
     const menuItems = component.root.findAllByType(Menu.Item);
     const songCountOption = menuItems.find(
-      (item: any) => item.props.title === "song count",
+      (item: any) => item.props.title === "track count",
     );
 
     renderer.act(() => {

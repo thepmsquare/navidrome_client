@@ -164,7 +164,7 @@ describe("SongSaveButton", () => {
 
     expect(Alert.alert).toHaveBeenCalledWith(
       "cancel save to files",
-      "are you sure you want to cancel saving this song?",
+      "are you sure you want to cancel saving this track?",
       expect.any(Array),
     );
 

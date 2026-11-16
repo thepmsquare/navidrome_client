@@ -186,7 +186,7 @@ describe("SongRow", () => {
     });
 
     const moreButton = component.root.findByProps({
-      accessibilityLabel: "song options",
+      accessibilityLabel: "track options",
     });
     expect(moreButton).toBeDefined();
 

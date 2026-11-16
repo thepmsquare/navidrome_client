@@ -234,7 +234,7 @@ export default function ArtistDetailScreen() {
                   { color: theme.colors.onSurfaceVariant },
                 ]}
               >
-                {`${albums.length} ${albums.length === 1 ? "album" : "albums"} • ${songs.length} ${songs.length === 1 ? "song" : "songs"}`}
+                {`${albums.length} ${albums.length === 1 ? "album" : "albums"} • ${songs.length} ${songs.length === 1 ? "track" : "tracks"}`}
               </Text>
 
               <DetailActionsRow
@@ -309,14 +309,14 @@ export default function ArtistDetailScreen() {
                 variant="titleMedium"
                 style={artistDetailStyles.sectionTitle}
               >
-                songs
+                tracks
               </Text>
             </View>
           </View>
         }
         ListEmptyComponent={
           <View style={artistDetailStyles.emptyContainer}>
-            <Text variant="bodyLarge">no songs found</Text>
+            <Text variant="bodyLarge">no tracks found</Text>
           </View>
         }
         renderItem={({ item, index }) => (

@@ -187,7 +187,7 @@ describe("ArtistDetailScreen", () => {
 
     const root = tree!.root;
     const emptyTexts = root.findAll(
-      (node) => node.props?.children === "no songs found",
+      (node) => node.props?.children === "no tracks found",
     );
     expect(emptyTexts.length).toBeGreaterThan(0);
   });

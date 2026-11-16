@@ -37,7 +37,7 @@ interface SortOption {
 
 const SORT_OPTIONS: SortOption[] = [
   { label: "title", key: "name" },
-  { label: "song count", key: "songCount" },
+  { label: "track count", key: "songCount" },
   { label: "duration", key: "duration" },
   { label: "date added", key: "created" },
   { label: "last modified", key: "changed" },
@@ -196,7 +196,7 @@ export default function PlaylistsScreen() {
           return (
             <List.Item
               title={item.name}
-              description={`${item.songCount ?? 0} songs`}
+              description={`${item.songCount ?? 0} tracks`}
               onPress={() =>
                 router.push({
                   pathname: "/(main)/library/playlist/[id]",

@@ -645,7 +645,7 @@ export default function PlayerScreen() {
             iconColor={
               isStarred ? theme.colors.primary : theme.colors.onSurfaceVariant
             }
-            accessibilityLabel={isStarred ? "unstar song" : "star song"}
+            accessibilityLabel={isStarred ? "unstar track" : "star track"}
             style={playerStyles.heartButton}
             onPress={handleToggleStar}
           />
@@ -686,7 +686,7 @@ export default function PlayerScreen() {
                 accessibilityLabel={
                   currentRating > 0
                     ? `rating: ${currentRating} stars`
-                    : "rate song"
+                    : "rate track"
                 }
                 onPress={() => setRatingMenuVisible(true)}
               >
@@ -707,12 +707,12 @@ export default function PlayerScreen() {
             >
               {currentRating > 0
                 ? `rating: ${currentRating} / 5`
-                : "rate this song"}
+                : "rate this track"}
             </Text>
             <View
               style={playerStyles.ratingMenuStarsRow}
               accessibilityRole="radiogroup"
-              accessibilityLabel="song rating"
+              accessibilityLabel="track rating"
             >
               {[1, 2, 3, 4, 5].map((starVal) => {
                 const isFilled = currentRating >= starVal;
@@ -777,7 +777,7 @@ export default function PlayerScreen() {
           >
             {sleepTimerState.isActive
               ? sleepTimerState.mode === "end_of_track"
-                ? "timer: end of song"
+                ? "timer: end of track"
                 : `timer: ${Math.ceil(sleepTimerState.remainingSeconds / 60)}m`
               : "sleep timer"}
           </Chip>

@@ -336,7 +336,7 @@ export default function SettingsScreen() {
     if (count > 0) {
       Alert.alert(
         "turn off automatically make available offline",
-        `turn off automatically make available offline? this will remove ${count} offline song(s) (${formatSize(usage)}) from your device.`,
+        `turn off automatically make available offline? this will remove ${count} offline track(s) (${formatSize(usage)}) from your device.`,
         [
           {
             text: "cancel",
@@ -356,7 +356,7 @@ export default function SettingsScreen() {
                 showSnackbar(
                   error?.message
                     ? error.message.toLowerCase()
-                    : "failed to remove offline songs",
+                    : "failed to remove offline tracks",
                 );
               } finally {
                 setClearingAutoCache(false);
@@ -1196,7 +1196,7 @@ export default function SettingsScreen() {
             variant="bodySmall"
             style={{ color: theme.colors.outline, marginTop: spacing.xs }}
           >
-            {"online lookups send the song's title, artist, album and duration to lrclib.net."}
+            {"online lookups send the track's title, artist, album and duration to lrclib.net."}
           </Text>
         </Surface>
 

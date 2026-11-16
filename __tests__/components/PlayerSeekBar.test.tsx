@@ -72,7 +72,7 @@ describe("PlayerSeekBar", () => {
     });
 
     const touchArea = component.root.findByProps({
-      accessibilityLabel: "song progress",
+      accessibilityLabel: "track progress",
     });
     expect(touchArea).toBeDefined();
     expect(touchArea.props.accessibilityRole).toBe("adjustable");
@@ -98,7 +98,7 @@ describe("PlayerSeekBar", () => {
     });
 
     const touchArea = component.root.findByProps({
-      accessibilityLabel: "song progress",
+      accessibilityLabel: "track progress",
     });
 
     // Test increment (+10s)
@@ -132,7 +132,7 @@ describe("PlayerSeekBar", () => {
     });
 
     const touchArea = component.root.findByProps({
-      accessibilityLabel: "song progress",
+      accessibilityLabel: "track progress",
     });
 
     // Incrementing past duration clamps to duration
@@ -155,7 +155,7 @@ describe("PlayerSeekBar", () => {
       );
     });
     const zeroTouchArea = zeroComponent.root.findByProps({
-      accessibilityLabel: "song progress",
+      accessibilityLabel: "track progress",
     });
     renderer.act(() => {
       zeroTouchArea.props.onAccessibilityAction({
