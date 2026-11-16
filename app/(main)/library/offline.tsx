@@ -149,7 +149,7 @@ export default function AvailableOfflineScreen() {
       </Appbar.Header>
 
       <Searchbar
-        placeholder="search songs"
+        placeholder="search tracks"
         onChangeText={setSearchQuery}
         value={searchQuery}
         style={songsStyles.searchbar}
@@ -209,8 +209,8 @@ export default function AvailableOfflineScreen() {
           <View style={songsStyles.emptyContainer}>
             <Text variant="bodyLarge">
               {searchQuery.trim()
-                ? "no songs found"
-                : "no songs available offline"}
+                ? "no tracks found"
+                : "no tracks available offline"}
             </Text>
           </View>
         }

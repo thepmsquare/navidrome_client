@@ -43,7 +43,7 @@ export function PlayerSeekBar({
   onSeek,
   color,
   trackColor,
-  accessibilityLabel = "song progress",
+  accessibilityLabel = "track progress",
 }: PlayerSeekBarProps) {
   const theme = useAppTheme();
   const trackWidth = useSharedValue(0);

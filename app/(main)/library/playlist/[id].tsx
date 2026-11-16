@@ -37,8 +37,8 @@ export default function PlaylistDetailScreen() {
   const [songs, setSongs] = useState<Child[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [cacheEntries, setCacheEntries] = useState<Map<string, SongCacheRow>>(() =>
-    getAllSongCacheEntries(),
+  const [cacheEntries, setCacheEntries] = useState<Map<string, SongCacheRow>>(
+    () => getAllSongCacheEntries(),
   );
   const [getArtUrl, setGetArtUrl] = useState<
     ((artId?: string | null) => string | null) | null
@@ -178,10 +178,8 @@ export default function PlaylistDetailScreen() {
               >
                 {[
                   playlist.owner ? `by ${playlist.owner}` : null,
-                  playlist.songCount ? `${playlist.songCount} songs` : null,
-                  playlist.duration
-                    ? formatDuration(playlist.duration)
-                    : null,
+                  playlist.songCount ? `${playlist.songCount} tracks` : null,
+                  playlist.duration ? formatDuration(playlist.duration) : null,
                 ]
                   .filter(Boolean)
                   .join(" • ")}
@@ -198,11 +196,11 @@ export default function PlaylistDetailScreen() {
           loading ? (
             <View style={playlistDetailStyles.loadingContainer}>
               <ActivityIndicator size="small" />
-              <Text variant="bodySmall">loading playlist songs...</Text>
+              <Text variant="bodySmall">loading playlist tracks...</Text>
             </View>
           ) : (
             <View style={playlistDetailStyles.emptyContainer}>
-              <Text variant="bodyLarge">no songs found in playlist</Text>
+              <Text variant="bodyLarge">no tracks found in playlist</Text>
             </View>
           )
         }

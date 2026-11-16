@@ -275,7 +275,7 @@ describe("SettingsScreen", () => {
 
     expect(Alert.alert).toHaveBeenCalledWith(
       "turn off automatically make available offline",
-      expect.stringContaining("remove 3 offline song(s)"),
+      expect.stringContaining("remove 3 offline track(s)"),
       expect.any(Array),
       { cancelable: true },
     );
@@ -311,7 +311,7 @@ describe("SettingsScreen", () => {
     expect(texts).toContain("library, then online");
     expect(texts).toContain("online first");
     expect(texts).toContain(
-      "online lookups send the song's title, artist, album and duration to lrclib.net.",
+      "online lookups send the track's title, artist, album and duration to lrclib.net.",
     );
 
     // Find radio item for "online first"

@@ -238,7 +238,7 @@ export function SongRow({
                     icon="dots-vertical"
                     size={20}
                     accessibilityRole="button"
-                    accessibilityLabel="song options"
+                    accessibilityLabel="track options"
                     onPress={handleOpenMenu}
                     style={styles.moreButton}
                   />

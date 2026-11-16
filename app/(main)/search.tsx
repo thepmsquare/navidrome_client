@@ -40,7 +40,7 @@ type SearchCategory = "all" | "songs" | "albums" | "artists" | "playlists";
 
 const CATEGORIES: { label: string; value: SearchCategory }[] = [
   { label: "all", value: "all" },
-  { label: "songs", value: "songs" },
+  { label: "tracks", value: "songs" },
   { label: "albums", value: "albums" },
   { label: "artists", value: "artists" },
   { label: "playlists", value: "playlists" },
@@ -236,7 +236,7 @@ export default function SearchScreen() {
         title={item.name}
         description={
           item.songCount !== undefined && item.songCount !== null
-            ? `${item.songCount} ${item.songCount === 1 ? "song" : "songs"}`
+            ? `${item.songCount} ${item.songCount === 1 ? "track" : "tracks"}`
             : undefined
         }
         onPress={() => {
@@ -270,7 +270,7 @@ export default function SearchScreen() {
       </Appbar.Header>
 
       <Searchbar
-        placeholder="search songs, albums, artists..."
+        placeholder="search tracks, albums, artists..."
         onChangeText={setSearchQuery}
         value={searchQuery}
         onSubmitEditing={() => saveCurrentSearch()}
@@ -360,7 +360,7 @@ export default function SearchScreen() {
               variant="bodySmall"
               style={[searchStyles.emptyText, { color: theme.colors.outline }]}
             >
-              find songs, albums, artists, and playlists
+              find tracks, albums, artists, and playlists
             </Text>
           </View>
         )
@@ -396,7 +396,7 @@ export default function SearchScreen() {
             <View>
               <View style={searchStyles.sectionHeader}>
                 <Text variant="titleMedium" style={searchStyles.sectionTitle}>
-                  songs
+                  tracks
                 </Text>
                 <Button
                   mode="text"
@@ -475,7 +475,7 @@ export default function SearchScreen() {
           ListEmptyComponent={
             <View style={searchStyles.emptyContainer}>
               <Text variant="bodyLarge">
-                {offlineOnly ? "no offline songs found" : "no songs found"}
+                {offlineOnly ? "no offline tracks found" : "no tracks found"}
               </Text>
             </View>
           }

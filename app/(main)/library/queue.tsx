@@ -175,7 +175,7 @@ export default function DownloadQueueScreen() {
   const handleCancelSong = (songId: string) => {
     Alert.alert(
       "cancel download",
-      "are you sure you want to cancel downloading this song?",
+      "are you sure you want to cancel downloading this track?",
       [
         {
           text: "no",
@@ -253,8 +253,8 @@ export default function DownloadQueueScreen() {
             style={[styles.counterText, { color: theme.colors.onSurfaceVariant }]}
           >
             {totalCount === 1
-              ? "1 song in queue"
-              : `${totalCount} songs in queue`}
+              ? "1 track in queue"
+              : `${totalCount} tracks in queue`}
           </Text>
           {queueState.active && queueState.pending.length > 0 ? (
             <Text

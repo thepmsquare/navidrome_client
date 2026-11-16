@@ -47,7 +47,7 @@ export default function LibraryHomeScreen() {
             disabled={loadingRoute !== null}
             onPress={() => handleNavigate("/library/songs")}
           >
-            songs
+            tracks
           </Button>
 
           <Button

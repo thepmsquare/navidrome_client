@@ -174,7 +174,7 @@ export default function AlbumDetailScreen() {
               >
                 {[
                   album.year ? `${album.year}` : null,
-                  album.songCount ? `${album.songCount} songs` : null,
+                  album.songCount ? `${album.songCount} tracks` : null,
                 ]
                   .filter(Boolean)
                   .join(" • ")}
@@ -189,7 +189,7 @@ export default function AlbumDetailScreen() {
         }
         ListEmptyComponent={
           <View style={albumDetailStyles.emptyContainer}>
-            <Text variant="bodyLarge">no songs found in album</Text>
+            <Text variant="bodyLarge">no tracks found in album</Text>
           </View>
         }
         renderItem={({ item, index }) => (

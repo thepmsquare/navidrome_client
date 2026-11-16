@@ -51,7 +51,7 @@ const SORT_OPTIONS: SortOption[] = [
   { label: "artist", key: "artist" },
   { label: "year", key: "year" },
   { label: "duration", key: "duration" },
-  { label: "song count", key: "songCount" },
+  { label: "track count", key: "songCount" },
   { label: "date added", key: "created" },
   { label: "last played", key: "played" },
   { label: "play count", key: "playCount" },

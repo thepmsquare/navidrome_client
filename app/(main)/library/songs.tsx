@@ -133,11 +133,11 @@ export default function SongsScreen() {
           onPress={() => router.back()}
           accessibilityLabel="go back"
         />
-        <Appbar.Content title="songs" />
+        <Appbar.Content title="tracks" />
       </Appbar.Header>
 
       <Searchbar
-        placeholder="search songs"
+        placeholder="search tracks"
         onChangeText={setSearchQuery}
         value={searchQuery}
         style={songsStyles.searchbar}
@@ -195,7 +195,7 @@ export default function SongsScreen() {
         }
         ListEmptyComponent={
           <View style={songsStyles.emptyContainer}>
-            <Text variant="bodyLarge">no songs found</Text>
+            <Text variant="bodyLarge">no tracks found</Text>
           </View>
         }
         renderItem={({ item, index }) => (

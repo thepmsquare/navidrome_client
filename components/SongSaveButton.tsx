@@ -115,7 +115,7 @@ export function SongSaveButton({
   const confirmCancelExport = () => {
     Alert.alert(
       "cancel save to files",
-      "are you sure you want to cancel saving this song?",
+      "are you sure you want to cancel saving this track?",
       [
         {
           text: "no",

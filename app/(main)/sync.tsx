@@ -204,7 +204,7 @@ export default function SyncScreen() {
   } else {
     if (phase === "syncing") {
       subTitleText =
-        "fetching artists, albums, songs and playlists from your server.";
+        "fetching artists, albums, tracks and playlists from your server.";
     } else if (phase === "done") {
       subTitleText = `last synced: ${formatDate(lastSyncedAt)}`;
     } else if (phase === "error") {
@@ -323,7 +323,7 @@ export default function SyncScreen() {
             value={counts.artistCount}
           />
           <CountRow icon="album" label="albums" value={counts.albumCount} />
-          <CountRow icon="music-note" label="songs" value={counts.songCount} />
+          <CountRow icon="music-note" label="tracks" value={counts.songCount} />
           <CountRow
             icon="playlist-music"
             label="playlists"

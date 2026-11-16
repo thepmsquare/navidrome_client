@@ -102,7 +102,7 @@ describe("AvailableOfflineScreen", () => {
       .map((node: any) => node.props.children)
       .flat();
     expect(texts).toContain("available offline");
-    expect(texts).toContain("no songs available offline");
+    expect(texts).toContain("no tracks available offline");
 
     renderer.act(() => {
       component.unmount();
@@ -141,7 +141,7 @@ describe("AvailableOfflineScreen", () => {
     const { Searchbar } = require("react-native-paper");
     const searchbar = component.root.findByType(Searchbar);
     expect(searchbar).toBeDefined();
-    expect(searchbar.props.placeholder).toBe("search songs");
+    expect(searchbar.props.placeholder).toBe("search tracks");
 
     renderer.act(() => {
       component.unmount();
@@ -202,7 +202,7 @@ describe("AvailableOfflineScreen", () => {
       .findAllByType("Text")
       .map((node: any) => node.props.children)
       .flat();
-    expect(texts).toContain("no songs found");
+    expect(texts).toContain("no tracks found");
 
     renderer.act(() => {
       component.unmount();

@@ -172,7 +172,7 @@ export function SongCacheButton({
   const confirmCancelDownload = () => {
     Alert.alert(
       "cancel download",
-      "are you sure you want to cancel downloading this song?",
+      "are you sure you want to cancel downloading this track?",
       [
         {
           text: "no",
@@ -197,8 +197,8 @@ export function SongCacheButton({
 
   const confirmRemoveFromCache = () => {
     Alert.alert(
-      "remove offline song",
-      "are you sure you want to remove this offline song?",
+      "remove offline track",
+      "are you sure you want to remove this offline track?",
       [
         {
           text: "no",

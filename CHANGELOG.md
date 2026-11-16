@@ -1,5 +1,13 @@
 # changelog
 
+## unreleased
+
+### user release notes
+
+- replace all mentions of "song(s)" with "track(s)".
+
+### internal notes
+
 ## 2.38.4+86
 
 ### user release notes

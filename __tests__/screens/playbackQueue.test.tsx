@@ -165,7 +165,7 @@ describe("PlaybackQueueView & QueueScreen", () => {
     });
 
     const root = tree!.root;
-    const historyBtn = root.findByProps({ accessibilityLabel: "history, 1 songs" });
+    const historyBtn = root.findByProps({ accessibilityLabel: "history, 1 tracks" });
     act(() => {
       historyBtn.props.onPress();
     });

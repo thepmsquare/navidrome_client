@@ -149,7 +149,7 @@ describe("DownloadQueueScreen", () => {
     expect(texts).toContain("downloading song 1");
     expect(texts).toContain("queued song 2");
     expect(texts).toContain("queued song 3");
-    expect(texts).toContain("3 songs in queue");
+    expect(texts).toContain("3 tracks in queue");
     expect(texts).toContain("1 downloading • 2 queued");
 
     renderer.act(() => {
@@ -235,7 +235,7 @@ describe("DownloadQueueScreen", () => {
     texts = getAllTexts(component);
     expect(texts).toContain("downloading song 1");
     expect(texts).toContain("queued song 2");
-    expect(texts).toContain("2 songs in queue");
+    expect(texts).toContain("2 tracks in queue");
 
     renderer.act(() => {
       component.unmount();
@@ -264,7 +264,7 @@ describe("DownloadQueueScreen", () => {
 
     expect(Alert.alert).toHaveBeenCalledWith(
       "cancel download",
-      "are you sure you want to cancel downloading this song?",
+      "are you sure you want to cancel downloading this track?",
       expect.any(Array),
     );
 

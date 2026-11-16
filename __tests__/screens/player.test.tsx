@@ -226,8 +226,8 @@ describe("PlayerScreen", () => {
     expect(str).toContain("Kraftwerk");
     expect(str).toContain("The Man-Machine");
 
-    // Find heart button (accessibilityLabel="star song")
-    const heartBtn = root.root.findByProps({ accessibilityLabel: "star song" });
+    // Find heart button (accessibilityLabel="star track")
+    const heartBtn = root.root.findByProps({ accessibilityLabel: "star track" });
     expect(heartBtn).toBeDefined();
 
     await act(async () => {
@@ -266,7 +266,7 @@ describe("PlayerScreen", () => {
       root = renderer.create(<PlayerScreen />);
     });
 
-    const heartBtn = root.root.findByProps({ accessibilityLabel: "unstar song" });
+    const heartBtn = root.root.findByProps({ accessibilityLabel: "unstar track" });
     expect(heartBtn).toBeDefined();
 
     await act(async () => {

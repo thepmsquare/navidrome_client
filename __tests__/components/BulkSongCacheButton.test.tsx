@@ -210,8 +210,8 @@ describe("BulkSongCacheButton", () => {
     });
 
     expect(Alert.alert).toHaveBeenCalledWith(
-      "remove offline songs",
-      "are you sure you want to remove these 2 offline songs?",
+      "remove offline tracks",
+      "are you sure you want to remove these 2 offline tracks?",
       expect.any(Array),
     );
 
@@ -357,8 +357,8 @@ describe("BulkSongCacheButton", () => {
     });
 
     expect(Alert.alert).toHaveBeenCalledWith(
-      "stop downloading offline songs",
-      "already downloaded songs will stay available offline. are you sure you want to stop?",
+      "stop downloading offline tracks",
+      "already downloaded tracks will stay available offline. are you sure you want to stop?",
       expect.any(Array),
     );
 
