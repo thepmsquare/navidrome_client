@@ -28,6 +28,7 @@ export interface SongRowProps {
   showMoreButton?: boolean;
   showDuration?: boolean;
   getArtUrl?: ((id?: string | null) => string | null) | null;
+  onStarredChange?: (starred: boolean) => void;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 }
@@ -50,6 +51,7 @@ export function SongRow({
   showMoreButton = true,
   showDuration = false,
   getArtUrl: propGetArtUrl,
+  onStarredChange,
   style,
   testID,
 }: SongRowProps) {
@@ -255,6 +257,7 @@ export function SongRow({
           onDismiss={handleDismissMenu}
           song={song}
           getArtUrl={getArtUrl}
+          onStarredChange={onStarredChange}
         />
       ) : null}
     </>

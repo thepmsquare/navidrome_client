@@ -52,6 +52,17 @@ export default function LibraryHomeScreen() {
 
           <Button
             mode="contained-tonal"
+            icon="heart"
+            style={libraryStyles.button}
+            loading={loadingRoute === "/library/favorites"}
+            disabled={loadingRoute !== null}
+            onPress={() => handleNavigate("/library/favorites")}
+          >
+            favorites
+          </Button>
+
+          <Button
+            mode="contained-tonal"
             icon="album"
             style={libraryStyles.button}
             loading={loadingRoute === "/library/albums"}
