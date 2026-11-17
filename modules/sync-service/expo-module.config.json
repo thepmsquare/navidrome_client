@@ -1,0 +1,8 @@
+{
+  "name": "sync-service",
+  "platforms": ["android"],
+  "android": {
+    "package": "expo.modules.syncservice",
+    "modules": ["expo.modules.syncservice.SyncServiceModule"]
+  }
+}

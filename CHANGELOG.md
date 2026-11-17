@@ -1,5 +1,17 @@
 # changelog
 
+## unreleased
+
+### user release notes
+
+- improvements to library synchronization (use background service with progress notification).
+
+### internal notes
+
+- attach library sync to android foreground service (dataSync) with partial wake lock in modules/sync-service.
+- add ongoing notification with batch progress updates and cancel action during sync.
+- integrate foreground service lifecycle into client_app_sync in services/api.ts.
+
 ## 2.39.0+87
 
 ### user release notes
