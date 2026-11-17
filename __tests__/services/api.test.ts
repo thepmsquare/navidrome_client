@@ -47,6 +47,30 @@ jest.mock("@/services/songCache", () => ({
   clearAllCachedSongs: jest.fn(),
 }));
 
+const mockStartSyncForegroundService = jest.fn();
+const mockUpdateSyncProgress = jest.fn();
+const mockStopSyncForegroundService = jest.fn();
+let mockCancelCallback: (() => void) | null = null;
+const mockAddSyncCancelListener = jest.fn((listener: () => void) => {
+  mockCancelCallback = listener;
+  return {
+    remove: jest.fn(() => {
+      mockCancelCallback = null;
+    }),
+  };
+});
+
+jest.mock("@/modules/sync-service", () => ({
+  startSyncForegroundService: jest.fn((title?: string, text?: string, progress?: number, max?: number) =>
+    mockStartSyncForegroundService(title, text, progress, max)
+  ),
+  updateSyncProgress: jest.fn((title?: string, text?: string, progress?: number, max?: number) =>
+    mockUpdateSyncProgress(title, text, progress, max)
+  ),
+  stopSyncForegroundService: jest.fn(() => mockStopSyncForegroundService()),
+  addSyncCancelListener: jest.fn((listener: () => void) => mockAddSyncCancelListener(listener)),
+}));
+
 jest.mock("@/services/db", () => ({
   clearDatabase: jest.fn(),
   getLocalCounts: jest.fn(() => ({
@@ -560,6 +584,130 @@ describe("api service", () => {
       const res = await client_app_sync(true);
       expect(res.synced).toBe(true);
       expect(res.playlistCount).toBe(0);
+    });
+
+    it("should start and stop foreground sync service during sync", async () => {
+      (db.getSyncMeta as jest.Mock).mockReturnValue(null);
+      mockStartSyncForegroundService.mockClear();
+      mockUpdateSyncProgress.mockClear();
+      mockStopSyncForegroundService.mockClear();
+
+      global.fetch = jest
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            "subsonic-response": {
+              status: "ok",
+              version: "1.16.1",
+              type: "navidrome",
+              serverVersion: "0.54.0",
+              scanStatus: {
+                scanning: false,
+                lastScan: "2026-09-03T12:00:00Z",
+              },
+            },
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            "subsonic-response": {
+              status: "ok",
+              version: "1.16.1",
+              type: "navidrome",
+              serverVersion: "0.54.0",
+              searchResult3: {
+                song: [{ id: "song-fg-1", title: "Test Song" }],
+              },
+            },
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            "subsonic-response": {
+              status: "ok",
+              version: "1.16.1",
+              type: "navidrome",
+              serverVersion: "0.54.0",
+              playlists: { playlist: [] },
+            },
+          }),
+        });
+
+      await client_app_sync(true);
+
+      expect(mockStartSyncForegroundService).toHaveBeenCalledWith(
+        "syncing library",
+        "checking for updates...",
+        0,
+        0,
+      );
+      expect(mockUpdateSyncProgress).toHaveBeenCalledWith(
+        "syncing library",
+        "synced 1 tracks",
+        0,
+        0,
+      );
+      expect(mockStopSyncForegroundService).toHaveBeenCalledTimes(1);
+    });
+
+    it("should stop foreground sync service even when sync throws", async () => {
+      mockStartSyncForegroundService.mockClear();
+      mockStopSyncForegroundService.mockClear();
+
+      global.fetch = jest.fn().mockRejectedValue(new Error("network failure"));
+
+      await expect(client_app_sync(true)).rejects.toThrow("network failure");
+      expect(mockStartSyncForegroundService).toHaveBeenCalled();
+      expect(mockStopSyncForegroundService).toHaveBeenCalledTimes(1);
+    });
+
+    it("should handle cancellation via cancel listener gracefully", async () => {
+      (db.getSyncMeta as jest.Mock).mockReturnValue(null);
+      mockStartSyncForegroundService.mockClear();
+      mockStopSyncForegroundService.mockClear();
+
+      global.fetch = jest
+        .fn()
+        .mockImplementationOnce(async () => {
+          // Trigger cancellation while fetching scanStatus
+          if (mockCancelCallback) {
+            mockCancelCallback();
+          }
+          return {
+            ok: true,
+            json: async () => ({
+              "subsonic-response": {
+                status: "ok",
+                version: "1.16.1",
+                type: "navidrome",
+                serverVersion: "0.54.0",
+                scanStatus: {
+                  scanning: false,
+                  lastScan: "2026-09-04T12:00:00Z",
+                },
+              },
+            }),
+          };
+        })
+        .mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            "subsonic-response": {
+              status: "ok",
+              version: "1.16.1",
+              type: "navidrome",
+              serverVersion: "0.54.0",
+              searchResult3: {},
+            },
+          }),
+        });
+
+      const res = await client_app_sync(true);
+      expect(res.synced).toBe(false);
+      expect(mockStopSyncForegroundService).toHaveBeenCalledTimes(1);
     });
   });
 

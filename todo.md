@@ -116,9 +116,10 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
   - **context:** bulk caching runs in the js runtime and stalls when the app is backgrounded without an active foreground service.
   - **task:** attach downloads to an android foreground service (`dataSync`) with an ongoing notification showing progress, song details, and a cancel button, while holding a partial wake lock so downloads finish reliably with the screen off.
 
-- [ ] **android foreground service / workmanager for library sync** (`off-4`)
+- [x] **android foreground service / workmanager for library sync** (`off-4`)
   - **context:** large library sync runs in the js runtime and can stall when the app is suspended during initial onboarding or bulk refresh.
   - **task:** attach library sync to a background worker or foreground service with progress notification.
+  - **implementation:** created `modules/sync-service` (`SyncService.kt`, `SyncServiceModule.kt`) as an android foreground service (`dataSync`) holding a partial wake lock with notification channel `library sync` (id `2002`). attached foreground service lifecycle, live progress notification updates (`synced {n} tracks`), cancellation handling, and guaranteed cleanup in `finally` to `client_app_sync()` in `services/api.ts`.
 
 - [ ] **offline user experience & state transitions** (`off-5`)
   - **task:**

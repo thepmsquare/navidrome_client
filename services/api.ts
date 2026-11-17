@@ -48,6 +48,12 @@ import { APP_FULL_NAME } from "@/utils/constants";
 import { createAuthToken, generateSalt } from "@/utils/crypto";
 import * as SecureStore from "expo-secure-store";
 import { getCachedCoverArtUri } from "@/services/coverArtCache";
+import {
+  addSyncCancelListener,
+  startSyncForegroundService,
+  stopSyncForegroundService,
+  updateSyncProgress,
+} from "@/modules/sync-service";
 
 function getRestBaseUrl(rawUrl: string): string {
   const cleanUrl = rawUrl.replace(/\/+$/, "");
@@ -350,12 +356,20 @@ export async function client_app_sync(
   }
 
   notifySyncState(true);
+  startSyncForegroundService("syncing library", "checking for updates...", 0, 0);
+
+  let isCancelled = false;
+  const cancelSub = addSyncCancelListener(() => {
+    isCancelled = true;
+  });
+
   try {
     const scanStatus = await getScanStatus();
 
     let playStatsRefreshed = false;
     if (!force) {
       try {
+        updateSyncProgress("syncing library", "refreshing play stats...", 0, 0);
         const statsRes = await refreshPlayStats();
         if (
           statsRes.refreshed &&
@@ -404,6 +418,10 @@ export async function client_app_sync(
     let fetchSongs = true;
 
     while (fetchArtists || fetchAlbums || fetchSongs) {
+      if (isCancelled) {
+        break;
+      }
+
       const res = await search3({
         query: "",
         artistCount: fetchArtists ? batchSize : 0,
@@ -413,6 +431,10 @@ export async function client_app_sync(
         songCount: fetchSongs ? batchSize : 0,
         songOffset,
       });
+
+      if (isCancelled) {
+        break;
+      }
 
       const artists = res.artist || [];
       const albums = res.album || [];
@@ -450,27 +472,42 @@ export async function client_app_sync(
           fetchSongs = false;
         }
       }
+
+      const progressText =
+        totalSongs > 0
+          ? `synced ${totalSongs} tracks`
+          : totalAlbums > 0
+            ? `synced ${totalAlbums} albums`
+            : totalArtists > 0
+              ? `synced ${totalArtists} artists`
+              : "syncing library...";
+      updateSyncProgress("syncing library", progressText, 0, 0);
     }
 
     let totalPlaylists = 0;
-    try {
-      const playlists = await getPlaylists();
-      if (playlists.length > 0) {
-        upsertPlaylistsBatch(playlists);
-        totalPlaylists = playlists.length;
+    if (!isCancelled) {
+      updateSyncProgress("syncing library", "syncing playlists...", 0, 0);
+      try {
+        const playlists = await getPlaylists();
+        if (playlists.length > 0) {
+          upsertPlaylistsBatch(playlists);
+          totalPlaylists = playlists.length;
+        }
+      } catch (error) {
+        console.error("failed to sync playlists:", error);
       }
-    } catch (error) {
-      console.error("failed to sync playlists:", error);
     }
 
     const now = new Date().toISOString();
-    if (currentLastScan) {
-      setSyncMeta("lastScan", currentLastScan);
+    if (!isCancelled) {
+      if (currentLastScan) {
+        setSyncMeta("lastScan", currentLastScan);
+      }
+      setSyncMeta("lastSyncedAt", now);
     }
-    setSyncMeta("lastSyncedAt", now);
 
     return {
-      synced: true,
+      synced: !isCancelled,
       playStatsRefreshed,
       artistCount: totalArtists,
       albumCount: totalAlbums,
@@ -480,6 +517,8 @@ export async function client_app_sync(
       lastSyncedAt: now,
     };
   } finally {
+    cancelSub.remove();
+    stopSyncForegroundService();
     notifySyncState(false);
   }
 }
