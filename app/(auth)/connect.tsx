@@ -19,6 +19,7 @@ import { pickProfileFile } from "@/services/backup";
 import {
   setAutoCacheEnabled,
   setAutoCacheMaxBytes,
+  setDownloadWifiOnlySetting,
   setHapticsEnabled,
   setScrobbleMinDuration,
   setScrobbleMinPercent,
@@ -285,6 +286,9 @@ export default function ConnectScreen() {
         }
         if (profile.settings.haptics_enabled !== undefined) {
           setHapticsEnabled(profile.settings.haptics_enabled);
+        }
+        if (profile.settings.download_wifi_only !== undefined) {
+          setDownloadWifiOnlySetting(profile.settings.download_wifi_only);
         }
       }
 

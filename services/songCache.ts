@@ -2,6 +2,8 @@ import { Directory, File, Paths } from "expo-file-system";
 
 import {
   addDownloadCancelListener,
+  addNetworkChangeListener,
+  isWifiConnected,
   stopDownloadForegroundService,
   updateDownloadProgress,
 } from "@/modules/download-service";
@@ -19,11 +21,13 @@ import {
   getAutoCacheMaxBytes,
   getAutoCacheSongIds,
   getAutoCacheTotalSize,
+  getDownloadWifiOnlySetting,
   getLeastRecentlyUsedAutoCacheEntries,
   getSongById,
   getSongCacheEntry,
   insertSongCacheEntryIfNotExists,
   isCoverArtUsedByOtherCachedSongs,
+  setDownloadWifiOnlySetting,
   updateSongCacheLastAccessed,
   upsertSongCacheEntry,
   clearAllRequestersForSong,
@@ -41,6 +45,7 @@ export {
   deleteCachedCoverArt,
   getCachedCoverArtUri,
   getDownloadQueueState,
+  getDownloadWifiOnlySetting,
 };
 
 export function getCachedSongPlaybackUri(songId: string): string | null {
@@ -186,9 +191,33 @@ export function notifySongCacheProgress(
 const activeControllers = new Map<string, AbortController>();
 const activeAutoControllers = new Map<string, AbortController>();
 let isQueueAdvancing = false;
+let isWaitingForWifi = false;
+
+export function isDownloadWaitingForWifi(): boolean {
+  return isWaitingForWifi;
+}
 
 let lastNotificationUpdateTime = 0;
 let lastReportedPercent = -1;
+
+function syncWaitingForWifiNotification(): void {
+  const queueState = getDownloadQueueState();
+  const totalRemaining =
+    (queueState.active ? 1 : 0) + queueState.pending.length;
+
+  if (totalRemaining === 0) {
+    isWaitingForWifi = false;
+    stopDownloadForegroundService();
+    return;
+  }
+
+  const text =
+    totalRemaining === 1
+      ? "1 track waiting"
+      : `${totalRemaining} tracks waiting`;
+
+  updateDownloadProgress("paused: waiting for wi-fi", text, 0, 0);
+}
 
 function syncDownloadNotification(
   songId: string,
@@ -201,10 +230,10 @@ function syncDownloadNotification(
 
   const title =
     totalRemaining > 1
-      ? `downloading ${totalRemaining} songs`
-      : "downloading song";
+      ? `downloading ${totalRemaining} tracks`
+      : "downloading track";
 
-  const songTitle = song?.title || "song";
+  const songTitle = song?.title || "track";
   const artist = song?.artist ? ` • ${song.artist}` : "";
   const text = `${songTitle}${artist}`;
 
@@ -236,6 +265,7 @@ function updateForegroundProgressThrottled(
 }
 
 export function cancelAllDownloads(): void {
+  isWaitingForWifi = false;
   for (const songId of Array.from(activeControllers.keys())) {
     cancelSongCaching(songId);
   }
@@ -262,7 +292,10 @@ export function dequeuePendingSong(songId: string): void {
   notifyCacheQueueUpdated();
   const queueState = getDownloadQueueState();
   if (!queueState.active && queueState.pending.length === 0) {
+    isWaitingForWifi = false;
     stopDownloadForegroundService();
+  } else if (isWaitingForWifi) {
+    syncWaitingForWifiNotification();
   }
 }
 
@@ -272,9 +305,18 @@ export function tryStartNextDownload(): void {
   }
   const nextSongId = getNextPendingDownload();
   if (!nextSongId) {
+    isWaitingForWifi = false;
     stopDownloadForegroundService();
     return;
   }
+
+  if (getDownloadWifiOnlySetting() && !isWifiConnected()) {
+    isWaitingForWifi = true;
+    syncWaitingForWifiNotification();
+    return;
+  }
+  isWaitingForWifi = false;
+
   isQueueAdvancing = true;
   markDownloadActive(nextSongId);
   notifyCacheQueueUpdated();
@@ -298,6 +340,55 @@ export function tryStartNextDownload(): void {
     }
   })();
 }
+
+export function updateDownloadWifiOnlySetting(enabled: boolean): void {
+  setDownloadWifiOnlySetting(enabled);
+  if (!enabled) {
+    if (isWaitingForWifi) {
+      isWaitingForWifi = false;
+      tryStartNextDownload();
+    }
+  } else {
+    if (!isWifiConnected()) {
+      const queueState = getDownloadQueueState();
+      if (queueState.active || queueState.pending.length > 0) {
+        isWaitingForWifi = true;
+        if (activeControllers.size > 0) {
+          for (const songId of Array.from(activeControllers.keys())) {
+            cancelSongCaching(songId);
+          }
+          revertActiveDownloadsToPending();
+          notifyCacheQueueUpdated();
+        }
+        syncWaitingForWifiNotification();
+      }
+    }
+  }
+}
+
+addNetworkChangeListener((isWifi) => {
+  if (getDownloadWifiOnlySetting()) {
+    if (isWifi) {
+      if (isWaitingForWifi) {
+        isWaitingForWifi = false;
+        tryStartNextDownload();
+      }
+    } else {
+      const queueState = getDownloadQueueState();
+      if (queueState.active || queueState.pending.length > 0) {
+        isWaitingForWifi = true;
+        if (activeControllers.size > 0) {
+          for (const songId of Array.from(activeControllers.keys())) {
+            cancelSongCaching(songId);
+          }
+          revertActiveDownloadsToPending();
+          notifyCacheQueueUpdated();
+        }
+        syncWaitingForWifiNotification();
+      }
+    }
+  }
+});
 
 export function resumePendingDownloadsAfterRestart(): string[] {
   const revertedIds = revertActiveDownloadsToPending();
@@ -454,6 +545,9 @@ export async function cacheSongManually(
 
 export async function autoCacheSong(songId: string): Promise<void> {
   if (!getAutoCacheEnabled()) {
+    return;
+  }
+  if (getDownloadWifiOnlySetting() && !isWifiConnected()) {
     return;
   }
 

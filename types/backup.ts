@@ -14,6 +14,7 @@ export interface BackupSettings {
   keep_playing_on_app_dismissed?: boolean;
   lyrics_mode?: LyricsMode;
   haptics_enabled?: boolean;
+  download_wifi_only?: boolean;
 }
 
 export interface BackupData {
