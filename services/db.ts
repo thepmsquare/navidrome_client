@@ -1089,6 +1089,18 @@ export function setHapticsEnabled(enabled: boolean): void {
   setSyncMeta("haptics_enabled", String(enabled));
 }
 
+export function getDownloadWifiOnlySetting(): boolean {
+  const val = getSyncMeta("download_wifi_only");
+  if (val === null) {
+    return false;
+  }
+  return val === "true";
+}
+
+export function setDownloadWifiOnlySetting(enabled: boolean): void {
+  setSyncMeta("download_wifi_only", String(enabled));
+}
+
 export function getPlaybackSpeedSetting(): number {
   const val = getSyncMeta("playback_speed");
   if (val === null) {

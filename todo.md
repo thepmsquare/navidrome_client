@@ -132,8 +132,9 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
 - [ ] **storage breakdown & cache management screen** (`off-6`)
   - **task:** show disk usage by manual downloads, auto-cache, artwork, and database. sort by artist/album. bulk prune/delete.
 
-- [ ] **download over wi-fi only toggle** (`off-7`)
+- [x] **download over wi-fi only toggle** (`off-7`)
   - **task:** pause queued caching on cellular connections.
+  - **implementation:** added native `isWifiConnected` query and `onNetworkChanged` event listener in `modules/download-service` using android `ConnectivityManager.NetworkCallback`. integrated with download queue worker in `services/songCache.ts` to pause downloads on cellular with `"paused: waiting for wi-fi"` foreground notification and resume automatically on wi-fi reconnect. added toggle in `app/(main)/settings.tsx` with db persistence and backup profile support.
 
 - [ ] **incremental / delta library sync** (`off-8`)
   - **context:** [`client_app_sync()`](./services/api.ts) pulls the entire library each sync.

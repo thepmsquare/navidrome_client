@@ -59,6 +59,7 @@ jest.mock("@/services/backup", () => ({
 
 jest.mock("@/services/songCache", () => ({
   clearAllAutoCachedSongs: jest.fn().mockResolvedValue(undefined),
+  updateDownloadWifiOnlySetting: jest.fn(),
 }));
 
 jest.mock("@/services/legacyCache", () => ({
@@ -75,6 +76,7 @@ jest.mock("@/services/db", () => ({
   getAutoCacheEnabled: jest.fn().mockReturnValue(true),
   getAutoCacheMaxBytes: jest.fn().mockReturnValue(1073741824),
   getAutoCacheTotalSize: jest.fn().mockReturnValue(0),
+  getDownloadWifiOnlySetting: jest.fn().mockReturnValue(false),
   getHapticsEnabled: jest.fn().mockReturnValue(true),
   getKeepPlayingOnAppDismissed: jest.fn().mockReturnValue(false),
   getLocalCounts: jest.fn().mockReturnValue({
@@ -143,11 +145,32 @@ describe("SettingsScreen", () => {
 
     const root = tree.root;
     const switches = root.findAllByType(Switch);
-    // There are 3 core switches (autoCache, playback, haptics) plus 6 home section switches
-    expect(switches.length).toBe(9);
+    // There are 4 core switches (autoCache, downloadWifiOnly, playback, haptics) plus 6 home section switches
+    expect(switches.length).toBe(10);
 
-    const playbackSwitch = switches[1];
+    const playbackSwitch = switches[2];
     expect(playbackSwitch.props.value).toBe(false);
+  });
+
+  it("renders download over wi-fi only toggle and toggling calls updateDownloadWifiOnlySetting", async () => {
+    (db.getDownloadWifiOnlySetting as jest.Mock).mockReturnValue(false);
+
+    let tree: any;
+    await renderer.act(async () => {
+      tree = renderer.create(<SettingsScreen />);
+    });
+
+    const root = tree.root;
+    const switches = root.findAllByType(Switch);
+    const wifiSwitch = switches[1];
+    expect(wifiSwitch.props.value).toBe(false);
+
+    await renderer.act(async () => {
+      wifiSwitch.props.onValueChange(true);
+    });
+
+    const { updateDownloadWifiOnlySetting } = require("@/services/songCache");
+    expect(updateDownloadWifiOnlySetting).toHaveBeenCalledWith(true);
   });
 
   it("toggling playback switch calls updateKeepPlayingOnAppDismissed", async () => {
@@ -160,7 +183,7 @@ describe("SettingsScreen", () => {
 
     const root = tree.root;
     const switches = root.findAllByType(Switch);
-    const playbackSwitch = switches[1];
+    const playbackSwitch = switches[2];
 
     await renderer.act(async () => {
       playbackSwitch.props.onValueChange(true);
@@ -179,7 +202,7 @@ describe("SettingsScreen", () => {
 
     const root = tree.root;
     const switches = root.findAllByType(Switch);
-    const hapticsSwitch = switches[2];
+    const hapticsSwitch = switches[3];
     expect(hapticsSwitch.props.value).toBe(true);
   });
 
@@ -193,7 +216,7 @@ describe("SettingsScreen", () => {
 
     const root = tree.root;
     const switches = root.findAllByType(Switch);
-    const hapticsSwitch = switches[2];
+    const hapticsSwitch = switches[3];
 
     await renderer.act(async () => {
       hapticsSwitch.props.onValueChange(true);
@@ -213,7 +236,7 @@ describe("SettingsScreen", () => {
 
     const root = tree.root;
     const switches = root.findAllByType(Switch);
-    const hapticsSwitch = switches[2];
+    const hapticsSwitch = switches[3];
 
     await renderer.act(async () => {
       hapticsSwitch.props.onValueChange(false);

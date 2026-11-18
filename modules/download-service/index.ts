@@ -2,6 +2,7 @@ import { NativeModule, requireNativeModule } from "expo";
 
 type DownloadServiceEvents = {
   onCancelDownload: () => void;
+  onNetworkChanged: (event: { isWifi: boolean }) => void;
 };
 
 declare class DownloadServiceNativeModule extends NativeModule<DownloadServiceEvents> {
@@ -18,6 +19,7 @@ declare class DownloadServiceNativeModule extends NativeModule<DownloadServiceEv
     max: number,
   ): boolean;
   stopForegroundService(): boolean;
+  isWifiConnected(): boolean;
 }
 
 let DownloadService: DownloadServiceNativeModule | null = null;
@@ -78,5 +80,25 @@ export function addDownloadCancelListener(
   return DownloadService.addListener("onCancelDownload", listener);
 }
 
-export default DownloadService;
+export function isWifiConnected(): boolean {
+  if (!DownloadService) return true;
+  try {
+    return DownloadService.isWifiConnected();
+  } catch (e) {
+    console.error("failed to check wifi connection:", e);
+    return true;
+  }
+}
 
+export function addNetworkChangeListener(
+  listener: (isWifi: boolean) => void,
+): { remove: () => void } {
+  if (!DownloadService) {
+    return { remove: () => {} };
+  }
+  return DownloadService.addListener("onNetworkChanged", (event) => {
+    listener(Boolean(event?.isWifi));
+  });
+}
+
+export default DownloadService;

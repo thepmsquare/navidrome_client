@@ -8,6 +8,7 @@ import { HOME_SECTIONS } from "@/components/home";
 import {
   getAutoCacheEnabled,
   getAutoCacheMaxBytes,
+  getDownloadWifiOnlySetting,
   getHapticsEnabled,
   getKeepPlayingOnAppDismissed,
   getScrobbleMinDuration,
@@ -95,6 +96,7 @@ export async function createBackupData(): Promise<BackupData> {
       keep_playing_on_app_dismissed: keepPlaying,
       lyrics_mode: getLyricsMode(),
       haptics_enabled: getHapticsEnabled(),
+      download_wifi_only: getDownloadWifiOnlySetting(),
     },
     stop_playback_on_task_removed: stopPlayback,
     home_sections: homeSections,
@@ -214,6 +216,10 @@ export function parseProfileData(jsonString: string): BackupData {
       haptics_enabled:
         typeof data.settings.haptics_enabled === "boolean"
           ? data.settings.haptics_enabled
+          : undefined,
+      download_wifi_only:
+        typeof data.settings.download_wifi_only === "boolean"
+          ? data.settings.download_wifi_only
           : undefined,
     };
   }

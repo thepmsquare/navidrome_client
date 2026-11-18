@@ -37,15 +37,27 @@ import {
   subscribeSongCache,
   subscribeSongCacheProgress,
   tryStartNextDownload,
+  updateDownloadWifiOnlySetting,
 } from "@/services/songCache";
 import { SongCacheType } from "@/types";
 
-jest.mock("@/modules/download-service", () => ({
-  addDownloadCancelListener: jest.fn(() => ({ remove: jest.fn() })),
-  startDownloadForegroundService: jest.fn(),
-  updateDownloadProgress: jest.fn(),
-  stopDownloadForegroundService: jest.fn(),
-}));
+jest.mock("@/modules/download-service", () => {
+  let networkListener: ((isWifi: boolean) => void) | null = null;
+  return {
+    addDownloadCancelListener: jest.fn(() => ({ remove: jest.fn() })),
+    startDownloadForegroundService: jest.fn(),
+    updateDownloadProgress: jest.fn(),
+    stopDownloadForegroundService: jest.fn(),
+    isWifiConnected: jest.fn(() => true),
+    addNetworkChangeListener: jest.fn((listener: (isWifi: boolean) => void) => {
+      networkListener = listener;
+      return { remove: jest.fn() };
+    }),
+    __triggerNetworkChange: (isWifi: boolean) => {
+      if (networkListener) networkListener(isWifi);
+    },
+  };
+});
 
 jest.mock("@/services/coverArtCache", () => ({
   clearAllCachedCoverArt: jest.fn(),
@@ -77,6 +89,7 @@ jest.mock("@/services/db", () => ({
   getAutoCacheSongIds: jest.fn(() => []),
   getAutoCacheTotalSize: jest.fn(() => 0),
   getDownloadQueueState: jest.fn(() => ({ active: null, pending: [] })),
+  getDownloadWifiOnlySetting: jest.fn(() => false),
   getLeastRecentlyUsedAutoCacheEntries: jest.fn(() => []),
   getNextPendingDownload: jest.fn(() => null),
   getSongById: jest.fn(),
@@ -86,6 +99,7 @@ jest.mock("@/services/db", () => ({
   markDownloadActive: jest.fn(),
   removeFromDownloadQueue: jest.fn(),
   revertActiveDownloadsToPending: jest.fn(() => []),
+  setDownloadWifiOnlySetting: jest.fn(),
   updateSongCacheLastAccessed: jest.fn(),
   upsertSongCacheEntry: jest.fn(),
 }));
@@ -1132,7 +1146,7 @@ describe("songCache service", () => {
       tryStartNextDownload();
 
       expect(updateDownloadProgress).toHaveBeenCalledWith(
-        "downloading song",
+        "downloading track",
         "Test Song • Test Artist",
         0,
         100
@@ -1141,6 +1155,112 @@ describe("songCache service", () => {
       // Wait for async worker IIFE to finish and advance to empty queue
       await new Promise((resolve) => setTimeout(resolve, 10));
       expect(stopDownloadForegroundService).toHaveBeenCalled();
+    });
+
+    it("should pause downloads with 'paused: waiting for wi-fi' when download_wifi_only is enabled and on cellular", () => {
+      const {
+        updateDownloadProgress,
+      } = require("@/modules/download-service");
+      const {
+        getNextPendingDownload,
+        getDownloadQueueState,
+        getDownloadWifiOnlySetting,
+      } = require("@/services/db");
+      const { isWifiConnected } = require("@/modules/download-service");
+
+      (getDownloadWifiOnlySetting as jest.Mock).mockReturnValue(true);
+      (isWifiConnected as jest.Mock).mockReturnValue(false);
+      (getNextPendingDownload as jest.Mock).mockReturnValue("song-cellular-1");
+      (getDownloadQueueState as jest.Mock).mockReturnValue({
+        active: null,
+        pending: ["song-cellular-1"],
+      });
+
+      tryStartNextDownload();
+
+      expect(updateDownloadProgress).toHaveBeenCalledWith(
+        "paused: waiting for wi-fi",
+        "1 track waiting",
+        0,
+        0,
+      );
+    });
+
+    it("should resume queued downloads when wi-fi reconnects", () => {
+      const {
+        updateDownloadProgress,
+        __triggerNetworkChange,
+      } = require("@/modules/download-service");
+      const {
+        getNextPendingDownload,
+        getDownloadQueueState,
+        getDownloadWifiOnlySetting,
+        getSongById,
+      } = require("@/services/db");
+      const { isWifiConnected } = require("@/modules/download-service");
+
+      (getDownloadWifiOnlySetting as jest.Mock).mockReturnValue(true);
+      (isWifiConnected as jest.Mock).mockReturnValue(false);
+      (getNextPendingDownload as jest.Mock).mockReturnValue("song-resumed-1");
+      (getDownloadQueueState as jest.Mock).mockReturnValue({
+        active: null,
+        pending: ["song-resumed-1"],
+      });
+
+      // Pause first
+      tryStartNextDownload();
+
+      // Now Wi-Fi reconnects
+      (isWifiConnected as jest.Mock).mockReturnValue(true);
+      (getSongById as jest.Mock).mockReturnValue({
+        id: "song-resumed-1",
+        title: "Resumed Song",
+      });
+
+      __triggerNetworkChange(true);
+
+      expect(updateDownloadProgress).toHaveBeenCalledWith(
+        "downloading track",
+        expect.any(String),
+        0,
+        100,
+      );
+    });
+
+    it("should not auto-cache song when download_wifi_only is enabled and on cellular", async () => {
+      const {
+        getDownloadWifiOnlySetting,
+        getSongById,
+      } = require("@/services/db");
+      const { isWifiConnected } = require("@/modules/download-service");
+
+      (getDownloadWifiOnlySetting as jest.Mock).mockReturnValue(true);
+      (isWifiConnected as jest.Mock).mockReturnValue(false);
+      (getSongById as jest.Mock).mockReturnValue({
+        id: "song-auto-cellular",
+        title: "Song",
+      });
+
+      (File.downloadFileAsync as jest.Mock).mockClear();
+      await autoCacheSong("song-auto-cellular");
+
+      expect(File.downloadFileAsync).not.toHaveBeenCalled();
+    });
+
+    it("updateDownloadWifiOnlySetting immediately updates and resumes if turned off", () => {
+      const {
+        setDownloadWifiOnlySetting,
+        getNextPendingDownload,
+        getDownloadQueueState,
+      } = require("@/services/db");
+      const { isWifiConnected } = require("@/modules/download-service");
+
+      (isWifiConnected as jest.Mock).mockReturnValue(true);
+      (getNextPendingDownload as jest.Mock).mockReturnValue(null);
+      (getDownloadQueueState as jest.Mock).mockReturnValue({ active: null, pending: [] });
+
+      updateDownloadWifiOnlySetting(false);
+      expect(setDownloadWifiOnlySetting).toHaveBeenCalledWith(false);
     });
   });
 });

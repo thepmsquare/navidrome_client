@@ -35,6 +35,7 @@ import {
   getAutoCacheEnabled,
   getAutoCacheMaxBytes,
   getAutoCacheTotalSize,
+  getDownloadWifiOnlySetting,
   getHapticsEnabled,
   getKeepPlayingOnAppDismissed,
   getScrobbleMinDuration,
@@ -56,7 +57,10 @@ import {
   updateKeepPlayingOnAppDismissed,
   usePlayerState,
 } from "@/services/player";
-import { clearAllAutoCachedSongs } from "@/services/songCache";
+import {
+  clearAllAutoCachedSongs,
+  updateDownloadWifiOnlySetting,
+} from "@/services/songCache";
 import {
   checkLegacyOfflineCache,
   deleteLegacyOfflineCache,
@@ -117,6 +121,9 @@ export default function SettingsScreen() {
   );
   const [autoCacheEnabled, setAutoCacheEnabledState] = useState(() =>
     getAutoCacheEnabled(),
+  );
+  const [downloadWifiOnly, setDownloadWifiOnlyState] = useState(() =>
+    getDownloadWifiOnlySetting(),
   );
   const [clearingAutoCache, setClearingAutoCache] = useState(false);
   const [scrobbleMinDurationText, setScrobbleMinDurationText] = useState(() =>
@@ -371,6 +378,11 @@ export default function SettingsScreen() {
       setAutoCacheEnabledState(false);
       setAutoCacheUsageBytes(0);
     }
+  }
+
+  function handleToggleDownloadWifiOnly(val: boolean) {
+    setDownloadWifiOnlyState(val);
+    updateDownloadWifiOnlySetting(val);
   }
 
   async function handleCleanLegacyCache() {
@@ -888,6 +900,36 @@ export default function SettingsScreen() {
             keyboardType="decimal-pad"
             disabled={!autoCacheEnabled || clearingAutoCache}
           />
+        </Surface>
+
+        <Surface
+          elevation={0}
+          style={[
+            settingsStyles.sectionCard,
+            { backgroundColor: theme.colors.surfaceContainerHighest },
+          ]}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <View style={{ flex: 1, paddingRight: spacing.sm }}>
+              <Text variant="titleMedium">download over wi-fi only</Text>
+              <Text
+                variant="bodyMedium"
+                style={{ color: theme.colors.onSurfaceVariant }}
+              >
+                pause queued caching on cellular connections
+              </Text>
+            </View>
+            <Switch
+              value={downloadWifiOnly}
+              onValueChange={handleToggleDownloadWifiOnly}
+            />
+          </View>
         </Surface>
 
         {legacyCacheBytes > 0 && (
