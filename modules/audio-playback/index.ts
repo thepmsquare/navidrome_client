@@ -60,6 +60,7 @@ type AudioPlaybackEvents = {
   onRepeatModeChanged: (data: RepeatModeChanged) => void;
   onPlaybackStopped: () => void;
   onMediaItemTransition: (data: MediaItemTransition) => void;
+  onSleepTimerExpired: () => void;
 };
 
 declare class AudioPlaybackNativeModule extends NativeModule<AudioPlaybackEvents> {
@@ -93,6 +94,11 @@ declare class AudioPlaybackNativeModule extends NativeModule<AudioPlaybackEvents
   setStopOnAppDismissed(stop: boolean): Promise<void>;
   getPlaybackStatus(): Promise<PlaybackStatus>;
   getPlaylistState(): Promise<PlaylistState | null>;
+  getCompletedTracks(): Promise<CompletedTrackInfo[]>;
+  clearCompletedTracks(): Promise<void>;
+  setSleepTimer(durationMs: number): Promise<void>;
+  cancelSleepTimer(): Promise<void>;
+  getSleepTimerRemainingSeconds(): Promise<number>;
   playTestSound(url: string): Promise<void>;
   stopTestSound(): Promise<void>;
 }
@@ -240,6 +246,22 @@ export async function getPlaybackStatus(): Promise<PlaybackStatus> {
   return await AudioPlayback.getPlaybackStatus();
 }
 
+export interface CompletedTrackInfo {
+  mediaId: string;
+  index: number;
+  timestamp: number;
+}
+
+export async function getCompletedTracks(): Promise<CompletedTrackInfo[]> {
+  if (!AudioPlayback) return [];
+  return await AudioPlayback.getCompletedTracks();
+}
+
+export async function clearCompletedTracks(): Promise<void> {
+  if (!AudioPlayback) return;
+  await AudioPlayback.clearCompletedTracks();
+}
+
 export async function getPlaylistState(): Promise<PlaylistState | null> {
   if (!AudioPlayback) return null;
   return await AudioPlayback.getPlaylistState();
@@ -291,6 +313,26 @@ export function addMediaItemTransitionListener(
 ) {
   if (!AudioPlayback) return { remove: () => {} };
   return AudioPlayback.addListener("onMediaItemTransition", listener);
+}
+
+export async function setSleepTimer(durationMs: number): Promise<void> {
+  if (!AudioPlayback) return;
+  await AudioPlayback.setSleepTimer(durationMs);
+}
+
+export async function cancelSleepTimer(): Promise<void> {
+  if (!AudioPlayback) return;
+  await AudioPlayback.cancelSleepTimer();
+}
+
+export async function getSleepTimerRemainingSeconds(): Promise<number> {
+  if (!AudioPlayback) return 0;
+  return await AudioPlayback.getSleepTimerRemainingSeconds();
+}
+
+export function addSleepTimerExpiredListener(listener: () => void) {
+  if (!AudioPlayback) return { remove: () => {} };
+  return AudioPlayback.addListener("onSleepTimerExpired", listener);
 }
 
 export default AudioPlayback;

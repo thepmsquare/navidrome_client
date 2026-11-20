@@ -109,6 +109,10 @@ class AudioPlaybackModule : Module() {
         )
       )
     }
+
+    override fun onSleepTimerExpired() {
+      sendEvent("onSleepTimerExpired", emptyMap<String, Any>())
+    }
   }
 
   override fun definition() = ModuleDefinition {
@@ -122,7 +126,8 @@ class AudioPlaybackModule : Module() {
       "onPlaybackError",
       "onRepeatModeChanged",
       "onPlaybackStopped",
-      "onMediaItemTransition"
+      "onMediaItemTransition",
+      "onSleepTimerExpired"
     )
 
     OnCreate {
@@ -575,6 +580,77 @@ class AudioPlaybackModule : Module() {
         } catch (e: Exception) {
           android.util.Log.e(TAG, "Error setting stop on app dismissed: ${e.message}", e)
           promise.reject("ERR_STOP_ON_DISMISSED", e.message ?: "Unknown error", e)
+        }
+      }
+    }
+
+    AsyncFunction("getCompletedTracks") { promise: Promise ->
+      mainHandler.post {
+        try {
+          val s = getOrFindService()
+          promise.resolve(s?.getCompletedTracks() ?: emptyList<Map<String, Any>>())
+        } catch (e: Exception) {
+          android.util.Log.e(TAG, "Error getting completed tracks: ${e.message}", e)
+          promise.resolve(emptyList<Map<String, Any>>())
+        }
+      }
+    }
+
+    AsyncFunction("clearCompletedTracks") { promise: Promise ->
+      mainHandler.post {
+        try {
+          val s = getOrFindService()
+          s?.clearCompletedTracks()
+          promise.resolve(null)
+        } catch (e: Exception) {
+          android.util.Log.e(TAG, "Error clearing completed tracks: ${e.message}", e)
+          promise.resolve(null)
+        }
+      }
+    }
+
+    AsyncFunction("setSleepTimer") { durationMs: Double, promise: Promise ->
+      mainHandler.post {
+        try {
+          val s = getOrFindService()
+          if (s == null) {
+            promise.reject("ERR_NO_PLAYER", "Player not initialized", null)
+            return@post
+          }
+          s.setSleepTimer(durationMs.toLong())
+          promise.resolve(null)
+        } catch (e: Exception) {
+          android.util.Log.e(TAG, "Error setting sleep timer: ${e.message}", e)
+          promise.reject("ERR_SET_SLEEP_TIMER", e.message ?: "Unknown error", e)
+        }
+      }
+    }
+
+    AsyncFunction("cancelSleepTimer") { promise: Promise ->
+      mainHandler.post {
+        try {
+          val s = getOrFindService()
+          s?.cancelSleepTimer()
+          promise.resolve(null)
+        } catch (e: Exception) {
+          android.util.Log.e(TAG, "Error cancelling sleep timer: ${e.message}", e)
+          promise.reject("ERR_CANCEL_SLEEP_TIMER", e.message ?: "Unknown error", e)
+        }
+      }
+    }
+
+    AsyncFunction("getSleepTimerRemainingSeconds") { promise: Promise ->
+      mainHandler.post {
+        try {
+          val s = getOrFindService()
+          if (s != null) {
+            promise.resolve(s.getSleepTimerRemainingSeconds())
+          } else {
+            promise.resolve(0.0)
+          }
+        } catch (e: Exception) {
+          android.util.Log.e(TAG, "Error getting sleep timer remaining seconds: ${e.message}", e)
+          promise.reject("ERR_GET_SLEEP_TIMER", e.message ?: "Unknown error", e)
         }
       }
     }

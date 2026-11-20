@@ -7,6 +7,9 @@
 - improvements to library synchronization (use background service with progress notification).
 - add download over wi-fi only toggle to pause caching on cellular.
 - add gapless playback across playlist queue.
+- fix player screen ui visuals staying on previous track when resuming from background.
+- reliable background scrobbling for tracks completed while app is backgrounded or screen is off.
+- fix sleep timer background reliability to cleanly stop music and release audio focus on time.
 
 ### internal notes
 
@@ -21,6 +24,12 @@
 - preserve exoplayer playback position and playWhenReady in audioplaybackservice updatePlaylistItemUri for active track index.
 - ignore media_item_transition_reason_playlist_changed in audioplaybackservice onMediaItemTransition.
 - keep active stream playback uninterrupted in services/player when cache download finishes and update playlist item uri upon track transition.
+- synchronize activePlaybackTrackId, currentPlaybackSource, and state listeners on app foreground resume in services/player.
+- add exoplayer network wakemode and record completed tracks history in audioplaybackservice for retroactive background scrobbling.
+- scrobble previous track on media item transition and reconcile completed tracks on app resume in services/player.
+- schedule native sleep timer using handler and alarmmanager in audioplaybackservice for doze mode reliability.
+- cleanly stop exoplayer playback, release audio focus, and dismiss foreground notification upon native sleep timer expiry.
+- synchronize sleep timer remaining seconds without drift on foreground return in services/sleepTimer.ts and services/player.ts.
 
 ## 2.39.0+87
 

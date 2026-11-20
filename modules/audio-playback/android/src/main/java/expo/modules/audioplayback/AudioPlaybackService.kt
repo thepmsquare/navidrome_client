@@ -1,5 +1,6 @@
 package expo.modules.audioplayback
 
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -20,6 +21,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -73,6 +75,7 @@ class AudioPlaybackService : MediaSessionService() {
     fun onRepeatModeChanged(mode: String)
     fun onPlaybackStopped()
     fun onMediaItemTransition(index: Int, mediaId: String)
+    fun onSleepTimerExpired()
   }
 
   inner class LocalBinder : Binder() {
@@ -102,6 +105,15 @@ class AudioPlaybackService : MediaSessionService() {
   private var eventListener: PlaybackEventListener? = null
   private var isForegroundServiceStarted = false
   private var progressRunnable: Runnable? = null
+  private var lastActiveMediaId: String? = null
+  private var lastActiveMediaIndex: Int = -1
+  private val completedTracks = java.util.Collections.synchronizedList(mutableListOf<Map<String, Any>>())
+  private var isSleepTimerActive = false
+  private var sleepTimerTargetElapsedRealtime: Long = 0L
+  private var sleepTimerPendingIntent: PendingIntent? = null
+  private val sleepTimerRunnable = Runnable {
+    handleSleepTimerExpired()
+  }
 
   private fun startProgressUpdates() {
     stopProgressUpdates()
@@ -133,6 +145,8 @@ class AudioPlaybackService : MediaSessionService() {
     const val ACTION_NEXT = "expo.modules.audioplayback.ACTION_NEXT"
     const val ACTION_STOP = "expo.modules.audioplayback.ACTION_STOP"
     const val ACTION_REPEAT = "expo.modules.audioplayback.ACTION_REPEAT"
+    const val ACTION_SLEEP_TIMER = "expo.modules.audioplayback.ACTION_SLEEP_TIMER"
+    const val REQUEST_CODE_SLEEP_TIMER = 2001
     const val TAG = "AudioPlaybackService"
     const val MAX_ARTWORK_SIZE = 512
     const val PREFS_NAME = "audio_playback_prefs"
@@ -177,6 +191,7 @@ class AudioPlaybackService : MediaSessionService() {
       ACTION_PLAY_PAUSE -> handlePlayPause()
       ACTION_STOP -> handleStop()
       ACTION_REPEAT -> handleRepeat()
+      ACTION_SLEEP_TIMER -> handleSleepTimerExpired()
     }
     return START_STICKY
   }
@@ -193,6 +208,7 @@ class AudioPlaybackService : MediaSessionService() {
   }
 
   override fun onDestroy() {
+    cancelSleepTimerInternal()
     stopProgressUpdates()
     scope.coroutineContext[Job]?.cancel()
     unregisterReceiver()
@@ -238,6 +254,7 @@ class AudioPlaybackService : MediaSessionService() {
       .setLooper(Looper.getMainLooper())
       .setAudioAttributes(audioAttributes, true)
       .setHandleAudioBecomingNoisy(true)
+      .setWakeMode(C.WAKE_MODE_NETWORK)
       .build()
 
     exoPlayer.addListener(object : Player.Listener {
@@ -254,6 +271,17 @@ class AudioPlaybackService : MediaSessionService() {
       override fun onPlaybackStateChanged(playbackState: Int) {
         if (playbackState == Player.STATE_ENDED) {
           stopProgressUpdates()
+          val prevId = lastActiveMediaId
+          val prevIndex = lastActiveMediaIndex
+          if (!prevId.isNullOrEmpty()) {
+            completedTracks.add(
+              mapOf(
+                "mediaId" to prevId,
+                "index" to prevIndex,
+                "timestamp" to System.currentTimeMillis()
+              )
+            )
+          }
           eventListener?.onTrackEnded()
         }
         eventListener?.onPlaybackStateChanged(getPlaybackStatusMap())
@@ -267,6 +295,25 @@ class AudioPlaybackService : MediaSessionService() {
         val p = player ?: return
         val index = p.currentMediaItemIndex
         val mediaId = mediaItem?.mediaId ?: ""
+
+        val prevId = lastActiveMediaId
+        val prevIndex = lastActiveMediaIndex
+
+        if (!prevId.isNullOrEmpty() && (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK)) {
+          if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+            completedTracks.add(
+              mapOf(
+                "mediaId" to prevId,
+                "index" to prevIndex,
+                "timestamp" to System.currentTimeMillis()
+              )
+            )
+          }
+        }
+
+        lastActiveMediaId = mediaId
+        lastActiveMediaIndex = index
+
         val metadata = mediaItem?.mediaMetadata
         currentTitle = metadata?.title?.toString() ?: ""
         currentArtist = metadata?.artist?.toString() ?: ""
@@ -464,6 +511,7 @@ class AudioPlaybackService : MediaSessionService() {
           ACTION_PLAY_PAUSE -> handlePlayPause()
           ACTION_STOP -> handleStop()
           ACTION_REPEAT -> handleRepeat()
+          ACTION_SLEEP_TIMER -> handleSleepTimerExpired()
         }
       }
     }
@@ -474,6 +522,7 @@ class AudioPlaybackService : MediaSessionService() {
       addAction(ACTION_NEXT)
       addAction(ACTION_STOP)
       addAction(ACTION_REPEAT)
+      addAction(ACTION_SLEEP_TIMER)
     }
 
     try {
@@ -652,6 +701,9 @@ class AudioPlaybackService : MediaSessionService() {
     p.playWhenReady = true
 
     val activeItem = mediaItems.getOrNull(validStartIndex)
+    lastActiveMediaIndex = validStartIndex
+    lastActiveMediaId = activeItem?.mediaId
+    completedTracks.clear()
     if (activeItem != null) {
       val meta = activeItem.mediaMetadata
       currentTitle = meta.title?.toString() ?: ""
@@ -695,7 +747,21 @@ class AudioPlaybackService : MediaSessionService() {
   fun seekToTrack(index: Int, positionSeconds: Double) {
     val p = player ?: return
     if (index in 0 until p.mediaItemCount) {
+      lastActiveMediaIndex = index
+      lastActiveMediaId = p.getMediaItemAt(index).mediaId
       p.seekTo(index, (positionSeconds * 1000).toLong().coerceAtLeast(0L))
+    }
+  }
+
+  fun getCompletedTracks(): List<Map<String, Any>> {
+    return synchronized(completedTracks) {
+      completedTracks.toList()
+    }
+  }
+
+  fun clearCompletedTracks() {
+    synchronized(completedTracks) {
+      completedTracks.clear()
     }
   }
 
@@ -758,6 +824,7 @@ class AudioPlaybackService : MediaSessionService() {
 
   fun stopPlayback() {
     stopProgressUpdates()
+    cancelSleepTimerInternal()
     val p = player ?: return
     val currentPosSec = p.currentPosition / 1000.0
     if (currentPosSec > 0.0) {
@@ -798,6 +865,98 @@ class AudioPlaybackService : MediaSessionService() {
     currentPlaybackSpeed = clamped
     player?.setPlaybackSpeed(clamped)
     eventListener?.onPlaybackStateChanged(getPlaybackStatusMap())
+  }
+
+  fun setSleepTimer(durationMs: Long) {
+    mainHandler.post {
+      if (durationMs <= 0L) {
+        cancelSleepTimerInternal()
+        return@post
+      }
+      cancelSleepTimerInternal()
+
+      isSleepTimerActive = true
+      sleepTimerTargetElapsedRealtime = SystemClock.elapsedRealtime() + durationMs
+
+      mainHandler.postDelayed(sleepTimerRunnable, durationMs)
+
+      val alarmManager = getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+      if (alarmManager != null) {
+        val intent = Intent(this, AudioPlaybackService::class.java).apply {
+          action = ACTION_SLEEP_TIMER
+        }
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+          PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        } else {
+          PendingIntent.FLAG_UPDATE_CURRENT
+        }
+        val pi = PendingIntent.getService(this, REQUEST_CODE_SLEEP_TIMER, intent, flags)
+        sleepTimerPendingIntent = pi
+
+        val triggerAtMillis = SystemClock.elapsedRealtime() + durationMs
+        try {
+          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(
+              AlarmManager.ELAPSED_REALTIME_WAKEUP,
+              triggerAtMillis,
+              pi
+            )
+          } else {
+            alarmManager.setExact(
+              AlarmManager.ELAPSED_REALTIME_WAKEUP,
+              triggerAtMillis,
+              pi
+            )
+          }
+        } catch (e: SecurityException) {
+          android.util.Log.w(TAG, "Exact alarm permission not granted, falling back to set(): ${e.message}")
+          try {
+            alarmManager.set(
+              AlarmManager.ELAPSED_REALTIME_WAKEUP,
+              triggerAtMillis,
+              pi
+            )
+          } catch (e2: Exception) {
+            android.util.Log.e(TAG, "Failed to schedule alarm: ${e2.message}", e2)
+          }
+        } catch (e: Exception) {
+          android.util.Log.e(TAG, "Failed to schedule sleep timer alarm: ${e.message}", e)
+        }
+      }
+    }
+  }
+
+  fun cancelSleepTimer() {
+    mainHandler.post {
+      cancelSleepTimerInternal()
+    }
+  }
+
+  private fun cancelSleepTimerInternal() {
+    isSleepTimerActive = false
+    sleepTimerTargetElapsedRealtime = 0L
+    mainHandler.removeCallbacks(sleepTimerRunnable)
+    sleepTimerPendingIntent?.let { pi ->
+      val alarmManager = getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+      alarmManager?.cancel(pi)
+      pi.cancel()
+    }
+    sleepTimerPendingIntent = null
+  }
+
+  fun getSleepTimerRemainingSeconds(): Double {
+    if (!isSleepTimerActive) return 0.0
+    val remainingMs = sleepTimerTargetElapsedRealtime - SystemClock.elapsedRealtime()
+    return if (remainingMs > 0L) remainingMs / 1000.0 else 0.0
+  }
+
+  fun handleSleepTimerExpired() {
+    mainHandler.post {
+      if (!isSleepTimerActive) return@post
+      cancelSleepTimerInternal()
+      stopPlayback()
+      eventListener?.onSleepTimerExpired()
+    }
   }
 
   fun getPlaybackSpeed(): Float = currentPlaybackSpeed

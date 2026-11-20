@@ -120,6 +120,8 @@ jest.mock("@/modules/audio-playback", () => ({
   removePlaylistItem: jest.fn().mockResolvedValue(undefined),
   movePlaylistItem: jest.fn().mockResolvedValue(undefined),
   clearPlaylist: jest.fn().mockResolvedValue(undefined),
+  getCompletedTracks: jest.fn().mockResolvedValue([]),
+  clearCompletedTracks: jest.fn().mockResolvedValue(undefined),
   seekToTrack: jest.fn().mockResolvedValue(undefined),
   updatePlaylistItemUri: jest.fn().mockResolvedValue(undefined),
   setShuffleModeEnabled: jest.fn().mockResolvedValue(undefined),
@@ -156,6 +158,10 @@ jest.mock("@/modules/audio-playback", () => ({
   addRepeatModeListener: jest.fn((cb) => {
     repeatModeCb = cb;
   }),
+  setSleepTimer: jest.fn().mockResolvedValue(undefined),
+  cancelSleepTimer: jest.fn().mockResolvedValue(undefined),
+  getSleepTimerRemainingSeconds: jest.fn().mockResolvedValue(0),
+  addSleepTimerExpiredListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
 
 jest.mock("@/services/api", () => ({
