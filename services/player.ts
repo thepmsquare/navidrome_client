@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AppState, Image } from "react-native";
 
 import {
+  addMediaItemTransitionListener,
   addNextTrackListener,
   addPlaybackErrorListener,
   addPlaybackStateListener,
@@ -9,19 +10,30 @@ import {
   addPreviousTrackListener,
   addRepeatModeListener,
   addTrackEndedListener,
+  addPlaylistItem,
+  clearPlaylist,
   getPlaybackStatus,
+  getPlaylistState,
   loadTrack,
+  movePlaylistItem,
   playTestSound as nativePlayTestSound,
   stopTestSound as nativeStopTestSound,
   pause,
   play,
   PlaybackStatus,
+  PlaylistItem,
+  PlaylistState,
+  removePlaylistItem,
   seekTo,
+  seekToTrack,
   setPlaybackSpeed as nativeSetPlaybackSpeed,
+  setPlaylist,
   setRepeatMode,
+  setShuffleModeEnabled,
   setStopOnAppDismissed,
   setVolume,
   stop,
+  updatePlaylistItemUri,
 } from "@/modules/audio-playback";
 import {
   getCoverArtBaseUrl,
@@ -123,6 +135,10 @@ let accumulatedListeningTimeSeconds = 0;
 let lastEvaluatedPosition: number | null = null;
 let hasPendingSeek = false;
 
+function safeNativeCall(promiseOrVoid: any): Promise<void> {
+  return Promise.resolve(promiseOrVoid).catch(() => {});
+}
+
 function persistCurrentSession(): void {
   try {
     if (currentQueue.length === 0) {
@@ -143,7 +159,57 @@ function persistCurrentSession(): void {
   }
 }
 
-export function hydratePlayerSession(): void {
+function updateCurrentTrackFromSong(song: Child): void {
+  let dbStarred = song.starred;
+  let dbRating = song.userRating;
+  let artistId = song.artistId;
+  let albumId = song.albumId;
+  try {
+    const dbSong = getSongById(song.id);
+    if (dbSong) {
+      dbStarred = dbSong.starred ?? song.starred;
+      dbRating = dbSong.userRating ?? song.userRating;
+      artistId = dbSong.artistId ?? song.artistId;
+      albumId = dbSong.albumId ?? song.albumId;
+    }
+  } catch {
+    // ignore
+  }
+  currentTrack = {
+    id: song.id,
+    title: song.title,
+    artist: song.artist,
+    artistId,
+    album: song.album,
+    albumId,
+    coverArt: song.coverArt,
+    duration: song.duration,
+    starred: dbStarred,
+    userRating: dbRating,
+  };
+}
+
+async function buildPlaylistItem(song: Child): Promise<PlaylistItem> {
+  const cachedUri = getCachedSongPlaybackUri(song.id);
+  const playbackUrl = cachedUri ?? (await getSongStreamUrl(song.id));
+  let artworkUrl: string | null = null;
+  try {
+    const getArtUrl = await getCoverArtBaseUrl();
+    artworkUrl = getArtUrl(song.coverArt || song.id);
+  } catch {
+    artworkUrl = getCachedCoverArtUri(song.coverArt || song.id);
+  }
+  return {
+    mediaId: song.id,
+    url: playbackUrl,
+    title: song.title,
+    artist: song.artist ?? undefined,
+    album: song.album ?? undefined,
+    artworkUrl: artworkUrl ?? undefined,
+  };
+}
+
+export async function hydratePlayerSession(): Promise<void> {
   try {
     const session = getPlayerSession();
     if (session && session.queue && session.queue.length > 0) {
@@ -160,33 +226,7 @@ export function hydratePlayerSession(): void {
       currentShuffle = Boolean(session.shuffle);
       const song = currentQueue[currentIndex];
       if (song) {
-        let dbStarred = song.starred;
-        let dbRating = song.userRating;
-        let artistId = song.artistId;
-        let albumId = song.albumId;
-        try {
-          const dbSong = getSongById(song.id);
-          if (dbSong) {
-            dbStarred = dbSong.starred ?? song.starred;
-            dbRating = dbSong.userRating ?? song.userRating;
-            artistId = dbSong.artistId ?? song.artistId;
-            albumId = dbSong.albumId ?? song.albumId;
-          }
-        } catch {
-          // ignore
-        }
-        currentTrack = {
-          id: song.id,
-          title: song.title,
-          artist: song.artist,
-          artistId,
-          album: song.album,
-          albumId,
-          coverArt: song.coverArt,
-          duration: song.duration,
-          starred: dbStarred,
-          userRating: dbRating,
-        };
+        updateCurrentTrackFromSong(song);
         lastPlaybackStatus = {
           isPlaying: false,
           isBuffering: false,
@@ -202,14 +242,42 @@ export function hydratePlayerSession(): void {
 
   try {
     const keepPlaying = getKeepPlayingOnAppDismissed();
-    setStopOnAppDismissed(!keepPlaying).catch(() => {});
+    safeNativeCall(setStopOnAppDismissed(!keepPlaying));
   } catch {
     // ignore
   }
 
   try {
     currentPlaybackSpeed = getPlaybackSpeedSetting();
-    nativeSetPlaybackSpeed(currentPlaybackSpeed).catch(() => {});
+    safeNativeCall(nativeSetPlaybackSpeed(currentPlaybackSpeed));
+  } catch {
+    // ignore
+  }
+
+  try {
+    const playlistState = await getPlaylistState();
+    if (playlistState && currentQueue.length > 0) {
+      if (
+        playlistState.activeIndex >= 0 &&
+        playlistState.activeIndex < currentQueue.length
+      ) {
+        currentIndex = playlistState.activeIndex;
+        const song = currentQueue[currentIndex];
+        if (song) {
+          updateCurrentTrackFromSong(song);
+        }
+        lastPlaybackStatus = {
+          ...lastPlaybackStatus,
+          isPlaying: playlistState.isPlaying,
+          duration: playlistState.duration || currentTrack?.duration || 0,
+          position: playlistState.position,
+          repeatMode: playlistState.repeatMode,
+        };
+        currentRepeatMode = playlistState.repeatMode;
+        currentShuffle = playlistState.shuffle;
+        notifyStateChanged();
+      }
+    }
   } catch {
     // ignore
   }
@@ -448,6 +516,22 @@ function ensureListenersInitialized(): void {
   AppState.addEventListener("change", async (nextAppState) => {
     if (nextAppState === "active") {
       try {
+        if (currentQueue.length === 0) {
+          await hydratePlayerSession();
+        }
+        const playlistState = await getPlaylistState();
+        if (playlistState && currentQueue.length > 0) {
+          if (
+            playlistState.activeIndex >= 0 &&
+            playlistState.activeIndex < currentQueue.length
+          ) {
+            currentIndex = playlistState.activeIndex;
+            const song = currentQueue[currentIndex];
+            if (song) {
+              updateCurrentTrackFromSong(song);
+            }
+          }
+        }
         const latest = await getPlaybackStatus();
         const preservedPosition =
           !latest.isPlaying && latest.position === 0 && lastPlaybackStatus.position > 0
@@ -468,6 +552,51 @@ function ensureListenersInitialized(): void {
     } else if (nextAppState === "background" || nextAppState === "inactive") {
       persistCurrentSession();
     }
+  });
+
+  addMediaItemTransitionListener(({ index, mediaId }) => {
+    if (index >= 0 && index < currentQueue.length) {
+      currentIndex = index;
+      const song = currentQueue[index];
+      if (song) {
+        updateCurrentTrackFromSong(song);
+      }
+    }
+
+    if (activePlaybackTrackId && activePlaybackTrackId !== mediaId) {
+      checkAndScrobble(true).catch((err) => {
+        console.error("failed transition scrobble check:", err);
+      });
+    }
+
+    if (handleTrackEnded()) {
+      safeNativeCall(pause());
+      return;
+    }
+
+    scrobbleInFlightTrackId = null;
+    scrobbledSuccessfullyTrackId = null;
+    activePlaybackTrackId = mediaId;
+    accumulatedListeningTimeSeconds = 0;
+    lastEvaluatedPosition = 0;
+    hasPendingSeek = false;
+
+    scrobble({ id: mediaId, submission: false }).catch((err) =>
+      console.error("failed to send now playing ping:", err),
+    );
+
+    const cachedUri = getCachedSongPlaybackUri(mediaId);
+    currentPlaybackSource = { songId: mediaId, isFromCache: !!cachedUri };
+    if (!cachedUri) {
+      autoCacheSong(mediaId).catch((err) => {
+        console.error("failed to auto-cache song in background:", err);
+      });
+    } else {
+      updateSongCacheLastAccessed(mediaId);
+    }
+
+    notifyStateChanged();
+    persistCurrentSession();
   });
 
   addTrackEndedListener(() => {
@@ -499,6 +628,7 @@ function ensureListenersInitialized(): void {
     ) {
       await switchToRemoteStream(currentTrack.id);
     } else {
+      await pause().catch(() => {});
       handleNetworkOrOfflineError(error);
     }
   });
@@ -522,6 +652,25 @@ function ensureListenersInitialized(): void {
     ) {
       await switchToRemoteStream(songId);
     }
+
+    const queueIndex = currentQueue.findIndex((s) => s.id === songId);
+    if (queueIndex !== -1) {
+      if (entry) {
+        const localUri =
+          (entry.filePath || (entry as any).localFilePath) ??
+          getCachedSongPlaybackUri(songId);
+        if (localUri) {
+          await safeNativeCall(updatePlaylistItemUri(queueIndex, localUri));
+        }
+      } else if (entry === null) {
+        try {
+          const streamUrl = await getSongStreamUrl(songId);
+          await safeNativeCall(updatePlaylistItemUri(queueIndex, streamUrl));
+        } catch {
+          // ignore
+        }
+      }
+    }
   });
 }
 
@@ -531,52 +680,19 @@ export async function playTrackAtIndex(index: number): Promise<void> {
   const song = currentQueue[index];
   if (!song) return;
 
-  // Reset scrobble guard for the new track. activePlaybackTrackId is also
-  // cleared so that checkAndScrobble ignores any stale playback-state
-  // callbacks that still carry the previous song's position before the
-  // audio layer has loaded the new track.
   scrobbleInFlightTrackId = null;
   scrobbledSuccessfullyTrackId = null;
-  activePlaybackTrackId = null;
+  activePlaybackTrackId = song.id;
   accumulatedListeningTimeSeconds = 0;
   lastEvaluatedPosition = null;
   hasPendingSeek = false;
   lastPlaybackStatus = {
     ...lastPlaybackStatus,
     position: 0,
-    duration: 0,
+    duration: song.duration || 0,
   };
 
-  let dbStarred = song.starred;
-  let dbRating = song.userRating;
-  let artistId = song.artistId;
-  let albumId = song.albumId;
-
-  try {
-    const dbSong = getSongById(song.id);
-    if (dbSong) {
-      dbStarred = dbSong.starred ?? song.starred;
-      dbRating = dbSong.userRating ?? song.userRating;
-      artistId = dbSong.artistId ?? song.artistId;
-      albumId = dbSong.albumId ?? song.albumId;
-    }
-  } catch {
-    // ignore
-  }
-
-  currentTrack = {
-    id: song.id,
-    title: song.title,
-    artist: song.artist,
-    artistId,
-    album: song.album,
-    albumId,
-    coverArt: song.coverArt,
-    duration: song.duration,
-    starred: dbStarred,
-    userRating: dbRating,
-  };
-
+  updateCurrentTrackFromSong(song);
   ensureListenersInitialized();
   notifyStateChanged();
   persistCurrentSession();
@@ -584,38 +700,14 @@ export async function playTrackAtIndex(index: number): Promise<void> {
   try {
     const cachedUri = getCachedSongPlaybackUri(song.id);
     const isFromCache = !!cachedUri;
-    const playbackUrl = cachedUri ?? (await getSongStreamUrl(song.id));
-    let artworkUrl: string | null = null;
-    try {
-      const getArtUrl = await getCoverArtBaseUrl();
-      artworkUrl = getArtUrl(song.coverArt || song.id);
-    } catch {
-      artworkUrl = getCachedCoverArtUri(song.coverArt || song.id);
-    }
-
     currentPlaybackSource = { songId: song.id, isFromCache };
 
     if (isFromCache) {
       updateSongCacheLastAccessed(song.id);
     }
 
-    await loadTrack({
-      url: playbackUrl,
-      title: song.title,
-      artist: song.artist ?? undefined,
-      album: song.album ?? undefined,
-      artworkUrl: artworkUrl ?? undefined,
-      playWhenReady: true,
-    });
+    await seekToTrack(index, 0);
 
-    // Mark the track as active for scrobble eligibility only after the
-    // audio layer has successfully loaded it.
-    if (currentTrack?.id === song.id) {
-      activePlaybackTrackId = song.id;
-      lastEvaluatedPosition = 0;
-    }
-
-    // Send "now playing" ping immediately (submission: false)
     scrobble({ id: song.id, submission: false }).catch((err) =>
       console.error("failed to send now playing ping:", err),
     );
@@ -649,22 +741,94 @@ export async function playPlaylist(
   if (!songs.length) return;
 
   try {
+    ensureListenersInitialized();
     originalQueue = [...songs];
     const safeStartIndex =
       startIndex >= 0 && startIndex < songs.length ? startIndex : 0;
+
+    let finalQueue = [...songs];
+    let finalStartIndex = safeStartIndex;
 
     if (currentShuffle && songs.length > 1) {
       const selectedSong = songs[safeStartIndex];
       const remainingSongs = songs.filter((_, idx) => idx !== safeStartIndex);
       const shuffledRemaining = shuffleArray(remainingSongs);
-      currentQueue = [selectedSong, ...shuffledRemaining];
-      await playTrackAtIndex(0);
-    } else {
-      currentQueue = [...songs];
-      await playTrackAtIndex(safeStartIndex);
+      finalQueue = [selectedSong, ...shuffledRemaining];
+      finalStartIndex = 0;
+    }
+
+    currentQueue = finalQueue;
+    currentIndex = finalStartIndex;
+
+    const initialSong = currentQueue[finalStartIndex];
+    if (initialSong) {
+      updateCurrentTrackFromSong(initialSong);
+    }
+
+    notifyStateChanged();
+    persistCurrentSession();
+
+    let getArtUrl: ((id?: string | null) => string | null) | null = null;
+    try {
+      getArtUrl = await getCoverArtBaseUrl();
+    } catch {
+      // ignore
+    }
+
+    const items: PlaylistItem[] = await Promise.all(
+      currentQueue.map(async (song) => {
+        const cachedUri = getCachedSongPlaybackUri(song.id);
+        const playbackUrl = cachedUri ?? (await getSongStreamUrl(song.id));
+        let artworkUrl: string | null = null;
+        if (getArtUrl) {
+          try {
+            artworkUrl = getArtUrl(song.coverArt || song.id);
+          } catch {
+            artworkUrl = getCachedCoverArtUri(song.coverArt || song.id);
+          }
+        } else {
+          artworkUrl = getCachedCoverArtUri(song.coverArt || song.id);
+        }
+        return {
+          mediaId: song.id,
+          url: playbackUrl,
+          title: song.title,
+          artist: song.artist ?? undefined,
+          album: song.album ?? undefined,
+          artworkUrl: artworkUrl ?? undefined,
+        };
+      })
+    );
+
+    const activeCachedUri = getCachedSongPlaybackUri(initialSong.id);
+    currentPlaybackSource = {
+      songId: initialSong.id,
+      isFromCache: !!activeCachedUri,
+    };
+    if (activeCachedUri) {
+      updateSongCacheLastAccessed(initialSong.id);
+    }
+
+    await setPlaylist(items, finalStartIndex, 0);
+
+    activePlaybackTrackId = initialSong.id;
+    scrobbledSuccessfullyTrackId = null;
+    scrobbleInFlightTrackId = null;
+    accumulatedListeningTimeSeconds = 0;
+    lastEvaluatedPosition = 0;
+
+    scrobble({ id: initialSong.id, submission: false }).catch((err) =>
+      console.error("failed to send now playing ping:", err),
+    );
+
+    if (!activeCachedUri) {
+      autoCacheSong(initialSong.id).catch((err) => {
+        console.error("failed to auto-cache song in background:", err);
+      });
     }
   } catch (error) {
     console.error("failed to play playlist:", error);
+    handleNetworkOrOfflineError(error);
   }
 }
 
@@ -709,6 +873,8 @@ export async function playNextSong(song: Child): Promise<void> {
   } else {
     originalQueue = [...currentQueue];
   }
+  const item = await buildPlaylistItem(song);
+  await safeNativeCall(addPlaylistItem(item, insertIndex));
   notifyStateChanged();
   persistCurrentSession();
 }
@@ -729,6 +895,12 @@ export async function addToQueue(song: Child | Child[]): Promise<void> {
   } else {
     originalQueue = [...currentQueue];
   }
+
+  for (const s of songsToAdd) {
+    const item = await buildPlaylistItem(s);
+    await safeNativeCall(addPlaylistItem(item));
+  }
+
   notifyStateChanged();
   persistCurrentSession();
 }
@@ -757,16 +929,31 @@ export function removeFromQueue(index: number): boolean {
     }
   }
 
+  safeNativeCall(removePlaylistItem(index));
+
   notifyStateChanged();
   persistCurrentSession();
   return true;
 }
 
-export function clearQueue(): void {
+export function clearQueue(clearAll: boolean = false): void {
   ensureSessionHydrated();
   if (currentQueue.length === 0) return;
 
+  if (clearAll) {
+    currentQueue = [];
+    originalQueue = [];
+    currentIndex = 0;
+    currentTrack = null;
+    safeNativeCall(clearPlaylist());
+    safeNativeCall(stop());
+    notifyStateChanged();
+    persistCurrentSession();
+    return;
+  }
+
   if (currentIndex < currentQueue.length - 1) {
+    const itemsToRemove = currentQueue.length - (currentIndex + 1);
     currentQueue = currentQueue.slice(0, currentIndex + 1);
     if (originalQueue.length > 0 && currentTrack) {
       const origIndex = originalQueue.findIndex(
@@ -780,12 +967,18 @@ export function clearQueue(): void {
     } else {
       originalQueue = [...currentQueue];
     }
+    for (let i = 0; i < itemsToRemove; i++) {
+      safeNativeCall(removePlaylistItem(currentIndex + 1));
+    }
     notifyStateChanged();
     persistCurrentSession();
   }
 }
 
-export function moveQueueItem(fromIndex: number, toIndex: number): boolean {
+export function moveQueueItem(
+  fromIndex: number,
+  toIndex: number,
+): boolean {
   ensureSessionHydrated();
   if (
     fromIndex < 0 ||
@@ -806,6 +999,8 @@ export function moveQueueItem(fromIndex: number, toIndex: number): boolean {
   } else if (fromIndex > currentIndex && toIndex <= currentIndex) {
     currentIndex++;
   }
+
+  safeNativeCall(movePlaylistItem(fromIndex, toIndex));
 
   notifyStateChanged();
   persistCurrentSession();
@@ -897,6 +1092,7 @@ export async function toggleShuffle(): Promise<boolean> {
   }
 
   currentShuffle = nextShuffle;
+  await safeNativeCall(setShuffleModeEnabled(nextShuffle));
   notifyStateChanged();
   persistCurrentSession();
   return currentShuffle;
@@ -917,7 +1113,11 @@ registerPauseExecutor(pausePlayback);
 export async function resumePlayback(): Promise<void> {
   if (currentTrack && activePlaybackTrackId !== currentTrack.id) {
     const resumePosition = lastPlaybackStatus.position;
-    await playTrackAtIndex(currentIndex);
+    if (!activePlaybackTrackId) {
+      await playPlaylist(currentQueue, currentIndex);
+    } else {
+      await playTrackAtIndex(currentIndex);
+    }
     if (resumePosition > 0) {
       await seekTo(resumePosition);
     }

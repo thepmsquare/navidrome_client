@@ -68,22 +68,22 @@ jest.mock("@/services/db", () => ({
 }));
 
 jest.mock("@/modules/audio-playback", () => ({
-  loadTrack: jest.fn(),
-  setPlaylist: jest.fn(),
-  addPlaylistItem: jest.fn(),
-  removePlaylistItem: jest.fn(),
-  movePlaylistItem: jest.fn(),
-  clearPlaylist: jest.fn(),
-  seekToTrack: jest.fn(),
-  updatePlaylistItemUri: jest.fn(),
-  play: jest.fn(),
-  pause: jest.fn(),
-  stop: jest.fn(),
-  seekTo: jest.fn(),
-  setVolume: jest.fn(),
-  setRepeatMode: jest.fn(),
-  setShuffleModeEnabled: jest.fn(),
-  setPlaybackSpeed: jest.fn(),
+  loadTrack: jest.fn().mockResolvedValue(undefined),
+  setPlaylist: jest.fn().mockResolvedValue(undefined),
+  addPlaylistItem: jest.fn().mockResolvedValue(undefined),
+  removePlaylistItem: jest.fn().mockResolvedValue(undefined),
+  movePlaylistItem: jest.fn().mockResolvedValue(undefined),
+  clearPlaylist: jest.fn().mockResolvedValue(undefined),
+  seekToTrack: jest.fn().mockResolvedValue(undefined),
+  updatePlaylistItemUri: jest.fn().mockResolvedValue(undefined),
+  play: jest.fn().mockResolvedValue(undefined),
+  pause: jest.fn().mockResolvedValue(undefined),
+  stop: jest.fn().mockResolvedValue(undefined),
+  seekTo: jest.fn().mockResolvedValue(undefined),
+  setVolume: jest.fn().mockResolvedValue(undefined),
+  setRepeatMode: jest.fn().mockResolvedValue(undefined),
+  setShuffleModeEnabled: jest.fn().mockResolvedValue(undefined),
+  setPlaybackSpeed: jest.fn().mockResolvedValue(undefined),
   setStopOnAppDismissed: jest.fn().mockResolvedValue(undefined),
   getPlaybackStatus: jest.fn().mockResolvedValue({
     isPlaying: false,
@@ -276,7 +276,7 @@ describe("full native exoplayer playlist & state synchronization (pb-3 & arch-1)
     it("clears native playlist via clearMediaItems when clearQueue is invoked", async () => {
       await playPlaylist([song1, song2, song3], 0);
 
-      await clearQueue();
+      await clearQueue(true);
 
       expect(audioPlayback.clearPlaylist).toHaveBeenCalled();
       expect(getCurrentQueue()).toEqual([]);
@@ -292,18 +292,24 @@ describe("full native exoplayer playlist & state synchronization (pb-3 & arch-1)
     });
   });
 
+  function simulatePlayback(duration: number, targetPosition: number, step: number = 2) {
+    for (let pos = step; pos <= targetPosition; pos += step) {
+      stateListenerCb?.({
+        isPlaying: true,
+        isBuffering: false,
+        duration,
+        position: pos,
+        repeatMode: "off",
+        playbackSpeed: 1.0,
+      });
+    }
+  }
+
   describe("3. scrobbling and now-playing reporting", () => {
     it("evaluates and triggers scrobble for completed track when onMediaItemTransition fires", async () => {
       await playPlaylist([song1, song2], 0);
 
-      stateListenerCb?.({
-        isPlaying: true,
-        isBuffering: false,
-        duration: 200,
-        position: 160,
-        repeatMode: "off",
-        playbackSpeed: 1.0,
-      });
+      simulatePlayback(200, 160);
 
       mediaItemTransitionCb?.({ index: 1, mediaId: "song-2" });
 
@@ -314,14 +320,7 @@ describe("full native exoplayer playlist & state synchronization (pb-3 & arch-1)
     it("resets listening duration accumulator and scrobble guard immediately upon track transition", async () => {
       await playPlaylist([song1, song2], 0);
 
-      stateListenerCb?.({
-        isPlaying: true,
-        isBuffering: false,
-        duration: 200,
-        position: 160,
-        repeatMode: "off",
-        playbackSpeed: 1.0,
-      });
+      simulatePlayback(200, 160);
 
       mediaItemTransitionCb?.({ index: 1, mediaId: "song-2" });
       (api.scrobbleSong as jest.Mock).mockClear();
@@ -426,7 +425,7 @@ describe("full native exoplayer playlist & state synchronization (pb-3 & arch-1)
       await playPlaylist([song1, song2], 0);
 
       // Song-1 is deleted from cache
-      songCacheCb?.({
+      await songCacheCb?.({
         songId: "song-1",
         entry: null,
       });
@@ -552,7 +551,7 @@ describe("full native exoplayer playlist & state synchronization (pb-3 & arch-1)
       });
 
       // App resumes from background
-      appStateCb?.("active");
+      await appStateCb?.("active");
 
       expect(getCurrentIndex()).toBe(2);
     });

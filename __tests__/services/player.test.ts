@@ -68,6 +68,7 @@ let trackEndedCb: (() => void) | null = null;
 let playbackStoppedCb: (() => void) | null = null;
 let nextTrackCb: (() => void) | null = null;
 let prevTrackCb: (() => void) | null = null;
+let mediaItemTransitionCb: ((data: any) => void) | null = null;
 let playbackErrorCb: ((err: any) => void) | null = null;
 let repeatModeCb: ((data: any) => void) | null = null;
 let songCacheCb: ((data: any) => void) | null = null;
@@ -114,6 +115,18 @@ jest.mock("@/modules/audio-playback", () => ({
   setStopOnAppDismissed: jest.fn().mockResolvedValue(undefined),
   playTestSound: jest.fn(),
   stopTestSound: jest.fn(),
+  setPlaylist: jest.fn().mockResolvedValue(undefined),
+  addPlaylistItem: jest.fn().mockResolvedValue(undefined),
+  removePlaylistItem: jest.fn().mockResolvedValue(undefined),
+  movePlaylistItem: jest.fn().mockResolvedValue(undefined),
+  clearPlaylist: jest.fn().mockResolvedValue(undefined),
+  seekToTrack: jest.fn().mockResolvedValue(undefined),
+  updatePlaylistItemUri: jest.fn().mockResolvedValue(undefined),
+  setShuffleModeEnabled: jest.fn().mockResolvedValue(undefined),
+  getPlaylistState: jest.fn().mockResolvedValue(null),
+  addMediaItemTransitionListener: jest.fn((cb) => {
+    mediaItemTransitionCb = cb;
+  }),
   getPlaybackStatus: jest.fn().mockResolvedValue({
     isPlaying: false,
     isBuffering: false,
@@ -194,14 +207,28 @@ describe("player service", () => {
       expect(getCurrentQueue()).toEqual([sampleSong1, sampleSong2]);
       expect(getCurrentIndex()).toBe(0);
       expect(getCurrentTrack()?.id).toBe("song-1");
-      expect(audioPlayback.loadTrack).toHaveBeenCalledWith({
-        url: "https://stream/song-1",
-        title: "Song One",
-        artist: "Artist 1",
-        album: "Album 1",
-        artworkUrl: "https://art/art-1",
-        playWhenReady: true,
-      });
+      expect(audioPlayback.setPlaylist).toHaveBeenCalledWith(
+        [
+          expect.objectContaining({
+            mediaId: "song-1",
+            url: "https://stream/song-1",
+            title: "Song One",
+            artist: "Artist 1",
+            album: "Album 1",
+            artworkUrl: "https://art/art-1",
+          }),
+          expect.objectContaining({
+            mediaId: "song-2",
+            url: "https://stream/song-2",
+            title: "Song Two",
+            artist: "Artist 2",
+            album: "Album 2",
+            artworkUrl: "https://art/art-2",
+          }),
+        ],
+        0,
+        0,
+      );
       // now-playing ping fires immediately at track load
       expect(api.scrobble).toHaveBeenCalledWith({ id: "song-1", submission: false });
       // scrobbleSong should NOT be called yet (threshold not met)
@@ -414,10 +441,14 @@ describe("player service", () => {
 
       await playPlaylist([sampleSong1], 0);
 
-      expect(audioPlayback.loadTrack).toHaveBeenCalledWith(
-        expect.objectContaining({
-          url: "file:///cache/song-1.flac",
-        }),
+      expect(audioPlayback.setPlaylist).toHaveBeenCalledWith(
+        [
+          expect.objectContaining({
+            url: "file:///cache/song-1.flac",
+          }),
+        ],
+        0,
+        0,
       );
       expect(getPlayerState().isPlayingFromCache).toBe(true);
       expect(songCache.autoCacheSong).not.toHaveBeenCalled();
@@ -429,10 +460,14 @@ describe("player service", () => {
 
       await playPlaylist([sampleSong1], 0);
 
-      expect(audioPlayback.loadTrack).toHaveBeenCalledWith(
-        expect.objectContaining({
-          url: "https://stream/song-1",
-        }),
+      expect(audioPlayback.setPlaylist).toHaveBeenCalledWith(
+        [
+          expect.objectContaining({
+            url: "https://stream/song-1",
+          }),
+        ],
+        0,
+        0,
       );
       expect(getPlayerState().isPlayingFromCache).toBe(false);
       expect(songCache.autoCacheSong).toHaveBeenCalledWith("song-1");
@@ -512,7 +547,7 @@ describe("player service", () => {
       await playNext(song3);
       expect(getCurrentQueue().map((s) => s.id)).toEqual(["song-3"]);
       expect(getCurrentTrack()?.id).toBe("song-3");
-      expect(audioPlayback.loadTrack).toHaveBeenCalled();
+      expect(audioPlayback.setPlaylist).toHaveBeenCalled();
     });
 
     it("addToQueue(song) should append track to end of queue", async () => {
@@ -533,7 +568,7 @@ describe("player service", () => {
 
       expect(getCurrentQueue().map((s) => s.id)).toEqual(["song-3"]);
       expect(getCurrentTrack()?.id).toBe("song-3");
-      expect(audioPlayback.loadTrack).toHaveBeenCalled();
+      expect(audioPlayback.setPlaylist).toHaveBeenCalled();
     });
 
     it("addToQueue with array should append multiple tracks", async () => {
@@ -835,17 +870,21 @@ describe("player service", () => {
       expect(getPlayerState().isPlaying).toBe(false);
       expect(getPlayerState().position).toBe(45);
 
-      (audioPlayback.loadTrack as jest.Mock).mockClear();
+      (audioPlayback.setPlaylist as jest.Mock).mockClear();
       (audioPlayback.seekTo as jest.Mock).mockClear();
 
       // User taps play on mini player
       await togglePlayback();
 
       // Should reload track and restore position
-      expect(audioPlayback.loadTrack).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Song One",
-        }),
+      expect(audioPlayback.setPlaylist).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            title: "Song One",
+          }),
+        ]),
+        0,
+        0,
       );
       expect(audioPlayback.seekTo).toHaveBeenCalledWith(45);
     });
@@ -863,11 +902,7 @@ describe("player service", () => {
       // Should wrap around to song-1
       expect(getCurrentIndex()).toBe(0);
       expect(getCurrentTrack()?.id).toBe("song-1");
-      expect(audioPlayback.loadTrack).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Song One",
-        }),
-      );
+      expect(audioPlayback.seekToTrack).toHaveBeenCalledWith(0, 0);
     });
 
     it("should recover from cache playback error by switching to remote stream", async () => {
@@ -958,7 +993,7 @@ describe("player service", () => {
     });
 
     it("should catch track loading error during playTrackAtIndex", async () => {
-      (audioPlayback.loadTrack as jest.Mock).mockRejectedValueOnce(
+      (audioPlayback.setPlaylist as jest.Mock).mockRejectedValueOnce(
         new Error("load failed"),
       );
       await expect(playPlaylist([sampleSong1], 0)).resolves.not.toThrow();
@@ -968,7 +1003,7 @@ describe("player service", () => {
       const snackbarSpy = jest
         .spyOn(snackbarModule, "showOfflineSnackbar")
         .mockImplementation(() => {});
-      (audioPlayback.loadTrack as jest.Mock).mockRejectedValueOnce(
+      (audioPlayback.setPlaylist as jest.Mock).mockRejectedValueOnce(
         new TypeError("Network request failed"),
       );
       await expect(playPlaylist([sampleSong1], 0)).resolves.not.toThrow();
@@ -1262,11 +1297,14 @@ describe("player service", () => {
 
       await resumePlayback();
 
-      expect(audioPlayback.loadTrack).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Song Two",
-          playWhenReady: true,
-        }),
+      expect(audioPlayback.setPlaylist).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            title: "Song Two",
+          }),
+        ]),
+        1,
+        0,
       );
       expect(audioPlayback.seekTo).toHaveBeenCalledWith(65);
     });
@@ -1284,11 +1322,14 @@ describe("player service", () => {
 
       await togglePlayback();
 
-      expect(audioPlayback.loadTrack).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Song One",
-          playWhenReady: true,
-        }),
+      expect(audioPlayback.setPlaylist).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            title: "Song One",
+          }),
+        ]),
+        0,
+        0,
       );
       expect(audioPlayback.seekTo).toHaveBeenCalledWith(30);
     });
