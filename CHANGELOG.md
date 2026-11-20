@@ -14,6 +14,7 @@
 - integrate foreground service lifecycle into client_app_sync in services/api.ts.
 - add isWifiConnected and onNetworkChanged listener in modules/download-service using ConnectivityManager.NetworkCallback.
 - pause active and queued downloads with "paused: waiting for wi-fi" notification when download over wi-fi only is enabled on cellular, and resume automatically on wi-fi reconnect.
+- add acceptance test suite and typescript declarations for native exoplayer playlist playback and state synchronization.
 
 ## 2.39.0+87
 

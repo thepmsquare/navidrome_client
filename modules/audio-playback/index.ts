@@ -18,6 +18,11 @@ export interface RepeatModeChanged {
   mode: "off" | "one" | "all";
 }
 
+export interface MediaItemTransition {
+  index: number;
+  mediaId: string;
+}
+
 export interface TrackParams {
   url: string;
   title?: string;
@@ -25,6 +30,25 @@ export interface TrackParams {
   album?: string;
   artworkUrl?: string | null;
   playWhenReady?: boolean;
+}
+
+export interface PlaylistItem {
+  mediaId: string;
+  url: string;
+  title?: string;
+  artist?: string;
+  album?: string;
+  artworkUrl?: string | null;
+}
+
+export interface PlaylistState {
+  activeIndex: number;
+  position: number;
+  duration: number;
+  isPlaying: boolean;
+  repeatMode: "off" | "one" | "all";
+  shuffle: boolean;
+  itemCount: number;
 }
 
 type AudioPlaybackEvents = {
@@ -35,6 +59,7 @@ type AudioPlaybackEvents = {
   onPlaybackError: (error: PlaybackError) => void;
   onRepeatModeChanged: (data: RepeatModeChanged) => void;
   onPlaybackStopped: () => void;
+  onMediaItemTransition: (data: MediaItemTransition) => void;
 };
 
 declare class AudioPlaybackNativeModule extends NativeModule<AudioPlaybackEvents> {
@@ -46,15 +71,28 @@ declare class AudioPlaybackNativeModule extends NativeModule<AudioPlaybackEvents
     artworkUrl: string | null,
     playWhenReady: boolean,
   ): Promise<void>;
+  setPlaylist(
+    items: PlaylistItem[],
+    startIndex: number,
+    initialPositionSeconds: number,
+  ): Promise<void>;
+  addPlaylistItem(item: PlaylistItem, index?: number): Promise<void>;
+  removePlaylistItem(index: number): Promise<void>;
+  movePlaylistItem(fromIndex: number, toIndex: number): Promise<void>;
+  clearPlaylist(): Promise<void>;
+  seekToTrack(index: number, positionSeconds: number): Promise<void>;
+  updatePlaylistItemUri(index: number, url: string): Promise<void>;
   play(): Promise<void>;
   pause(): Promise<void>;
   stop(): Promise<void>;
   seekTo(positionSeconds: number): Promise<void>;
   setVolume(volume: number): Promise<void>;
   setRepeatMode(mode: "off" | "one" | "all"): Promise<void>;
+  setShuffleModeEnabled(enabled: boolean): Promise<void>;
   setPlaybackSpeed(speed: number): Promise<void>;
   setStopOnAppDismissed(stop: boolean): Promise<void>;
   getPlaybackStatus(): Promise<PlaybackStatus>;
+  getPlaylistState(): Promise<PlaylistState | null>;
   playTestSound(url: string): Promise<void>;
   stopTestSound(): Promise<void>;
 }
@@ -90,6 +128,57 @@ export async function loadTrack(params: TrackParams): Promise<void> {
   );
 }
 
+export async function setPlaylist(
+  items: PlaylistItem[],
+  startIndex: number = 0,
+  initialPositionSeconds: number = 0,
+): Promise<void> {
+  if (!AudioPlayback) return;
+  await AudioPlayback.setPlaylist(items, startIndex, initialPositionSeconds);
+}
+
+export async function addPlaylistItem(
+  item: PlaylistItem,
+  index?: number,
+): Promise<void> {
+  if (!AudioPlayback) return;
+  await AudioPlayback.addPlaylistItem(item, index);
+}
+
+export async function removePlaylistItem(index: number): Promise<void> {
+  if (!AudioPlayback) return;
+  await AudioPlayback.removePlaylistItem(index);
+}
+
+export async function movePlaylistItem(
+  fromIndex: number,
+  toIndex: number,
+): Promise<void> {
+  if (!AudioPlayback) return;
+  await AudioPlayback.movePlaylistItem(fromIndex, toIndex);
+}
+
+export async function clearPlaylist(): Promise<void> {
+  if (!AudioPlayback) return;
+  await AudioPlayback.clearPlaylist();
+}
+
+export async function seekToTrack(
+  index: number,
+  positionSeconds: number = 0,
+): Promise<void> {
+  if (!AudioPlayback) return;
+  await AudioPlayback.seekToTrack(index, positionSeconds);
+}
+
+export async function updatePlaylistItemUri(
+  index: number,
+  url: string,
+): Promise<void> {
+  if (!AudioPlayback) return;
+  await AudioPlayback.updatePlaylistItemUri(index, url);
+}
+
 export async function play(): Promise<void> {
   if (!AudioPlayback) return;
   await AudioPlayback.play();
@@ -122,6 +211,11 @@ export async function setRepeatMode(
   await AudioPlayback.setRepeatMode(mode);
 }
 
+export async function setShuffleModeEnabled(enabled: boolean): Promise<void> {
+  if (!AudioPlayback) return;
+  await AudioPlayback.setShuffleModeEnabled(enabled);
+}
+
 export async function setPlaybackSpeed(speed: number): Promise<void> {
   if (!AudioPlayback) return;
   await AudioPlayback.setPlaybackSpeed(speed);
@@ -144,6 +238,11 @@ export async function getPlaybackStatus(): Promise<PlaybackStatus> {
     };
   }
   return await AudioPlayback.getPlaybackStatus();
+}
+
+export async function getPlaylistState(): Promise<PlaylistState | null> {
+  if (!AudioPlayback) return null;
+  return await AudioPlayback.getPlaylistState();
 }
 
 export function addPlaybackStateListener(
@@ -185,6 +284,13 @@ export function addRepeatModeListener(
 export function addPlaybackStoppedListener(listener: () => void) {
   if (!AudioPlayback) return { remove: () => {} };
   return AudioPlayback.addListener("onPlaybackStopped", listener);
+}
+
+export function addMediaItemTransitionListener(
+  listener: (data: MediaItemTransition) => void,
+) {
+  if (!AudioPlayback) return { remove: () => {} };
+  return AudioPlayback.addListener("onMediaItemTransition", listener);
 }
 
 export default AudioPlayback;
