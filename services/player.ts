@@ -11,7 +11,9 @@ import {
   addRepeatModeListener,
   addTrackEndedListener,
   addPlaylistItem,
+  clearCompletedTracks,
   clearPlaylist,
+  getCompletedTracks,
   getPlaybackStatus,
   getPlaylistState,
   loadTrack,
@@ -74,6 +76,7 @@ import {
   handlePlaybackStopped,
   handleTrackEnded,
   registerPauseExecutor,
+  syncSleepTimer,
 } from "@/services/sleepTimer";
 import { Child } from "@/types";
 import { handleNetworkOrOfflineError } from "@/utils/network";
@@ -227,6 +230,11 @@ export async function hydratePlayerSession(): Promise<void> {
       const song = currentQueue[currentIndex];
       if (song) {
         updateCurrentTrackFromSong(song);
+        const cachedUri = getCachedSongPlaybackUri(song.id);
+        currentPlaybackSource = {
+          songId: song.id,
+          isFromCache: !!cachedUri,
+        };
         lastPlaybackStatus = {
           isPlaying: false,
           isBuffering: false,
@@ -255,16 +263,50 @@ export async function hydratePlayerSession(): Promise<void> {
   }
 
   try {
+    const completed = await safeNativeCall(getCompletedTracks());
+    if (Array.isArray(completed) && completed.length > 0) {
+      for (const item of completed) {
+        const completedSong = currentQueue.find((s) => s.id === item.mediaId);
+        if (completedSong) {
+          await checkAndScrobble(true, completedSong, true);
+        }
+      }
+      await safeNativeCall(clearCompletedTracks());
+    }
+  } catch {
+    // ignore
+  }
+
+  try {
     const playlistState = await getPlaylistState();
     if (playlistState && currentQueue.length > 0) {
       if (
         playlistState.activeIndex >= 0 &&
         playlistState.activeIndex < currentQueue.length
       ) {
+        const sessionIndex = currentIndex;
         currentIndex = playlistState.activeIndex;
+        if (sessionIndex < currentIndex) {
+          for (let i = sessionIndex; i < currentIndex; i++) {
+            const skippedSong = currentQueue[i];
+            if (skippedSong) {
+              await checkAndScrobble(true, skippedSong, true);
+            }
+          }
+        }
+
         const song = currentQueue[currentIndex];
         if (song) {
           updateCurrentTrackFromSong(song);
+          activePlaybackTrackId = song.id;
+          const cachedUri = getCachedSongPlaybackUri(song.id);
+          currentPlaybackSource = {
+            songId: song.id,
+            isFromCache: !!cachedUri,
+          };
+          if (cachedUri) {
+            updateSongCacheLastAccessed(song.id);
+          }
         }
         lastPlaybackStatus = {
           ...lastPlaybackStatus,
@@ -288,6 +330,7 @@ let hasHydrated = false;
 export function ensureSessionHydrated(): void {
   if (hasHydrated) return;
   hasHydrated = true;
+  ensureListenersInitialized();
   hydratePlayerSession();
 }
 
@@ -385,36 +428,49 @@ async function switchToRemoteStream(songId: string): Promise<void> {
   }
 }
 
-function checkAndScrobble(forceEndOfTrack: boolean = false): Promise<void> {
-  if (!currentTrack) return Promise.resolve();
-  const trackToScrobble = currentTrack;
+function checkAndScrobble(
+  forceEndOfTrack: boolean = false,
+  targetTrack?: Child | ActiveTrackInfo | null,
+  isNaturalEnd: boolean = false,
+): Promise<void> {
+  const trackToScrobble = targetTrack ?? currentTrack;
+  if (!trackToScrobble) return Promise.resolve();
   const trackId = trackToScrobble.id;
 
   // If already successfully scrobbled or currently in flight, do not trigger again
   if (scrobbledSuccessfullyTrackId === trackId) return Promise.resolve();
   if (scrobbleInFlightTrackId === trackId) return Promise.resolve();
 
-  // Only check once the audio layer has actually loaded this track.
-  // This prevents stale position values from a just-finished track from
-  // triggering an immediate scrobble on the incoming song.
+  // Only enforce activePlaybackTrackId check when evaluating continuous in-flight playback.
+  // For forceEndOfTrack (e.g. track transition or completed background track), the track
+  // may have just finished, so activePlaybackTrackId may already point to the new song.
   if (!forceEndOfTrack && activePlaybackTrackId !== trackId) return Promise.resolve();
 
   const position = lastPlaybackStatus.position;
-  const duration = lastPlaybackStatus.duration || trackToScrobble.duration || 0;
+  const duration =
+    (trackToScrobble.id === currentTrack?.id ? lastPlaybackStatus.duration : 0) ||
+    trackToScrobble.duration ||
+    0;
 
-  if (duration <= 0) return Promise.resolve();
+  if (duration <= 0 && !forceEndOfTrack) return Promise.resolve();
 
   const minDuration = getScrobbleMinDuration();
   const minPercent = getScrobbleMinPercent();
-  const targetDuration = Math.min(minDuration, (minPercent / 100) * duration);
+  const targetDuration =
+    duration > 0
+      ? Math.min(minDuration, (minPercent / 100) * duration)
+      : minDuration;
 
   const durationMet = position >= minDuration;
-  const percentMet = (position / duration) * 100 >= minPercent;
+  const percentMet = duration > 0 && (position / duration) * 100 >= minPercent;
   const positionMet = durationMet || percentMet || forceEndOfTrack;
 
   const listenedMet =
+    isNaturalEnd ||
     accumulatedListeningTimeSeconds >= targetDuration ||
-    (forceEndOfTrack && accumulatedListeningTimeSeconds >= targetDuration - 2);
+    (forceEndOfTrack &&
+      (accumulatedListeningTimeSeconds >= targetDuration - 2 ||
+        position >= targetDuration - 2));
 
   if (positionMet && listenedMet) {
     const listenTimestamp = Date.now();
@@ -467,7 +523,7 @@ function ensureListenersInitialized(): void {
         lastEvaluatedPosition = status.position;
       } else if (lastEvaluatedPosition !== null) {
         const delta = status.position - lastEvaluatedPosition;
-        if (delta > 0 && delta <= 3.0) {
+        if (delta > 0 && delta <= 15.0) {
           accumulatedListeningTimeSeconds += delta;
         }
       }
@@ -515,31 +571,115 @@ function ensureListenersInitialized(): void {
   // and persist session state when entering background
   AppState.addEventListener("change", async (nextAppState) => {
     if (nextAppState === "active") {
+      syncSleepTimer();
       try {
         if (currentQueue.length === 0) {
           await hydratePlayerSession();
         }
+
+        // 1. Process any natively completed tracks recorded by AudioPlaybackService
+        try {
+          const completed = await safeNativeCall(getCompletedTracks());
+          if (Array.isArray(completed) && completed.length > 0) {
+            for (const item of completed) {
+              const completedSong = currentQueue.find(
+                (s) => s.id === item.mediaId,
+              );
+              if (completedSong) {
+                await checkAndScrobble(true, completedSong, true);
+              }
+            }
+            await safeNativeCall(clearCompletedTracks());
+          }
+        } catch {
+          // ignore
+        }
+
         const playlistState = await getPlaylistState();
         if (playlistState && currentQueue.length > 0) {
           if (
             playlistState.activeIndex >= 0 &&
             playlistState.activeIndex < currentQueue.length
           ) {
+            const previousTrackId = activePlaybackTrackId;
+            const previousIndex = currentIndex;
             currentIndex = playlistState.activeIndex;
             const song = currentQueue[currentIndex];
+
+            // If playback advanced across multiple tracks while in background
+            if (previousIndex < currentIndex) {
+              for (let i = previousIndex; i < currentIndex; i++) {
+                const skippedSong = currentQueue[i];
+                if (skippedSong) {
+                  await checkAndScrobble(true, skippedSong, true);
+                }
+              }
+            }
+
             if (song) {
               updateCurrentTrackFromSong(song);
+              activePlaybackTrackId = song.id;
+              const cachedUri = getCachedSongPlaybackUri(song.id);
+              currentPlaybackSource = {
+                songId: song.id,
+                isFromCache: !!cachedUri,
+              };
+              if (cachedUri) {
+                updateSongCacheLastAccessed(song.id);
+              }
+
+              if (previousTrackId && previousTrackId !== song.id) {
+                scrobbleInFlightTrackId = null;
+                scrobbledSuccessfullyTrackId = null;
+                accumulatedListeningTimeSeconds = 0;
+                lastEvaluatedPosition = null;
+                hasPendingSeek = false;
+
+                scrobble({ id: song.id, submission: false }).catch((err) =>
+                  console.error("failed now playing ping on app active:", err),
+                );
+
+                if (!cachedUri) {
+                  autoCacheSong(song.id).catch((err) => {
+                    console.error("failed auto-cache on app active:", err);
+                  });
+                }
+
+                const prevIndex = currentQueue.findIndex(
+                  (s) => s.id === previousTrackId,
+                );
+                if (prevIndex !== -1 && prevIndex !== currentIndex) {
+                  const prevCachedUri = getCachedSongPlaybackUri(previousTrackId);
+                  if (prevCachedUri) {
+                    safeNativeCall(
+                      updatePlaylistItemUri(prevIndex, prevCachedUri),
+                    );
+                  }
+                }
+              }
+            }
+            if (playlistState.repeatMode) {
+              currentRepeatMode = playlistState.repeatMode;
+            }
+            if (typeof playlistState.shuffle === "boolean") {
+              currentShuffle = playlistState.shuffle;
             }
           }
         }
         const latest = await getPlaybackStatus();
+        const isSameTrack = activePlaybackTrackId === currentTrack?.id;
         const preservedPosition =
-          !latest.isPlaying && latest.position === 0 && lastPlaybackStatus.position > 0
+          isSameTrack &&
+          !latest.isPlaying &&
+          latest.position === 0 &&
+          lastPlaybackStatus.position > 0
             ? lastPlaybackStatus.position
             : latest.position;
         lastPlaybackStatus = {
           ...latest,
           position: preservedPosition,
+          duration: latest.duration || currentTrack?.duration || 0,
+          repeatMode: currentRepeatMode,
         };
         await checkAndScrobble();
         notifyStateChanged();
@@ -555,27 +695,33 @@ function ensureListenersInitialized(): void {
   });
 
   addMediaItemTransitionListener(({ index, mediaId }) => {
+    const prevTrackId = activePlaybackTrackId;
+    const prevSong = prevTrackId
+      ? currentQueue.find((s) => s.id === prevTrackId)
+      : null;
+
+    if (prevSong && prevSong.id !== mediaId) {
+      // 1. Scrobble the previous track that just naturally finished or transitioned
+      checkAndScrobble(true, prevSong).catch((err) => {
+        console.error("failed transition scrobble check:", err);
+      });
+
+      // 2. Update its playlist item URI to local cached file if it finished caching
+      const prevIndex = currentQueue.findIndex((s) => s.id === prevSong.id);
+      if (prevIndex !== -1 && prevIndex !== index) {
+        const prevCachedUri = getCachedSongPlaybackUri(prevSong.id);
+        if (prevCachedUri) {
+          safeNativeCall(updatePlaylistItemUri(prevIndex, prevCachedUri));
+        }
+      }
+    }
+
     if (index >= 0 && index < currentQueue.length) {
       currentIndex = index;
       const song = currentQueue[index];
       if (song) {
         updateCurrentTrackFromSong(song);
       }
-    }
-
-    if (activePlaybackTrackId && activePlaybackTrackId !== mediaId) {
-      const prevIndex = currentQueue.findIndex(
-        (s) => s.id === activePlaybackTrackId,
-      );
-      if (prevIndex !== -1 && prevIndex !== index) {
-        const prevCachedUri = getCachedSongPlaybackUri(activePlaybackTrackId);
-        if (prevCachedUri) {
-          safeNativeCall(updatePlaylistItemUri(prevIndex, prevCachedUri));
-        }
-      }
-      checkAndScrobble(true).catch((err) => {
-        console.error("failed transition scrobble check:", err);
-      });
     }
 
     if (handleTrackEnded()) {

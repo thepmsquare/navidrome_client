@@ -1,4 +1,9 @@
 import { useEffect, useState } from "react";
+import {
+  addSleepTimerExpiredListener,
+  cancelSleepTimer as cancelNativeSleepTimer,
+  setSleepTimer as setNativeSleepTimer,
+} from "@/modules/audio-playback";
 
 export type SleepTimerMode = "duration" | "end_of_track";
 
@@ -40,6 +45,91 @@ function clearActiveInterval(): void {
   }
 }
 
+function triggerTimerExpired(): void {
+  clearActiveInterval();
+  if (!currentState.isActive) return;
+
+  currentState = {
+    isActive: false,
+    mode: null,
+    targetTimestamp: null,
+    remainingSeconds: 0,
+  };
+  notifyListeners();
+
+  try {
+    cancelNativeSleepTimer?.()?.catch?.(() => {});
+  } catch {}
+
+  if (pauseExecutor) {
+    pauseExecutor().catch((err) =>
+      console.error("failed to pause playback on sleep timer expiry:", err),
+    );
+  }
+}
+
+let nativeListenerSubscription: { remove: () => void } | null = null;
+
+export function ensureSleepTimerListenersInitialized(): void {
+  if (nativeListenerSubscription === null) {
+    try {
+      nativeListenerSubscription = addSleepTimerExpiredListener(() => {
+        triggerTimerExpired();
+      });
+    } catch {}
+  }
+}
+
+export function syncSleepTimer(): void {
+  if (!currentState.isActive) return;
+
+  if (currentState.mode === "duration" && currentState.targetTimestamp !== null) {
+    const remaining = Math.max(
+      0,
+      Math.ceil((currentState.targetTimestamp - Date.now()) / 1000),
+    );
+
+    if (remaining <= 0) {
+      triggerTimerExpired();
+    } else {
+      currentState = {
+        ...currentState,
+        remainingSeconds: remaining,
+      };
+      notifyListeners();
+
+      if (timerInterval === null) {
+        startTickInterval();
+      }
+    }
+  }
+}
+
+function startTickInterval(): void {
+  clearActiveInterval();
+  timerInterval = setInterval(() => {
+    if (!currentState.isActive || currentState.mode !== "duration") {
+      clearActiveInterval();
+      return;
+    }
+
+    const remaining = Math.max(
+      0,
+      Math.ceil(((currentState.targetTimestamp ?? 0) - Date.now()) / 1000),
+    );
+
+    if (remaining <= 0) {
+      triggerTimerExpired();
+    } else {
+      currentState = {
+        ...currentState,
+        remainingSeconds: remaining,
+      };
+      notifyListeners();
+    }
+  }, 1000);
+}
+
 export function registerPauseExecutor(executor: PauseExecutor): void {
   pauseExecutor = executor;
 }
@@ -64,6 +154,7 @@ export function setDurationTimer(minutes: number): void {
     return;
   }
 
+  ensureSleepTimerListenersInitialized();
   clearActiveInterval();
 
   const durationMs = Math.round(minutes * 60 * 1000);
@@ -81,44 +172,23 @@ export function setDurationTimer(minutes: number): void {
   };
   notifyListeners();
 
-  timerInterval = setInterval(() => {
-    if (!currentState.isActive || currentState.mode !== "duration") {
-      clearActiveInterval();
-      return;
-    }
+  try {
+    setNativeSleepTimer(durationMs)?.catch?.((err: any) => {
+      console.error("failed to set native sleep timer:", err);
+    });
+  } catch (err) {
+    console.error("failed to schedule native sleep timer:", err);
+  }
 
-    const remaining = Math.max(
-      0,
-      Math.ceil(((currentState.targetTimestamp ?? 0) - Date.now()) / 1000),
-    );
-
-    if (remaining <= 0) {
-      clearActiveInterval();
-      currentState = {
-        isActive: false,
-        mode: null,
-        targetTimestamp: null,
-        remainingSeconds: 0,
-      };
-      notifyListeners();
-
-      if (pauseExecutor) {
-        pauseExecutor().catch((err) =>
-          console.error("failed to pause playback on sleep timer expiry:", err),
-        );
-      }
-    } else {
-      currentState = {
-        ...currentState,
-        remainingSeconds: remaining,
-      };
-      notifyListeners();
-    }
-  }, 1000);
+  startTickInterval();
 }
 
 export function setEndOfTrackTimer(): void {
+  ensureSleepTimerListenersInitialized();
   clearActiveInterval();
+  try {
+    cancelNativeSleepTimer?.()?.catch?.(() => {});
+  } catch {}
 
   currentState = {
     isActive: true,
@@ -140,6 +210,9 @@ export function cancelSleepTimer(): void {
     };
     notifyListeners();
   }
+  try {
+    cancelNativeSleepTimer?.()?.catch?.(() => {});
+  } catch {}
 }
 
 /**
@@ -181,6 +254,7 @@ export function useSleepTimer(): SleepTimerState {
   const [state, setState] = useState<SleepTimerState>(() => getSleepTimerState());
 
   useEffect(() => {
+    ensureSleepTimerListenersInitialized();
     const unsubscribe = subscribeSleepTimer((newState) => {
       setState(newState);
     });

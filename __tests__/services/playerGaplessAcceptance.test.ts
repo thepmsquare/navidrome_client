@@ -74,6 +74,8 @@ jest.mock("@/modules/audio-playback", () => ({
   removePlaylistItem: jest.fn().mockResolvedValue(undefined),
   movePlaylistItem: jest.fn().mockResolvedValue(undefined),
   clearPlaylist: jest.fn().mockResolvedValue(undefined),
+  getCompletedTracks: jest.fn().mockResolvedValue([]),
+  clearCompletedTracks: jest.fn().mockResolvedValue(undefined),
   seekToTrack: jest.fn().mockResolvedValue(undefined),
   updatePlaylistItemUri: jest.fn().mockResolvedValue(undefined),
   play: jest.fn().mockResolvedValue(undefined),
@@ -110,6 +112,10 @@ jest.mock("@/modules/audio-playback", () => ({
   addMediaItemTransitionListener: jest.fn((cb) => {
     mediaItemTransitionCb = cb;
   }),
+  setSleepTimer: jest.fn().mockResolvedValue(undefined),
+  cancelSleepTimer: jest.fn().mockResolvedValue(undefined),
+  getSleepTimerRemainingSeconds: jest.fn().mockResolvedValue(0),
+  addSleepTimerExpiredListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
 
 jest.mock("@/services/api", () => ({
@@ -315,6 +321,48 @@ describe("full native exoplayer playlist & state synchronization", () => {
 
       expect(api.scrobbleSong).toHaveBeenCalledWith("song-1", expect.any(Number));
       expect(api.scrobble).toHaveBeenCalledWith({ id: "song-2", submission: false });
+    });
+
+    it("triggers scrobble for completed track upon natural track transition even if not polled at threshold", async () => {
+      await playPlaylist([song1, song2], 0);
+      (api.scrobbleSong as jest.Mock).mockClear();
+
+      // Track 1 reached end of track position
+      stateListenerCb?.({
+        isPlaying: true,
+        isBuffering: false,
+        duration: 200,
+        position: 198,
+        repeatMode: "off",
+        playbackSpeed: 1.0,
+      });
+
+      // Natural track transition fires from ExoPlayer
+      await mediaItemTransitionCb?.({ index: 1, mediaId: "song-2" });
+
+      expect(api.scrobbleSong).toHaveBeenCalledWith("song-1", expect.any(Number));
+    });
+
+    it("scrobbles all completed tracks when multiple tracks played while backgrounded", async () => {
+      await playPlaylist([song1, song2, song3], 0);
+      (api.scrobbleSong as jest.Mock).mockClear();
+
+      (audioPlayback.getCompletedTracks as jest.Mock).mockResolvedValueOnce([
+        { mediaId: "song-1", timestamp: 1000 },
+        { mediaId: "song-2", timestamp: 2000 },
+      ]);
+      (audioPlayback.getPlaylistState as jest.Mock).mockResolvedValueOnce({
+        activeIndex: 2,
+        position: 15,
+        isPlaying: true,
+      });
+
+      // App returns from background
+      await appStateCb?.("active");
+
+      expect(api.scrobbleSong).toHaveBeenCalledWith("song-1", expect.any(Number));
+      expect(api.scrobbleSong).toHaveBeenCalledWith("song-2", expect.any(Number));
+      expect(audioPlayback.clearCompletedTracks).toHaveBeenCalled();
     });
 
     it("resets listening duration accumulator and scrobble guard immediately upon track transition", async () => {
@@ -574,6 +622,37 @@ describe("full native exoplayer playlist & state synchronization", () => {
       expect(getCurrentTrack()?.id).toBe("song-3");
     });
 
+    it("drains completed tracks from exoplayer and scrobbles them upon cold start hydration", async () => {
+      (api.scrobbleSong as jest.Mock).mockClear();
+      (audioPlayback.getCompletedTracks as jest.Mock).mockResolvedValueOnce([
+        { mediaId: "song-1", timestamp: 1000 },
+        { mediaId: "song-2", timestamp: 2000 },
+      ]);
+      (audioPlayback.getPlaylistState as jest.Mock).mockResolvedValueOnce({
+        activeIndex: 2,
+        position: 45,
+        duration: 250,
+        isPlaying: true,
+        repeatMode: "off",
+        shuffle: false,
+        itemCount: 3,
+      });
+
+      (getPlayerSession as jest.Mock).mockReturnValueOnce({
+        queue: [song1, song2, song3],
+        currentIndex: 0,
+        position: 0,
+      });
+
+      await hydratePlayerSession();
+
+      expect(api.scrobbleSong).toHaveBeenCalledWith("song-1", expect.any(Number));
+      expect(api.scrobbleSong).toHaveBeenCalledWith("song-2", expect.any(Number));
+      expect(audioPlayback.clearCompletedTracks).toHaveBeenCalled();
+      expect(getCurrentIndex()).toBe(2);
+      expect(getCurrentTrack()?.id).toBe("song-3");
+    });
+
     it("reconciles js queue with native playlist if playback advanced multiple tracks while js activity was destroyed", async () => {
       (getPlayerSession as jest.Mock).mockReturnValue({
         queue: [song1, song2, song3],
@@ -586,10 +665,29 @@ describe("full native exoplayer playlist & state synchronization", () => {
         isPlaying: true,
       });
 
+      (audioPlayback.getPlaybackStatus as jest.Mock).mockResolvedValue({
+        isPlaying: true,
+        isBuffering: false,
+        duration: 210,
+        position: 10,
+        repeatMode: "off",
+      });
+
+      (songCache.getCachedSongPlaybackUri as jest.Mock).mockImplementation((id: string) => {
+        if (id === "song-3") return "file:///cache/manual/song-3.mp3";
+        return null;
+      });
+
       // App resumes from background
       await appStateCb?.("active");
 
       expect(getCurrentIndex()).toBe(2);
+      expect(getCurrentTrack()?.id).toBe("song-3");
+      expect(getPlayerState().currentTrack?.id).toBe("song-3");
+      expect(getPlayerState().currentTrack?.title).toBe("Song Three");
+      expect(getPlayerState().position).toBe(10);
+      expect(getPlayerState().isPlaying).toBe(true);
+      expect(getPlayerState().isPlayingFromCache).toBe(true);
     });
 
     it("native MediaSession automatically reflects current track metadata and artwork from active MediaItem", async () => {
