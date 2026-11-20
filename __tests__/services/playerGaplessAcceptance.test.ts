@@ -65,6 +65,8 @@ jest.mock("@/services/db", () => ({
   updateSongRating: jest.fn(),
   getPlaybackSpeedSetting: jest.fn().mockReturnValue(1.0),
   setPlaybackSpeedSetting: jest.fn(),
+  getAutoCacheEnabled: jest.fn().mockReturnValue(true),
+  getDownloadWifiOnlySetting: jest.fn().mockReturnValue(false),
 }));
 
 jest.mock("@/modules/audio-playback", () => ({
@@ -112,6 +114,10 @@ jest.mock("@/modules/audio-playback", () => ({
   addMediaItemTransitionListener: jest.fn((cb) => {
     mediaItemTransitionCb = cb;
   }),
+  getPendingAutoCacheTracks: jest.fn().mockResolvedValue([]),
+  clearPendingAutoCacheTracks: jest.fn().mockResolvedValue(undefined),
+  setAutoCacheEnabled: jest.fn().mockResolvedValue(undefined),
+  setDownloadWifiOnly: jest.fn().mockResolvedValue(undefined),
   setSleepTimer: jest.fn().mockResolvedValue(undefined),
   cancelSleepTimer: jest.fn().mockResolvedValue(undefined),
   getSleepTimerRemainingSeconds: jest.fn().mockResolvedValue(0),
@@ -132,6 +138,7 @@ jest.mock("@/services/songCache", () => ({
   autoCacheSong: jest.fn().mockResolvedValue(undefined),
   getCachedSongPlaybackUri: jest.fn().mockReturnValue(null),
   getCachedCoverArtUri: jest.fn().mockReturnValue(null),
+  reconcileNativeAutoCache: jest.fn().mockResolvedValue(undefined),
   subscribeSongCache: jest.fn((cb) => {
     songCacheCb = cb;
   }),
@@ -653,6 +660,43 @@ describe("full native exoplayer playlist & state synchronization", () => {
       expect(getCurrentTrack()?.id).toBe("song-3");
     });
 
+    it("drains pending native auto-cache tracks and reconciles state upon cold start hydration", async () => {
+      (audioPlayback.getPendingAutoCacheTracks as jest.Mock).mockResolvedValueOnce([
+        {
+          mediaId: "song-2",
+          index: 1,
+          timestamp: 1500,
+          status: "completed",
+          filePath: "file:///data/user/0/com.navidromeclient/files/auto-cache/song-2.mp3",
+          fileSizeBytes: 4096000,
+        },
+      ]);
+      (audioPlayback.getPlaylistState as jest.Mock).mockResolvedValueOnce({
+        activeIndex: 1,
+        position: 10,
+        duration: 200,
+        isPlaying: true,
+        repeatMode: "off",
+        shuffle: false,
+        itemCount: 3,
+      });
+
+      (getPlayerSession as jest.Mock).mockReturnValueOnce({
+        queue: [song1, song2, song3],
+        currentIndex: 0,
+        position: 0,
+      });
+
+      await hydratePlayerSession();
+
+      expect(songCache.reconcileNativeAutoCache).toHaveBeenCalledWith([
+        expect.objectContaining({ mediaId: "song-2", status: "completed" }),
+      ]);
+      expect(audioPlayback.clearPendingAutoCacheTracks).toHaveBeenCalled();
+      expect(audioPlayback.setAutoCacheEnabled).toHaveBeenCalled();
+      expect(audioPlayback.setDownloadWifiOnly).toHaveBeenCalled();
+    });
+
     it("reconciles js queue with native playlist if playback advanced multiple tracks while js activity was destroyed", async () => {
       (getPlayerSession as jest.Mock).mockReturnValue({
         queue: [song1, song2, song3],
@@ -688,6 +732,35 @@ describe("full native exoplayer playlist & state synchronization", () => {
       expect(getPlayerState().position).toBe(10);
       expect(getPlayerState().isPlaying).toBe(true);
       expect(getPlayerState().isPlayingFromCache).toBe(true);
+    });
+
+    it("drains and reconciles pending native auto-cache tracks when returning to foreground", async () => {
+      (audioPlayback.getPendingAutoCacheTracks as jest.Mock).mockResolvedValueOnce([
+        {
+          mediaId: "song-2",
+          index: 1,
+          timestamp: 2000,
+          status: "completed",
+          filePath: "file:///data/user/0/com.navidromeclient/files/auto-cache/song-2.mp3",
+          fileSizeBytes: 2048000,
+        },
+      ]);
+      (audioPlayback.getPlaylistState as jest.Mock).mockResolvedValueOnce({
+        activeIndex: 1,
+        position: 5,
+        duration: 200,
+        isPlaying: true,
+        repeatMode: "off",
+        shuffle: false,
+        itemCount: 3,
+      });
+
+      await appStateCb?.("active");
+
+      expect(songCache.reconcileNativeAutoCache).toHaveBeenCalledWith([
+        expect.objectContaining({ mediaId: "song-2", status: "completed" }),
+      ]);
+      expect(audioPlayback.clearPendingAutoCacheTracks).toHaveBeenCalled();
     });
 
     it("native MediaSession automatically reflects current track metadata and artwork from active MediaItem", async () => {

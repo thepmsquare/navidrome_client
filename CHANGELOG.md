@@ -4,12 +4,13 @@
 
 ### user release notes
 
-- improvements to library synchronization (use background service with progress notification).
+- library sync improvements using background service and progress notification.
 - add download over wi-fi only toggle to pause caching on cellular.
 - add gapless playback across playlist queue.
-- fix player screen ui visuals staying on previous track when resuming from background.
-- reliable background scrobbling for tracks completed while app is backgrounded or screen is off.
-- fix sleep timer background reliability to cleanly stop music and release audio focus on time.
+- fix player visuals staying on previous track on foreground return.
+- reliable background scrobbling for completed tracks.
+- fix sleep timer background reliability to cleanly stop music on time.
+- reliable background auto-caching for upcoming playlist tracks.
 
 ### internal notes
 
@@ -30,6 +31,9 @@
 - schedule native sleep timer using handler and alarmmanager in audioplaybackservice for doze mode reliability.
 - cleanly stop exoplayer playback, release audio focus, and dismiss foreground notification upon native sleep timer expiry.
 - synchronize sleep timer remaining seconds without drift on foreground return in services/sleepTimer.ts and services/player.ts.
+- record auto-caching tracks on exoplayer auto transition in audioplaybackservice with background http download to auto-cache directory.
+- expose getPendingAutoCacheTracks, clearPendingAutoCacheTracks, setAutoCacheEnabled, and setDownloadWifiOnly to javascript.
+- reconcile native auto-cache tracks on app foreground resume and cold start hydration in services/player.ts and services/songCache.ts with fallback to js auto-cache.
 
 ## 2.39.0+87
 

@@ -14,6 +14,8 @@ import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Binder
 import android.os.Build
@@ -47,6 +49,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
+import java.io.FileOutputStream
+import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 import kotlin.math.min
@@ -108,6 +112,9 @@ class AudioPlaybackService : MediaSessionService() {
   private var lastActiveMediaId: String? = null
   private var lastActiveMediaIndex: Int = -1
   private val completedTracks = java.util.Collections.synchronizedList(mutableListOf<Map<String, Any>>())
+  private val pendingAutoCacheTracks = java.util.Collections.synchronizedList(mutableListOf<Map<String, Any>>())
+  private val mediaStreamUrls = java.util.Collections.synchronizedMap(mutableMapOf<String, String>())
+  private val mediaSuffixes = java.util.Collections.synchronizedMap(mutableMapOf<String, String>())
   private var isSleepTimerActive = false
   private var sleepTimerTargetElapsedRealtime: Long = 0L
   private var sleepTimerPendingIntent: PendingIntent? = null
@@ -151,6 +158,8 @@ class AudioPlaybackService : MediaSessionService() {
     const val MAX_ARTWORK_SIZE = 512
     const val PREFS_NAME = "audio_playback_prefs"
     const val PREF_STOP_ON_APP_DISMISSED = "stop_on_app_dismissed"
+    const val PREF_AUTO_CACHE_ENABLED = "auto_cache_enabled"
+    const val PREF_DOWNLOAD_WIFI_ONLY = "download_wifi_only"
 
     private var instance: AudioPlaybackService? = null
 
@@ -309,6 +318,18 @@ class AudioPlaybackService : MediaSessionService() {
               )
             )
           }
+        }
+
+        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && mediaId.isNotEmpty()) {
+          pendingAutoCacheTracks.add(
+            mapOf(
+              "mediaId" to mediaId,
+              "index" to index,
+              "timestamp" to System.currentTimeMillis(),
+              "status" to "pending"
+            )
+          )
+          triggerNativeAutoCache(mediaId, mediaItem?.localConfiguration?.uri)
         }
 
         lastActiveMediaId = mediaId
@@ -627,10 +648,18 @@ class AudioPlaybackService : MediaSessionService() {
   private fun buildMediaItem(itemMap: Map<String, Any?>): MediaItem {
     val mediaId = itemMap["mediaId"] as? String ?: ""
     val url = itemMap["url"] as? String ?: ""
+    val suffix = itemMap["suffix"] as? String ?: "mp3"
     val title = itemMap["title"] as? String ?: ""
     val artist = itemMap["artist"] as? String ?: ""
     val album = itemMap["album"] as? String ?: ""
     val artworkUrl = itemMap["artworkUrl"] as? String
+
+    if (mediaId.isNotEmpty()) {
+      if (url.isNotEmpty()) {
+        mediaStreamUrls[mediaId] = url
+      }
+      mediaSuffixes[mediaId] = suffix
+    }
 
     val mediaMetadata = MediaMetadata.Builder()
       .setTitle(title.takeIf { it.isNotBlank() })
@@ -704,6 +733,7 @@ class AudioPlaybackService : MediaSessionService() {
     lastActiveMediaIndex = validStartIndex
     lastActiveMediaId = activeItem?.mediaId
     completedTracks.clear()
+    pendingAutoCacheTracks.clear()
     if (activeItem != null) {
       val meta = activeItem.mediaMetadata
       currentTitle = meta.title?.toString() ?: ""
@@ -765,6 +795,152 @@ class AudioPlaybackService : MediaSessionService() {
     }
   }
 
+  fun getPendingAutoCacheTracks(): List<Map<String, Any>> {
+    return synchronized(pendingAutoCacheTracks) {
+      pendingAutoCacheTracks.toList()
+    }
+  }
+
+  fun clearPendingAutoCacheTracks() {
+    synchronized(pendingAutoCacheTracks) {
+      pendingAutoCacheTracks.clear()
+    }
+  }
+
+  fun setAutoCacheEnabled(enabled: Boolean) {
+    val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs.edit().putBoolean(PREF_AUTO_CACHE_ENABLED, enabled).apply()
+  }
+
+  fun isAutoCacheEnabled(): Boolean {
+    val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    return prefs.getBoolean(PREF_AUTO_CACHE_ENABLED, true)
+  }
+
+  fun setDownloadWifiOnly(wifiOnly: Boolean) {
+    val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    prefs.edit().putBoolean(PREF_DOWNLOAD_WIFI_ONLY, wifiOnly).apply()
+  }
+
+  fun shouldDownloadWifiOnly(): Boolean {
+    val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    return prefs.getBoolean(PREF_DOWNLOAD_WIFI_ONLY, false)
+  }
+
+  fun isWifiConnected(): Boolean {
+    val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return true
+    val activeNetwork = cm.activeNetwork ?: return false
+    val caps = cm.getNetworkCapabilities(activeNetwork) ?: return false
+    return caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+  }
+
+  private fun triggerNativeAutoCache(mediaId: String, streamUri: Uri?) {
+    if (!isAutoCacheEnabled()) {
+      return
+    }
+    if (shouldDownloadWifiOnly() && !isWifiConnected()) {
+      updatePendingAutoCacheStatus(mediaId, "failed", null, 0L)
+      return
+    }
+
+    val streamUrl = mediaStreamUrls[mediaId] ?: streamUri?.toString() ?: return
+    if (streamUrl.startsWith("file://")) {
+      updatePendingAutoCacheStatus(mediaId, "completed", streamUrl, 0L)
+      return
+    }
+
+    val suffix = mediaSuffixes[mediaId] ?: "mp3"
+
+    scope.launch(Dispatchers.IO) {
+      downloadTrackToAutoCache(mediaId, streamUrl, suffix)
+    }
+  }
+
+  private fun downloadTrackToAutoCache(mediaId: String, streamUrl: String, suffix: String) {
+    try {
+      if (shouldDownloadWifiOnly() && !isWifiConnected()) {
+        updatePendingAutoCacheStatus(mediaId, "failed", null, 0L)
+        return
+      }
+
+      val cacheDir = File(filesDir, "auto-cache")
+      if (!cacheDir.exists()) {
+        cacheDir.mkdirs()
+      }
+
+      val destFile = File(cacheDir, "$mediaId.$suffix")
+      if (destFile.exists() && destFile.length() > 0) {
+        val destUri = "file://${destFile.absolutePath}"
+        updatePendingAutoCacheStatus(mediaId, "completed", destUri, destFile.length())
+        return
+      }
+
+      val tempFile = File(cacheDir, "$mediaId.$suffix.tmp")
+      if (tempFile.exists()) {
+        tempFile.delete()
+      }
+
+      val url = URL(streamUrl)
+      val connection = url.openConnection() as HttpURLConnection
+      connection.connectTimeout = 15000
+      connection.readTimeout = 30000
+      connection.instanceFollowRedirects = true
+      connection.requestMethod = "GET"
+      connection.connect()
+
+      val responseCode = connection.responseCode
+      if (responseCode in 200..299) {
+        connection.inputStream.use { input ->
+          FileOutputStream(tempFile).use { output ->
+            input.copyTo(output)
+          }
+        }
+
+        if (tempFile.exists() && tempFile.length() > 0) {
+          if (destFile.exists()) {
+            destFile.delete()
+          }
+          if (tempFile.renameTo(destFile)) {
+            val destUri = "file://${destFile.absolutePath}"
+            val sizeBytes = destFile.length()
+            updatePendingAutoCacheStatus(mediaId, "completed", destUri, sizeBytes)
+            android.util.Log.d(TAG, "Native auto-cache completed for $mediaId ($sizeBytes bytes)")
+          } else {
+            tempFile.delete()
+            updatePendingAutoCacheStatus(mediaId, "failed", null, 0L)
+          }
+        } else {
+          tempFile.delete()
+          updatePendingAutoCacheStatus(mediaId, "failed", null, 0L)
+        }
+      } else {
+        tempFile.delete()
+        updatePendingAutoCacheStatus(mediaId, "failed", null, 0L)
+      }
+      connection.disconnect()
+    } catch (e: Exception) {
+      android.util.Log.w(TAG, "Native auto-cache error for $mediaId: ${e.message}")
+      updatePendingAutoCacheStatus(mediaId, "failed", null, 0L)
+    }
+  }
+
+  private fun updatePendingAutoCacheStatus(mediaId: String, status: String, filePath: String?, sizeBytes: Long) {
+    synchronized(pendingAutoCacheTracks) {
+      val index = pendingAutoCacheTracks.indexOfLast { it["mediaId"] == mediaId }
+      if (index >= 0) {
+        val existing = pendingAutoCacheTracks[index].toMutableMap()
+        existing["status"] = status
+        if (filePath != null) {
+          existing["filePath"] = filePath
+        }
+        if (sizeBytes > 0) {
+          existing["fileSizeBytes"] = sizeBytes
+        }
+        pendingAutoCacheTracks[index] = existing
+      }
+    }
+  }
+
   fun updatePlaylistItemUri(index: Int, newUrl: String) {
     val p = player ?: return
     if (index in 0 until p.mediaItemCount) {
@@ -772,6 +948,9 @@ class AudioPlaybackService : MediaSessionService() {
       val currentPositionMs = if (isCurrent) p.currentPosition else 0L
       val playWhenReady = p.playWhenReady
       val existing = p.getMediaItemAt(index)
+      if (existing.mediaId.isNotEmpty() && newUrl.isNotEmpty()) {
+        mediaStreamUrls[existing.mediaId] = newUrl
+      }
       val updated = existing.buildUpon()
         .setUri(Uri.parse(newUrl))
         .build()

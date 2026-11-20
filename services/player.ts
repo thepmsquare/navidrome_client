@@ -12,8 +12,10 @@ import {
   addTrackEndedListener,
   addPlaylistItem,
   clearCompletedTracks,
+  clearPendingAutoCacheTracks,
   clearPlaylist,
   getCompletedTracks,
+  getPendingAutoCacheTracks,
   getPlaybackStatus,
   getPlaylistState,
   loadTrack,
@@ -28,6 +30,8 @@ import {
   removePlaylistItem,
   seekTo,
   seekToTrack,
+  setAutoCacheEnabled,
+  setDownloadWifiOnly,
   setPlaybackSpeed as nativeSetPlaybackSpeed,
   setPlaylist,
   setRepeatMode,
@@ -49,6 +53,8 @@ import {
 import {
   addPendingScrobble,
   clearPlayerSession,
+  getAutoCacheEnabled,
+  getDownloadWifiOnlySetting,
   getKeepPlayingOnAppDismissed,
   getPlaybackSpeedSetting,
   getPlayerSession,
@@ -70,6 +76,7 @@ import {
   autoCacheSong,
   getCachedCoverArtUri,
   getCachedSongPlaybackUri,
+  reconcileNativeAutoCache,
   subscribeSongCache,
 } from "@/services/songCache";
 import {
@@ -263,6 +270,13 @@ export async function hydratePlayerSession(): Promise<void> {
   }
 
   try {
+    await safeNativeCall(setAutoCacheEnabled(getAutoCacheEnabled()));
+    await safeNativeCall(setDownloadWifiOnly(getDownloadWifiOnlySetting()));
+  } catch {
+    // ignore
+  }
+
+  try {
     const completed = await safeNativeCall(getCompletedTracks());
     if (Array.isArray(completed) && completed.length > 0) {
       for (const item of completed) {
@@ -275,6 +289,16 @@ export async function hydratePlayerSession(): Promise<void> {
     }
   } catch {
     // ignore
+  }
+
+  try {
+    const pendingAutoCache = await safeNativeCall(getPendingAutoCacheTracks());
+    if (Array.isArray(pendingAutoCache) && pendingAutoCache.length > 0) {
+      await reconcileNativeAutoCache(pendingAutoCache);
+    }
+    await safeNativeCall(clearPendingAutoCacheTracks());
+  } catch (err) {
+    console.error("failed to reconcile native auto-cache tracks on hydration:", err);
   }
 
   try {
@@ -593,6 +617,17 @@ function ensureListenersInitialized(): void {
           }
         } catch {
           // ignore
+        }
+
+        // Process any native auto-cache tracks recorded by AudioPlaybackService
+        try {
+          const pendingAutoCache = await safeNativeCall(getPendingAutoCacheTracks());
+          if (Array.isArray(pendingAutoCache) && pendingAutoCache.length > 0) {
+            await reconcileNativeAutoCache(pendingAutoCache);
+          }
+          await safeNativeCall(clearPendingAutoCacheTracks());
+        } catch (err) {
+          console.error("failed to reconcile native auto-cache tracks on app resume:", err);
         }
 
         const playlistState = await getPlaylistState();
@@ -969,6 +1004,7 @@ export async function playPlaylist(
           artist: song.artist ?? undefined,
           album: song.album ?? undefined,
           artworkUrl: artworkUrl ?? undefined,
+          suffix: song.suffix ?? "mp3",
         };
       })
     );
