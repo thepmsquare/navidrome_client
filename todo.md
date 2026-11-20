@@ -182,6 +182,13 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
 - [ ] **continuous ui/ux refinements** (`eng-5`)
   - **task:** haptics, spacing, typography, dark-mode contrast, route animations, and touch targets.
 
+- [ ] **player gestures and transition animations** (`ui-4`)
+  - **context:** v1 had smooth fluid transitions and gestures across the playback surface:
+    - expanding from bottom mini player to full music player screen ([`app/player.tsx`](./app/player.tsx)) and collapsing back down.
+    - swiping up from the music player to open the queue sheet/view (and swiping down to dismiss).
+    - left/right swipe gestures on the music player (album art) to trigger next/previous track changes.
+  - **task:** implement fluid gesture-driven animations using react-native-reanimated and gesture handler for mini player expansion/collapse, swipe-up queue sheet transition, and horizontal swipe gestures on the player for track changes.
+
 ## security
 
 - [ ] **backup export credentials disclosure** (`sec-1`)
