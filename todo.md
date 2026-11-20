@@ -254,3 +254,7 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
 - [ ] **remote control for other navidrome clients** (`future-3`)
 - [ ] **synchronized group listening ("jam" sessions)** (`future-4`)
 - [ ] **server statistics & analytics dashboard** (`future-5`)
+- [ ] **pre auto-caching of next song** (`future-6`)
+  - **consideration:** evaluate pre auto-caching the upcoming queue track during active playback or exoplayer pre-buffering while respecting wi-fi restrictions and cache size limits.
+- [ ] **pinned section on home screen** (`future-7`)
+  - **task:** add a pinned section on the home page with context menu actions ("pin to home" / "unpin from home") across album, track, playlist, and artist entities.
