@@ -131,7 +131,7 @@ jest.mock("@/services/songCache", () => ({
   }),
 }));
 
-describe("full native exoplayer playlist & state synchronization (pb-3 & arch-1)", () => {
+describe("full native exoplayer playlist & state synchronization", () => {
   const song1: Child = {
     id: "song-1",
     title: "Song One",
@@ -162,7 +162,7 @@ describe("full native exoplayer playlist & state synchronization (pb-3 & arch-1)
     await resetPlayer();
   });
 
-  describe("1. full native playlist lifecycle (pb-3)", () => {
+  describe("1. full native playlist lifecycle", () => {
     it("sets the entire queue as exoplayer MediaItems via setPlaylist(items, startIndex, initialPosition)", async () => {
       await playPlaylist([song1, song2, song3], 0);
 
@@ -420,6 +420,42 @@ describe("full native exoplayer playlist & state synchronization (pb-3 & arch-1)
       );
     });
 
+    it("does not immediately replace active MediaItem uri when background download completes for currently playing track", async () => {
+      await playPlaylist([song1, song2], 0);
+      (audioPlayback.updatePlaylistItemUri as jest.Mock).mockClear();
+
+      // Background download for currently playing song-1 completes
+      songCacheCb?.({
+        songId: "song-1",
+        entry: {
+          id: "song-1",
+          localFilePath: "file:///cache/manual/song-1.mp3",
+        },
+      });
+
+      // Should not replace active playing media item mid-playback to prevent position reset to 0
+      expect(audioPlayback.updatePlaylistItemUri).not.toHaveBeenCalled();
+      expect(getPlayerState().isPlayingFromCache).toBe(true);
+    });
+
+    it("updates previous track uri to cached file in playlist when transitioning to next track", async () => {
+      await playPlaylist([song1, song2], 0);
+      (audioPlayback.updatePlaylistItemUri as jest.Mock).mockClear();
+
+      (songCache.getCachedSongPlaybackUri as jest.Mock).mockImplementation((id: string) => {
+        if (id === "song-1") return "file:///cache/manual/song-1.mp3";
+        return null;
+      });
+
+      // Track naturally transitions to next track
+      mediaItemTransitionCb?.({ index: 1, mediaId: "song-2" });
+
+      expect(audioPlayback.updatePlaylistItemUri).toHaveBeenCalledWith(
+        0,
+        "file:///cache/manual/song-1.mp3"
+      );
+    });
+
     it("falls back to remote stream url if cached file is deleted while queued in exoplayer", async () => {
       (songCache.getCachedSongPlaybackUri as jest.Mock).mockReturnValue("file:///cache/manual/song-1.mp3");
       await playPlaylist([song1, song2], 0);
@@ -493,7 +529,7 @@ describe("full native exoplayer playlist & state synchronization (pb-3 & arch-1)
     });
   });
 
-  describe("6. native authoritative state & activity recreation (arch-1)", () => {
+  describe("6. native authoritative state & activity recreation", () => {
     it("native audio service exposes getPlaylistState with active index, position, timeline count, and playback state", async () => {
       (audioPlayback.getPlaylistState as jest.Mock).mockResolvedValue({
         activeIndex: 1,

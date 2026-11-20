@@ -564,6 +564,15 @@ function ensureListenersInitialized(): void {
     }
 
     if (activePlaybackTrackId && activePlaybackTrackId !== mediaId) {
+      const prevIndex = currentQueue.findIndex(
+        (s) => s.id === activePlaybackTrackId,
+      );
+      if (prevIndex !== -1 && prevIndex !== index) {
+        const prevCachedUri = getCachedSongPlaybackUri(activePlaybackTrackId);
+        if (prevCachedUri) {
+          safeNativeCall(updatePlaylistItemUri(prevIndex, prevCachedUri));
+        }
+      }
       checkAndScrobble(true).catch((err) => {
         console.error("failed transition scrobble check:", err);
       });
@@ -603,6 +612,15 @@ function ensureListenersInitialized(): void {
     checkAndScrobble(true).catch((err) => {
       console.error("failed track-ended scrobble check:", err);
     });
+    if (activePlaybackTrackId) {
+      const cachedUri = getCachedSongPlaybackUri(activePlaybackTrackId);
+      const currIdx = currentQueue.findIndex(
+        (s) => s.id === activePlaybackTrackId,
+      );
+      if (cachedUri && currIdx !== -1) {
+        safeNativeCall(updatePlaylistItemUri(currIdx, cachedUri));
+      }
+    }
     if (handleTrackEnded()) {
       return;
     }
@@ -660,7 +678,15 @@ function ensureListenersInitialized(): void {
           (entry.filePath || (entry as any).localFilePath) ??
           getCachedSongPlaybackUri(songId);
         if (localUri) {
-          await safeNativeCall(updatePlaylistItemUri(queueIndex, localUri));
+          // If the song is currently playing, do not replace the active MediaItem
+          // mid-playback to avoid interrupting active streaming and resetting position.
+          // Instead, update the cache status, and when playback naturally transitions away
+          // or finishes, the item's playlist URI is updated for subsequent replays.
+          if (queueIndex !== currentIndex) {
+            await safeNativeCall(updatePlaylistItemUri(queueIndex, localUri));
+          }
+          currentPlaybackSource = { songId, isFromCache: true };
+          notifyStateChanged();
         }
       } else if (entry === null) {
         try {
@@ -704,6 +730,7 @@ export async function playTrackAtIndex(index: number): Promise<void> {
 
     if (isFromCache) {
       updateSongCacheLastAccessed(song.id);
+      await safeNativeCall(updatePlaylistItemUri(index, cachedUri));
     }
 
     await seekToTrack(index, 0);

@@ -18,6 +18,9 @@
 - add acceptance test suite and typescript declarations for native exoplayer playlist playback and state synchronization.
 - implement full native exoplayer playlist operations and event listeners in audioplaybackmodule and audioplaybackservice.
 - synchronize authoritative native exoplayer playback state and playlist queue transitions into javascript player service.
+- preserve exoplayer playback position and playWhenReady in audioplaybackservice updatePlaylistItemUri for active track index.
+- ignore media_item_transition_reason_playlist_changed in audioplaybackservice onMediaItemTransition.
+- keep active stream playback uninterrupted in services/player when cache download finishes and update playlist item uri upon track transition.
 
 ## 2.39.0+87
 

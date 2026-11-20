@@ -261,6 +261,9 @@ class AudioPlaybackService : MediaSessionService() {
       }
 
       override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) {
+          return
+        }
         val p = player ?: return
         val index = p.currentMediaItemIndex
         val mediaId = mediaItem?.mediaId ?: ""
@@ -699,11 +702,18 @@ class AudioPlaybackService : MediaSessionService() {
   fun updatePlaylistItemUri(index: Int, newUrl: String) {
     val p = player ?: return
     if (index in 0 until p.mediaItemCount) {
+      val isCurrent = (index == p.currentMediaItemIndex)
+      val currentPositionMs = if (isCurrent) p.currentPosition else 0L
+      val playWhenReady = p.playWhenReady
       val existing = p.getMediaItemAt(index)
       val updated = existing.buildUpon()
         .setUri(Uri.parse(newUrl))
         .build()
       p.replaceMediaItem(index, updated)
+      if (isCurrent && currentPositionMs > 0) {
+        p.seekTo(index, currentPositionMs)
+        p.playWhenReady = playWhenReady
+      }
     }
   }
 
