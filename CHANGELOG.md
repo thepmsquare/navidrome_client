@@ -6,6 +6,7 @@
 
 - improvements to library synchronization (use background service with progress notification).
 - add download over wi-fi only toggle to pause caching on cellular.
+- add gapless playback across playlist queue.
 
 ### internal notes
 
@@ -15,6 +16,8 @@
 - add isWifiConnected and onNetworkChanged listener in modules/download-service using ConnectivityManager.NetworkCallback.
 - pause active and queued downloads with "paused: waiting for wi-fi" notification when download over wi-fi only is enabled on cellular, and resume automatically on wi-fi reconnect.
 - add acceptance test suite and typescript declarations for native exoplayer playlist playback and state synchronization.
+- implement full native exoplayer playlist operations and event listeners in audioplaybackmodule and audioplaybackservice.
+- synchronize authoritative native exoplayer playback state and playlist queue transitions into javascript player service.
 
 ## 2.39.0+87
 

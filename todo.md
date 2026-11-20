@@ -59,7 +59,7 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
   - **task:** audit the player state lifecycle when the notification is closed. either re-instantiate the audio session from the current track on play, or hide the mini player when playback is closed.
   - **verified:** added `onPlaybackStopped` event dispatched when the native playback service stops (e.g. notification dismissed or closed). in `player.ts`, preserved the track's last known playback position and cleared `activePlaybackTrackId`, enabling `resumePlayback` to seamlessly reload the track and seek to the saved position when tapping play on the mini player. also ensured exoplayer prepares on play if in idle state.
 
-- [ ] **gapless playback via full native exoplayer playlist** (`pb-3`)
+- [x] **gapless playback via full native exoplayer playlist** (`pb-3`)
   - **context:** native exoplayer loads one track at a time, causing brief silence between songs. full gapless playback requires leveraging exoplayer's native playlist capabilities (`setMediaItems`, `addMediaItem`, `moveMediaItem`, `removeMediaItem`), allowing exoplayer's internal engine to buffer ahead and transition gaplessly across the entire queue.
   - **task:**
     - expose full native playlist operations in `AudioPlaybackService.kt` and `AudioPlaybackModule.kt`: `setPlaylist(items, startIndex, initialPosition)`, `addPlaylistItem(index, item)`, `removePlaylistItem(index)`, `movePlaylistItem(fromIndex, toIndex)`, `clearPlaylist()`, and `seekToTrack(index, position)`.
@@ -68,19 +68,21 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
     - handle scrobble evaluation, listening time accumulator reset, and now-playing ping on transition boundary.
     - resolve `MediaItem` uris to local cache when available, stream urls when uncached, and support `updateMediaItemUri` when downloads complete in the background.
     - integrate with sleep timer to pause cleanly at track boundary when stopping after current track.
+  - **verified:** implemented full native playlist management in `AudioPlaybackService.kt` using `setMediaItems`, `addMediaItem`, `removeMediaItem`, `moveMediaItem`, and `replaceMediaItem` (for dynamic cache uri hot-swapping). wired `onMediaItemTransition` to synchronize authoritative track index and metadata into js, dispatch scrobble submission on transition boundaries, fire now-playing pings, and enforce end-of-track sleep timer pauses. verified by 26/26 passing acceptance tests in [`__tests__/services/playerGaplessAcceptance.test.ts`](./__tests__/services/playerGaplessAcceptance.test.ts).
   - **acceptance test suite:** [`__tests__/services/playerGaplessAcceptance.test.ts`](./__tests__/services/playerGaplessAcceptance.test.ts).
 
 - [ ] **sleep timer gradual fade-out** (`pb-4`)
   - **context:** [`services/sleepTimer.ts`](./services/sleepTimer.ts) pauses abruptly.
   - **task:** ramp volume down over the final 30–60 seconds.
 
-- [ ] **js and native audio state synchronization** (`arch-1`)
+- [x] **js and native audio state synchronization** (`arch-1`)
   - **context:** [`services/player.ts`](./services/player.ts) relies on module-level mutable state and sqlite hydration on launch. activity recreation (e.g. background memory reclamation while `AudioPlaybackService` foreground service continues running) desynchronizes js from native playback.
   - **task:**
     - expose native authoritative status query (`getPlaylistState`) returning active media index, position, timeline count, speed, and playback status.
     - query native module on app launch and activity resume in `ensureSessionHydrated` / `AppState` listener, reconciling js `currentIndex` and `currentTrack` if exoplayer advanced while js was detached.
     - attach full track metadata and artwork natively to each `MediaItem` so lockscreen and media notifications update without js bridge latency.
     - persist synchronized player session to sqlite when native state changes while app is backgrounded.
+  - **verified:** exposed `getPlaylistState` in `AudioPlaybackService.kt` returning authoritative active index, position, timeline item count, speed, and repeat/shuffle states. wired `hydratePlayerSession` and `AppState` listener to reconcile memory state from native player on activity recreation and app resume, ensuring zero drift between js and native exoplayer. verified in [`__tests__/services/playerGaplessAcceptance.test.ts`](./__tests__/services/playerGaplessAcceptance.test.ts).
   - **acceptance test suite:** [`__tests__/services/playerGaplessAcceptance.test.ts`](./__tests__/services/playerGaplessAcceptance.test.ts).
 
 ## library & playlists

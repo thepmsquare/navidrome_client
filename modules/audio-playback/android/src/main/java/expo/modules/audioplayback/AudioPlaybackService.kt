@@ -72,6 +72,7 @@ class AudioPlaybackService : MediaSessionService() {
     fun onPlaybackError(errorCode: String, message: String)
     fun onRepeatModeChanged(mode: String)
     fun onPlaybackStopped()
+    fun onMediaItemTransition(index: Int, mediaId: String)
   }
 
   inner class LocalBinder : Binder() {
@@ -259,6 +260,20 @@ class AudioPlaybackService : MediaSessionService() {
         updateNotification()
       }
 
+      override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+        val p = player ?: return
+        val index = p.currentMediaItemIndex
+        val mediaId = mediaItem?.mediaId ?: ""
+        val metadata = mediaItem?.mediaMetadata
+        currentTitle = metadata?.title?.toString() ?: ""
+        currentArtist = metadata?.artist?.toString() ?: ""
+        currentAlbum = metadata?.albumTitle?.toString() ?: ""
+        currentArtworkUrl = metadata?.artworkUri?.toString()
+        loadOrUpdateArtwork(currentArtworkUrl)
+        eventListener?.onMediaItemTransition(index, mediaId)
+        eventListener?.onPlaybackStateChanged(getPlaybackStatusMap())
+      }
+
       override fun onPositionDiscontinuity(
         oldPosition: Player.PositionInfo,
         newPosition: Player.PositionInfo,
@@ -322,19 +337,39 @@ class AudioPlaybackService : MediaSessionService() {
       }
 
       override fun seekToNext() {
-        eventListener?.onNextTrack()
+        val p = player
+        if (p != null && (p.hasNextMediaItem() || p.repeatMode == Player.REPEAT_MODE_ALL)) {
+          super.seekToNext()
+        } else {
+          eventListener?.onNextTrack()
+        }
       }
 
       override fun seekToNextMediaItem() {
-        eventListener?.onNextTrack()
+        val p = player
+        if (p != null && (p.hasNextMediaItem() || p.repeatMode == Player.REPEAT_MODE_ALL)) {
+          super.seekToNextMediaItem()
+        } else {
+          eventListener?.onNextTrack()
+        }
       }
 
       override fun seekToPrevious() {
-        eventListener?.onPreviousTrack()
+        val p = player
+        if (p != null && (p.hasPreviousMediaItem() || p.repeatMode == Player.REPEAT_MODE_ALL)) {
+          super.seekToPrevious()
+        } else {
+          eventListener?.onPreviousTrack()
+        }
       }
 
       override fun seekToPreviousMediaItem() {
-        eventListener?.onPreviousTrack()
+        val p = player
+        if (p != null && (p.hasPreviousMediaItem() || p.repeatMode == Player.REPEAT_MODE_ALL)) {
+          super.seekToPreviousMediaItem()
+        } else {
+          eventListener?.onPreviousTrack()
+        }
       }
 
       override fun stop() {
@@ -462,11 +497,25 @@ class AudioPlaybackService : MediaSessionService() {
   }
 
   private fun handlePrevious() {
-    eventListener?.onPreviousTrack()
+    mainHandler.post {
+      val p = player ?: return@post
+      if (p.hasPreviousMediaItem() || p.repeatMode == Player.REPEAT_MODE_ALL) {
+        p.seekToPreviousMediaItem()
+      } else {
+        eventListener?.onPreviousTrack()
+      }
+    }
   }
 
   private fun handleNext() {
-    eventListener?.onNextTrack()
+    mainHandler.post {
+      val p = player ?: return@post
+      if (p.hasNextMediaItem() || p.repeatMode == Player.REPEAT_MODE_ALL) {
+        p.seekToNextMediaItem()
+      } else {
+        eventListener?.onNextTrack()
+      }
+    }
   }
 
   private fun handlePlayPause() {
@@ -498,38 +547,9 @@ class AudioPlaybackService : MediaSessionService() {
     }
   }
 
-  fun loadTrack(
-    url: String,
-    title: String,
-    artist: String,
-    album: String,
-    artworkUrl: String?,
-    playWhenReady: Boolean
-  ) {
-    val p = player ?: return
-    currentTitle = title
-    currentArtist = artist
-    currentAlbum = album
-    currentArtworkUrl = artworkUrl
+  fun loadOrUpdateArtwork(artworkUrl: String?) {
     val cachedBitmap = if (!artworkUrl.isNullOrBlank()) artworkMemoryCache.get(artworkUrl) else null
     currentArtworkBitmap = cachedBitmap
-
-    val mediaMetadata = MediaMetadata.Builder()
-      .setTitle(title.takeIf { it.isNotBlank() })
-      .setArtist(artist.takeIf { it.isNotBlank() })
-      .setAlbumTitle(album.takeIf { it.isNotBlank() })
-      .build()
-
-    val mediaItem = MediaItem.Builder()
-      .setUri(Uri.parse(url))
-      .setMediaMetadata(mediaMetadata)
-      .build()
-
-    p.setMediaItem(mediaItem)
-    p.setPlaybackSpeed(currentPlaybackSpeed)
-    p.prepare()
-    lastKnownPositionSeconds = 0.0
-    p.playWhenReady = playWhenReady
 
     if (!artworkUrl.isNullOrBlank()) {
       artworkLoadJob?.cancel()
@@ -550,6 +570,165 @@ class AudioPlaybackService : MediaSessionService() {
     } else {
       updateNotification()
     }
+  }
+
+  private fun buildMediaItem(itemMap: Map<String, Any?>): MediaItem {
+    val mediaId = itemMap["mediaId"] as? String ?: ""
+    val url = itemMap["url"] as? String ?: ""
+    val title = itemMap["title"] as? String ?: ""
+    val artist = itemMap["artist"] as? String ?: ""
+    val album = itemMap["album"] as? String ?: ""
+    val artworkUrl = itemMap["artworkUrl"] as? String
+
+    val mediaMetadata = MediaMetadata.Builder()
+      .setTitle(title.takeIf { it.isNotBlank() })
+      .setArtist(artist.takeIf { it.isNotBlank() })
+      .setAlbumTitle(album.takeIf { it.isNotBlank() })
+      .apply {
+        if (!artworkUrl.isNullOrBlank()) {
+          setArtworkUri(Uri.parse(artworkUrl))
+        }
+      }
+      .build()
+
+    return MediaItem.Builder()
+      .setMediaId(mediaId)
+      .setUri(Uri.parse(url))
+      .setMediaMetadata(mediaMetadata)
+      .build()
+  }
+
+  fun loadTrack(
+    url: String,
+    title: String,
+    artist: String,
+    album: String,
+    artworkUrl: String?,
+    playWhenReady: Boolean
+  ) {
+    val p = player ?: return
+    currentTitle = title
+    currentArtist = artist
+    currentAlbum = album
+    currentArtworkUrl = artworkUrl
+
+    val mediaMetadata = MediaMetadata.Builder()
+      .setTitle(title.takeIf { it.isNotBlank() })
+      .setArtist(artist.takeIf { it.isNotBlank() })
+      .setAlbumTitle(album.takeIf { it.isNotBlank() })
+      .build()
+
+    val mediaItem = MediaItem.Builder()
+      .setUri(Uri.parse(url))
+      .setMediaMetadata(mediaMetadata)
+      .build()
+
+    p.setMediaItem(mediaItem)
+    p.setPlaybackSpeed(currentPlaybackSpeed)
+    p.prepare()
+    lastKnownPositionSeconds = 0.0
+    p.playWhenReady = playWhenReady
+
+    loadOrUpdateArtwork(artworkUrl)
+  }
+
+  fun setPlaylist(
+    items: List<Map<String, Any?>>,
+    startIndex: Int,
+    initialPositionSeconds: Double
+  ) {
+    val p = player ?: return
+    val mediaItems = items.map { buildMediaItem(it) }
+    val validStartIndex = if (startIndex in 0 until mediaItems.size) startIndex else 0
+    val startPositionMs = (initialPositionSeconds * 1000).toLong().coerceAtLeast(0L)
+
+    p.setMediaItems(mediaItems, validStartIndex, startPositionMs)
+    p.setPlaybackSpeed(currentPlaybackSpeed)
+    p.prepare()
+    lastKnownPositionSeconds = 0.0
+    p.playWhenReady = true
+
+    val activeItem = mediaItems.getOrNull(validStartIndex)
+    if (activeItem != null) {
+      val meta = activeItem.mediaMetadata
+      currentTitle = meta.title?.toString() ?: ""
+      currentArtist = meta.artist?.toString() ?: ""
+      currentAlbum = meta.albumTitle?.toString() ?: ""
+      currentArtworkUrl = meta.artworkUri?.toString()
+      loadOrUpdateArtwork(currentArtworkUrl)
+    }
+    startAsForegroundService()
+  }
+
+  fun addPlaylistItem(itemMap: Map<String, Any?>, index: Int? = null) {
+    val p = player ?: return
+    val mediaItem = buildMediaItem(itemMap)
+    if (index != null && index >= 0 && index <= p.mediaItemCount) {
+      p.addMediaItem(index, mediaItem)
+    } else {
+      p.addMediaItem(mediaItem)
+    }
+  }
+
+  fun removePlaylistItem(index: Int) {
+    val p = player ?: return
+    if (index in 0 until p.mediaItemCount) {
+      p.removeMediaItem(index)
+    }
+  }
+
+  fun movePlaylistItem(fromIndex: Int, toIndex: Int) {
+    val p = player ?: return
+    if (fromIndex in 0 until p.mediaItemCount && toIndex in 0 until p.mediaItemCount) {
+      p.moveMediaItem(fromIndex, toIndex)
+    }
+  }
+
+  fun clearPlaylist() {
+    val p = player ?: return
+    p.clearMediaItems()
+  }
+
+  fun seekToTrack(index: Int, positionSeconds: Double) {
+    val p = player ?: return
+    if (index in 0 until p.mediaItemCount) {
+      p.seekTo(index, (positionSeconds * 1000).toLong().coerceAtLeast(0L))
+    }
+  }
+
+  fun updatePlaylistItemUri(index: Int, newUrl: String) {
+    val p = player ?: return
+    if (index in 0 until p.mediaItemCount) {
+      val existing = p.getMediaItemAt(index)
+      val updated = existing.buildUpon()
+        .setUri(Uri.parse(newUrl))
+        .build()
+      p.replaceMediaItem(index, updated)
+    }
+  }
+
+  fun setShuffleModeEnabled(enabled: Boolean) {
+    val p = player ?: return
+    p.shuffleModeEnabled = enabled
+  }
+
+  fun getPlaylistStateMap(): Map<String, Any?>? {
+    val p = player ?: return null
+    if (p.mediaItemCount == 0) return null
+    val pos = if (p.playbackState == Player.STATE_IDLE && lastKnownPositionSeconds > 0.0) {
+      lastKnownPositionSeconds
+    } else {
+      (p.currentPosition) / 1000.0
+    }
+    return mapOf(
+      "activeIndex" to p.currentMediaItemIndex,
+      "position" to pos,
+      "duration" to (if (p.duration > 0) p.duration / 1000.0 else 0.0),
+      "isPlaying" to p.isPlaying,
+      "repeatMode" to currentRepeatMode,
+      "shuffle" to p.shuffleModeEnabled,
+      "itemCount" to p.mediaItemCount
+    )
   }
 
   fun playPlayback() {
@@ -595,12 +774,10 @@ class AudioPlaybackService : MediaSessionService() {
       "all" -> "all"
       else -> "off"
     }
-    // In a single-item timeline architecture, ExoPlayer only handles REPEAT_MODE_ONE natively.
-    // "all" and "off" must let ExoPlayer reach STATE_ENDED so TypeScript can sequence the queue.
-    player?.repeatMode = if (currentRepeatMode == "one") {
-      Player.REPEAT_MODE_ONE
-    } else {
-      Player.REPEAT_MODE_OFF
+    player?.repeatMode = when (currentRepeatMode) {
+      "one" -> Player.REPEAT_MODE_ONE
+      "all" -> Player.REPEAT_MODE_ALL
+      else -> Player.REPEAT_MODE_OFF
     }
     updateSessionCustomLayout()
     updateNotification()

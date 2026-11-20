@@ -99,6 +99,16 @@ class AudioPlaybackModule : Module() {
     override fun onPlaybackStopped() {
       sendEvent("onPlaybackStopped", emptyMap<String, Any>())
     }
+
+    override fun onMediaItemTransition(index: Int, mediaId: String) {
+      sendEvent(
+        "onMediaItemTransition",
+        mapOf(
+          "index" to index,
+          "mediaId" to mediaId
+        )
+      )
+    }
   }
 
   override fun definition() = ModuleDefinition {
@@ -111,7 +121,8 @@ class AudioPlaybackModule : Module() {
       "onPreviousTrack",
       "onPlaybackError",
       "onRepeatModeChanged",
-      "onPlaybackStopped"
+      "onPlaybackStopped",
+      "onMediaItemTransition"
     )
 
     OnCreate {
@@ -227,6 +238,169 @@ class AudioPlaybackModule : Module() {
         } catch (e: Exception) {
           android.util.Log.e(TAG, "Error loading track: ${e.message}", e)
           promise.reject("ERR_LOAD_TRACK", e.message ?: "Unknown error", e)
+        }
+      }
+    }
+
+    AsyncFunction("setPlaylist") { items: List<Map<String, Any?>>, startIndex: Int, initialPositionSeconds: Double, promise: Promise ->
+      mainHandler.post {
+        try {
+          if (items.isEmpty()) {
+            promise.reject("ERR_EMPTY_PLAYLIST", "Playlist cannot be empty", null)
+            return@post
+          }
+
+          val context = getContext()
+          if (context != null) {
+            bindService(context)
+          }
+
+          val s = getOrFindService()
+          if (s == null) {
+            promise.reject("ERR_NO_SERVICE", "Audio playback service not available", null)
+            return@post
+          }
+
+          s.setPlaylist(items, startIndex, initialPositionSeconds)
+          promise.resolve(null)
+        } catch (e: Exception) {
+          android.util.Log.e(TAG, "Error setting playlist: ${e.message}", e)
+          promise.reject("ERR_SET_PLAYLIST", e.message ?: "Unknown error", e)
+        }
+      }
+    }
+
+    AsyncFunction("addPlaylistItem") { item: Map<String, Any?>, index: Int?, promise: Promise ->
+      mainHandler.post {
+        try {
+          val s = getOrFindService()
+          if (s == null) {
+            promise.reject("ERR_NO_PLAYER", "Player not initialized", null)
+            return@post
+          }
+          s.addPlaylistItem(item, index)
+          promise.resolve(null)
+        } catch (e: Exception) {
+          android.util.Log.e(TAG, "Error adding playlist item: ${e.message}", e)
+          promise.reject("ERR_ADD_PLAYLIST_ITEM", e.message ?: "Unknown error", e)
+        }
+      }
+    }
+
+    AsyncFunction("removePlaylistItem") { index: Int, promise: Promise ->
+      mainHandler.post {
+        try {
+          val s = getOrFindService()
+          if (s == null) {
+            promise.reject("ERR_NO_PLAYER", "Player not initialized", null)
+            return@post
+          }
+          s.removePlaylistItem(index)
+          promise.resolve(null)
+        } catch (e: Exception) {
+          android.util.Log.e(TAG, "Error removing playlist item: ${e.message}", e)
+          promise.reject("ERR_REMOVE_PLAYLIST_ITEM", e.message ?: "Unknown error", e)
+        }
+      }
+    }
+
+    AsyncFunction("movePlaylistItem") { fromIndex: Int, toIndex: Int, promise: Promise ->
+      mainHandler.post {
+        try {
+          val s = getOrFindService()
+          if (s == null) {
+            promise.reject("ERR_NO_PLAYER", "Player not initialized", null)
+            return@post
+          }
+          s.movePlaylistItem(fromIndex, toIndex)
+          promise.resolve(null)
+        } catch (e: Exception) {
+          android.util.Log.e(TAG, "Error moving playlist item: ${e.message}", e)
+          promise.reject("ERR_MOVE_PLAYLIST_ITEM", e.message ?: "Unknown error", e)
+        }
+      }
+    }
+
+    AsyncFunction("clearPlaylist") { promise: Promise ->
+      mainHandler.post {
+        try {
+          val s = getOrFindService()
+          if (s == null) {
+            promise.reject("ERR_NO_PLAYER", "Player not initialized", null)
+            return@post
+          }
+          s.clearPlaylist()
+          promise.resolve(null)
+        } catch (e: Exception) {
+          android.util.Log.e(TAG, "Error clearing playlist: ${e.message}", e)
+          promise.reject("ERR_CLEAR_PLAYLIST", e.message ?: "Unknown error", e)
+        }
+      }
+    }
+
+    AsyncFunction("seekToTrack") { index: Int, positionSeconds: Double, promise: Promise ->
+      mainHandler.post {
+        try {
+          val s = getOrFindService()
+          if (s == null) {
+            promise.reject("ERR_NO_PLAYER", "Player not initialized", null)
+            return@post
+          }
+          s.seekToTrack(index, positionSeconds)
+          promise.resolve(null)
+        } catch (e: Exception) {
+          android.util.Log.e(TAG, "Error seeking to track: ${e.message}", e)
+          promise.reject("ERR_SEEK_TRACK", e.message ?: "Unknown error", e)
+        }
+      }
+    }
+
+    AsyncFunction("updatePlaylistItemUri") { index: Int, url: String, promise: Promise ->
+      mainHandler.post {
+        try {
+          val s = getOrFindService()
+          if (s == null) {
+            promise.reject("ERR_NO_PLAYER", "Player not initialized", null)
+            return@post
+          }
+          s.updatePlaylistItemUri(index, url)
+          promise.resolve(null)
+        } catch (e: Exception) {
+          android.util.Log.e(TAG, "Error updating playlist item uri: ${e.message}", e)
+          promise.reject("ERR_UPDATE_ITEM_URI", e.message ?: "Unknown error", e)
+        }
+      }
+    }
+
+    AsyncFunction("setShuffleModeEnabled") { enabled: Boolean, promise: Promise ->
+      mainHandler.post {
+        try {
+          val s = getOrFindService()
+          if (s == null) {
+            promise.reject("ERR_NO_PLAYER", "Player not initialized", null)
+            return@post
+          }
+          s.setShuffleModeEnabled(enabled)
+          promise.resolve(null)
+        } catch (e: Exception) {
+          android.util.Log.e(TAG, "Error setting shuffle mode: ${e.message}", e)
+          promise.reject("ERR_SET_SHUFFLE", e.message ?: "Unknown error", e)
+        }
+      }
+    }
+
+    AsyncFunction("getPlaylistState") { promise: Promise ->
+      mainHandler.post {
+        try {
+          val s = getOrFindService()
+          if (s != null) {
+            promise.resolve(s.getPlaylistStateMap())
+          } else {
+            promise.resolve(null)
+          }
+        } catch (e: Exception) {
+          android.util.Log.e(TAG, "Error getting playlist state: ${e.message}", e)
+          promise.reject("ERR_GET_PLAYLIST_STATE", e.message ?: "Unknown error", e)
         }
       }
     }
