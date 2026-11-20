@@ -101,6 +101,8 @@ jest.mock("@/services/db", () => ({
   updateSongRating: jest.fn(),
   getPlaybackSpeedSetting: jest.fn().mockReturnValue(1.0),
   setPlaybackSpeedSetting: jest.fn(),
+  getAutoCacheEnabled: jest.fn().mockReturnValue(true),
+  getDownloadWifiOnlySetting: jest.fn().mockReturnValue(false),
 }));
 
 jest.mock("@/modules/audio-playback", () => ({
@@ -122,6 +124,10 @@ jest.mock("@/modules/audio-playback", () => ({
   clearPlaylist: jest.fn().mockResolvedValue(undefined),
   getCompletedTracks: jest.fn().mockResolvedValue([]),
   clearCompletedTracks: jest.fn().mockResolvedValue(undefined),
+  getPendingAutoCacheTracks: jest.fn().mockResolvedValue([]),
+  clearPendingAutoCacheTracks: jest.fn().mockResolvedValue(undefined),
+  setAutoCacheEnabled: jest.fn().mockResolvedValue(undefined),
+  setDownloadWifiOnly: jest.fn().mockResolvedValue(undefined),
   seekToTrack: jest.fn().mockResolvedValue(undefined),
   updatePlaylistItemUri: jest.fn().mockResolvedValue(undefined),
   setShuffleModeEnabled: jest.fn().mockResolvedValue(undefined),

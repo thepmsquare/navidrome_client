@@ -38,6 +38,7 @@ import {
   subscribeSongCacheProgress,
   tryStartNextDownload,
   updateDownloadWifiOnlySetting,
+  reconcileNativeAutoCache,
 } from "@/services/songCache";
 import { SongCacheType } from "@/types";
 
@@ -1261,6 +1262,102 @@ describe("songCache service", () => {
 
       updateDownloadWifiOnlySetting(false);
       expect(setDownloadWifiOnlySetting).toHaveBeenCalledWith(false);
+    });
+  });
+
+  describe("reconcileNativeAutoCache", () => {
+    it("should do nothing if autoCache is disabled", async () => {
+      const { getAutoCacheEnabled } = require("@/services/db");
+      (getAutoCacheEnabled as jest.Mock).mockReturnValue(false);
+
+      await reconcileNativeAutoCache([
+        {
+          mediaId: "song-native-1",
+          index: 0,
+          timestamp: 1000,
+          status: "completed",
+          filePath: "file:///cache/auto/song-native-1.mp3",
+        },
+      ]);
+
+      expect(insertSongCacheEntryIfNotExists).not.toHaveBeenCalled();
+    });
+
+    it("should reconcile completed native download into cache and notify listeners", async () => {
+      const {
+        getAutoCacheEnabled,
+        getAutoCacheMaxBytes,
+        getAutoCacheTotalSize,
+        getSongCacheEntry,
+        getSongById,
+      } = require("@/services/db");
+      (getAutoCacheEnabled as jest.Mock).mockReturnValue(true);
+      (getAutoCacheMaxBytes as jest.Mock).mockReturnValue(1024 * 1024 * 1024);
+      (getAutoCacheTotalSize as jest.Mock).mockReturnValue(0);
+      (getSongCacheEntry as jest.Mock).mockReturnValue(null);
+      (getSongById as jest.Mock).mockReturnValue({
+        id: "song-native-2",
+        title: "Native Song",
+        coverArt: "cover-2",
+      });
+      (insertSongCacheEntryIfNotExists as jest.Mock).mockReturnValue(true);
+
+      const listener = jest.fn();
+      const unsub = subscribeSongCache(listener);
+
+      await reconcileNativeAutoCache([
+        {
+          mediaId: "song-native-2",
+          index: 1,
+          timestamp: 1500,
+          status: "completed",
+          filePath: "file:///cache/auto/song-native-2.mp3",
+          fileSizeBytes: 5000000,
+        },
+      ]);
+
+      expect(insertSongCacheEntryIfNotExists).toHaveBeenCalledWith(
+        "song-native-2",
+        SongCacheType.Auto,
+        "file:///cache/auto/song-native-2.mp3",
+        5000000,
+      );
+      unsub();
+    });
+
+    it("should fall back to autoCacheSong if native status is failed", async () => {
+      const {
+        getAutoCacheEnabled,
+        getSongCacheEntry,
+        getSongById,
+        getDownloadWifiOnlySetting,
+      } = require("@/services/db");
+      const { isWifiConnected } = require("@/modules/download-service");
+      (getAutoCacheEnabled as jest.Mock).mockReturnValue(true);
+      (getSongCacheEntry as jest.Mock).mockReturnValue(null);
+      (getDownloadWifiOnlySetting as jest.Mock).mockReturnValue(false);
+      (isWifiConnected as jest.Mock).mockReturnValue(true);
+      (getSongById as jest.Mock).mockReturnValue({
+        id: "song-native-failed",
+        title: "Failed Song",
+        suffix: "mp3",
+      });
+      (getSongStreamUrl as jest.Mock).mockResolvedValue("https://stream/failed");
+      (File.downloadFileAsync as jest.Mock).mockResolvedValue({
+        uri: "file:///cache/auto/song-native-failed.mp3",
+        size: 3000000,
+      });
+
+      await reconcileNativeAutoCache([
+        {
+          mediaId: "song-native-failed",
+          index: 2,
+          timestamp: 2000,
+          status: "failed",
+        },
+      ]);
+
+      expect(File.downloadFileAsync).toHaveBeenCalled();
     });
   });
 });

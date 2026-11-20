@@ -39,6 +39,7 @@ export interface PlaylistItem {
   artist?: string;
   album?: string;
   artworkUrl?: string | null;
+  suffix?: string | null;
 }
 
 export interface PlaylistState {
@@ -96,6 +97,10 @@ declare class AudioPlaybackNativeModule extends NativeModule<AudioPlaybackEvents
   getPlaylistState(): Promise<PlaylistState | null>;
   getCompletedTracks(): Promise<CompletedTrackInfo[]>;
   clearCompletedTracks(): Promise<void>;
+  getPendingAutoCacheTracks(): Promise<PendingAutoCacheTrackInfo[]>;
+  clearPendingAutoCacheTracks(): Promise<void>;
+  setAutoCacheEnabled(enabled: boolean): Promise<void>;
+  setDownloadWifiOnly(wifiOnly: boolean): Promise<void>;
   setSleepTimer(durationMs: number): Promise<void>;
   cancelSleepTimer(): Promise<void>;
   getSleepTimerRemainingSeconds(): Promise<number>;
@@ -252,6 +257,15 @@ export interface CompletedTrackInfo {
   timestamp: number;
 }
 
+export interface PendingAutoCacheTrackInfo {
+  mediaId: string;
+  index: number;
+  timestamp: number;
+  status: "pending" | "completed" | "failed";
+  filePath?: string;
+  fileSizeBytes?: number;
+}
+
 export async function getCompletedTracks(): Promise<CompletedTrackInfo[]> {
   if (!AudioPlayback) return [];
   return await AudioPlayback.getCompletedTracks();
@@ -333,6 +347,26 @@ export async function getSleepTimerRemainingSeconds(): Promise<number> {
 export function addSleepTimerExpiredListener(listener: () => void) {
   if (!AudioPlayback) return { remove: () => {} };
   return AudioPlayback.addListener("onSleepTimerExpired", listener);
+}
+
+export async function getPendingAutoCacheTracks(): Promise<PendingAutoCacheTrackInfo[]> {
+  if (!AudioPlayback) return [];
+  return await AudioPlayback.getPendingAutoCacheTracks();
+}
+
+export async function clearPendingAutoCacheTracks(): Promise<void> {
+  if (!AudioPlayback) return;
+  await AudioPlayback.clearPendingAutoCacheTracks();
+}
+
+export async function setAutoCacheEnabled(enabled: boolean): Promise<void> {
+  if (!AudioPlayback) return;
+  await AudioPlayback.setAutoCacheEnabled(enabled);
+}
+
+export async function setDownloadWifiOnly(wifiOnly: boolean): Promise<void> {
+  if (!AudioPlayback) return;
+  await AudioPlayback.setDownloadWifiOnly(wifiOnly);
 }
 
 export default AudioPlayback;

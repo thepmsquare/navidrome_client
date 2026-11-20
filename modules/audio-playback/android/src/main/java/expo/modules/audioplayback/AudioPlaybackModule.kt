@@ -654,6 +654,65 @@ class AudioPlaybackModule : Module() {
         }
       }
     }
+
+    AsyncFunction("getPendingAutoCacheTracks") { promise: Promise ->
+      mainHandler.post {
+        try {
+          val s = getOrFindService()
+          promise.resolve(s?.getPendingAutoCacheTracks() ?: emptyList<Map<String, Any>>())
+        } catch (e: Exception) {
+          android.util.Log.e(TAG, "Error getting pending auto cache tracks: ${e.message}", e)
+          promise.resolve(emptyList<Map<String, Any>>())
+        }
+      }
+    }
+
+    AsyncFunction("clearPendingAutoCacheTracks") { promise: Promise ->
+      mainHandler.post {
+        try {
+          val s = getOrFindService()
+          s?.clearPendingAutoCacheTracks()
+          promise.resolve(null)
+        } catch (e: Exception) {
+          android.util.Log.e(TAG, "Error clearing pending auto cache tracks: ${e.message}", e)
+          promise.resolve(null)
+        }
+      }
+    }
+
+    AsyncFunction("setAutoCacheEnabled") { enabled: Boolean, promise: Promise ->
+      mainHandler.post {
+        try {
+          val s = getOrFindService()
+          s?.setAutoCacheEnabled(enabled)
+          val ctx = appContext.reactContext
+          if (ctx != null) {
+            val prefs = ctx.getSharedPreferences(AudioPlaybackService.PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit().putBoolean(AudioPlaybackService.PREF_AUTO_CACHE_ENABLED, enabled).apply()
+          }
+          promise.resolve(null)
+        } catch (e: Exception) {
+          promise.resolve(null)
+        }
+      }
+    }
+
+    AsyncFunction("setDownloadWifiOnly") { wifiOnly: Boolean, promise: Promise ->
+      mainHandler.post {
+        try {
+          val s = getOrFindService()
+          s?.setDownloadWifiOnly(wifiOnly)
+          val ctx = appContext.reactContext
+          if (ctx != null) {
+            val prefs = ctx.getSharedPreferences(AudioPlaybackService.PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit().putBoolean(AudioPlaybackService.PREF_DOWNLOAD_WIFI_ONLY, wifiOnly).apply()
+          }
+          promise.resolve(null)
+        } catch (e: Exception) {
+          promise.resolve(null)
+        }
+      }
+    }
   }
 
   private fun getContext(): Context? {

@@ -1,6 +1,10 @@
 import { Directory, File, Paths } from "expo-file-system";
 
 import {
+  type PendingAutoCacheTrackInfo,
+  setDownloadWifiOnly as setNativeDownloadWifiOnly,
+} from "@/modules/audio-playback";
+import {
   addDownloadCancelListener,
   addNetworkChangeListener,
   isWifiConnected,
@@ -343,6 +347,9 @@ export function tryStartNextDownload(): void {
 
 export function updateDownloadWifiOnlySetting(enabled: boolean): void {
   setDownloadWifiOnlySetting(enabled);
+  try {
+    setNativeDownloadWifiOnly?.(enabled)?.catch?.(() => {});
+  } catch {}
   if (!enabled) {
     if (isWaitingForWifi) {
       isWaitingForWifi = false;
@@ -683,6 +690,90 @@ export async function autoCacheSong(songId: string): Promise<void> {
   } finally {
     if (activeAutoControllers.get(songId) === controller) {
       activeAutoControllers.delete(songId);
+    }
+  }
+}
+
+export async function reconcileNativeAutoCache(
+  items: PendingAutoCacheTrackInfo[],
+): Promise<void> {
+  if (!getAutoCacheEnabled()) {
+    return;
+  }
+
+  for (const item of items) {
+    const songId = item.mediaId;
+    if (!songId) continue;
+
+    const existingEntry = getSongCacheEntry(songId);
+    if (existingEntry) {
+      continue;
+    }
+
+    if (item.status === "completed" && item.filePath) {
+      try {
+        const file = new File(item.filePath);
+        if (file.exists) {
+          const fileSizeBytes = item.fileSizeBytes || file.size || 0;
+          const maxBytes = getAutoCacheMaxBytes();
+          let currentTotal = getAutoCacheTotalSize();
+
+          if (currentTotal + fileSizeBytes > maxBytes) {
+            while (currentTotal + fileSizeBytes > maxBytes) {
+              const lruEntries = getLeastRecentlyUsedAutoCacheEntries(1);
+              if (!lruEntries || lruEntries.length === 0) break;
+              const victim = lruEntries[0];
+              try {
+                const victimFile = new File(victim.filePath);
+                if (victimFile.exists) victimFile.delete();
+              } catch (e) {
+                console.error("failed to delete evicted auto-cache file:", e);
+              }
+              const victimSong = getSongById(victim.songId);
+              const victimCoverId = victimSong?.coverArt || victimSong?.id;
+              deleteSongCacheEntry(victim.songId);
+              if (victimCoverId && !isCoverArtUsedByOtherCachedSongs(victimCoverId)) {
+                deleteCachedCoverArt(victimCoverId);
+              }
+              notifySongCacheUpdated(victim.songId, null);
+              currentTotal -= victim.fileSizeBytes;
+            }
+          }
+
+          if (currentTotal + fileSizeBytes <= maxBytes) {
+            const inserted = insertSongCacheEntryIfNotExists(
+              songId,
+              SongCacheType.Auto,
+              item.filePath,
+              fileSizeBytes,
+            );
+            if (inserted) {
+              const song = getSongById(songId);
+              if (song) {
+                cacheSongCoverArt(song).catch(() => {});
+              }
+              const entry = getSongCacheEntry(songId);
+              if (entry) {
+                notifySongCacheUpdated(songId, entry);
+              }
+              continue;
+            }
+          } else {
+            try {
+              if (file.exists) file.delete();
+            } catch {}
+          }
+        }
+      } catch (err) {
+        console.error("failed to reconcile native auto-cached file:", err);
+      }
+    }
+
+    // Fallback: native auto-cache failed or incomplete
+    try {
+      await autoCacheSong(songId);
+    } catch (err) {
+      console.error("failed fallback auto-cache for track:", songId, err);
     }
   }
 }
