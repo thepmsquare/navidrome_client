@@ -570,17 +570,32 @@ describe("full native exoplayer playlist & state synchronization", () => {
     });
 
     it("ramps down native player volume during fade-out window without disrupting playlist sequence", async () => {
-      await playPlaylist([song1, song2], 0);
+      jest.useFakeTimers();
+      try {
+        await playPlaylist([song1, song2], 0);
 
-      // Set volume directly during sleep timer fade
-      await audioPlayback.setVolume(0.5);
-      expect(audioPlayback.setVolume).toHaveBeenCalledWith(0.5);
+        // Start duration timer for 60 seconds
+        setDurationTimer(1);
+        expect(getSleepTimerState().isActive).toBe(true);
 
-      await audioPlayback.setVolume(0.1);
-      expect(audioPlayback.setVolume).toHaveBeenCalledWith(0.1);
+        // Advance into fade window (15 seconds remaining)
+        jest.advanceTimersByTime(45000);
+        expect(audioPlayback.setVolume).toHaveBeenCalledWith(0.5);
 
-      // Playlist sequence remains completely intact
-      expect(getCurrentQueue()).toHaveLength(2);
+        // Advance to 3 seconds remaining
+        jest.advanceTimersByTime(12000);
+        expect(audioPlayback.setVolume).toHaveBeenCalledWith(0.1);
+
+        // Playlist sequence remains completely intact
+        expect(getCurrentQueue()).toHaveLength(2);
+
+        // Expire timer
+        jest.advanceTimersByTime(3000);
+        expect(audioPlayback.setVolume).toHaveBeenLastCalledWith(1.0);
+        expect(getCurrentQueue()).toHaveLength(2);
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 

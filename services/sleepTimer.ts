@@ -3,7 +3,13 @@ import {
   addSleepTimerExpiredListener,
   cancelSleepTimer as cancelNativeSleepTimer,
   setSleepTimer as setNativeSleepTimer,
+  setVolume as setNativeVolume,
 } from "@/modules/audio-playback";
+
+export const SLEEP_TIMER_FADE_DURATION_SECONDS = 30;
+
+let currentFadeDurationSeconds = SLEEP_TIMER_FADE_DURATION_SECONDS;
+let isFadingOut = false;
 
 export type SleepTimerMode = "duration" | "end_of_track";
 
@@ -47,6 +53,12 @@ function clearActiveInterval(): void {
 
 function triggerTimerExpired(): void {
   clearActiveInterval();
+  if (isFadingOut) {
+    isFadingOut = false;
+    try {
+      setNativeVolume(1.0)?.catch?.(() => {});
+    } catch {}
+  }
   if (!currentState.isActive) return;
 
   currentState = {
@@ -98,6 +110,17 @@ export function syncSleepTimer(): void {
       };
       notifyListeners();
 
+      if (remaining <= currentFadeDurationSeconds) {
+        isFadingOut = true;
+        const fraction =
+          currentFadeDurationSeconds > 0
+            ? Math.max(0, Math.min(1, remaining / currentFadeDurationSeconds))
+            : 0;
+        try {
+          setNativeVolume(fraction)?.catch?.(() => {});
+        } catch {}
+      }
+
       if (timerInterval === null) {
         startTickInterval();
       }
@@ -126,6 +149,17 @@ function startTickInterval(): void {
         remainingSeconds: remaining,
       };
       notifyListeners();
+
+      if (remaining <= currentFadeDurationSeconds) {
+        isFadingOut = true;
+        const fraction =
+          currentFadeDurationSeconds > 0
+            ? Math.max(0, Math.min(1, remaining / currentFadeDurationSeconds))
+            : 0;
+        try {
+          setNativeVolume(fraction)?.catch?.(() => {});
+        } catch {}
+      }
     }
   }, 1000);
 }
@@ -163,6 +197,11 @@ export function setDurationTimer(minutes: number): void {
     0,
     Math.ceil((targetTimestamp - Date.now()) / 1000),
   );
+  currentFadeDurationSeconds = Math.min(
+    SLEEP_TIMER_FADE_DURATION_SECONDS,
+    initialRemaining,
+  );
+  isFadingOut = false;
 
   currentState = {
     isActive: true,
@@ -201,6 +240,12 @@ export function setEndOfTrackTimer(): void {
 
 export function cancelSleepTimer(): void {
   clearActiveInterval();
+  if (isFadingOut) {
+    isFadingOut = false;
+    try {
+      setNativeVolume(1.0)?.catch?.(() => {});
+    } catch {}
+  }
   if (currentState.isActive) {
     currentState = {
       isActive: false,

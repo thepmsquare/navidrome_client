@@ -499,6 +499,17 @@ class AudioPlaybackModule : Module() {
       }
     }
 
+    AsyncFunction("getVolume") { promise: Promise ->
+      mainHandler.post {
+        try {
+          val s = getOrFindService()
+          promise.resolve((s?.getVolume() ?: 1.0f).toDouble())
+        } catch (e: Exception) {
+          promise.resolve(1.0)
+        }
+      }
+    }
+
     AsyncFunction("setRepeatMode") { mode: String, promise: Promise ->
       mainHandler.post {
         try {
