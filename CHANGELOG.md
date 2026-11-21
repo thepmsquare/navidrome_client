@@ -1,5 +1,17 @@
 # changelog
 
+## unreleased
+
+### user release notes
+
+- gradual volume fade-out during final 30 seconds of sleep timer.
+
+### internal notes
+
+- ramp down exoplayer volume smoothly in audioplaybackservice during the final 30 seconds of duration sleep timers.
+- restore volume upon sleep timer completion or cancellation.
+- expose getVolume in audioplaybackmodule and coordinate volume ramp in services/sleepTimer.ts.
+
 ## 2.40.0+88
 
 ### user release notes

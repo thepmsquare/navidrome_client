@@ -71,9 +71,10 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
   - **verified:** implemented full native playlist management in `AudioPlaybackService.kt` using `setMediaItems`, `addMediaItem`, `removeMediaItem`, `moveMediaItem`, and `replaceMediaItem` (for dynamic cache uri hot-swapping). wired `onMediaItemTransition` to synchronize authoritative track index and metadata into js, dispatch scrobble submission on transition boundaries, fire now-playing pings, and enforce end-of-track sleep timer pauses. verified by 26/26 passing acceptance tests in [`__tests__/services/playerGaplessAcceptance.test.ts`](./__tests__/services/playerGaplessAcceptance.test.ts).
   - **acceptance test suite:** [`__tests__/services/playerGaplessAcceptance.test.ts`](./__tests__/services/playerGaplessAcceptance.test.ts).
 
-- [ ] **sleep timer gradual fade-out** (`pb-4`)
+- [x] **sleep timer gradual fade-out** (`pb-4`)
   - **context:** [`services/sleepTimer.ts`](./services/sleepTimer.ts) pauses abruptly.
   - **task:** ramp volume down over the final 30–60 seconds.
+  - **implementation:** added native gradual volume fade in `AudioPlaybackService.kt` during the final 30 seconds of duration-based sleep timers, smoothly ramping `player.volume` down to 0 and cleanly restoring base volume on timer expiry or cancellation. wired volume ramp coordination into `services/sleepTimer.ts` with unit and acceptance test verification in `__tests__/services/sleepTimer.test.ts` and `__tests__/services/playerGaplessAcceptance.test.ts`.
 
 - [x] **js and native audio state synchronization** (`arch-1`)
   - **context:** [`services/player.ts`](./services/player.ts) relies on module-level mutable state and sqlite hydration on launch. activity recreation (e.g. background memory reclamation while `AudioPlaybackService` foreground service continues running) desynchronizes js from native playback.

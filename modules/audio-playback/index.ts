@@ -89,6 +89,7 @@ declare class AudioPlaybackNativeModule extends NativeModule<AudioPlaybackEvents
   stop(): Promise<void>;
   seekTo(positionSeconds: number): Promise<void>;
   setVolume(volume: number): Promise<void>;
+  getVolume(): Promise<number>;
   setRepeatMode(mode: "off" | "one" | "all"): Promise<void>;
   setShuffleModeEnabled(enabled: boolean): Promise<void>;
   setPlaybackSpeed(speed: number): Promise<void>;
@@ -213,6 +214,11 @@ export async function seekTo(seconds: number): Promise<void> {
 export async function setVolume(volume: number): Promise<void> {
   if (!AudioPlayback) return;
   await AudioPlayback.setVolume(volume);
+}
+
+export async function getVolume(): Promise<number> {
+  if (!AudioPlayback) return 1.0;
+  return await AudioPlayback.getVolume();
 }
 
 export async function setRepeatMode(

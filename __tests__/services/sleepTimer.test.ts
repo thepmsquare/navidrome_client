@@ -19,6 +19,7 @@ jest.mock("@/modules/audio-playback", () => ({
   setSleepTimer: jest.fn().mockResolvedValue(undefined),
   cancelSleepTimer: jest.fn().mockResolvedValue(undefined),
   getSleepTimerRemainingSeconds: jest.fn().mockResolvedValue(0),
+  setVolume: jest.fn().mockResolvedValue(undefined),
   addSleepTimerExpiredListener: jest.fn((cb) => {
     expiredListenerCb = cb;
     return {
@@ -224,5 +225,43 @@ describe("sleepTimer service", () => {
     expect(getSleepTimerState().isActive).toBe(false);
     expect(getSleepTimerState().remainingSeconds).toBe(0);
     expect(mockPause).toHaveBeenCalledTimes(1);
+  });
+
+  it("should ramp down volume during the final 30 seconds and restore volume on expiry", () => {
+    const mockPause = jest.fn().mockResolvedValue(undefined);
+    registerPauseExecutor(mockPause);
+
+    setDurationTimer(1); // 60 seconds
+    expect(audioPlayback.setVolume).not.toHaveBeenCalled();
+
+    // Advance 25 seconds (35s remaining) -> no volume ramp yet
+    jest.advanceTimersByTime(25000);
+    expect(getSleepTimerState().remainingSeconds).toBe(35);
+    expect(audioPlayback.setVolume).not.toHaveBeenCalled();
+
+    // Advance 5 seconds (30s remaining) -> fade begins
+    jest.advanceTimersByTime(5000);
+    expect(getSleepTimerState().remainingSeconds).toBe(30);
+    expect(audioPlayback.setVolume).toHaveBeenCalledWith(1);
+
+    // Advance 15 seconds (15s remaining) -> 50% volume
+    jest.advanceTimersByTime(15000);
+    expect(getSleepTimerState().remainingSeconds).toBe(15);
+    expect(audioPlayback.setVolume).toHaveBeenCalledWith(0.5);
+
+    // Advance 15 seconds to expiry -> pauses and restores volume to 1.0
+    jest.advanceTimersByTime(15000);
+    expect(getSleepTimerState().isActive).toBe(false);
+    expect(mockPause).toHaveBeenCalled();
+    expect(audioPlayback.setVolume).toHaveBeenLastCalledWith(1.0);
+  });
+
+  it("should restore volume to 1.0 if sleep timer is cancelled during fade-out", () => {
+    setDurationTimer(1); // 60s
+    jest.advanceTimersByTime(45000); // 15s remaining, volume at 0.5
+    expect(audioPlayback.setVolume).toHaveBeenCalledWith(0.5);
+
+    cancelSleepTimer();
+    expect(audioPlayback.setVolume).toHaveBeenLastCalledWith(1.0);
   });
 });

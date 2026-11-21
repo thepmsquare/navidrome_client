@@ -117,9 +117,32 @@ class AudioPlaybackService : MediaSessionService() {
   private val mediaSuffixes = java.util.Collections.synchronizedMap(mutableMapOf<String, String>())
   private var isSleepTimerActive = false
   private var sleepTimerTargetElapsedRealtime: Long = 0L
+  private var sleepTimerFadeDurationMs: Long = 0L
   private var sleepTimerPendingIntent: PendingIntent? = null
+  private var baseVolume: Float = 1.0f
   private val sleepTimerRunnable = Runnable {
     handleSleepTimerExpired()
+  }
+  private val sleepTimerFadeStartRunnable = Runnable {
+    startSleepTimerFade()
+  }
+  private val sleepTimerFadeStepRunnable = object : Runnable {
+    override fun run() {
+      if (!isSleepTimerActive || sleepTimerFadeDurationMs <= 0L) return
+      val remainingMs = sleepTimerTargetElapsedRealtime - SystemClock.elapsedRealtime()
+      if (remainingMs <= 0L) {
+        player?.volume = 0f
+      } else {
+        val fraction = (remainingMs.toFloat() / sleepTimerFadeDurationMs.toFloat()).coerceIn(0f, 1f)
+        player?.volume = baseVolume * fraction
+        mainHandler.postDelayed(this, 100L)
+      }
+    }
+  }
+
+  private fun startSleepTimerFade() {
+    mainHandler.removeCallbacks(sleepTimerFadeStepRunnable)
+    sleepTimerFadeStepRunnable.run()
   }
 
   private fun startProgressUpdates() {
@@ -1020,8 +1043,19 @@ class AudioPlaybackService : MediaSessionService() {
   }
 
   fun setVolume(volume: Float) {
-    player?.volume = volume.coerceIn(0f, 1f)
+    baseVolume = volume.coerceIn(0f, 1f)
+    if (isSleepTimerActive && sleepTimerFadeDurationMs > 0L) {
+      val remainingMs = sleepTimerTargetElapsedRealtime - SystemClock.elapsedRealtime()
+      if (remainingMs in 1..sleepTimerFadeDurationMs) {
+        val fraction = (remainingMs.toFloat() / sleepTimerFadeDurationMs.toFloat()).coerceIn(0f, 1f)
+        player?.volume = baseVolume * fraction
+        return
+      }
+    }
+    player?.volume = baseVolume
   }
+
+  fun getVolume(): Float = player?.volume ?: baseVolume
 
   fun setRepeatMode(mode: String) {
     val normalized = mode.lowercase()
@@ -1055,9 +1089,19 @@ class AudioPlaybackService : MediaSessionService() {
       cancelSleepTimerInternal()
 
       isSleepTimerActive = true
-      sleepTimerTargetElapsedRealtime = SystemClock.elapsedRealtime() + durationMs
+      val now = SystemClock.elapsedRealtime()
+      sleepTimerTargetElapsedRealtime = now + durationMs
+      val fadeDuration = minOf(30_000L, durationMs)
+      sleepTimerFadeDurationMs = fadeDuration
 
       mainHandler.postDelayed(sleepTimerRunnable, durationMs)
+
+      val fadeStartDelay = durationMs - fadeDuration
+      if (fadeStartDelay <= 0L) {
+        startSleepTimerFade()
+      } else {
+        mainHandler.postDelayed(sleepTimerFadeStartRunnable, fadeStartDelay)
+      }
 
       val alarmManager = getSystemService(Context.ALARM_SERVICE) as? AlarmManager
       if (alarmManager != null) {
@@ -1114,7 +1158,11 @@ class AudioPlaybackService : MediaSessionService() {
   private fun cancelSleepTimerInternal() {
     isSleepTimerActive = false
     sleepTimerTargetElapsedRealtime = 0L
+    sleepTimerFadeDurationMs = 0L
     mainHandler.removeCallbacks(sleepTimerRunnable)
+    mainHandler.removeCallbacks(sleepTimerFadeStartRunnable)
+    mainHandler.removeCallbacks(sleepTimerFadeStepRunnable)
+    player?.volume = baseVolume
     sleepTimerPendingIntent?.let { pi ->
       val alarmManager = getSystemService(Context.ALARM_SERVICE) as? AlarmManager
       alarmManager?.cancel(pi)
