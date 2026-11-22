@@ -117,6 +117,14 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
 - [ ] **audit & placement of cache button** (`lib-4`)
   - **task:** document every surface where the "make available offline" button should appear (song rows, album, playlist, artist, player, search) and implement the missing placements.
 
+- [ ] **smart playlist creation & modifications** (`lib-5`)
+  - **context:** smart playlists dynamically generate track lists based on customizable criteria (e.g. rating, play count, genre, release year, recently added, unplayed). navidrome supports rule-based smart playlists, and local sqlite enables instant query evaluation.
+  - **task:**
+    - design a smart playlist builder dialog / screen with rule selectors (criteria: genre, artist, rating, year, play count, last played, duration, limit, sort order).
+    - support editing and updating rules for existing smart playlists.
+    - provide live preview of matching tracks as rules are adjusted.
+    - evaluate queries against local sqlite database for instant offline-capable playback.
+
 ## offline & network
 
 - [x] **persist album art for offline cached songs** (`off-1`)
@@ -143,6 +151,10 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
     - queue offline mutations (star, rating, scrobbles, playlist additions) and replay on reconnect.
     - pause in-flight downloads cleanly on connection drop and resume automatically.
     - reconnect, ping fallback urls, and flush queues without interrupting playback.
+
+- [ ] **global offline mode toggle** (`off-10`)
+  - **context:** v1 featured a global "offline mode" toggle in settings and in a top banner. when active, the entire application (home sections, library lists, search) filtered to show only saved offline / cached content, distinct from the transient "no internet" state.
+  - **task:** add a global offline mode switch in `app/(main)/settings.tsx` and an offline indicator banner, persist state, and filter home, library screens, and search results to cached media when active.
 
 - [ ] **storage breakdown & cache management screen** (`off-6`)
   - **task:** show disk usage by manual downloads, auto-cache, artwork, and database. sort by artist/album. bulk prune/delete.
@@ -190,6 +202,10 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
     - left/right swipe gestures on the music player (album art) to trigger next/previous track changes.
   - **task:** implement fluid gesture-driven animations using react-native-reanimated and gesture handler for mini player expansion/collapse, swipe-up queue sheet transition, and horizontal swipe gestures on the player for track changes.
 
+- [ ] **font family selector** (`ui-5`)
+  - **context:** v1 included a font selector in settings supporting multiple font choices (inter, roboto, poppins, outfit, plus jakarta sans, system font) that updated the application typography dynamically.
+  - **task:** add a font family selection dialog / sheet in `app/(main)/settings.tsx`, integrate custom fonts with React Native Paper / app typography theme, and persist the user's choice across app restarts.
+
 ## security
 
 - [ ] **backup export credentials disclosure** (`sec-1`)
@@ -219,9 +235,9 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
   - **task:** build the universal apk from the aab with `bundletool` instead of a second `assembleRelease`, add gradle caching and configuration cache, and enable parallel builds.
   - **implementation:** replaced redundant `assembleRelease` build with fast `bundletool` universal apk extraction from signed aab, increased runner jvm heap to 6gb with g1gc and parallel workers, optimized debug symbols to `SYMBOL_TABLE`, and enabled gradle caching.
 
-- [ ] **local js error log + export** (`dbg-1`)
-  - **context:** play vitals only surfaces native crashes and anrs.
-  - **task:** keep a bounded ring buffer of js errors in sqlite and expose "export debug logs" in settings.
+- [ ] **in-app event log viewer & export** (`dbg-1`)
+  - **context:** v1 provided a dedicated event log screen (`event_log_page.dart`) displaying timestamped log entries across `debug`, `info`, `warning`, and `error` levels, formatted stack traces, level filtering, and one-tap copy/share to clipboard. currently play vitals only surfaces native crashes and anrs.
+  - **task:** maintain a bounded ring buffer of events, network diagnostics, and js errors in sqlite, create an in-app event log viewer screen with search and level filters, allow copying formatted logs to clipboard, and expose "view event log" and "export debug logs" in settings.
 
 ## release & testing
 
@@ -259,7 +275,9 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
 
 - [ ] **local network server auto-discovery (mdns / ssdp)** (`future-1`)
 - [ ] **shareable guest song links (`createShare`)** (`future-2`)
-- [ ] **remote control for other navidrome clients** (`future-3`)
+- [ ] **cross-device now playing queue takeover & remote control** (`future-3`)
+  - **context:** v1 included an experimental cross-device session viewer (`sync_page.dart`) that periodically polled `getNowPlaying()`, identified active sessions for the same user on other clients (web, desktop, or mobile), and displayed the active track, artist, and player name. tapping a session fetched `getPlayQueue()` and `positionMs` (OpenSubsonic extension) to immediately adopt that remote queue and seek to the active position locally.
+  - **task:** build a session viewer to discover active sessions on other clients for the current account, adopt remote queues and position timestamps via the Subsonic API for seamless playback handover, and expand into full remote playback control.
 - [ ] **synchronized group listening ("jam" sessions)** (`future-4`)
 - [ ] **server statistics & analytics dashboard** (`future-5`)
 - [ ] **pre auto-caching of next song** (`future-6`)
