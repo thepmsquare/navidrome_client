@@ -106,12 +106,12 @@ describe("PlaylistsScreen", () => {
       component = renderer.create(<PlaylistsScreen />);
     });
 
-    const { List } = require("react-native-paper");
-    const listItems = component.root.findAllByType(List.Item);
-    expect(listItems.length).toBe(2);
+    const { PlaylistRow } = require("@/components/PlaylistRow");
+    const playlistRows = component.root.findAllByType(PlaylistRow);
+    expect(playlistRows.length).toBe(2);
     // "ambient relax" before "rock hits"
-    expect(listItems[0].props.title).toBe("ambient relax");
-    expect(listItems[1].props.title).toBe("rock hits");
+    expect(playlistRows[0].props.playlist.name).toBe("ambient relax");
+    expect(playlistRows[1].props.playlist.name).toBe("rock hits");
 
     renderer.act(() => {
       component.unmount();
@@ -124,14 +124,15 @@ describe("PlaylistsScreen", () => {
       component = renderer.create(<PlaylistsScreen />);
     });
 
-    const { List } = require("react-native-paper");
-    const listItems = component.root.findAllByType(List.Item);
-    const rockHitsItem = listItems.find(
-      (item: any) => item.props.title === "rock hits",
+    const { PlaylistRow } = require("@/components/PlaylistRow");
+    const playlistRows = component.root.findAllByType(PlaylistRow);
+    const rockHitsItem = playlistRows.find(
+      (item: any) => item.props.playlist.name === "rock hits",
     );
 
+    const touchable = rockHitsItem.findByProps({ accessibilityRole: "button" });
     renderer.act(() => {
-      rockHitsItem.props.onPress();
+      touchable.props.onPress();
     });
 
     expect(mockPush).toHaveBeenCalledWith({
@@ -152,7 +153,8 @@ describe("PlaylistsScreen", () => {
       component = renderer.create(<PlaylistsScreen />);
     });
 
-    const { Searchbar, List } = require("react-native-paper");
+    const { Searchbar } = require("react-native-paper");
+    const { PlaylistRow } = require("@/components/PlaylistRow");
     const searchbar = component.root.findByType(Searchbar);
 
     renderer.act(() => {
@@ -161,9 +163,9 @@ describe("PlaylistsScreen", () => {
 
     expect(searchPlaylists).toHaveBeenCalledWith("rock", 1000);
 
-    const listItems = component.root.findAllByType(List.Item);
-    expect(listItems.length).toBe(1);
-    expect(listItems[0].props.title).toBe("rock hits");
+    const playlistRows = component.root.findAllByType(PlaylistRow);
+    expect(playlistRows.length).toBe(1);
+    expect(playlistRows[0].props.playlist.name).toBe("rock hits");
 
     renderer.act(() => {
       component.unmount();
@@ -176,7 +178,8 @@ describe("PlaylistsScreen", () => {
       component = renderer.create(<PlaylistsScreen />);
     });
 
-    const { Menu, IconButton, List } = require("react-native-paper");
+    const { Menu, IconButton } = require("react-native-paper");
+    const { PlaylistRow } = require("@/components/PlaylistRow");
     const menuItems = component.root.findAllByType(Menu.Item);
     const songCountOption = menuItems.find(
       (item: any) => item.props.title === "track count",
@@ -186,10 +189,10 @@ describe("PlaylistsScreen", () => {
       songCountOption.props.onPress();
     });
 
-    let listItems = component.root.findAllByType(List.Item);
+    let playlistRows = component.root.findAllByType(PlaylistRow);
     // 10 ("ambient relax") before 25 ("rock hits") in asc
-    expect(listItems[0].props.title).toBe("ambient relax");
-    expect(listItems[1].props.title).toBe("rock hits");
+    expect(playlistRows[0].props.playlist.name).toBe("ambient relax");
+    expect(playlistRows[1].props.playlist.name).toBe("rock hits");
 
     // Toggle to desc
     const iconButtons = component.root.findAllByType(IconButton);
@@ -203,10 +206,10 @@ describe("PlaylistsScreen", () => {
       orderButton.props.onPress();
     });
 
-    listItems = component.root.findAllByType(List.Item);
+    playlistRows = component.root.findAllByType(PlaylistRow);
     // 25 ("rock hits") before 10 ("ambient relax") in desc
-    expect(listItems[0].props.title).toBe("rock hits");
-    expect(listItems[1].props.title).toBe("ambient relax");
+    expect(playlistRows[0].props.playlist.name).toBe("rock hits");
+    expect(playlistRows[1].props.playlist.name).toBe("ambient relax");
 
     renderer.act(() => {
       component.unmount();

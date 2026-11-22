@@ -99,12 +99,12 @@ describe("ArtistsScreen", () => {
       component = renderer.create(<ArtistsScreen />);
     });
 
-    const { List } = require("react-native-paper");
-    const listItems = component.root.findAllByType(List.Item);
+    const { ArtistRow } = require("@/components/ArtistRow");
+    const artistRows = component.root.findAllByType(ArtistRow);
     // Only pink floyd and the beatles should be rendered; empty artist is hidden by default
-    expect(listItems.length).toBe(2);
-    expect(listItems[0].props.title).toBe("pink floyd");
-    expect(listItems[1].props.title).toBe("the beatles");
+    expect(artistRows.length).toBe(2);
+    expect(artistRows[0].props.artist.name).toBe("pink floyd");
+    expect(artistRows[1].props.artist.name).toBe("the beatles");
 
     renderer.act(() => {
       component.unmount();
@@ -118,7 +118,8 @@ describe("ArtistsScreen", () => {
     });
 
     const { ArtistsFilterModal } = require("@/components/ArtistsFilterModal");
-    const { List, IconButton } = require("react-native-paper");
+    const { ArtistRow } = require("@/components/ArtistRow");
+    const { IconButton } = require("react-native-paper");
 
     let filterModal = component.root.findByType(ArtistsFilterModal);
     expect(filterModal.props.visible).toBe(false);
@@ -143,9 +144,9 @@ describe("ArtistsScreen", () => {
       filterModal.props.onToggleHideEmptyArtists(false);
     });
 
-    let listItems = component.root.findAllByType(List.Item);
-    expect(listItems.length).toBe(3);
-    const titles = listItems.map((item: any) => item.props.title);
+    let artistRows = component.root.findAllByType(ArtistRow);
+    expect(artistRows.length).toBe(3);
+    const titles = artistRows.map((item: any) => item.props.artist.name);
     expect(titles).toContain("empty artist");
 
     // Toggle filter back to hide 0-album artists
@@ -153,9 +154,9 @@ describe("ArtistsScreen", () => {
       filterModal.props.onToggleHideEmptyArtists(true);
     });
 
-    listItems = component.root.findAllByType(List.Item);
-    expect(listItems.length).toBe(2);
-    expect(listItems.map((item: any) => item.props.title)).not.toContain("empty artist");
+    artistRows = component.root.findAllByType(ArtistRow);
+    expect(artistRows.length).toBe(2);
+    expect(artistRows.map((item: any) => item.props.artist.name)).not.toContain("empty artist");
 
     renderer.act(() => {
       component.unmount();
@@ -170,7 +171,8 @@ describe("ArtistsScreen", () => {
       component = renderer.create(<ArtistsScreen />);
     });
 
-    const { Searchbar, List } = require("react-native-paper");
+    const { Searchbar } = require("react-native-paper");
+    const { ArtistRow } = require("@/components/ArtistRow");
     const searchbar = component.root.findByType(Searchbar);
 
     renderer.act(() => {
@@ -179,9 +181,9 @@ describe("ArtistsScreen", () => {
 
     expect(searchArtists).toHaveBeenCalledWith("beatles", 1000);
 
-    const listItems = component.root.findAllByType(List.Item);
-    expect(listItems.length).toBe(1);
-    expect(listItems[0].props.title).toBe("the beatles");
+    const artistRows = component.root.findAllByType(ArtistRow);
+    expect(artistRows.length).toBe(1);
+    expect(artistRows[0].props.artist.name).toBe("the beatles");
 
     renderer.act(() => {
       component.unmount();
@@ -204,10 +206,11 @@ describe("ArtistsScreen", () => {
       albumCountOption.props.onPress();
     });
 
-    let listItems = component.root.findAllByType(List.Item);
+    const { ArtistRow } = require("@/components/ArtistRow");
+    let artistRows = component.root.findAllByType(ArtistRow);
     // 15 ("pink floyd") before 22 ("the beatles") in asc
-    expect(listItems[0].props.title).toBe("pink floyd");
-    expect(listItems[1].props.title).toBe("the beatles");
+    expect(artistRows[0].props.artist.name).toBe("pink floyd");
+    expect(artistRows[1].props.artist.name).toBe("the beatles");
 
     // Toggle to desc
     const iconButtons = component.root.findAllByType(IconButton);
@@ -221,10 +224,10 @@ describe("ArtistsScreen", () => {
       orderButton.props.onPress();
     });
 
-    listItems = component.root.findAllByType(List.Item);
+    artistRows = component.root.findAllByType(ArtistRow);
     // 22 ("the beatles") before 15 ("pink floyd") in desc
-    expect(listItems[0].props.title).toBe("the beatles");
-    expect(listItems[1].props.title).toBe("pink floyd");
+    expect(artistRows[0].props.artist.name).toBe("the beatles");
+    expect(artistRows[1].props.artist.name).toBe("pink floyd");
 
     renderer.act(() => {
       component.unmount();

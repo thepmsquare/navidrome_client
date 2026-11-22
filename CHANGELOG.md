@@ -5,12 +5,16 @@
 ### user release notes
 
 - gradual volume fade-out during final 30 seconds of sleep timer.
+- universal artist and playlist rows with options menu across library and search.
 
 ### internal notes
 
 - ramp down exoplayer volume smoothly in audioplaybackservice during the final 30 seconds of duration sleep timers.
 - restore volume upon sleep timer completion or cancellation.
 - expose getVolume in audioplaybackmodule and coordinate volume ramp in services/sleepTimer.ts.
+- add universal ArtistRow and PlaylistRow components with ArtistContextMenuModal and PlaylistContextMenuModal.
+- support play, shuffle play, add to queue, and favorite from artist and playlist context menus.
+- adopt ArtistRow and PlaylistRow across artists, playlists, favorites, and search screens.
 
 ## 2.40.0+88
 

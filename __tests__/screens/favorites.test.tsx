@@ -211,7 +211,8 @@ describe("FavoritesScreen", () => {
       component = renderer.create(<FavoritesScreen />);
     });
 
-    const { Chip, Searchbar, List } = require("react-native-paper");
+    const { Chip, Searchbar } = require("react-native-paper");
+    const { ArtistRow } = require("@/components/ArtistRow");
     const chips = component.root.findAllByType(Chip);
     const artistsChip = chips.find((c: any) => c.props.children === "artists");
 
@@ -222,14 +223,15 @@ describe("FavoritesScreen", () => {
     const searchbar = component.root.findByType(Searchbar);
     expect(searchbar.props.placeholder).toBe("search artists");
 
-    const listItems = component.root.findAllByType(List.Item);
-    expect(listItems.length).toBe(2);
-    expect(listItems[0].props.title).toBe("led zeppelin");
-    expect(listItems[1].props.title).toBe("pink floyd");
+    const artistRows = component.root.findAllByType(ArtistRow);
+    expect(artistRows.length).toBe(2);
+    expect(artistRows[0].props.artist.name).toBe("led zeppelin");
+    expect(artistRows[1].props.artist.name).toBe("pink floyd");
 
     // Press artist navigates to /artist/[id]
+    const touchables = artistRows[1].findAllByProps({ accessibilityRole: "button" });
     renderer.act(() => {
-      listItems[1].props.onPress();
+      touchables[0].props.onPress();
     });
     expect(mockPush).toHaveBeenCalledWith({
       pathname: "/artist/[id]",

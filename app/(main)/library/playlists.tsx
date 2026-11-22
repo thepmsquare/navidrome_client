@@ -1,18 +1,17 @@
-import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, RefreshControl, View } from "react-native";
 import {
   Appbar,
-  Avatar,
   Button,
   IconButton,
-  List,
   Menu,
   Searchbar,
   Surface,
   Text,
 } from "react-native-paper";
+
+import { PlaylistRow } from "@/components/PlaylistRow";
 
 import { getCoverArtBaseUrl, getPlaylists } from "@/services/api";
 import { getAllPlaylists, searchPlaylists, upsertPlaylistsBatch } from "@/services/db";
@@ -190,35 +189,9 @@ export default function PlaylistsScreen() {
             <Text variant="bodyLarge">no playlists found</Text>
           </View>
         }
-        renderItem={({ item }) => {
-          const artUrl = getArtUrl ? getArtUrl(item.coverArt) : null;
-
-          return (
-            <List.Item
-              title={item.name}
-              description={`${item.songCount ?? 0} tracks`}
-              onPress={() =>
-                router.push({
-                  pathname: "/(main)/library/playlist/[id]",
-                  params: { id: item.id },
-                })
-              }
-              left={(props) =>
-                artUrl ? (
-                  <Image
-                    source={{ uri: artUrl, cacheKey: `${item.coverArt}-300` }}
-                    style={playlistsStyles.artwork}
-                    contentFit="cover"
-                    transition={200}
-                    cachePolicy="memory-disk"
-                  />
-                ) : (
-                  <Avatar.Icon {...props} size={48} icon="playlist-music" />
-                )
-              }
-            />
-          );
-        }}
+        renderItem={({ item }) => (
+          <PlaylistRow playlist={item} getArtUrl={getArtUrl} />
+        )}
       />
     </Surface>
   );

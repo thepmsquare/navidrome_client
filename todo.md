@@ -95,7 +95,7 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
     - [x] mini-player streamlining
     - [x] universal song row + context menu
     - [x] universal album components (`<AlbumRow />` / `<AlbumCard />`) across library, search, home, artist detail
-    - [/] universal artist & playlist rows (`<ArtistRow />` / `<PlaylistRow />`) across library and search
+    - [x] universal artist & playlist rows (`<ArtistRow />` / `<PlaylistRow />`) across library and search
     - [/] specialized song list extensibility for download queue and pending scrobbles
 
 - [ ] **playlist management & mutations** (`lib-1`)

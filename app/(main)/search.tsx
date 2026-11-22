@@ -15,6 +15,8 @@ import {
 } from "react-native-paper";
 
 import { AlbumRow } from "@/components/AlbumRow";
+import { ArtistRow } from "@/components/ArtistRow";
+import { PlaylistRow } from "@/components/PlaylistRow";
 import { SongRow } from "@/components/SongRow";
 import { getCoverArtBaseUrl } from "@/services/api";
 import {
@@ -188,22 +190,11 @@ export default function SearchScreen() {
   );
 
   const renderArtistItem = (item: ArtistID3) => {
-    let artUrl: string | null = null;
-    if (item.artistImageUrl && item.artistImageUrl.startsWith("http")) {
-      artUrl = item.artistImageUrl;
-    } else if (getArtUrl) {
-      artUrl = getArtUrl(item.coverArt);
-    }
-
     return (
-      <List.Item
+      <ArtistRow
         key={`artist-${item.id}`}
-        title={item.name}
-        description={
-          item.albumCount !== undefined && item.albumCount !== null
-            ? `${item.albumCount} ${item.albumCount === 1 ? "album" : "albums"}`
-            : undefined
-        }
+        artist={item}
+        getArtUrl={getArtUrl}
         onPress={() => {
           saveCurrentSearch();
           router.push({
@@ -211,34 +202,16 @@ export default function SearchScreen() {
             params: { id: item.id },
           });
         }}
-        left={(props) =>
-          artUrl ? (
-            <Image
-              source={{ uri: artUrl, cacheKey: `${item.coverArt}-300` }}
-              style={searchStyles.artistAvatar}
-              contentFit="cover"
-              transition={200}
-              cachePolicy="memory-disk"
-            />
-          ) : (
-            <Avatar.Icon {...props} size={48} icon="account-music" />
-          )
-        }
       />
     );
   };
 
   const renderPlaylistItem = (item: Playlist) => {
-    const artUrl = getArtUrl ? getArtUrl(item.coverArt) : null;
     return (
-      <List.Item
+      <PlaylistRow
         key={`playlist-${item.id}`}
-        title={item.name}
-        description={
-          item.songCount !== undefined && item.songCount !== null
-            ? `${item.songCount} ${item.songCount === 1 ? "track" : "tracks"}`
-            : undefined
-        }
+        playlist={item}
+        getArtUrl={getArtUrl}
         onPress={() => {
           saveCurrentSearch();
           router.push({
@@ -246,19 +219,6 @@ export default function SearchScreen() {
             params: { id: item.id },
           });
         }}
-        left={(props) =>
-          artUrl ? (
-            <Image
-              source={{ uri: artUrl, cacheKey: `${item.coverArt}-300` }}
-              style={searchStyles.artwork}
-              contentFit="cover"
-              transition={200}
-              cachePolicy="memory-disk"
-            />
-          ) : (
-            <Avatar.Icon {...props} size={48} icon="playlist-music" />
-          )
-        }
       />
     );
   };

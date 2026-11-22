@@ -16,6 +16,7 @@ import {
 } from "react-native-paper";
 
 import { AlbumRow } from "@/components/AlbumRow";
+import { ArtistRow } from "@/components/ArtistRow";
 import { SongRow } from "@/components/SongRow";
 import { client_app_sync, getCoverArtBaseUrl } from "@/services/api";
 import {
@@ -479,44 +480,9 @@ export default function FavoritesScreen() {
               <Text variant="bodyLarge">{emptyText}</Text>
             </View>
           }
-          renderItem={({ item }) => {
-            let artUrl: string | null = null;
-            if (item.artistImageUrl && item.artistImageUrl.startsWith("http")) {
-              artUrl = item.artistImageUrl;
-            } else if (getArtUrl) {
-              artUrl = getArtUrl(item.coverArt);
-            }
-
-            return (
-              <List.Item
-                title={item.name}
-                description={
-                  item.albumCount !== undefined && item.albumCount !== null
-                    ? `${item.albumCount} ${item.albumCount === 1 ? "album" : "albums"}`
-                    : undefined
-                }
-                onPress={() =>
-                  router.push({
-                    pathname: "/artist/[id]",
-                    params: { id: item.id },
-                  })
-                }
-                left={(props) =>
-                  artUrl ? (
-                    <Image
-                      source={{ uri: artUrl, cacheKey: `${item.coverArt}-300` }}
-                      style={artistsStyles.artwork}
-                      contentFit="cover"
-                      transition={200}
-                      cachePolicy="memory-disk"
-                    />
-                  ) : (
-                    <Avatar.Icon {...props} size={48} icon="account-music" />
-                  )
-                }
-              />
-            );
-          }}
+          renderItem={({ item }) => (
+            <ArtistRow artist={item} getArtUrl={getArtUrl} />
+          )}
         />
       )}
     </Surface>

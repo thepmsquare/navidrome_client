@@ -1,19 +1,17 @@
-import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, RefreshControl, View } from "react-native";
 import {
   Appbar,
-  Avatar,
   Button,
   IconButton,
-  List,
   Menu,
   Searchbar,
   Surface,
   Text,
 } from "react-native-paper";
 
+import { ArtistRow } from "@/components/ArtistRow";
 import { ArtistsFilterModal } from "@/components/ArtistsFilterModal";
 import { client_app_sync, getCoverArtBaseUrl } from "@/services/api";
 import { getAllArtists, searchArtists } from "@/services/db";
@@ -196,44 +194,9 @@ export default function ArtistsScreen() {
             <Text variant="bodyLarge">no artists found</Text>
           </View>
         }
-        renderItem={({ item }) => {
-          let artUrl: string | null = null;
-          if (item.artistImageUrl && item.artistImageUrl.startsWith("http")) {
-            artUrl = item.artistImageUrl;
-          } else if (getArtUrl) {
-            artUrl = getArtUrl(item.coverArt);
-          }
-
-          return (
-            <List.Item
-              title={item.name}
-              description={
-                item.albumCount !== undefined && item.albumCount !== null
-                  ? `${item.albumCount} ${item.albumCount === 1 ? "album" : "albums"}`
-                  : undefined
-              }
-              onPress={() =>
-                router.push({
-                  pathname: "/artist/[id]",
-                  params: { id: item.id },
-                })
-              }
-              left={(props) =>
-                artUrl ? (
-                  <Image
-                    source={{ uri: artUrl, cacheKey: `${item.coverArt}-300` }}
-                    style={artistsStyles.artwork}
-                    contentFit="cover"
-                    transition={200}
-                    cachePolicy="memory-disk"
-                  />
-                ) : (
-                  <Avatar.Icon {...props} size={48} icon="account-music" />
-                )
-              }
-            />
-          );
-        }}
+        renderItem={({ item }) => (
+          <ArtistRow artist={item} getArtUrl={getArtUrl} />
+        )}
       />
 
       <ArtistsFilterModal

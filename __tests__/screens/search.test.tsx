@@ -173,11 +173,14 @@ describe("SearchScreen", () => {
 
     const { SongRow } = require("@/components/SongRow");
     const { AlbumRow } = require("@/components/AlbumRow");
-    const listItems = component.root.findAllByType(List.Item);
+    const { ArtistRow } = require("@/components/ArtistRow");
+    const { PlaylistRow } = require("@/components/PlaylistRow");
     const albumRows = component.root.findAllByType(AlbumRow);
     const songRows = component.root.findAllByType(SongRow);
+    const artistRows = component.root.findAllByType(ArtistRow);
+    const playlistRows = component.root.findAllByType(PlaylistRow);
     expect(
-      listItems.length + albumRows.length + songRows.length,
+      albumRows.length + songRows.length + artistRows.length + playlistRows.length,
     ).toBeGreaterThanOrEqual(4);
 
     renderer.act(() => {
