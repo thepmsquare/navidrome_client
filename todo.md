@@ -195,12 +195,16 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
 - [ ] **continuous ui/ux refinements** (`eng-5`)
   - **task:** haptics, spacing, typography, dark-mode contrast, route animations, and touch targets.
 
-- [ ] **player gestures and transition animations** (`ui-4`)
+- [/] **player gestures and transition animations** (`ui-4`)
   - **context:** v1 had smooth fluid transitions and gestures across the playback surface:
     - expanding from bottom mini player to full music player screen ([`app/player.tsx`](./app/player.tsx)) and collapsing back down.
     - swiping up from the music player to open the queue sheet/view (and swiping down to dismiss).
     - left/right swipe gestures on the music player (album art) to trigger next/previous track changes.
-  - **task:** implement fluid gesture-driven animations using react-native-reanimated and gesture handler for mini player expansion/collapse, swipe-up queue sheet transition, and horizontal swipe gestures on the player for track changes.
+  - **task:**
+    - [x] horizontal swipe left/right gestures on mini player with reanimated spring feedback to change songs.
+    - [ ] mini player expansion/collapse gestures into full music player.
+    - [ ] swipe-up queue sheet transition from music player.
+    - [ ] horizontal swipe gestures on full music player for track changes.
 
 - [ ] **font family selector** (`ui-5`)
   - **context:** v1 included a font selector in settings supporting multiple font choices (inter, roboto, poppins, outfit, plus jakarta sans, system font) that updated the application typography dynamically.

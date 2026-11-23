@@ -1,11 +1,12 @@
 # changelog
 
-## unreleased
+## 2.41.0+89
 
 ### user release notes
 
 - gradual volume fade-out during final 30 seconds of sleep timer.
 - universal artist and playlist rows with options menu across library and search.
+- swipe left and right gestures on mini player to change tracks.
 
 ### internal notes
 
@@ -15,6 +16,8 @@
 - add universal ArtistRow and PlaylistRow components with ArtistContextMenuModal and PlaylistContextMenuModal.
 - support play, shuffle play, add to queue, and favorite from artist and playlist context menus.
 - adopt ArtistRow and PlaylistRow across artists, playlists, favorites, and search screens.
+- implement Gesture.Pan with react-native-reanimated horizontal drag and spring animations on mini player track container.
+- match mini player surface color to elevation.level2 for seamless bottom dock integration.
 
 ## 2.40.0+88
 
