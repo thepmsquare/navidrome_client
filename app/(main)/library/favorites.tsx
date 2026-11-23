@@ -1,14 +1,11 @@
-import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, RefreshControl, ScrollView, View } from "react-native";
 import {
   Appbar,
-  Avatar,
   Button,
   Chip,
   IconButton,
-  List,
   Menu,
   Searchbar,
   Surface,
@@ -29,7 +26,7 @@ import {
   searchStarredSongs,
 } from "@/services/db";
 import { playPlaylist } from "@/services/player";
-import { artistsStyles, searchStyles, songsStyles } from "@/stylesheets";
+import { searchStyles, songsStyles } from "@/stylesheets";
 import { AlbumID3, ArtistID3, Child, SongCacheRow, useAppTheme } from "@/types";
 
 type FavoriteTab = "tracks" | "albums" | "artists";

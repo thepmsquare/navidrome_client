@@ -71,22 +71,6 @@ export function MiniPlayer() {
     isPlayingFromCache,
   } = playerState;
 
-  // Animate track entry when currentTrack changes
-  useEffect(() => {
-    if (!currentTrack) return;
-    if (previousTrackIdRef.current && previousTrackIdRef.current !== currentTrack.id) {
-      trackOpacity.value = 0;
-      translateX.value = translateX.value < 0 ? 30 : -30;
-      translateX.value = withSpring(0, {
-        damping: 26,
-        stiffness: 240,
-        overshootClamping: true,
-      });
-      trackOpacity.value = withTiming(1, { duration: 160 });
-    }
-    previousTrackIdRef.current = currentTrack.id;
-  }, [currentTrack?.id, trackOpacity, translateX]);
-
   const progress = useMemo(() => {
     if (!duration || duration <= 0) return 0;
     return Math.min(Math.max(position / duration, 0), 1);
@@ -110,62 +94,76 @@ export function MiniPlayer() {
     );
   }, []);
 
-  const panGesture = useMemo(() => {
-    return Gesture.Pan()
-      .activeOffsetX([-10, 10])
-      .failOffsetY([-15, 15])
-      .onUpdate((event) => {
-        translateX.value = event.translationX;
-        trackOpacity.value = interpolate(
-          Math.abs(event.translationX),
-          [0, 100],
-          [1, 0.4],
-          "clamp",
-        );
-      })
-      .onEnd((event) => {
-        const isSwipeLeft =
-          event.translationX < -SWIPE_THRESHOLD ||
-          event.velocityX < -VELOCITY_THRESHOLD;
-        const isSwipeRight =
-          event.translationX > SWIPE_THRESHOLD ||
-          event.velocityX > VELOCITY_THRESHOLD;
+  const panGesture = Gesture.Pan()
+    .activeOffsetX([-10, 10])
+    .failOffsetY([-15, 15])
+    .onUpdate((event) => {
+      translateX.value = event.translationX;
+      trackOpacity.value = interpolate(
+        Math.abs(event.translationX),
+        [0, 100],
+        [1, 0.4],
+        "clamp",
+      );
+    })
+    .onEnd((event) => {
+      const isSwipeLeft =
+        event.translationX < -SWIPE_THRESHOLD ||
+        event.velocityX < -VELOCITY_THRESHOLD;
+      const isSwipeRight =
+        event.translationX > SWIPE_THRESHOLD ||
+        event.velocityX > VELOCITY_THRESHOLD;
 
-        if (isSwipeLeft) {
-          // Swipe left -> play next
-          translateX.value = withTiming(
-            -EXIT_DISTANCE,
-            { duration: 120 },
-            (finished) => {
-              if (finished) {
-                runOnJS(triggerNext)();
-              }
-            },
-          );
-          trackOpacity.value = withTiming(0, { duration: 120 });
-        } else if (isSwipeRight) {
-          // Swipe right -> play previous
-          translateX.value = withTiming(
-            EXIT_DISTANCE,
-            { duration: 120 },
-            (finished) => {
-              if (finished) {
-                runOnJS(triggerPrevious)();
-              }
-            },
-          );
-          trackOpacity.value = withTiming(0, { duration: 120 });
-        } else {
-          // Cancel gesture and snap back to center
-          translateX.value = withSpring(0, {
-            damping: 26,
-            stiffness: 240,
-            overshootClamping: true,
-          });
-          trackOpacity.value = withTiming(1, { duration: 140 });
-        }
+      if (isSwipeLeft) {
+        // Swipe left -> play next
+        translateX.value = withTiming(
+          -EXIT_DISTANCE,
+          { duration: 120 },
+          (finished) => {
+            if (finished) {
+              runOnJS(triggerNext)();
+            }
+          },
+        );
+        trackOpacity.value = withTiming(0, { duration: 120 });
+      } else if (isSwipeRight) {
+        // Swipe right -> play previous
+        translateX.value = withTiming(
+          EXIT_DISTANCE,
+          { duration: 120 },
+          (finished) => {
+            if (finished) {
+              runOnJS(triggerPrevious)();
+            }
+          },
+        );
+        trackOpacity.value = withTiming(0, { duration: 120 });
+      } else {
+        // Cancel gesture and snap back to center
+        translateX.value = withSpring(0, {
+          damping: 26,
+          stiffness: 240,
+          overshootClamping: true,
+        });
+        trackOpacity.value = withTiming(1, { duration: 140 });
+      }
+    });
+
+  // Animate track entry when currentTrack changes
+  useEffect(() => {
+    if (!currentTrack) return;
+    if (previousTrackIdRef.current && previousTrackIdRef.current !== currentTrack.id) {
+      trackOpacity.value = 0;
+      translateX.value = translateX.value < 0 ? 30 : -30;
+      translateX.value = withSpring(0, {
+        damping: 26,
+        stiffness: 240,
+        overshootClamping: true,
       });
-  }, [translateX, trackOpacity, triggerNext, triggerPrevious]);
+      trackOpacity.value = withTiming(1, { duration: 160 });
+    }
+    previousTrackIdRef.current = currentTrack.id;
+  }, [currentTrack, trackOpacity, translateX]);
 
   const animatedTrackStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],

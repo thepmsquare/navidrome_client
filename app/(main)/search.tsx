@@ -1,14 +1,11 @@
-import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, ScrollView, View } from "react-native";
 import {
   Appbar,
-  Avatar,
   Button,
   Chip,
   Icon,
-  List,
   Searchbar,
   Surface,
   Text,
