@@ -915,6 +915,7 @@ export async function playTrackAtIndex(index: number): Promise<void> {
     }
 
     await seekToTrack(index, 0);
+    await safeNativeCall(play());
 
     scrobble({ id: song.id, submission: false }).catch((err) =>
       console.error("failed to send now playing ping:", err),

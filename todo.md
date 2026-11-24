@@ -204,7 +204,7 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
     - [x] horizontal swipe left/right gestures on mini player with reanimated spring feedback to change songs.
     - [ ] mini player expansion/collapse gestures into full music player.
     - [ ] swipe-up queue sheet transition from music player.
-    - [ ] horizontal swipe gestures on full music player for track changes.
+    - [x] horizontal swipe gestures on full music player for track changes.
 
 - [ ] **font family selector** (`ui-5`)
   - **context:** v1 included a font selector in settings supporting multiple font choices (inter, roboto, poppins, outfit, plus jakarta sans, system font) that updated the application typography dynamically.

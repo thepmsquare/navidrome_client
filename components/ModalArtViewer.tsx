@@ -1,81 +1,109 @@
-import React from "react";
-import { View, Pressable, Image, StyleSheet } from "react-native";
-import { IconButton } from "react-native-paper";
+import { Image } from "expo-image";
+import React, { useEffect } from "react";
+import { BackHandler, Pressable, StyleSheet, View } from "react-native";
+import { IconButton, Modal, Portal } from "react-native-paper";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-interface ModalArtViewerProps {
+import { spacing } from "@/utils/spacing";
+
+export interface ModalArtViewerProps {
   isVisible: boolean;
   artUrl: string | null;
   onClose: () => void;
 }
 
-// Simple Modal Overlay Component
-const ModalOverlay = ({ children, onDismiss }: { 
-    children: React.ReactNode; 
-    onDismiss: () => void 
-}) => {
-    return (
-        <Pressable style={styles.overlay} onPress={onDismiss}>
-            {/* Prevent accidental clicks on the image itself if it's wrapped */}
-            <View style={styles.innerContent}>{children}</View>
+export function ModalArtViewer({
+  isVisible,
+  artUrl,
+  onClose,
+}: ModalArtViewerProps) {
+  const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    if (!isVisible) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      onClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [isVisible, onClose]);
+
+  if (!isVisible || !artUrl) return null;
+
+  return (
+    <Portal>
+      <Modal
+        visible={isVisible}
+        onDismiss={onClose}
+        style={styles.modalRoot}
+        contentContainerStyle={styles.contentContainer}
+      >
+        <Pressable
+          style={styles.backdrop}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="close artwork viewer, full screen album artwork"
+        >
+          <View style={styles.imageWrapper}>
+            <Image
+              source={{ uri: artUrl }}
+              style={styles.image}
+              contentFit="contain"
+              transition={200}
+              cachePolicy="memory-disk"
+            />
+          </View>
         </Pressable>
-    );
-};
 
-// Component for viewing art in a full-screen modal
-export const ModalArtViewer = ({ isVisible, artUrl, onClose }: ModalArtViewerProps) => {
-    if (!isVisible || !artUrl) return null;
+        <IconButton
+          icon="close"
+          size={28}
+          iconColor="#FFFFFF"
+          containerColor="rgba(0, 0, 0, 0.45)"
+          onPress={onClose}
+          accessibilityLabel="close artwork viewer"
+          style={[
+            styles.closeButton,
+            { top: Math.max(insets.top, spacing.md) },
+          ]}
+        />
+      </Modal>
+    </Portal>
+  );
+}
 
-    return (
-        <ModalOverlay onDismiss={onClose}>
-            <View style={[styles.modalContainer, { backgroundColor: 'black' }]}>
-                <Image
-                    source={{ uri: artUrl }}
-                    style={styles.image}
-                    resizeMode="cover" // Fixed contentFit to resizeMode
-                />
-                {/* Close button overlay */}
-                <IconButton
-                    icon="close"
-                    size={30}
-                    iconColor="#FFF"
-                    onPress={onClose}
-                    style={styles.closeButton}
-                />
-            </View>
-        </ModalOverlay>
-    );
-};
-
-// Basic styling for modal components
 const styles = StyleSheet.create({
-    overlay: {
-        position: 'absolute', // Fixed absoluteFillObject usage
-        top: 0, left: 0, right: 0, bottom: 0, // Ensures full coverage
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 1000, // Ensure it's above everything else
-    },
-    innerContent: {
-        width: '100%',
-        height: '100%',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    modalContainer: {
-        flex: 1,
-        width: '100%',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    image: {
-        width: '100%',
-        height: '100%',
-        resizeMode: 'cover',
-    },
-    closeButton: {
-        position: 'absolute',
-        top: 20,
-        right: 20,
-        zIndex: 1 // Ensure it's clickable over the image
-    }
+  modalRoot: {
+    margin: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.95)",
+  },
+  contentContainer: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
+  },
+  backdrop: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  imageWrapper: {
+    width: "100%",
+    height: "100%",
+    padding: spacing.md,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  image: {
+    width: "100%",
+    height: "100%",
+  },
+  closeButton: {
+    position: "absolute",
+    right: spacing.md,
+    margin: 0,
+    zIndex: 10,
+  },
 });

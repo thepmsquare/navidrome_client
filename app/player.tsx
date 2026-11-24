@@ -1,7 +1,16 @@
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BackHandler, Pressable, ScrollView, View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import {
   ActivityIndicator,
   Appbar,
@@ -75,6 +84,11 @@ export default function PlayerScreen() {
   // State for the full-screen art modal
   const [isArtModalVisible, setIsArtModalVisible] = useState(false);
   const [artUrlForModal, setArtUrlForModal] = useState<string | null>(null);
+
+  const artTranslateX = useSharedValue(0);
+  const artOpacity = useSharedValue(1);
+  const previousTrackIdRef = useRef<string | null>(null);
+
   // Lyrics state
   const [lyricsMode, setLyricsModeState] = useState<LyricsMode>(() =>
     getLyricsMode(),
@@ -384,6 +398,69 @@ export default function PlayerScreen() {
     }
   };
 
+  const artPanGesture = Gesture.Pan()
+    .activeOffsetX([-15, 15])
+    .failOffsetY([-20, 20])
+    .onUpdate((event) => {
+      artTranslateX.value = event.translationX;
+      artOpacity.value = interpolate(
+        Math.abs(event.translationX),
+        [0, 160],
+        [1, 0.5],
+        "clamp",
+      );
+    })
+    .onEnd((event) => {
+      const isSwipeLeft =
+        event.translationX < -60 || event.velocityX < -500;
+      const isSwipeRight =
+        event.translationX > 60 || event.velocityX > 500;
+
+      if (isSwipeLeft) {
+        artTranslateX.value = withTiming(-200, { duration: 120 }, (finished) => {
+          if (finished) {
+            runOnJS(handlePlayNext)();
+          }
+        });
+        artOpacity.value = withTiming(0, { duration: 120 });
+      } else if (isSwipeRight) {
+        artTranslateX.value = withTiming(200, { duration: 120 }, (finished) => {
+          if (finished) {
+            runOnJS(handlePlayPrevious)();
+          }
+        });
+        artOpacity.value = withTiming(0, { duration: 120 });
+      } else {
+        artTranslateX.value = withSpring(0, {
+          damping: 26,
+          stiffness: 240,
+          overshootClamping: true,
+        });
+        artOpacity.value = withTiming(1, { duration: 140 });
+      }
+    });
+
+  // Animate artwork entry when currentTrack changes
+  useEffect(() => {
+    if (!currentTrack) return;
+    if (previousTrackIdRef.current && previousTrackIdRef.current !== currentTrack.id) {
+      artOpacity.value = 0;
+      artTranslateX.value = artTranslateX.value < 0 ? 40 : -40;
+      artTranslateX.value = withSpring(0, {
+        damping: 26,
+        stiffness: 240,
+        overshootClamping: true,
+      });
+      artOpacity.value = withTiming(1, { duration: 180 });
+    }
+    previousTrackIdRef.current = currentTrack.id;
+  }, [currentTrack, artOpacity, artTranslateX]);
+
+  const animatedArtStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: artTranslateX.value }],
+    opacity: artOpacity.value,
+  }));
+
   const resolvedArtistId = useMemo(() => {
     if (!currentTrack) return null;
     if (currentTrack.artistId) return currentTrack.artistId;
@@ -516,36 +593,52 @@ export default function PlayerScreen() {
         />
       </Appbar.Header>
 
-      {/* Large Album Artwork (Clickable Area) */}
-      <Pressable onPress={handleArtPress} style={playerStyles.artContainer}>
-        {/* Fixed: Removed functional style callback using currentStyles */}
-        {artUrl ? (
-          <Image
-            source={{
-              uri: artUrl,
-              cacheKey: `${currentTrack.coverArt}-600`,
-            }}
-            style={playerStyles.artwork}
-            contentFit="cover"
-            transition={250}
-            cachePolicy="memory-disk"
-          />
-        ) : (
-          <View
-            style={[
-              playerStyles.artworkPlaceholder,
-              { backgroundColor: theme.colors.surfaceContainerHighest },
+      {/* Large Album Artwork (Clickable Area with Swipe Gestures) */}
+      <GestureDetector gesture={artPanGesture}>
+        <Animated.View style={[playerStyles.artContainer, animatedArtStyle]}>
+          <Pressable
+            onPress={handleArtPress}
+            style={({ pressed }) => [
+              playerStyles.artPressable,
+              pressed && { opacity: 0.88 },
             ]}
+            android_ripple={{
+              color: theme.colors.onSurface + "1F",
+              borderless: false,
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="album artwork, tap to view full size, swipe left or right to change track"
+            testID="player-album-art"
           >
-            <Avatar.Icon
-              size={120}
-              icon="music"
-              style={{ backgroundColor: theme.colors.secondaryContainer }}
-              color={theme.colors.onSecondaryContainer}
-            />
-          </View>
-        )}
-      </Pressable>
+            {artUrl ? (
+              <Image
+                source={{
+                  uri: artUrl,
+                  cacheKey: `${currentTrack.coverArt}-600`,
+                }}
+                style={playerStyles.artwork}
+                contentFit="cover"
+                transition={250}
+                cachePolicy="memory-disk"
+              />
+            ) : (
+              <View
+                style={[
+                  playerStyles.artworkPlaceholder,
+                  { backgroundColor: theme.colors.surfaceContainerHighest },
+                ]}
+              >
+                <Avatar.Icon
+                  size={120}
+                  icon="music"
+                  style={{ backgroundColor: theme.colors.secondaryContainer }}
+                  color={theme.colors.onSecondaryContainer}
+                />
+              </View>
+            )}
+          </Pressable>
+        </Animated.View>
+      </GestureDetector>
 
       {/* Song Name, Artist, Album Name, and Favorite Heart */}
       <View style={playerStyles.infoContainer}>

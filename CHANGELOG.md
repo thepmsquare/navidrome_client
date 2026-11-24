@@ -1,5 +1,21 @@
 # changelog
 
+## unreleased
+
+### user release notes
+
+- swipe left and right gestures on music player artwork to change tracks.
+- automatically resume playback when switching tracks via swipe gestures or skip buttons.
+- fix tap to expand artwork on music player page
+
+### internal notes
+
+- implement pan gesture with react-native-reanimated and react-native-gesture-handler on player artwork.
+- add smooth exit and enter transitions between tracks and spring snap-back physics.
+- trigger playback upon track index changes in services/player.ts.
+- bound artPressable with rounded borders and theme-aware ripple/press state styling.
+- refactor ModalArtViewer to use react-native-paper Portal and Modal with expo-image and hardware back handling.
+
 ## 2.41.0+89
 
 ### user release notes

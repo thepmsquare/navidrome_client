@@ -1,6 +1,55 @@
 import React from "react";
 import renderer, { act } from "react-test-renderer";
 
+jest.mock("react-native-reanimated", () => {
+  const { View } = require("react-native");
+  return {
+    __esModule: true,
+    default: {
+      View,
+    },
+    useSharedValue: (init: any) => ({ value: init }),
+    useAnimatedStyle: (fn: any) => fn(),
+    withTiming: (val: any, _cfg: any, cb?: any) => {
+      if (cb) cb(true);
+      return val;
+    },
+    withSpring: (val: any) => val,
+    runOnJS: (fn: any) => fn,
+    interpolate: (_v: any, _inR: any, outR: any) => outR[0],
+  };
+});
+
+let capturedPan: any = null;
+
+jest.mock("react-native-gesture-handler", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+  return {
+    GestureDetector: ({ children, gesture }: any) => {
+      return React.createElement(View, { testID: "gesture-detector", gesture }, children);
+    },
+    Gesture: {
+      Pan: () => {
+        const panObj: any = {
+          activeOffsetX: () => panObj,
+          failOffsetY: () => panObj,
+          onUpdate: (cb: any) => {
+            panObj._onUpdate = cb;
+            return panObj;
+          },
+          onEnd: (cb: any) => {
+            panObj._onEnd = cb;
+            return panObj;
+          },
+        };
+        capturedPan = panObj;
+        return panObj;
+      },
+    },
+  };
+});
+
 import PlayerScreen from "@/app/player";
 import { getCoverArtBaseUrl } from "@/services/api";
 import {
@@ -1097,6 +1146,139 @@ describe("PlayerScreen", () => {
     });
 
     expect(setPlaybackSpeed).toHaveBeenCalledWith(1.5);
+  });
+
+  describe("artwork swipe gestures", () => {
+    beforeEach(() => {
+      (playNext as jest.Mock).mockClear();
+      (playPrevious as jest.Mock).mockClear();
+    });
+
+    it("triggers playNext when swiping left past threshold with hasNext=true", async () => {
+      (usePlayerState as jest.Mock).mockReturnValue({
+        currentTrack: {
+          id: "song-1",
+          title: "Neon Lights",
+          artist: "Kraftwerk",
+          album: "The Man-Machine",
+          coverArt: "art-1",
+          duration: 300,
+          starred: null,
+          userRating: 0,
+        },
+        isPlaying: true,
+        isBuffering: false,
+        position: 60,
+        duration: 300,
+        repeatMode: "off",
+        hasPrevious: true,
+        hasNext: true,
+        isPlayingFromCache: false,
+        scrobbled: false,
+        playbackSpeed: 1.0,
+      });
+
+      await act(async () => {
+        renderer.create(<PlayerScreen />);
+      });
+
+      expect(capturedPan).toBeDefined();
+
+      // Swipe left
+      act(() => {
+        capturedPan._onUpdate({ translationX: -80 });
+      });
+
+      act(() => {
+        capturedPan._onEnd({ translationX: -80, velocityX: -300 });
+      });
+
+      expect(playNext).toHaveBeenCalled();
+    });
+
+    it("triggers playPrevious when swiping right past threshold with hasPrevious=true", async () => {
+      (usePlayerState as jest.Mock).mockReturnValue({
+        currentTrack: {
+          id: "song-1",
+          title: "Neon Lights",
+          artist: "Kraftwerk",
+          album: "The Man-Machine",
+          coverArt: "art-1",
+          duration: 300,
+          starred: null,
+          userRating: 0,
+        },
+        isPlaying: true,
+        isBuffering: false,
+        position: 60,
+        duration: 300,
+        repeatMode: "off",
+        hasPrevious: true,
+        hasNext: true,
+        isPlayingFromCache: false,
+        scrobbled: false,
+        playbackSpeed: 1.0,
+      });
+
+      await act(async () => {
+        renderer.create(<PlayerScreen />);
+      });
+
+      expect(capturedPan).toBeDefined();
+
+      // Swipe right
+      act(() => {
+        capturedPan._onUpdate({ translationX: 80 });
+      });
+
+      act(() => {
+        capturedPan._onEnd({ translationX: 80, velocityX: 300 });
+      });
+
+      expect(playPrevious).toHaveBeenCalled();
+    });
+
+    it("does not trigger navigation when swiping below threshold", async () => {
+      (usePlayerState as jest.Mock).mockReturnValue({
+        currentTrack: {
+          id: "song-1",
+          title: "Neon Lights",
+          artist: "Kraftwerk",
+          album: "The Man-Machine",
+          coverArt: "art-1",
+          duration: 300,
+          starred: null,
+          userRating: 0,
+        },
+        isPlaying: true,
+        isBuffering: false,
+        position: 60,
+        duration: 300,
+        repeatMode: "off",
+        hasPrevious: true,
+        hasNext: true,
+        isPlayingFromCache: false,
+        scrobbled: false,
+        playbackSpeed: 1.0,
+      });
+
+      await act(async () => {
+        renderer.create(<PlayerScreen />);
+      });
+
+      expect(capturedPan).toBeDefined();
+
+      act(() => {
+        capturedPan._onUpdate({ translationX: -20 });
+      });
+
+      act(() => {
+        capturedPan._onEnd({ translationX: -20, velocityX: 0 });
+      });
+
+      expect(playNext).not.toHaveBeenCalled();
+      expect(playPrevious).not.toHaveBeenCalled();
+    });
   });
 });
 

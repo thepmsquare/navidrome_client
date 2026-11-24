@@ -17,16 +17,23 @@ export const playerStyles = StyleSheet.create({
     justifyContent: "center",
     marginVertical: spacing.md,
   },
-  artwork: {
+  artPressable: {
     width: "100%",
     maxWidth: 360,
     aspectRatio: 1,
     borderRadius: shape.large,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  artwork: {
+    width: "100%",
+    height: "100%",
+    borderRadius: shape.large,
   },
   artworkPlaceholder: {
     width: "100%",
-    maxWidth: 360,
-    aspectRatio: 1,
+    height: "100%",
     borderRadius: shape.large,
     alignItems: "center",
     justifyContent: "center",
@@ -222,4 +229,3 @@ export const playerStyles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
 });
-
