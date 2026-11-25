@@ -6,6 +6,7 @@ import {
   Pressable,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Appbar,
   Avatar,
@@ -28,19 +29,25 @@ import {
 } from "@/services/player";
 import { playbackQueueStyles } from "@/stylesheets";
 import { Child, useAppTheme } from "@/types";
+import { spacing } from "@/utils/spacing";
 
 interface PlaybackQueueViewProps {
   onBack?: () => void;
   showBackAction?: boolean;
   onTrackSelected?: (index: number) => void;
+  wrapHeader?: (header: React.ReactNode) => React.ReactNode;
+  showDragHandle?: boolean;
 }
 
 export function PlaybackQueueView({
   onBack,
   showBackAction = true,
   onTrackSelected,
+  wrapHeader,
+  showDragHandle = false,
 }: PlaybackQueueViewProps) {
   const theme = useAppTheme();
+  const insets = useSafeAreaInsets();
   const { queue, currentIndex } = usePlaybackQueue();
   const { isPlaying, currentTrack } = usePlayerState();
   const [showHistory, setShowHistory] = useState(false);
@@ -331,13 +338,18 @@ export function PlaybackQueueView({
     </View>
   );
 
-  return (
-    <Surface
-      style={[
-        playbackQueueStyles.container,
-        { backgroundColor: theme.colors.background },
-      ]}
-    >
+  const headerElement = (
+    <View>
+      {showDragHandle && (
+        <View style={playbackQueueStyles.dragHandleContainer}>
+          <View
+            style={[
+              playbackQueueStyles.dragHandle,
+              { backgroundColor: theme.colors.outlineVariant },
+            ]}
+          />
+        </View>
+      )}
       <Appbar.Header
         statusBarHeight={0}
         style={playbackQueueStyles.header}
@@ -361,6 +373,17 @@ export function PlaybackQueueView({
           </Text>
         ) : null}
       </Appbar.Header>
+    </View>
+  );
+
+  return (
+    <Surface
+      style={[
+        playbackQueueStyles.container,
+        { backgroundColor: theme.colors.background },
+      ]}
+    >
+      {wrapHeader ? wrapHeader(headerElement) : headerElement}
 
       <FlatList
         data={upcomingSongs}
@@ -368,7 +391,10 @@ export function PlaybackQueueView({
         renderItem={renderUpNextItem}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmpty}
-        contentContainerStyle={playbackQueueStyles.listContent}
+        contentContainerStyle={[
+          playbackQueueStyles.listContent,
+          { paddingBottom: Math.max(spacing.xxl, insets.bottom + spacing.lg) },
+        ]}
       />
     </Surface>
   );

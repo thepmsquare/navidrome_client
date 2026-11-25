@@ -6,6 +6,16 @@ export const playbackQueueStyles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  dragHandleContainer: {
+    alignItems: "center",
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+  },
+  dragHandle: {
+    width: 32,
+    height: 4,
+    borderRadius: shape.full,
+  },
   header: {
     backgroundColor: "transparent",
     paddingHorizontal: spacing.xs,

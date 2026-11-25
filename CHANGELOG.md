@@ -1,14 +1,13 @@
 # changelog
 
-## unreleased
+## 2.42.0+90
 
 ### user release notes
 
-- swipe left and right gestures on music player artwork to change tracks.
-- automatically resume playback when switching tracks via swipe gestures or skip buttons.
-- fix tap to expand artwork on music player page
-- swipe up on mini player to continuously drag and reveal the full music player, and swipe down to collapse it back.
-- refine mini player progress bar placement, edge-to-edge bottom navigation bar insets, and screen bottom spacing.
+- swipe left or right on player artwork to switch tracks and auto-resume playback.
+- drag up from mini player to expand the music player, and drag down to collapse.
+- swipe up from music player for a 60% playback queue sheet.
+- fix tap-to-expand artwork viewer and refine bottom bar spacing.
 
 ### internal notes
 
@@ -18,6 +17,7 @@
 - bound artPressable with rounded borders and theme-aware ripple/press state styling.
 - refactor ModalArtViewer to use react-native-paper Portal and Modal with expo-image and hardware back handling.
 - add PlayerOverlayContext and ExpandablePlayer root overlay for 1:1 continuous drag-to-expand and drag-to-collapse transitions between MiniPlayer and PlayerContent.
+- add continuous swipe-up and swipe-down queue sheet transition in PlayerContent and PlaybackQueueView.
 
 ## 2.41.0+89
 

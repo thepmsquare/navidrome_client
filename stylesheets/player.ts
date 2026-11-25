@@ -186,7 +186,7 @@ export const playerStyles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     marginTop: spacing.md,
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs,
   },
   controlsRow: {
     flexDirection: "row",

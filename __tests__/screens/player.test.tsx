@@ -14,13 +14,18 @@ jest.mock("react-native-reanimated", () => {
       if (cb) cb(true);
       return val;
     },
-    withSpring: (val: any) => val,
+    withSpring: (val: any, _cfg?: any, cb?: any) => {
+      if (cb) cb(true);
+      return val;
+    },
     runOnJS: (fn: any) => fn,
     interpolate: (_v: any, _inR: any, outR: any) => outR[0],
   };
 });
 
 let capturedPan: any = null;
+let capturedQueueExpandPan: any = null;
+let capturedQueueCollapsePan: any = null;
 
 jest.mock("react-native-gesture-handler", () => {
   const React = require("react");
@@ -32,7 +37,20 @@ jest.mock("react-native-gesture-handler", () => {
     Gesture: {
       Pan: () => {
         const panObj: any = {
-          activeOffsetX: () => panObj,
+          enabled: () => panObj,
+          activeOffsetX: () => {
+            capturedPan = panObj;
+            return panObj;
+          },
+          activeOffsetY: (offsets: [number, number]) => {
+            if (offsets[0] === -999) {
+              capturedQueueCollapsePan = panObj;
+            } else {
+              capturedQueueExpandPan = panObj;
+            }
+            return panObj;
+          },
+          failOffsetX: () => panObj,
           failOffsetY: () => panObj,
           onUpdate: (cb: any) => {
             panObj._onUpdate = cb;
@@ -43,14 +61,13 @@ jest.mock("react-native-gesture-handler", () => {
             return panObj;
           },
         };
-        capturedPan = panObj;
         return panObj;
       },
     },
   };
 });
 
-import PlayerScreen from "@/app/player";
+import PlayerScreen, { PlayerContent } from "@/app/player";
 import { getCoverArtBaseUrl } from "@/services/api";
 import {
   cycleRepeatMode,
@@ -1278,6 +1295,114 @@ describe("PlayerScreen", () => {
 
       expect(playNext).not.toHaveBeenCalled();
       expect(playPrevious).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("queue sheet swipe gestures", () => {
+    it("opens queue sheet on swipe up past threshold and collapses on swipe down", async () => {
+      (usePlayerState as jest.Mock).mockReturnValue({
+        currentTrack: {
+          id: "song-1",
+          title: "Neon Lights",
+          artist: "Kraftwerk",
+          album: "The Man-Machine",
+          coverArt: "art-1",
+          duration: 300,
+          starred: null,
+          userRating: 0,
+        },
+        isPlaying: true,
+        isBuffering: false,
+        position: 60,
+        duration: 300,
+        repeatMode: "off",
+        hasPrevious: true,
+        hasNext: true,
+        isPlayingFromCache: false,
+        scrobbled: false,
+        playbackSpeed: 1.0,
+      });
+
+      const onViewModeChange = jest.fn();
+      await act(async () => {
+        renderer.create(<PlayerContent onViewModeChange={onViewModeChange} />);
+      });
+
+      expect(capturedQueueExpandPan).toBeDefined();
+      expect(capturedQueueCollapsePan).toBeDefined();
+      expect(onViewModeChange).toHaveBeenCalledWith("player");
+
+      onViewModeChange.mockClear();
+
+      // Sub-threshold swipe up does not open queue
+      act(() => {
+        capturedQueueExpandPan._onUpdate({ translationY: -20 });
+        capturedQueueExpandPan._onEnd({ translationY: -20, velocityY: -50 });
+      });
+      expect(onViewModeChange).not.toHaveBeenCalledWith("queue");
+
+      // Swipe up past threshold opens queue
+      await act(async () => {
+        capturedQueueExpandPan._onUpdate({ translationY: -300 });
+        capturedQueueExpandPan._onEnd({ translationY: -300, velocityY: -200 });
+      });
+      expect(onViewModeChange).toHaveBeenCalledWith("queue");
+
+      onViewModeChange.mockClear();
+
+      // Swipe down on queue header past threshold collapses back to player
+      await act(async () => {
+        capturedQueueCollapsePan._onUpdate({ translationY: 300 });
+        capturedQueueCollapsePan._onEnd({ translationY: 300, velocityY: 200 });
+      });
+      expect(onViewModeChange).toHaveBeenCalledWith("player");
+    });
+
+    it("opens queue sheet via swipe up cue and dismisses via backdrop", async () => {
+      (usePlayerState as jest.Mock).mockReturnValue({
+        currentTrack: {
+          id: "song-1",
+          title: "Neon Lights",
+          artist: "Kraftwerk",
+          album: "The Man-Machine",
+          coverArt: "art-1",
+          duration: 300,
+          starred: null,
+          userRating: 0,
+        },
+        isPlaying: true,
+        isBuffering: false,
+        position: 60,
+        duration: 300,
+        repeatMode: "off",
+        hasPrevious: true,
+        hasNext: true,
+        isPlayingFromCache: false,
+        scrobbled: false,
+        playbackSpeed: 1.0,
+      });
+
+      const onViewModeChange = jest.fn();
+      let root: any;
+      await act(async () => {
+        root = renderer.create(<PlayerContent onViewModeChange={onViewModeChange} />);
+      });
+
+      onViewModeChange.mockClear();
+
+      const hint = root.root.findByProps({ testID: "player-queue-hint" });
+      await act(async () => {
+        hint.props.onPress();
+      });
+      expect(onViewModeChange).toHaveBeenCalledWith("queue");
+
+      onViewModeChange.mockClear();
+
+      const backdrop = root.root.findByProps({ testID: "queue-sheet-backdrop" });
+      await act(async () => {
+        backdrop.props.onPress();
+      });
+      expect(onViewModeChange).toHaveBeenCalledWith("player");
     });
   });
 });

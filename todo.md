@@ -195,7 +195,7 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
 - [ ] **continuous ui/ux refinements** (`eng-5`)
   - **task:** haptics, spacing, typography, dark-mode contrast, route animations, and touch targets.
 
-- [/] **player gestures and transition animations** (`ui-4`)
+- [x] **player gestures and transition animations** (`ui-4`)
   - **context:** v1 had smooth fluid transitions and gestures across the playback surface:
     - expanding from bottom mini player to full music player screen ([`app/player.tsx`](./app/player.tsx)) and collapsing back down.
     - swiping up from the music player to open the queue sheet/view (and swiping down to dismiss).
@@ -204,7 +204,7 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
     - [x] horizontal swipe left/right gestures on mini player with reanimated spring feedback to change songs.
     - [x] swipe up on mini player to open full music player.
     - [x] swipe down on full music player to collapse back to mini player.
-    - [ ] swipe-up queue sheet transition from music player.
+    - [x] swipe-up queue sheet transition from music player.
     - [x] horizontal swipe gestures on full music player for track changes.
 
 - [ ] **font family selector** (`ui-5`)

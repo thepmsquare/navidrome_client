@@ -1,7 +1,14 @@
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { BackHandler, Pressable, ScrollView, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  BackHandler,
+  Dimensions,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -18,6 +25,7 @@ import {
   Avatar,
   Button,
   Chip,
+  Icon,
   IconButton,
   Menu,
   Snackbar,
@@ -67,6 +75,15 @@ import { spacing } from "@/utils/spacing";
 import { formatTime } from "@/utils/time";
 
 const PLAYBACK_SPEED_PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+const QUEUE_SPRING_CONFIG = {
+  damping: 26,
+  stiffness: 240,
+  overshootClamping: true,
+};
+const QUEUE_EXPAND_THRESHOLD = 0.22;
+const QUEUE_EXPAND_VELOCITY = -450;
+const QUEUE_COLLAPSE_THRESHOLD = 0.78;
+const QUEUE_COLLAPSE_VELOCITY = 450;
 
 export interface PlayerContentProps {
   onCollapse?: () => void;
@@ -85,6 +102,7 @@ export function PlayerContent({
   const playerState = usePlayerState();
   const sleepTimerState = useSleepTimer();
   const [viewMode, setViewMode] = useState<"player" | "queue">("player");
+  const [isQueueMounted, setIsQueueMounted] = useState(false);
   const [sleepTimerModalVisible, setSleepTimerModalVisible] = useState(false);
   const [ratingMenuVisible, setRatingMenuVisible] = useState(false);
   const [speedMenuVisible, setSpeedMenuVisible] = useState(false);
@@ -99,7 +117,11 @@ export function PlayerContent({
 
   const artTranslateX = useSharedValue(0);
   const artOpacity = useSharedValue(1);
+  const queueProgress = useSharedValue(0);
   const previousTrackIdRef = useRef<string | null>(null);
+  const [playerHeight, setPlayerHeight] = useState(
+    () => Dimensions.get("window").height,
+  );
 
   // Lyrics state
   const [lyricsMode, setLyricsModeState] = useState<LyricsMode>(() =>
@@ -126,11 +148,105 @@ export function PlayerContent({
     });
   }, []);
 
+  const ensureQueueMounted = useCallback(() => {
+    setIsQueueMounted((prev) => (prev ? prev : true));
+  }, []);
+
+  const unmountQueue = useCallback(() => {
+    setIsQueueMounted(false);
+    setViewMode("player");
+  }, []);
+
+  const queueTopOffset = Math.round(playerHeight * 0.4);
+  const queueDragDistance = Math.max(1, playerHeight - queueTopOffset);
+
+  const queueExpandPanGesture = Gesture.Pan()
+    .enabled(viewMode === "player")
+    .activeOffsetY([-12, 999])
+    .failOffsetX([-15, 15])
+    .onUpdate((event) => {
+      runOnJS(ensureQueueMounted)();
+      const next = Math.max(
+        0,
+        Math.min(1, -event.translationY / queueDragDistance),
+      );
+      queueProgress.value = next;
+    })
+    .onEnd((event) => {
+      const shouldOpen =
+        queueProgress.value > QUEUE_EXPAND_THRESHOLD ||
+        event.velocityY < QUEUE_EXPAND_VELOCITY;
+
+      if (shouldOpen) {
+        runOnJS(triggerHapticSelection)();
+        runOnJS(ensureQueueMounted)();
+        runOnJS(setViewMode)("queue");
+        queueProgress.value = withSpring(1, QUEUE_SPRING_CONFIG);
+      } else {
+        queueProgress.value = withSpring(0, QUEUE_SPRING_CONFIG, (finished) => {
+          if (finished) {
+            runOnJS(unmountQueue)();
+          }
+        });
+      }
+    });
+
+  const queueCollapsePanGesture = Gesture.Pan()
+    .enabled(viewMode === "queue")
+    .activeOffsetY([-999, 12])
+    .failOffsetX([-15, 15])
+    .onUpdate((event) => {
+      const next = Math.max(
+        0,
+        Math.min(1, 1 - event.translationY / queueDragDistance),
+      );
+      queueProgress.value = next;
+    })
+    .onEnd((event) => {
+      const shouldClose =
+        queueProgress.value < QUEUE_COLLAPSE_THRESHOLD ||
+        event.velocityY > QUEUE_COLLAPSE_VELOCITY;
+
+      if (shouldClose) {
+        queueProgress.value = withSpring(0, QUEUE_SPRING_CONFIG, (finished) => {
+          if (finished) {
+            runOnJS(unmountQueue)();
+          }
+        });
+      } else {
+        queueProgress.value = withSpring(1, QUEUE_SPRING_CONFIG);
+      }
+    });
+
+  const openQueue = useCallback(() => {
+    ensureQueueMounted();
+    setViewMode("queue");
+    queueProgress.value = withSpring(1, QUEUE_SPRING_CONFIG);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ensureQueueMounted]);
+
+  const closeQueue = useCallback(() => {
+    // eslint-disable-next-line react-hooks/immutability
+    queueProgress.value = withSpring(0, QUEUE_SPRING_CONFIG, (finished) => {
+      if (finished) {
+        runOnJS(unmountQueue)();
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unmountQueue]);
+
   const [prevIsActive, setPrevIsActive] = useState(isActive);
   if (prevIsActive !== isActive) {
     setPrevIsActive(isActive);
-    if (!isActive && viewMode !== "player") {
-      setViewMode("player");
+    if (!isActive) {
+      // eslint-disable-next-line react-hooks/immutability
+      queueProgress.value = 0;
+      if (isQueueMounted) {
+        setIsQueueMounted(false);
+      }
+      if (viewMode !== "player") {
+        setViewMode("player");
+      }
     }
   }
 
@@ -143,12 +259,12 @@ export function PlayerContent({
     const backHandler = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
-        setViewMode("player");
+        closeQueue();
         return true;
       },
     );
     return () => backHandler.remove();
-  }, [isActive, viewMode]);
+  }, [isActive, viewMode, closeQueue]);
 
   const showSnackbar = (message: string) => {
     setSnackbarMessage(message);
@@ -485,6 +601,33 @@ export function PlayerContent({
     opacity: artOpacity.value,
   }));
 
+  const animatedPlayerLayerStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(queueProgress.value, [0, 1], [1, 0.5], "clamp"),
+    transform: [
+      {
+        scale: interpolate(queueProgress.value, [0, 1], [1, 0.96], "clamp"),
+      },
+    ],
+  }));
+
+  const animatedBackdropStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(queueProgress.value, [0, 1], [0, 1], "clamp"),
+  }));
+
+  const animatedQueueStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(
+          queueProgress.value,
+          [0, 1],
+          [queueDragDistance, 0],
+          "clamp",
+        ),
+      },
+    ],
+    opacity: interpolate(queueProgress.value, [0, 0.05], [0, 1], "clamp"),
+  }));
+
   const resolvedArtistId = useMemo(() => {
     if (!currentTrack) return null;
     if (currentTrack.artistId) return currentTrack.artistId;
@@ -548,11 +691,10 @@ export function PlayerContent({
     });
   };
 
-  if (viewMode === "queue") {
-    return <PlaybackQueueView onBack={() => setViewMode("player")} />;
-  }
-
   if (!currentTrack) {
+    if (viewMode === "queue") {
+      return <PlaybackQueueView onBack={() => setViewMode("player")} />;
+    }
     return (
       <View
         style={[
@@ -609,26 +751,39 @@ export function PlayerContent({
   return (
     <View
       style={[
-        playerStyles.container,
-        {
-          backgroundColor: theme.colors.background,
-          paddingBottom: Math.max(insets.bottom, spacing.lg),
-        },
+        localStyles.root,
+        { backgroundColor: theme.colors.background },
       ]}
+      onLayout={(e) => {
+        const h = e.nativeEvent.layout.height;
+        if (h > 0) setPlayerHeight(h);
+      }}
     >
-      {/* Header with Appbar */}
-      <Appbar.Header statusBarHeight={0} style={playerStyles.header}>
-        <Appbar.BackAction
-          accessibilityLabel="close player"
-          onPress={handleClose}
-        />
-        <Appbar.Content title="now playing" />
-        <Appbar.Action
-          icon="playlist-music"
-          accessibilityLabel="view queue"
-          onPress={() => setViewMode("queue")}
-        />
-      </Appbar.Header>
+      <GestureDetector gesture={queueExpandPanGesture}>
+        <Animated.View
+          style={[
+            playerStyles.container,
+            {
+              backgroundColor: theme.colors.background,
+              paddingBottom: insets.bottom + spacing.md,
+            },
+            animatedPlayerLayerStyle,
+          ]}
+          pointerEvents={viewMode === "queue" ? "none" : "auto"}
+        >
+          {/* Header with Appbar */}
+          <Appbar.Header statusBarHeight={0} style={playerStyles.header}>
+            <Appbar.BackAction
+              accessibilityLabel="close player"
+              onPress={handleClose}
+            />
+            <Appbar.Content title="now playing" />
+            <Appbar.Action
+              icon="playlist-music"
+              accessibilityLabel="view queue"
+              onPress={openQueue}
+            />
+          </Appbar.Header>
 
       {/* Large Album Artwork (Clickable Area with Swipe Gestures) */}
       <GestureDetector gesture={artPanGesture}>
@@ -1164,6 +1319,65 @@ export function PlayerContent({
         </View>
       </Surface>
 
+      <Pressable
+        onPress={openQueue}
+        style={localStyles.queueHint}
+        accessibilityRole="button"
+        accessibilityLabel="swipe up for queue"
+        testID="player-queue-hint"
+      >
+        <Icon
+          source="chevron-up"
+          size={18}
+          color={theme.colors.onSurfaceVariant}
+        />
+        <Text
+          variant="labelSmall"
+          style={{ color: theme.colors.onSurfaceVariant }}
+        >
+          swipe up for queue
+        </Text>
+      </Pressable>
+        </Animated.View>
+      </GestureDetector>
+
+      <Animated.View
+        style={[localStyles.queueBackdrop, animatedBackdropStyle]}
+        pointerEvents={viewMode === "queue" ? "auto" : "none"}
+      >
+        <Pressable
+          style={localStyles.backdropPressable}
+          onPress={closeQueue}
+          accessibilityRole="button"
+          accessibilityLabel="dismiss queue"
+          testID="queue-sheet-backdrop"
+        />
+      </Animated.View>
+
+      <Animated.View
+        style={[
+          localStyles.queueSheet,
+          {
+            top: queueTopOffset,
+            backgroundColor: theme.colors.background,
+          },
+          animatedQueueStyle,
+        ]}
+        pointerEvents={viewMode === "queue" ? "auto" : "none"}
+      >
+        {(isQueueMounted || viewMode === "queue") && (
+          <PlaybackQueueView
+            onBack={closeQueue}
+            showDragHandle
+            wrapHeader={(header) => (
+              <GestureDetector gesture={queueCollapsePanGesture}>
+                <View>{header}</View>
+              </GestureDetector>
+            )}
+          />
+        )}
+      </Animated.View>
+
       <SleepTimerModal
         visible={sleepTimerModalVisible}
         onDismiss={() => setSleepTimerModalVisible(false)}
@@ -1211,3 +1425,39 @@ export function PlayerContent({
 export default function PlayerScreen() {
   return <PlayerContent />;
 }
+
+const localStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+  queueHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    opacity: 0.75,
+  },
+  queueBackdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+    zIndex: 15,
+  },
+  backdropPressable: {
+    flex: 1,
+  },
+  queueSheet: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    zIndex: 20,
+    overflow: "hidden",
+  },
+});
