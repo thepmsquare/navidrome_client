@@ -27,6 +27,10 @@ jest.mock("@/components/ChangelogModal", () => ({
   ChangelogModal: () => null,
 }));
 
+jest.mock("@/components/ExpandablePlayer", () => ({
+  ExpandablePlayer: () => null,
+}));
+
 jest.mock("@pchmn/expo-material3-theme", () => ({
   useMaterial3Theme: () => ({ theme: { dark: {}, light: {} } }),
 }));

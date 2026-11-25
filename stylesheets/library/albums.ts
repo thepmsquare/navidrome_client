@@ -24,7 +24,7 @@ export const albumsStyles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.xxl + spacing.xl,
   },
   gridRow: {
     gap: spacing.sm,

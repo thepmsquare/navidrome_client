@@ -19,7 +19,7 @@ export const songsStyles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.xxl + spacing.xl,
   },
   artwork: {
     width: spacing.xxl,

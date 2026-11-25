@@ -34,8 +34,19 @@ import { triggerHapticSelection } from "@/utils/haptics";
 const SWIPE_THRESHOLD = 50;
 const VELOCITY_THRESHOLD = 500;
 const EXIT_DISTANCE = 160;
+const SWIPE_UP_THRESHOLD = 35;
+const SWIPE_UP_VELOCITY_THRESHOLD = 400;
+const MAX_VERTICAL_DRAG = 36;
 
-export function MiniPlayer() {
+export interface MiniPlayerProps {
+  onExpand?: () => void;
+  disableVerticalGesture?: boolean;
+}
+
+export function MiniPlayer({
+  onExpand,
+  disableVerticalGesture = false,
+}: MiniPlayerProps = {}) {
   const router = useRouter();
   const theme = useAppTheme();
   const playerState = usePlayerState();
@@ -44,6 +55,7 @@ export function MiniPlayer() {
   >(null);
 
   const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
   const trackOpacity = useSharedValue(1);
 
   const previousTrackIdRef = useRef<string | null>(null);
@@ -77,8 +89,21 @@ export function MiniPlayer() {
   }, [position, duration]);
 
   const handleOpenPlayer = useCallback(() => {
-    router.push("/player");
-  }, [router]);
+    if (onExpand) {
+      onExpand();
+    } else {
+      router.push("/player");
+    }
+  }, [onExpand, router]);
+
+  const triggerOpenPlayerFromSwipe = useCallback(() => {
+    triggerHapticSelection();
+    if (onExpand) {
+      onExpand();
+    } else {
+      router.push("/player");
+    }
+  }, [onExpand, router]);
 
   const triggerNext = useCallback(() => {
     triggerHapticSelection();
@@ -93,6 +118,33 @@ export function MiniPlayer() {
       console.error("failed to play previous track from mini player:", err),
     );
   }, []);
+
+  const verticalPanGesture = Gesture.Pan()
+    .enabled(!disableVerticalGesture)
+    .activeOffsetY([-12, 12])
+    .failOffsetX([-12, 12])
+    .onUpdate((event) => {
+      if (event.translationY < 0) {
+        translateY.value = Math.max(-MAX_VERTICAL_DRAG, event.translationY * 0.5);
+      } else {
+        translateY.value = 0;
+      }
+    })
+    .onEnd((event) => {
+      const isSwipeUp =
+        event.translationY < -SWIPE_UP_THRESHOLD ||
+        event.velocityY < -SWIPE_UP_VELOCITY_THRESHOLD;
+
+      if (isSwipeUp) {
+        runOnJS(triggerOpenPlayerFromSwipe)();
+      }
+
+      translateY.value = withSpring(0, {
+        damping: 26,
+        stiffness: 240,
+        overshootClamping: true,
+      });
+    });
 
   const panGesture = Gesture.Pan()
     .activeOffsetX([-10, 10])
@@ -170,6 +222,10 @@ export function MiniPlayer() {
     opacity: trackOpacity.value,
   }));
 
+  const animatedContainerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
   if (!currentTrack) {
     return null;
   }
@@ -180,17 +236,19 @@ export function MiniPlayer() {
       : null;
 
   return (
-    <Surface
-      style={[
-        miniPlayerStyles.container,
-        {
-          backgroundColor: theme.colors.elevation.level2,
-          borderTopColor: theme.colors.outlineVariant,
-        },
-      ]}
-      elevation={0}
-      testID="mini-player"
-    >
+    <GestureDetector gesture={verticalPanGesture}>
+      <Animated.View style={animatedContainerStyle}>
+        <Surface
+          style={[
+            miniPlayerStyles.container,
+            {
+              backgroundColor: theme.colors.elevation.level2,
+              borderTopColor: theme.colors.outlineVariant,
+            },
+          ]}
+          elevation={0}
+          testID="mini-player"
+        >
       <ProgressBar
         progress={progress}
         color={
@@ -286,7 +344,9 @@ export function MiniPlayer() {
           )}
         </View>
       </View>
-    </Surface>
+        </Surface>
+      </Animated.View>
+    </GestureDetector>
   );
 }
 

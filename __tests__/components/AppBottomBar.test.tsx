@@ -15,8 +15,11 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
-jest.mock("@/components/MiniPlayer", () => ({
-  MiniPlayer: "MiniPlayer",
+const mockSetBottomBarHeight = jest.fn();
+jest.mock("@/contexts/PlayerOverlayContext", () => ({
+  usePlayerOverlay: () => ({
+    setBottomBarHeight: mockSetBottomBarHeight,
+  }),
 }));
 
 jest.mock("@/services/api", () => ({
@@ -38,7 +41,7 @@ describe("AppBottomBar", () => {
     (getSyncMeta as jest.Mock).mockReturnValue("2026-10-07T12:00:00.000Z");
   });
 
-  it("renders with 5 tabs and mini player by default", () => {
+  it("renders with 5 tabs by default", () => {
     let component: any;
     renderer.act(() => {
       component = renderer.create(<AppBottomBar />);
@@ -50,9 +53,6 @@ describe("AppBottomBar", () => {
     expect(navBar.props.navigationState.routes).toHaveLength(5);
     // Default active tab is library (index 1)
     expect(navBar.props.navigationState.index).toBe(1);
-
-    const miniPlayer = component.root.findByProps({ children: undefined });
-    expect(miniPlayer).toBeDefined();
   });
 
   it("respects activeTab prop", () => {

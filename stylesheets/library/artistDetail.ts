@@ -83,7 +83,7 @@ export const artistDetailStyles = StyleSheet.create({
     gap: spacing.xs,
   },
   listContent: {
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.xxl + spacing.xl,
   },
   emptyContainer: {
     padding: spacing.lg,

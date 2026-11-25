@@ -8,7 +8,8 @@ export const settingsStyles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xxl + spacing.xl,
     gap: spacing.lg,
   },
   sectionCard: {

@@ -4,7 +4,7 @@ import { View } from "react-native";
 import { BottomNavigation, Icon } from "react-native-paper";
 import { EdgeInsets, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { MiniPlayer } from "@/components/MiniPlayer";
+import { usePlayerOverlay } from "@/contexts/PlayerOverlayContext";
 import {
   subscribeAuthState,
   subscribeSyncState,
@@ -88,6 +88,7 @@ export function AppBottomBar({
   const router = useRouter();
   const hookInsets = useSafeAreaInsets();
   const theme = useAppTheme();
+  const { setBottomBarHeight } = usePlayerOverlay();
 
   const isTabsControlled = Boolean(state && navigation && descriptors);
 
@@ -127,14 +128,25 @@ export function AppBottomBar({
     [activeIndex],
   );
 
+  useEffect(() => {
+    return () => {
+      setBottomBarHeight(0);
+    };
+  }, [setBottomBarHeight]);
+
   if (!hasSyncedOnce) {
     return null;
   }
 
   return (
     <View style={{ backgroundColor: theme.colors.background }}>
-      {showMiniPlayer && <MiniPlayer />}
-      <BottomNavigation.Bar
+      <View
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height;
+          if (h > 0) setBottomBarHeight(h);
+        }}
+      >
+        <BottomNavigation.Bar
         navigationState={isTabsControlled ? state : standaloneNavState}
         safeAreaInsets={insets ?? hookInsets}
         onTabPress={({ route, preventDefault }) => {
@@ -190,7 +202,8 @@ export function AppBottomBar({
           const tab = APP_TAB_ROUTES.find((r) => r.key === route.key);
           return tab ? tab.title : route.key;
         }}
-      />
+        />
+      </View>
     </View>
   );
 }

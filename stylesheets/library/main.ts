@@ -9,7 +9,8 @@ export const libraryStyles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xxl + spacing.xl,
     gap: spacing.lg,
   },
   sectionCard: {

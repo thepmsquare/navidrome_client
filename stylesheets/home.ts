@@ -7,7 +7,8 @@ export const homeStyles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingVertical: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xxl + spacing.xl,
     gap: spacing.xl,
   },
   headerContainer: {

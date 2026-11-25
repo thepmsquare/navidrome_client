@@ -20,7 +20,8 @@ jest.mock("react-native-reanimated", () => {
   };
 });
 
-let capturedPan: any = null;
+let capturedVerticalPan: any = null;
+let capturedHorizontalPan: any = null;
 
 jest.mock("react-native-gesture-handler", () => {
   const React = require("react");
@@ -32,7 +33,16 @@ jest.mock("react-native-gesture-handler", () => {
     Gesture: {
       Pan: () => {
         const panObj: any = {
-          activeOffsetX: () => panObj,
+          enabled: () => panObj,
+          activeOffsetX: () => {
+            capturedHorizontalPan = panObj;
+            return panObj;
+          },
+          activeOffsetY: () => {
+            capturedVerticalPan = panObj;
+            return panObj;
+          },
+          failOffsetX: () => panObj,
           failOffsetY: () => panObj,
           onUpdate: (cb: any) => {
             panObj._onUpdate = cb;
@@ -43,7 +53,6 @@ jest.mock("react-native-gesture-handler", () => {
             return panObj;
           },
         };
-        capturedPan = panObj;
         return panObj;
       },
     },
@@ -93,6 +102,8 @@ const mockTrack: Child = {
 describe("MiniPlayer", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    capturedVerticalPan = null;
+    capturedHorizontalPan = null;
   });
 
   it("returns null if no current track", async () => {
@@ -210,10 +221,10 @@ describe("MiniPlayer", () => {
       component = renderer.create(<MiniPlayer />);
     });
 
-    expect(capturedPan).toBeDefined();
+    expect(capturedHorizontalPan).toBeDefined();
 
     await renderer.act(async () => {
-      capturedPan._onEnd({
+      capturedHorizontalPan._onEnd({
         translationX: -80,
         velocityX: -600,
       });
@@ -241,16 +252,121 @@ describe("MiniPlayer", () => {
       component = renderer.create(<MiniPlayer />);
     });
 
-    expect(capturedPan).toBeDefined();
+    expect(capturedHorizontalPan).toBeDefined();
 
     await renderer.act(async () => {
-      capturedPan._onEnd({
+      capturedHorizontalPan._onEnd({
         translationX: 80,
         velocityX: 600,
       });
     });
 
     expect(playPrevious).toHaveBeenCalled();
+
+    await renderer.act(async () => {
+      component.unmount();
+    });
+  });
+
+  it("navigates to /player when swiped up past distance threshold", async () => {
+    (usePlayerState as jest.Mock).mockReturnValue({
+      currentTrack: mockTrack,
+      isPlaying: true,
+      isBuffering: false,
+      position: 100,
+      duration: 382,
+      isPlayingFromCache: false,
+    });
+
+    let component: any;
+    await renderer.act(async () => {
+      component = renderer.create(<MiniPlayer />);
+    });
+
+    expect(capturedVerticalPan).toBeDefined();
+
+    await renderer.act(async () => {
+      capturedVerticalPan._onUpdate({ translationY: -50 });
+      capturedVerticalPan._onEnd({
+        translationY: -50,
+        velocityY: -200,
+      });
+    });
+
+    expect(mockPush).toHaveBeenCalledWith("/player");
+
+    await renderer.act(async () => {
+      component.unmount();
+    });
+  });
+
+  it("navigates to /player when swiped up with high velocity", async () => {
+    (usePlayerState as jest.Mock).mockReturnValue({
+      currentTrack: mockTrack,
+      isPlaying: true,
+      isBuffering: false,
+      position: 100,
+      duration: 382,
+      isPlayingFromCache: false,
+    });
+
+    let component: any;
+    await renderer.act(async () => {
+      component = renderer.create(<MiniPlayer />);
+    });
+
+    expect(capturedVerticalPan).toBeDefined();
+
+    await renderer.act(async () => {
+      capturedVerticalPan._onEnd({
+        translationY: -15,
+        velocityY: -500,
+      });
+    });
+
+    expect(mockPush).toHaveBeenCalledWith("/player");
+
+    await renderer.act(async () => {
+      component.unmount();
+    });
+  });
+
+  it("does not navigate to /player when vertical swipe is below threshold or downward", async () => {
+    (usePlayerState as jest.Mock).mockReturnValue({
+      currentTrack: mockTrack,
+      isPlaying: true,
+      isBuffering: false,
+      position: 100,
+      duration: 382,
+      isPlayingFromCache: false,
+    });
+
+    let component: any;
+    await renderer.act(async () => {
+      component = renderer.create(<MiniPlayer />);
+    });
+
+    expect(capturedVerticalPan).toBeDefined();
+
+    await renderer.act(async () => {
+      capturedVerticalPan._onUpdate({ translationY: -15 });
+      capturedVerticalPan._onEnd({
+        translationY: -15,
+        velocityY: -100,
+      });
+    });
+
+    expect(mockPush).not.toHaveBeenCalled();
+
+    await renderer.act(async () => {
+      capturedVerticalPan._onUpdate({ translationY: 40 });
+      capturedVerticalPan._onEnd({
+        translationY: 40,
+        velocityY: 500,
+      });
+    });
+
+    expect(mockPush).not.toHaveBeenCalled();
 
     await renderer.act(async () => {
       component.unmount();

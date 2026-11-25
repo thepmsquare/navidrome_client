@@ -202,7 +202,8 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
     - left/right swipe gestures on the music player (album art) to trigger next/previous track changes.
   - **task:**
     - [x] horizontal swipe left/right gestures on mini player with reanimated spring feedback to change songs.
-    - [ ] mini player expansion/collapse gestures into full music player.
+    - [x] swipe up on mini player to open full music player.
+    - [x] swipe down on full music player to collapse back to mini player.
     - [ ] swipe-up queue sheet transition from music player.
     - [x] horizontal swipe gestures on full music player for track changes.
 

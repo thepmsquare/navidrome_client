@@ -37,7 +37,7 @@ export const albumDetailStyles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.xxl + spacing.xl,
   },
   emptyContainer: {
     padding: spacing.lg,

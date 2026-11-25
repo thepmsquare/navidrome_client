@@ -14,6 +14,8 @@ import {
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { ChangelogModal } from "@/components/ChangelogModal";
+import { ExpandablePlayer } from "@/components/ExpandablePlayer";
+import { PlayerOverlayProvider } from "@/contexts/PlayerOverlayContext";
 import { subscribeAuthState } from "@/services/api";
 import {
   checkLegacyOfflineCache,
@@ -193,6 +195,7 @@ export default function RootLayout() {
   const isAuthRoute =
     (segments as string[]).includes("(auth)") ||
     (segments as string[]).includes("connect");
+  const isQueueRoute = (segments as string[]).includes("queue");
   const routeMatchesAuth =
     (!isLoggedIn && isAuthRoute) || (isLoggedIn && !isAuthRoute);
   const showSpinner = isLoading || !routeMatchesAuth;
@@ -201,34 +204,38 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <PaperProvider theme={paperTheme}>
-          <SafeAreaView style={layoutStyles.safeArea}>
-            {showSpinner ? (
-              <SafeAreaView style={layoutStyles.container}>
-                <ActivityIndicator size="large" />
-              </SafeAreaView>
-            ) : (
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="(main)" />
-                <Stack.Screen name="(auth)" />
-                <Stack.Screen name="album/[id]" />
-                <Stack.Screen name="artist/[id]" />
-                <Stack.Screen
-                  name="player"
-                  options={{
-                    presentation: "modal",
-                    animation: "slide_from_bottom",
-                  }}
-                />
-                <Stack.Screen
-                  name="queue"
-                  options={{
-                    presentation: "modal",
-                    animation: "slide_from_bottom",
-                  }}
-                />
-              </Stack>
-            )}
-            <ChangelogModal
+          <PlayerOverlayProvider>
+            <SafeAreaView style={layoutStyles.safeArea}>
+              {showSpinner ? (
+                <SafeAreaView style={layoutStyles.container}>
+                  <ActivityIndicator size="large" />
+                </SafeAreaView>
+              ) : (
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="(main)" />
+                  <Stack.Screen name="(auth)" />
+                  <Stack.Screen name="album/[id]" />
+                  <Stack.Screen name="artist/[id]" />
+                  <Stack.Screen
+                    name="player"
+                    options={{
+                      presentation: "modal",
+                      animation: "slide_from_bottom",
+                    }}
+                  />
+                  <Stack.Screen
+                    name="queue"
+                    options={{
+                      presentation: "modal",
+                      animation: "slide_from_bottom",
+                    }}
+                  />
+                </Stack>
+              )}
+              <ExpandablePlayer
+                visible={!showSpinner && !isAuthRoute && !isQueueRoute}
+              />
+              <ChangelogModal
               visible={showWhatsNew}
               onDismiss={() => setShowWhatsNew(false)}
               title="what's new"
@@ -250,6 +257,7 @@ export default function RootLayout() {
               </Snackbar>
             </Portal>
           </SafeAreaView>
+          </PlayerOverlayProvider>
         </PaperProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>

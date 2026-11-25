@@ -67,7 +67,17 @@ import { formatTime } from "@/utils/time";
 
 const PLAYBACK_SPEED_PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
-export default function PlayerScreen() {
+export interface PlayerContentProps {
+  onCollapse?: () => void;
+  isActive?: boolean;
+  onViewModeChange?: (mode: "player" | "queue") => void;
+}
+
+export function PlayerContent({
+  onCollapse,
+  isActive = true,
+  onViewModeChange,
+}: PlayerContentProps) {
   const router = useRouter();
   const theme = useAppTheme();
   const playerState = usePlayerState();
@@ -114,8 +124,20 @@ export default function PlayerScreen() {
     });
   }, []);
 
+  const [prevIsActive, setPrevIsActive] = useState(isActive);
+  if (prevIsActive !== isActive) {
+    setPrevIsActive(isActive);
+    if (!isActive && viewMode !== "player") {
+      setViewMode("player");
+    }
+  }
+
   useEffect(() => {
-    if (viewMode !== "queue") return;
+    onViewModeChange?.(viewMode);
+  }, [viewMode, onViewModeChange]);
+
+  useEffect(() => {
+    if (!isActive || viewMode !== "queue") return;
     const backHandler = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
@@ -124,7 +146,7 @@ export default function PlayerScreen() {
       },
     );
     return () => backHandler.remove();
-  }, [viewMode]);
+  }, [isActive, viewMode]);
 
   const showSnackbar = (message: string) => {
     setSnackbarMessage(message);
@@ -496,9 +518,18 @@ export default function PlayerScreen() {
     return null;
   }, [currentTrack]);
 
+  const handleClose = () => {
+    if (onCollapse) {
+      onCollapse();
+    } else {
+      router.back();
+    }
+  };
+
   const handleArtistPress = () => {
     if (!resolvedArtistId) return;
     triggerHapticSelection();
+    onCollapse?.();
     router.push({
       pathname: "/artist/[id]",
       params: { id: resolvedArtistId },
@@ -508,6 +539,7 @@ export default function PlayerScreen() {
   const handleAlbumPress = () => {
     if (!resolvedAlbumId) return;
     triggerHapticSelection();
+    onCollapse?.();
     router.push({
       pathname: "/album/[id]",
       params: { id: resolvedAlbumId },
@@ -529,7 +561,7 @@ export default function PlayerScreen() {
         <Appbar.Header statusBarHeight={0} style={playerStyles.header}>
           <Appbar.BackAction
             accessibilityLabel="close player"
-            onPress={() => router.back()}
+            onPress={handleClose}
           />
           <Appbar.Content title="now playing" />
           <Appbar.Action
@@ -560,7 +592,7 @@ export default function PlayerScreen() {
             mode="contained"
             size={24}
             accessibilityLabel="close player"
-            onPress={() => router.back()}
+            onPress={handleClose}
           />
         </View>
       </View>
@@ -583,7 +615,7 @@ export default function PlayerScreen() {
       <Appbar.Header statusBarHeight={0} style={playerStyles.header}>
         <Appbar.BackAction
           accessibilityLabel="close player"
-          onPress={() => router.back()}
+          onPress={handleClose}
         />
         <Appbar.Content title="now playing" />
         <Appbar.Action
@@ -1169,4 +1201,8 @@ export default function PlayerScreen() {
       </Snackbar>
     </View>
   );
+}
+
+export default function PlayerScreen() {
+  return <PlayerContent />;
 }
