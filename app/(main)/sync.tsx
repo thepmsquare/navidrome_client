@@ -224,6 +224,7 @@ export default function SyncScreen() {
           justifyContent: "center",
           alignItems: "center",
           padding: spacing.xl,
+          paddingBottom: spacing.xxl + spacing.xl,
           gap: spacing.xl,
         }}
         refreshControl={

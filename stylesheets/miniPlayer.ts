@@ -6,7 +6,6 @@ export const miniPlayerStyles = StyleSheet.create({
   container: {
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    borderTopWidth: 1,
     overflow: "hidden",
   },
   progressBar: {

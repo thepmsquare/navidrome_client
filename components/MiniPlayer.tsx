@@ -243,24 +243,11 @@ export function MiniPlayer({
             miniPlayerStyles.container,
             {
               backgroundColor: theme.colors.elevation.level2,
-              borderTopColor: theme.colors.outlineVariant,
             },
           ]}
           elevation={0}
           testID="mini-player"
         >
-      <ProgressBar
-        progress={progress}
-        color={
-          isPlayingFromCache
-            ? theme.colors.tertiary
-            : theme.colors.primary
-        }
-        style={[
-          miniPlayerStyles.progressBar,
-          { backgroundColor: theme.colors.surfaceContainerHighest },
-        ]}
-      />
       <View style={miniPlayerStyles.content}>
         <View style={styles.gestureContainer}>
           <GestureDetector gesture={panGesture}>
@@ -344,6 +331,18 @@ export function MiniPlayer({
           )}
         </View>
       </View>
+      <ProgressBar
+        progress={progress}
+        color={
+          isPlayingFromCache
+            ? theme.colors.tertiary
+            : theme.colors.primary
+        }
+        style={[
+          miniPlayerStyles.progressBar,
+          { backgroundColor: theme.colors.surfaceContainerHighest },
+        ]}
+      />
         </Surface>
       </Animated.View>
     </GestureDetector>

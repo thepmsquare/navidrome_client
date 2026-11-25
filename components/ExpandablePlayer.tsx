@@ -46,7 +46,7 @@ export function ExpandablePlayer({ visible = true }: ExpandablePlayerProps) {
   } = usePlayerOverlay();
 
   const [containerHeight, setContainerHeight] = useState(
-    () => Dimensions.get("window").height - insets.top - insets.bottom,
+    () => Dimensions.get("window").height - insets.top,
   );
   const [playerViewMode, setPlayerViewMode] = useState<"player" | "queue">(
     "player",
@@ -192,7 +192,7 @@ export function ExpandablePlayer({ visible = true }: ExpandablePlayerProps) {
         styles.overlayContainer,
         {
           top: insets.top,
-          bottom: insets.bottom,
+          bottom: 0,
           left: insets.left,
           right: insets.right,
         },

@@ -205,9 +205,15 @@ export default function RootLayout() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <PaperProvider theme={paperTheme}>
           <PlayerOverlayProvider>
-            <SafeAreaView style={layoutStyles.safeArea}>
+            <SafeAreaView
+              style={layoutStyles.safeArea}
+              edges={["top", "left", "right"]}
+            >
               {showSpinner ? (
-                <SafeAreaView style={layoutStyles.container}>
+                <SafeAreaView
+                  style={layoutStyles.container}
+                  edges={["top", "left", "right"]}
+                >
                   <ActivityIndicator size="large" />
                 </SafeAreaView>
               ) : (

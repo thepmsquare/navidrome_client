@@ -8,6 +8,7 @@
 - automatically resume playback when switching tracks via swipe gestures or skip buttons.
 - fix tap to expand artwork on music player page
 - swipe up on mini player to continuously drag and reveal the full music player, and swipe down to collapse it back.
+- refine mini player progress bar placement, edge-to-edge bottom navigation bar insets, and screen bottom spacing.
 
 ### internal notes
 

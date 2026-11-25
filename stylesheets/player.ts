@@ -88,7 +88,8 @@ export const playerStyles = StyleSheet.create({
   chipsScrollContent: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xs,
     paddingVertical: spacing.xs,
   },
   controlChip: {

@@ -2,6 +2,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BackHandler, Pressable, ScrollView, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   interpolate,
@@ -80,6 +81,7 @@ export function PlayerContent({
 }: PlayerContentProps) {
   const router = useRouter();
   const theme = useAppTheme();
+  const insets = useSafeAreaInsets();
   const playerState = usePlayerState();
   const sleepTimerState = useSleepTimer();
   const [viewMode, setViewMode] = useState<"player" | "queue">("player");
@@ -608,7 +610,10 @@ export function PlayerContent({
     <View
       style={[
         playerStyles.container,
-        { backgroundColor: theme.colors.background },
+        {
+          backgroundColor: theme.colors.background,
+          paddingBottom: Math.max(insets.bottom, spacing.lg),
+        },
       ]}
     >
       {/* Header with Appbar */}
