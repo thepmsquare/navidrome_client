@@ -45,18 +45,15 @@ describe("LegacyOfflineDownloadsModal", () => {
     const { tree } = renderModal({ sizeBytes: 1048576 });
     const text = collectText(tree.root);
 
-    expect(text).toContain("important update about offline downloads");
-    expect(text).toContain("complete app rewrite");
-    expect(text).toContain(
-      "previously downloaded songs are not compatible with this version",
-    );
+    expect(text).toContain("your offline music was removed");
+    expect(text).toContain("offline music from the previous version cannot be used");
     expect(text).toContain("1048576 b");
-    expect(text).toContain("legacy offline cache was automatically cleared");
-    expect(text).toContain("sorry for the inconvenience");
-    expect(text).toContain("got it");
+    expect(text).toContain("automatically removed to free up storage");
+    expect(text).toContain("apologies for the disruption");
+    expect(text).toContain("confirm");
   });
 
-  it("calls onDismiss when got it is pressed", () => {
+  it("calls onDismiss when confirm is pressed", () => {
     const onDismiss = jest.fn();
     const { tree } = renderModal({ onDismiss });
 
