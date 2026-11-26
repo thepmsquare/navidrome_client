@@ -11,6 +11,7 @@ import {
   PendingScrobble,
   DownloadQueueState,
   DownloadQueueStatus,
+  FontFamilyKey,
   LyricsCacheRow,
   LyricsCacheStatus,
   LyricsMode,
@@ -1970,6 +1971,27 @@ export function getLyricsModeSetting(): LyricsMode {
 
 export function setLyricsModeSetting(mode: LyricsMode): void {
   setSyncMeta("lyrics_mode", mode);
+}
+
+const VALID_FONT_FAMILIES: readonly FontFamilyKey[] = [
+  "system",
+  "inter",
+  "roboto",
+  "poppins",
+  "outfit",
+  "plus_jakarta_sans",
+];
+
+export function getFontFamilySetting(): FontFamilyKey {
+  const val = getSyncMeta("font_family");
+  if (val && (VALID_FONT_FAMILIES as readonly string[]).includes(val)) {
+    return val as FontFamilyKey;
+  }
+  return "system";
+}
+
+export function setFontFamilySetting(fontFamily: FontFamilyKey): void {
+  setSyncMeta("font_family", fontFamily);
 }
 
 export function getRecentSearches(limit: number = 20): string[] {

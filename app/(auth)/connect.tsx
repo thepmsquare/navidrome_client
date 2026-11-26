@@ -24,6 +24,7 @@ import {
   setScrobbleMinDuration,
   setScrobbleMinPercent,
 } from "@/services/db";
+import { setFontFamily } from "@/services/fontFamily";
 import { setLyricsMode } from "@/services/lyrics";
 import { updateKeepPlayingOnAppDismissed } from "@/services/player";
 import { connectStyles } from "@/stylesheets";
@@ -289,6 +290,9 @@ export default function ConnectScreen() {
         }
         if (profile.settings.download_wifi_only !== undefined) {
           setDownloadWifiOnlySetting(profile.settings.download_wifi_only);
+        }
+        if (profile.settings.font_family !== undefined) {
+          setFontFamily(profile.settings.font_family);
         }
       }
 

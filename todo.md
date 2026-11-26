@@ -207,9 +207,10 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
     - [x] swipe-up queue sheet transition from music player.
     - [x] horizontal swipe gestures on full music player for track changes.
 
-- [ ] **font family selector** (`ui-5`)
+- [x] **font family selector** (`ui-5`)
   - **context:** v1 included a font selector in settings supporting multiple font choices (inter, roboto, poppins, outfit, plus jakarta sans, system font) that updated the application typography dynamically.
   - **task:** add a font family selection dialog / sheet in `app/(main)/settings.tsx`, integrate custom fonts with React Native Paper / app typography theme, and persist the user's choice across app restarts.
+  - **implementation:** added `@expo-google-fonts/{inter,roboto,poppins,outfit,plus-jakarta-sans}` loaded via `useFonts` in [`app/_layout.tsx`](./app/_layout.tsx), [`services/fontFamily.ts`](./services/fontFamily.ts) with `buildPaperFonts()` + pub/sub reactivity, SQLite persistence (`getFontFamilySetting` / `setFontFamilySetting`) in [`services/db.ts`](./services/db.ts), and an `appearance` font selector dialog in [`app/(main)/settings.tsx`](<./app/(main)/settings.tsx>).
 
 ## security
 

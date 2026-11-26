@@ -25,6 +25,7 @@ jest.mock("@/services/db", () => ({
   getKeepPlayingOnAppDismissed: jest.fn().mockReturnValue(false),
   getHapticsEnabled: jest.fn().mockReturnValue(true),
   getDownloadWifiOnlySetting: jest.fn().mockReturnValue(false),
+  getFontFamilySetting: jest.fn().mockReturnValue("inter"),
 }));
 
 jest.mock("@/services/lyrics", () => ({
@@ -103,6 +104,7 @@ describe("backup service", () => {
           lyrics_mode: "file_only",
           haptics_enabled: true,
           download_wifi_only: false,
+          font_family: "inter",
         },
         stop_playback_on_task_removed: true,
         home_sections: [
@@ -144,6 +146,7 @@ describe("backup service", () => {
         lyrics_mode: "file_only",
         haptics_enabled: true,
         download_wifi_only: false,
+        font_family: "inter",
       });
     });
   });
@@ -351,6 +354,26 @@ describe("backup service", () => {
       expect(() => parseProfileData(missingCredentials)).toThrow(
         "missing required server credentials in profile",
       );
+    });
+
+    it("should parse valid font_family and ignore unknown values", () => {
+      const withValidFont = JSON.stringify({
+        app_identifier: "navidrome_client_backup",
+        server_url: "https://example.com",
+        username: "u",
+        password: "p",
+        settings: { font_family: "poppins" },
+      });
+      expect(parseProfileData(withValidFont).settings?.font_family).toBe("poppins");
+
+      const withInvalidFont = JSON.stringify({
+        app_identifier: "navidrome_client_backup",
+        server_url: "https://example.com",
+        username: "u",
+        password: "p",
+        settings: { font_family: "comic_sans" },
+      });
+      expect(parseProfileData(withInvalidFont).settings?.font_family).toBeUndefined();
     });
   });
 

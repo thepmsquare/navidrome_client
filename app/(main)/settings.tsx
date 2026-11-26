@@ -5,7 +5,9 @@ import { Alert, Pressable, ScrollView, View } from "react-native";
 import {
   Button,
   Chip,
+  Dialog,
   IconButton,
+  Portal,
   RadioButton,
   Surface,
   Switch,
@@ -48,6 +50,13 @@ import {
 } from "@/services/db";
 import { triggerHapticSelection } from "@/utils/haptics";
 import {
+  FONT_FAMILY_OPTIONS,
+  getFontFamily,
+  getFontOption,
+  setFontFamily,
+  subscribeFontFamily,
+} from "@/services/fontFamily";
+import {
   getLyricsMode,
   setLyricsMode,
   subscribeLyricsMode,
@@ -68,7 +77,7 @@ import {
 import { ChangelogModal } from "@/components/ChangelogModal";
 import { showSnackbar } from "@/services/snackbar";
 import { settingsStyles } from "@/stylesheets";
-import { LyricsMode, useAppTheme } from "@/types";
+import { FontFamilyKey, LyricsMode, useAppTheme } from "@/types";
 import { useAudioOutputDevice } from "@/utils/audioOutput";
 import { APP_VERSION, APP_VERSION_CODE } from "@/utils/constants";
 import { handleNetworkOrOfflineError } from "@/utils/network";
@@ -141,6 +150,10 @@ export default function SettingsScreen() {
   const [lyricsMode, setLyricsModeState] = useState<LyricsMode>(() =>
     getLyricsMode(),
   );
+  const [fontFamily, setFontFamilyState] = useState<FontFamilyKey>(() =>
+    getFontFamily(),
+  );
+  const [fontDialogVisible, setFontDialogVisible] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -182,10 +195,23 @@ export default function SettingsScreen() {
   }, []);
 
   useEffect(() => {
+    return subscribeFontFamily((font) => {
+      setFontFamilyState(font);
+    });
+  }, []);
+
+  useEffect(() => {
     return subscribeLyricsMode((mode) => {
       setLyricsModeState(mode);
     });
   }, []);
+
+  const handleFontFamilyChange = (key: FontFamilyKey) => {
+    triggerHapticSelection();
+    setFontFamily(key);
+    setFontFamilyState(key);
+    setFontDialogVisible(false);
+  };
 
   function handleLyricsModeChange(mode: LyricsMode) {
     setLyricsMode(mode);
@@ -1088,6 +1114,43 @@ export default function SettingsScreen() {
             { backgroundColor: theme.colors.surfaceContainerHighest },
           ]}
         >
+          <Text variant="titleMedium">appearance</Text>
+          <Pressable
+            onPress={() => setFontDialogVisible(true)}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingVertical: spacing.xs,
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="font family"
+            testID="font-family-selector"
+          >
+            <View style={{ flex: 1, paddingRight: spacing.sm }}>
+              <Text variant="bodyLarge">font family</Text>
+              <Text
+                variant="bodyMedium"
+                style={{ color: theme.colors.onSurfaceVariant }}
+              >
+                {getFontOption(fontFamily).label}
+              </Text>
+            </View>
+            <IconButton
+              icon="chevron-right"
+              size={20}
+              iconColor={theme.colors.onSurfaceVariant}
+            />
+          </Pressable>
+        </Surface>
+
+        <Surface
+          elevation={0}
+          style={[
+            settingsStyles.sectionCard,
+            { backgroundColor: theme.colors.surfaceContainerHighest },
+          ]}
+        >
           <Text variant="titleMedium">home sections</Text>
           <Text
             variant="bodyMedium"
@@ -1283,6 +1346,55 @@ export default function SettingsScreen() {
           visible={changelogVisible}
           onDismiss={() => setChangelogVisible(false)}
         />
+
+        <Portal>
+          <Dialog
+            visible={fontDialogVisible}
+            onDismiss={() => setFontDialogVisible(false)}
+          >
+            <Dialog.Title>font family</Dialog.Title>
+            <Dialog.Content>
+              <RadioButton.Group
+                onValueChange={(val) =>
+                  handleFontFamilyChange(val as FontFamilyKey)
+                }
+                value={fontFamily}
+              >
+                {FONT_FAMILY_OPTIONS.map((option) => (
+                  <Pressable
+                    key={option.key}
+                    onPress={() => handleFontFamilyChange(option.key)}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      paddingVertical: spacing.xs,
+                    }}
+                    accessibilityRole="radio"
+                    accessibilityLabel={option.label}
+                  >
+                    <Text
+                      variant="bodyLarge"
+                      style={
+                        option.regular
+                          ? { fontFamily: option.regular }
+                          : undefined
+                      }
+                    >
+                      {option.label}
+                    </Text>
+                    <RadioButton.Android value={option.key} />
+                  </Pressable>
+                ))}
+              </RadioButton.Group>
+            </Dialog.Content>
+            <Dialog.Actions>
+              <Button onPress={() => setFontDialogVisible(false)}>
+                cancel
+              </Button>
+            </Dialog.Actions>
+          </Dialog>
+        </Portal>
       </ScrollView>
     </Surface>
   );

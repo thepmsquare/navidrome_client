@@ -77,6 +77,7 @@ jest.mock("@/services/db", () => ({
   getAutoCacheMaxBytes: jest.fn().mockReturnValue(1073741824),
   getAutoCacheTotalSize: jest.fn().mockReturnValue(0),
   getDownloadWifiOnlySetting: jest.fn().mockReturnValue(false),
+  getFontFamilySetting: jest.fn().mockReturnValue("system"),
   getHapticsEnabled: jest.fn().mockReturnValue(true),
   getKeepPlayingOnAppDismissed: jest.fn().mockReturnValue(false),
   getLocalCounts: jest.fn().mockReturnValue({
@@ -89,6 +90,7 @@ jest.mock("@/services/db", () => ({
   getScrobbleMinPercent: jest.fn().mockReturnValue(75),
   setAutoCacheEnabled: jest.fn(),
   setAutoCacheMaxBytes: jest.fn(),
+  setFontFamilySetting: jest.fn(),
   setHapticsEnabled: jest.fn(),
   setKeepPlayingOnAppDismissed: jest.fn(),
   setScrobbleMinDuration: jest.fn(),
@@ -111,6 +113,20 @@ jest.mock("@/services/lyrics", () => ({
     return jest.fn();
   }),
 }));
+
+jest.mock("react-native-paper", () => {
+  const actual = jest.requireActual("react-native-paper");
+  const MockDialog = ({ visible, children }: any) =>
+    visible ? children : null;
+  MockDialog.Title = ({ children }: any) => children;
+  MockDialog.Content = ({ children }: any) => children;
+  MockDialog.Actions = ({ children }: any) => children;
+  return {
+    ...actual,
+    Portal: ({ children }: any) => children,
+    Dialog: MockDialog,
+  };
+});
 
 describe("SettingsScreen", () => {
   beforeEach(() => {
@@ -417,5 +433,33 @@ describe("SettingsScreen", () => {
     );
     expect(texts).toContain("most played");
     expect(texts).toContain("recently played");
+  });
+
+  it("opens font family dialog and persists selection", async () => {
+    let component: any;
+    await renderer.act(async () => {
+      component = renderer.create(<SettingsScreen />);
+    });
+
+    const selector = component.root.findByProps({
+      testID: "font-family-selector",
+    });
+    expect(selector).toBeDefined();
+
+    await renderer.act(async () => {
+      selector.props.onPress();
+    });
+
+    const poppinsOption = component.root.findByProps({
+      accessibilityLabel: "poppins",
+    });
+    expect(poppinsOption).toBeDefined();
+
+    await renderer.act(async () => {
+      poppinsOption.props.onPress();
+    });
+
+    expect(triggerHapticSelection).toHaveBeenCalled();
+    expect(db.setFontFamilySetting).toHaveBeenCalledWith("poppins");
   });
 });

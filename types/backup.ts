@@ -1,5 +1,6 @@
 import { ServerUrlItem } from "./auth";
 import { LyricsMode } from "./lyrics";
+import { FontFamilyKey } from "./theme";
 
 export interface HomeSectionConfig {
   id: string;
@@ -15,6 +16,7 @@ export interface BackupSettings {
   lyrics_mode?: LyricsMode;
   haptics_enabled?: boolean;
   download_wifi_only?: boolean;
+  font_family?: FontFamilyKey;
 }
 
 export interface BackupData {

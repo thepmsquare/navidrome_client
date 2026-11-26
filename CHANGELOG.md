@@ -1,5 +1,16 @@
 # changelog
 
+## unreleased
+
+### user release notes
+
+- add font family selector in settings (inter, roboto, poppins, outfit, plus jakarta sans, and system default).
+
+### internal notes
+
+- load Google Fonts via expo-font in app/_layout.tsx and configure React Native Paper typography dynamically via services/fontFamily.ts.
+- persist font_family preference in sqlite sync_meta, include it in profile export/import, and add appearance selector dialog in settings.
+
 ## 2.42.0+90
 
 ### user release notes

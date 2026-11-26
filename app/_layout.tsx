@@ -1,4 +1,5 @@
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { useFonts } from "expo-font";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -17,6 +18,12 @@ import { ChangelogModal } from "@/components/ChangelogModal";
 import { ExpandablePlayer } from "@/components/ExpandablePlayer";
 import { PlayerOverlayProvider } from "@/contexts/PlayerOverlayContext";
 import { subscribeAuthState } from "@/services/api";
+import {
+  buildPaperFonts,
+  FONT_ASSETS,
+  getFontFamily,
+  subscribeFontFamily,
+} from "@/services/fontFamily";
 import {
   checkLegacyOfflineCache,
   deleteLegacyOfflineCache,
@@ -40,6 +47,8 @@ export default function RootLayout() {
   const [snackbarPayload, setSnackbarPayload] = useState<SnackbarPayload | null>(
     null,
   );
+  const [fontFamily, setFontFamilyState] = useState(() => getFontFamily());
+  const [fontsLoaded] = useFonts(FONT_ASSETS);
   const needsInitialSyncRef = useRef(false);
 
   const router = useRouter();
@@ -50,6 +59,12 @@ export default function RootLayout() {
   useEffect(() => {
     return subscribeSnackbar((payload) => {
       setSnackbarPayload(payload);
+    });
+  }, []);
+
+  useEffect(() => {
+    return subscribeFontFamily((font) => {
+      setFontFamilyState(font);
     });
   }, []);
 
@@ -184,13 +199,16 @@ export default function RootLayout() {
       });
   }, [isLoading]);
 
-  const paperTheme = useMemo(
-    () =>
+  const paperTheme = useMemo(() => {
+    const base =
       colorScheme === "dark"
         ? { ...MD3DarkTheme, colors: theme.dark }
-        : { ...MD3LightTheme, colors: theme.light },
-    [colorScheme, theme],
-  );
+        : { ...MD3LightTheme, colors: theme.light };
+    return {
+      ...base,
+      fonts: buildPaperFonts(fontFamily, fontsLoaded),
+    };
+  }, [colorScheme, theme, fontFamily, fontsLoaded]);
 
   const isAuthRoute =
     (segments as string[]).includes("(auth)") ||

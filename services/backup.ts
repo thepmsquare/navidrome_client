@@ -14,10 +14,15 @@ import {
   getScrobbleMinDuration,
   getScrobbleMinPercent,
 } from "@/services/db";
+import {
+  FONT_FAMILY_OPTIONS,
+  getFontFamily,
+} from "@/services/fontFamily";
 import { getLyricsMode } from "@/services/lyrics";
 import {
   BackupData,
   BackupSettings,
+  FontFamilyKey,
   HomeSectionConfig,
   ServerUrlItem,
 } from "@/types";
@@ -97,6 +102,7 @@ export async function createBackupData(): Promise<BackupData> {
       lyrics_mode: getLyricsMode(),
       haptics_enabled: getHapticsEnabled(),
       download_wifi_only: getDownloadWifiOnlySetting(),
+      font_family: getFontFamily(),
     },
     stop_playback_on_task_removed: stopPlayback,
     home_sections: homeSections,
@@ -221,6 +227,11 @@ export function parseProfileData(jsonString: string): BackupData {
         typeof data.settings.download_wifi_only === "boolean"
           ? data.settings.download_wifi_only
           : undefined,
+      font_family: FONT_FAMILY_OPTIONS.some(
+        (opt) => opt.key === data.settings.font_family,
+      )
+        ? (data.settings.font_family as FontFamilyKey)
+        : undefined,
     };
   }
 
