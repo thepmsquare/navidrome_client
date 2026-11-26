@@ -1,8 +1,8 @@
-import packageJson from '../package.json';
+import packageJson from "../package.json";
 
-export const APP_SHORT_NAME = "navidrome client";
-export const APP_SUBTITLE = "by thepmsquare";
-export const APP_FULL_NAME = "navidrome client by thepmsquare";
+export const APP_SHORT_NAME = "yet another navidrome client";
+export const APP_SUBTITLE = "";
+export const APP_FULL_NAME = "yet another navidrome client";
 export const APP_VERSION = packageJson.version;
 export const APP_VERSION_CODE = packageJson.versionCode;
 export const DB_NAME = "navidrome.db";

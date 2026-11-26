@@ -1,4 +1,4 @@
-# navidrome client by thepmsquare
+# yet another navidrome client
 
 > 📌 versioning: see [CHANGELOG.md](./CHANGELOG.md).
 

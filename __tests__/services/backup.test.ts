@@ -260,8 +260,8 @@ describe("backup service", () => {
     it("should successfully parse valid profile JSON matching user format", () => {
       const sampleJson = JSON.stringify({
         app_identifier: "navidrome_client_backup",
-        server_url: "https://songs.thepmsquare.com",
-        username: "thepmsquare",
+        server_url: "https://music.example.com",
+        username: "testuser",
         password: "password123",
         stop_playback_on_task_removed: true,
         home_sections: [
@@ -279,8 +279,8 @@ describe("backup service", () => {
       const parsed = parseProfileData(sampleJson);
 
       expect(parsed.app_identifier).toBe("navidrome_client_backup");
-      expect(parsed.server_url).toBe("https://songs.thepmsquare.com");
-      expect(parsed.username).toBe("thepmsquare");
+      expect(parsed.server_url).toBe("https://music.example.com");
+      expect(parsed.username).toBe("testuser");
       expect(parsed.password).toBe("password123");
       expect(parsed.stop_playback_on_task_removed).toBe(true);
       expect(parsed.home_sections).toHaveLength(6);
@@ -294,8 +294,8 @@ describe("backup service", () => {
     it("should successfully parse profile JSON containing settings", () => {
       const sampleJson = JSON.stringify({
         app_identifier: "navidrome_client_backup",
-        server_url: "https://songs.thepmsquare.com",
-        username: "thepmsquare",
+        server_url: "https://music.example.com",
+        username: "testuser",
         password: "password123",
         settings: {
           auto_cache_enabled: true,

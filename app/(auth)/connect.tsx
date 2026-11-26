@@ -30,7 +30,7 @@ import { updateKeepPlayingOnAppDismissed } from "@/services/player";
 import { connectStyles } from "@/stylesheets";
 import { ConnectStage, ServerUrlItem, useAppTheme } from "@/types";
 import { handleNetworkOrOfflineError } from "@/utils/network";
-import { APP_SHORT_NAME, APP_SUBTITLE } from "@/utils/constants";
+import { APP_FULL_NAME, APP_SUBTITLE } from "@/utils/constants";
 
 const MAX_ALTERNATIVE_URLS = 4;
 
@@ -408,17 +408,19 @@ export default function ConnectScreen() {
           />
           <View style={connectStyles.header}>
             <Text variant="titleLarge" style={connectStyles.appName}>
-              {APP_SHORT_NAME}
+              {APP_FULL_NAME}
             </Text>
-            <Text
-              variant="titleSmall"
-              style={[
-                connectStyles.appSubtitle,
-                { color: theme.colors.onSurfaceVariant },
-              ]}
-            >
-              {APP_SUBTITLE}
-            </Text>
+            {APP_SUBTITLE ? (
+              <Text
+                variant="titleSmall"
+                style={[
+                  connectStyles.appSubtitle,
+                  { color: theme.colors.onSurfaceVariant },
+                ]}
+              >
+                {APP_SUBTITLE}
+              </Text>
+            ) : null}
           </View>
         </View>
 

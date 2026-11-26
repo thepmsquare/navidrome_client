@@ -3,7 +3,7 @@
   "main": "expo-router/entry",
   "version": "2.42.0",
   "versionCode": 90,
-  "repository": "https://github.com/thepmsquare/navidrome_client",
+  "repository": "https://github.com/thepmsquare/yet_another_navidrome_client",
   "scripts": {
     "start": "node scripts/dev.js start",
     "prestart": "node scripts/validate_changelog.js",
