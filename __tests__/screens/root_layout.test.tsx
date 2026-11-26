@@ -23,13 +23,59 @@ jest.mock("@/services/songCache", () => ({
   resumePendingDownloadsAfterRestart: jest.fn(),
 }));
 
+let capturedChangelogProps: any = null;
 jest.mock("@/components/ChangelogModal", () => ({
-  ChangelogModal: () => null,
+  ChangelogModal: (props: any) => {
+    capturedChangelogProps = props;
+    return null;
+  },
+}));
+
+let capturedLegacyModalProps: any = null;
+jest.mock("@/components/LegacyOfflineDownloadsModal", () => ({
+  LegacyOfflineDownloadsModal: (props: any) => {
+    capturedLegacyModalProps = props;
+    return null;
+  },
 }));
 
 jest.mock("@/components/ExpandablePlayer", () => ({
   ExpandablePlayer: () => null,
 }));
+
+jest.mock("react-native-gesture-handler", () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const React = require("react");
+  const { View } = require("react-native");
+  return {
+    GestureHandlerRootView: ({
+      children,
+      ...props
+    }: {
+      children?: React.ReactNode;
+    }) => React.createElement(View, props, children),
+  };
+});
+
+jest.mock("react-native-safe-area-context", () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const React = require("react");
+  const { View } = require("react-native");
+  const insets = { top: 0, bottom: 0, left: 0, right: 0 };
+  const SafeAreaInsetsContext = React.createContext(insets);
+  return {
+    SafeAreaProvider: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement(View, null, children),
+    SafeAreaView: ({ children, ...props }: { children?: React.ReactNode }) =>
+      React.createElement(View, props, children),
+    SafeAreaInsetsContext,
+    initialWindowMetrics: {
+      insets,
+      frame: { x: 0, y: 0, width: 390, height: 844 },
+    },
+    useSafeAreaInsets: () => insets,
+  };
+});
 
 jest.mock("@pchmn/expo-material3-theme", () => ({
   useMaterial3Theme: () => ({ theme: { dark: {}, light: {} } }),
@@ -74,6 +120,8 @@ const mockSetItem = SecureStore.setItemAsync as jest.Mock;
 describe("RootLayout credential migration", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    capturedChangelogProps = null;
+    capturedLegacyModalProps = null;
     mockMigrate.mockResolvedValue({ status: "already-complete" });
     mockGetItem.mockResolvedValue(null);
     mockSetItem.mockResolvedValue(undefined);
@@ -187,9 +235,7 @@ describe("RootLayout credential migration", () => {
     });
   });
 
-  it("prompts the user to clean up legacy offline downloads when detected on launch", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const alertSpy = jest.spyOn(require("react-native").Alert, "alert");
+  it("auto-deletes legacy offline downloads on launch and informs the user", async () => {
     mockCheckLegacyOfflineCache.mockResolvedValueOnce({
       exists: true,
       sizeBytes: 52428800,
@@ -202,31 +248,23 @@ describe("RootLayout credential migration", () => {
       tree = renderer.create(<RootLayout />);
     });
 
-    expect(alertSpy).toHaveBeenCalledWith(
-      "legacy offline downloads detected",
-      expect.stringContaining("52428800 b"),
-      expect.arrayContaining([
-        expect.objectContaining({ text: "not now", style: "cancel" }),
-        expect.objectContaining({ text: "delete and reclaim space" }),
-      ]),
+    expect(mockDeleteLegacyOfflineCache).toHaveBeenCalledTimes(1);
+    expect(mockSetItem).toHaveBeenCalledWith(
+      "legacy_cache_cleared_bytes",
+      "52428800",
     );
-
-    const deleteButton = (alertSpy.mock.calls[0][2] as any[])?.find(
-      (btn: any) => btn.text === "delete and reclaim space",
-    );
-    expect(deleteButton).toBeDefined();
+    expect(capturedLegacyModalProps?.visible).toBe(true);
+    expect(capturedLegacyModalProps?.sizeBytes).toBe(52428800);
 
     await act(async () => {
-      await deleteButton?.onPress?.();
+      capturedLegacyModalProps?.onDismiss?.();
     });
 
-    expect(mockDeleteLegacyOfflineCache).toHaveBeenCalled();
+    expect(capturedLegacyModalProps?.visible).toBe(false);
 
     await act(async () => {
       tree!.unmount();
     });
-
-    alertSpy.mockRestore();
   });
 
   it("subscribes to global snackbar on mount and unsubscribes on unmount", async () => {
@@ -239,6 +277,89 @@ describe("RootLayout credential migration", () => {
     await act(async () => {
       showSnackbar("unable to connect to server");
     });
+
+    await act(async () => {
+      tree!.unmount();
+    });
+  });
+
+  it("defers legacy offline modal until ChangelogModal is dismissed", async () => {
+    mockGetItem.mockImplementation(async (key: string) => {
+      if (
+        key === "serverUrl" ||
+        key === "subsonicVersion" ||
+        key === "username" ||
+        key === "password"
+      ) {
+        return "val";
+      }
+      return null;
+    });
+    mockCheckLegacyOfflineCache.mockResolvedValueOnce({
+      exists: true,
+      sizeBytes: 1024,
+      uri: "file:///test/offline",
+    });
+
+    let tree: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<RootLayout />);
+    });
+
+    expect(capturedChangelogProps?.visible).toBe(true);
+    expect(capturedLegacyModalProps?.visible).toBe(false);
+
+    await act(async () => {
+      capturedChangelogProps.onDismiss();
+    });
+
+    expect(capturedLegacyModalProps?.visible).toBe(true);
+    expect(capturedLegacyModalProps?.sizeBytes).toBe(1024);
+
+    await act(async () => {
+      tree!.unmount();
+    });
+  });
+
+  it("persists dismissal and skips legacy modal on future launches", async () => {
+    mockCheckLegacyOfflineCache.mockResolvedValue({
+      exists: true,
+      sizeBytes: 2048,
+      uri: "file:///test/offline",
+    });
+
+    let tree: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<RootLayout />);
+    });
+
+    expect(capturedLegacyModalProps?.visible).toBe(true);
+
+    await act(async () => {
+      capturedLegacyModalProps?.onDismiss?.();
+    });
+
+    expect(mockSetItem).toHaveBeenCalledWith(
+      "legacy_cache_prompt_dismissed",
+      "true",
+    );
+    expect(capturedLegacyModalProps?.visible).toBe(false);
+
+    await act(async () => {
+      tree!.unmount();
+    });
+
+    // Simulate next launch where SecureStore returns "true" for dismissal
+    capturedLegacyModalProps = null;
+    mockGetItem.mockImplementation(async (key: string) =>
+      key === "legacy_cache_prompt_dismissed" ? "true" : null,
+    );
+
+    await act(async () => {
+      tree = renderer.create(<RootLayout />);
+    });
+
+    expect(capturedLegacyModalProps?.visible).toBe(false);
 
     await act(async () => {
       tree!.unmount();

@@ -5,11 +5,13 @@
 ### user release notes
 
 - add font family selector in settings (inter, roboto, poppins, outfit, plus jakarta sans, and system default).
+- automatically clear incompatible legacy offline downloads on upgrade and show a one-time notice without stacking launch popups.
 
 ### internal notes
 
 - load Google Fonts via expo-font in app/_layout.tsx and configure React Native Paper typography dynamically via services/fontFamily.ts.
 - persist font_family preference in sqlite sync_meta, include it in profile export/import, and add appearance selector dialog in settings.
+- add LegacyOfflineDownloadsModal, defer launch modals past /sync and ChangelogModal, and auto-delete legacy offline cache with persisted dismissal state in app/_layout.tsx.
 
 ## 2.42.0+90
 

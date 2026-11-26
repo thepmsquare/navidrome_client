@@ -1,21 +1,22 @@
-import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useFonts } from "expo-font";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, useColorScheme } from "react-native";
+import { useColorScheme } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
   ActivityIndicator,
   MD3DarkTheme,
   MD3LightTheme,
-  Portal,
   Provider as PaperProvider,
+  Portal,
   Snackbar,
 } from "react-native-paper";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { ChangelogModal } from "@/components/ChangelogModal";
 import { ExpandablePlayer } from "@/components/ExpandablePlayer";
+import { LegacyOfflineDownloadsModal } from "@/components/LegacyOfflineDownloadsModal";
 import { PlayerOverlayProvider } from "@/contexts/PlayerOverlayContext";
 import { subscribeAuthState } from "@/services/api";
 import {
@@ -27,14 +28,9 @@ import {
 import {
   checkLegacyOfflineCache,
   deleteLegacyOfflineCache,
-  formatBytes,
 } from "@/services/legacyCache";
 import { runLegacyMigration } from "@/services/migration";
-import {
-  showSnackbar,
-  SnackbarPayload,
-  subscribeSnackbar,
-} from "@/services/snackbar";
+import { SnackbarPayload, subscribeSnackbar } from "@/services/snackbar";
 import { resumePendingDownloadsAfterRestart } from "@/services/songCache";
 import { layoutStyles } from "@/stylesheets";
 import { APP_VERSION_CODE } from "@/utils/constants";
@@ -44,12 +40,14 @@ export default function RootLayout() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showWhatsNew, setShowWhatsNew] = useState(false);
-  const [snackbarPayload, setSnackbarPayload] = useState<SnackbarPayload | null>(
-    null,
-  );
+  const [pendingLegacyCacheBytes, setPendingLegacyCacheBytes] = useState(0);
+  const [showLegacyCacheModal, setShowLegacyCacheModal] = useState(false);
+  const [snackbarPayload, setSnackbarPayload] =
+    useState<SnackbarPayload | null>(null);
   const [fontFamily, setFontFamilyState] = useState(() => getFontFamily());
   const [fontsLoaded] = useFonts(FONT_ASSETS);
   const needsInitialSyncRef = useRef(false);
+  const legacyPromptShownRef = useRef(false);
 
   const router = useRouter();
   const segments = useSegments();
@@ -72,7 +70,8 @@ export default function RootLayout() {
     async function checkToken() {
       try {
         const serverUrl = await SecureStore.getItemAsync("serverUrl");
-        const subsonicVersion = await SecureStore.getItemAsync("subsonicVersion");
+        const subsonicVersion =
+          await SecureStore.getItemAsync("subsonicVersion");
         const username = await SecureStore.getItemAsync("username");
         const password = await SecureStore.getItemAsync("password");
 
@@ -99,7 +98,9 @@ export default function RootLayout() {
 
     async function checkVersionCodeUpdate() {
       try {
-        const lastSeen = await SecureStore.getItemAsync("last_seen_version_code");
+        const lastSeen = await SecureStore.getItemAsync(
+          "last_seen_version_code",
+        );
         const serverUrl = await SecureStore.getItemAsync("serverUrl");
         if (lastSeen !== null) {
           const prevCode = parseInt(lastSeen, 10);
@@ -167,37 +168,71 @@ export default function RootLayout() {
     }
   }, [isLoggedIn, isLoading, segments, router]);
 
+  const isSyncRoute = (segments as string[]).includes("sync");
+
   useEffect(() => {
     if (isLoading) return;
 
-    checkLegacyOfflineCache()
-      .then((info) => {
+    async function cleanupLegacyCache() {
+      try {
+        const [dismissed, savedClearedBytes, info] = await Promise.all([
+          SecureStore.getItemAsync("legacy_cache_prompt_dismissed"),
+          SecureStore.getItemAsync("legacy_cache_cleared_bytes"),
+          checkLegacyOfflineCache(),
+        ]);
+
         if (info.exists && info.sizeBytes > 0) {
-          Alert.alert(
-            "legacy offline downloads detected",
-            `we found ${formatBytes(info.sizeBytes)} of downloaded music from the previous version of the app. this version cannot use these downloads. delete them now to reclaim storage?`,
-            [
-              { text: "not now", style: "cancel" },
-              {
-                text: "delete and reclaim space",
-                style: "destructive",
-                onPress: async () => {
-                  const res = await deleteLegacyOfflineCache();
-                  if (!res.success) {
-                    showSnackbar(
-                      "failed to delete legacy offline downloads",
-                    );
-                  }
-                },
-              },
-            ],
-          );
+          const res = await deleteLegacyOfflineCache();
+          if (res.success) {
+            await SecureStore.setItemAsync(
+              "legacy_cache_cleared_bytes",
+              String(info.sizeBytes),
+            );
+            if (dismissed !== "true") {
+              setPendingLegacyCacheBytes(info.sizeBytes);
+            }
+          }
+          return;
         }
-      })
-      .catch((e) => {
-        console.error("failed to check legacy offline cache on launch:", e);
-      });
+
+        if (dismissed !== "true" && savedClearedBytes) {
+          const parsedBytes = parseInt(savedClearedBytes, 10);
+          if (!isNaN(parsedBytes) && parsedBytes > 0) {
+            setPendingLegacyCacheBytes(parsedBytes);
+          }
+        }
+      } catch (e) {
+        console.error("failed to clean up legacy offline cache on launch:", e);
+      }
+    }
+
+    cleanupLegacyCache();
   }, [isLoading]);
+
+  useEffect(() => {
+    if (
+      isLoading ||
+      isSyncRoute ||
+      showWhatsNew ||
+      pendingLegacyCacheBytes <= 0 ||
+      legacyPromptShownRef.current
+    ) {
+      return;
+    }
+
+    legacyPromptShownRef.current = true;
+    setShowLegacyCacheModal(true);
+  }, [isLoading, isSyncRoute, showWhatsNew, pendingLegacyCacheBytes]);
+
+  const handleDismissLegacyCacheModal = () => {
+    setShowLegacyCacheModal(false);
+    setPendingLegacyCacheBytes(0);
+    SecureStore.setItemAsync("legacy_cache_prompt_dismissed", "true").catch(
+      (e) => {
+        console.error("failed to persist legacy cache dismissal:", e);
+      },
+    );
+  };
 
   const paperTheme = useMemo(() => {
     const base =
@@ -260,31 +295,35 @@ export default function RootLayout() {
                 visible={!showSpinner && !isAuthRoute && !isQueueRoute}
               />
               <ChangelogModal
-              visible={showWhatsNew}
-              onDismiss={() => setShowWhatsNew(false)}
-              title="what's new"
-            />
-            <Portal>
-              <Snackbar
-                visible={!!snackbarPayload}
-                onDismiss={() => setSnackbarPayload(null)}
-                duration={snackbarPayload?.duration ?? 3000}
-                action={{
-                  label: snackbarPayload?.actionLabel ?? "dismiss",
-                  onPress: () => {
-                    snackbarPayload?.onAction?.();
-                    setSnackbarPayload(null);
-                  },
-                }}
-              >
-                {snackbarPayload?.message ?? ""}
-              </Snackbar>
-            </Portal>
-          </SafeAreaView>
+                visible={showWhatsNew && !isSyncRoute}
+                onDismiss={() => setShowWhatsNew(false)}
+                title="what's new"
+              />
+              <LegacyOfflineDownloadsModal
+                visible={showLegacyCacheModal && !isSyncRoute}
+                sizeBytes={pendingLegacyCacheBytes}
+                onDismiss={handleDismissLegacyCacheModal}
+              />
+              <Portal>
+                <Snackbar
+                  visible={!!snackbarPayload}
+                  onDismiss={() => setSnackbarPayload(null)}
+                  duration={snackbarPayload?.duration ?? 3000}
+                  action={{
+                    label: snackbarPayload?.actionLabel ?? "dismiss",
+                    onPress: () => {
+                      snackbarPayload?.onAction?.();
+                      setSnackbarPayload(null);
+                    },
+                  }}
+                >
+                  {snackbarPayload?.message ?? ""}
+                </Snackbar>
+              </Portal>
+            </SafeAreaView>
           </PlayerOverlayProvider>
         </PaperProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>
   );
 }
-
