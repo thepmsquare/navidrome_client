@@ -59,14 +59,24 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
   - **context:** [`client_app_sync()`](./services/api.ts) pulls the entire library each sync.
   - **task:** use `getScanStatus` / server scan timestamps to fetch only changed albums and tracks since the last sync.
 
+- [ ] **refresh expo-image cache on force sync** (`off-11`)
+  - **context:** [`client_app_sync(true)`](./services/api.ts) triggered by `force sync` in [`app/(main)/sync.tsx`](<./app/(main)/sync.tsx>) does not currently call `Image.clearDiskCache()` or `Image.clearMemoryCache()`, so updated server artwork may stay stale.
+  - **task:** clear `expo-image` disk and memory caches (and re-fetch any locally cached offline artwork) when running a force sync.
+
 - [ ] **auto fallback / failover on transport failures** (`net-1`)
   - **context:** alternate server urls are stored and pinged on connect, but runtime requests still target the active url only.
   - **task:** wrap request building so transport failures retry the next candidate url, update the active url on success, and debounce flapping. manual control is tracked as `net-2`.
 
 ## settings & ui
 
-- [ ] **continuous ui/ux refinements** (`eng-5`)
-  - **task:** haptics, spacing, typography, dark-mode contrast, route animations, and touch targets.
+- [ ] **customisable notification actions** (`ui-6`)
+  - **task:** allow users to customise the media notification action buttons in settings and apply them in the native playback service.
+
+- [ ] **customise chips in music player page** (`ui-7`)
+  - **task:** allow users to customise which action/info chips are shown and their order on the music player screen.
+
+- [ ] **tap-to-expand artwork audit across the app** (`ui-8`)
+  - **task:** audit all artwork surfaces across the app (album, artist, playlist, player, etc.) and ensure tap-to-expand via `ModalArtViewer` works consistently.
 
 ## security
 
@@ -82,9 +92,6 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
 - [ ] **shared entity context sheet** (`ui-3`)
   - **task:** deduplicate `SongContextMenuModal`, `AlbumContextMenuModal`, `ArtistContextMenuModal`, and `PlaylistContextMenuModal` into one configurable sheet. requires all four context menus to exist.
 
-- [ ] **silent exception swallowing audit** (`eng-1`)
-  - **task:** replace empty `catch { }` blocks across services with structured `console.error` logging. apply incrementally when the affected files are modified.
-
 - [ ] **decomposition of monoliths** (`eng-2`)
   - **context:** [`services/db.ts`](./services/db.ts) is ~1,200 lines and [`app/player.tsx`](./app/player.tsx) is ~900 lines.
   - **task:** split the database into domain repositories and extract player sub-components into dedicated modules.
@@ -98,6 +105,9 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
 
 ## release & testing
 
+- [ ] **f-droid release pipeline** (`ci-5`)
+  - **task:** set up reproducible builds, fastlane metadata, and an automated pipeline to publish releases to f-droid.
+
 - [ ] **store listing & compliance** (`store-1`)
   - **task:** update the play store listing (description, screenshots, feature graphic), data safety form, and content rating. confirm [`privacy_policy.html`](./privacy_policy.html) is published.
 
@@ -106,6 +116,18 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
 
 - [ ] **staged rollout** (`rel-1`)
   - **task:** roll out 10% → 50% → 100% while monitoring vitals and crash reports.
+
+## ongoing
+
+- [ ] **continuous ui/ux refinements** (`eng-5`)
+  - **task:** haptics, spacing, typography, dark-mode contrast, route animations, and touch targets.
+
+- [ ] **silent exception swallowing audit** (`eng-1`)
+  - **task:** replace empty `catch { }` blocks across services with structured `console.error` logging. apply incrementally when the affected files are modified.
+
+- [ ] **ongoing profile export & import settings audit** (`eng-6`)
+  - **context:** as new settings are added, [`services/backup.ts`](./services/backup.ts) needs to stay in sync so newly introduced preferences are exported and restored.
+  - **task:** regularly audit all persisted app settings and ensure any new options are included in profile export/import with safe defaults.
 
 ## future
 
@@ -120,3 +142,5 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
   - **consideration:** evaluate pre auto-caching the upcoming queue track during active playback or exoplayer pre-buffering while respecting wi-fi restrictions and cache size limits.
 - [ ] **pinned section on home screen** (`future-7`)
   - **task:** add a pinned section on the home page with context menu actions ("pin to home" / "unpin from home") across album, track, playlist, and artist entities.
+- [ ] **generate & export wrapped-style listening recap** (`future-8`)
+  - **task:** generate shareable wrapped-style listening recaps (top artists, albums, tracks, genres, listening time) and export them as images or cards.
