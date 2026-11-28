@@ -2,90 +2,6 @@
 
 status: `[ ]` todo · `[/]` in progress · `[x]` done
 
-## migration & upgrade
-
-- [x] **credentials & session auto-migration** (`mig-1`)
-  - **context:** legacy builds (`1.0.0`, `1.1.0`, `1.3.2`) stored credentials in android `SharedPreferences` (`flutter.server_url`, `flutter.username`, `flutter.password`). v2 uses [`expo-secure-store`](./services/backup.ts).
-  - **reader:** [`modules/legacy-prefs`](./modules/legacy-prefs/index.ts) exposes `readLegacyCredentials()`, reading `FlutterSharedPreferences` first and skipping absent files, absent keys, and non-string values. `readLegacyPreferences()` also exposes `flutter.is_logged_in` and `flutter.alternate_server_urls` for session and server-url restore.
-  - **task:** create a one-time startup routine that checks for legacy shared preferences, imports credentials into secure store, and marks migration complete so existing sessions remain authenticated. read keys defensively across legacy versions.
-  - **startup:** `app/_layout.tsx` runs `runLegacyMigration()` before `checkToken()`. the orchestrator is guarded by `migration.complete`, runs credentials then settings, skips incomplete/logged-out legacy state, and never blocks session restore.
-
-- [x] **settings migration & safe fallbacks** (`mig-2`)
-  - **context:** legacy preferences (`stop_playback_on_task_removed`, `auto_save_offline_played`, `home_sections`) were serialized in shared preferences.
-  - **reader:** `readLegacyPreferences()` from [`modules/legacy-prefs`](./modules/legacy-prefs/index.ts) returns all migrated settings, including `autoSaveOfflineMaxBytes` and `autoSaveOfflineLruEvict`. `homeSections` is raw json and must be parsed defensively.
-  - **task:** import legacy settings keys into sqlite on first run. all missing keys must gracefully fall back to defaults.
-  - **mapping:** [`services/migration/settings.ts`](./services/migration/settings.ts) applies `auto_save_offline_played` -> `auto_cache_enabled`, `auto_save_offline_max_bytes` -> `auto_cache_max_bytes`, `stop_playback_on_task_removed` -> `keep_playing_on_app_dismissed` (inverted, plus the secure-store copy used by backup/restore), and `home_sections` -> secure store. `auto_save_offline_lru_evict` is ignored because v2 always evicts by lru. invalid or missing values are skipped so the v2 default applies, and malformed `home_sections` entries are dropped by `parseHomeSections()`.
-
-- [x] **migration safety & idempotency** (`mig-3`)
-  - **task:** make every migration step idempotent and failure-safe. a failed migration must log and fall back to the connect screen without crash-looping or wiping existing data. guard the routine behind a single "migration complete" flag.
-  - **credentials:** `readLegacyPreferencesResult()` distinguishes absent, unavailable, and unreadable legacy stores. missing module is treated as no legacy data; corrupt/unreadable prefs mark the migration complete (no retry loop), leave the legacy store untouched, and fall through to the connect screen. write failures do not set the flag so the next launch retries.
-  - **orchestrator:** [`services/migration/index.ts`](./services/migration/index.ts) runs both steps in one startup pass and owns the flag. each step is idempotent, so a partial run can safely repeat. `migration.complete` now stores `2`; installs that completed the earlier credentials-only pass rerun the idempotent steps to pick up settings.
-  - **fail-closed flag:** an unreadable completion flag is treated as complete, so a secure-store read failure can never re-import legacy credentials over user-set credentials. unreadable legacy data is logged and the app still reaches the connect screen.
-
-- [x] **verify minSdk coverage for legacy installs** (`mig-4`)
-  - **task:** confirm v2's `minSdk` covers devices on legacy builds. play keeps incompatible devices on the last compatible version.
-  - **verified:** v2 is `minSdk 24` (android 7.0) — expo sdk 57 / rn 0.86 defaults and the merged manifest both report 24, with no override in `app.config.ts`. legacy was flutter using `flutter.minSdkVersion` with no override; flutter's default moved from 21 to 24 on 2025-07-02 (stable >= 3.35), and all legacy builds shipped 2026-04 to 2026-07-02, so legacy is also 24. no legacy install exists below 24, so every legacy device is upgrade-eligible and `mig-1`/`mig-2` cover the full legacy population.
-
-- [x] **sqlite schema versioning & migration runner** (`db-1`)
-  - **context:** [`services/db.ts`](./services/db.ts) initializes tables using `CREATE TABLE IF NOT EXISTS` without schema version tracking. future schema changes will fail to apply to existing databases.
-  - **task:** implement a versioned migration runner using `PRAGMA user_version` to apply incremental `ALTER TABLE` and schema migrations reliably across updates. bundle with `mig-1` and `mig-2`, which also run at startup.
-  - **implementation:** `SCHEMA_MIGRATIONS` is an append-only list applied by `initDatabase()` inside `withTransactionSync`, with `PRAGMA user_version` written after each step. `SCHEMA_VERSION` is derived from the list. pre-versioning databases report `0` and run the initial schema, which uses only `CREATE TABLE/INDEX IF NOT EXISTS`. schema setup runs from `getDb()` on first access, so it covers the same startup path as the legacy import without a separate hook.
-
-- [x] **upgrade smoke test** (`qa-1`, manual)
-  - **task:** install `1.3.2+24` from play, upgrade to the v2 build, and verify credentials, settings, downloaded songs, playback, and scrobbling. repeat from `1.0.0+19` or `1.1.0+20` if a device is available.
-  - **checklist:**
-    - install the legacy build from play and sign in, enable auto-save offline, customize the settings available in that build, play a song, and scrobble at least one track.
-    - install the v2 build over it (same application id, higher version code) without uninstalling.
-    - verify the app opens straight to the library without the connect screen.
-    - verify the legacy server url + alternate urls, username, and password are preserved.
-    - verify auto-cache and keep-playing settings match the legacy values. `home_sections` is preserved in secure store for backup/restore; the reorder/hide UI itself is tracked as `ui-1`.
-    - play a remote song; confirm playback controls, notification, and background behaviour.
-    - save a song offline in v2 and play it in airplane mode. legacy downloads are not adopted (cleanup is tracked in `off-9`); confirm the old `app_flutter/offline` directory is left untouched and does not crash the app.
-    - scrobble a new track and confirm it appears on the server; confirm the pending-scrobble queue survives going offline and reconnecting.
-    - verify no crash loop and that a fresh connect still works if the legacy session was logged out.
-  - **minSdk parity:** legacy and v2 are both `minSdk 24`, so no device is stranded on the old build.
-  - **signing:** the release workflow (`.github/workflows/release-internal.yml`) decodes `ANDROID_KEYSTORE_BASE64` into `android/app/release.keystore`, patches the generated gradle file to sign `release` with `signingConfigs.release`, and reads the password/alias from `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`. the keystore secret must be the legacy upload key (or a key authorised for the same Play app) so play accepts the in-place upgrade. the generated `android/` directory is gitignored, so local release builds are not signed for play; use the tag workflow.
-  - **verified:** verified on physical device via in-place upgrade (`1.3.2+24` -> `2.35.0+70`). seamless session restore, remote library fetch, and background media playback confirmed with clean logcat.
-
-## playback & audio
-
-- [x] **audio focus ducking & transient loss recovery** (`pb-1`)
-  - **context:** `setHandleAudioBecomingNoisy(true)` handles headphone disconnects, but transient focus losses (navigation prompts, alarms, calls) require explicit ducking and pause/resume logic.
-  - **task:** audit transient vs exclusive focus loss in `AudioPlaybackService.kt`. duck volume during transient loss. pause and resume cleanly after calls.
-  - **verified:** audited audio focus in `AudioPlaybackService.kt`. verified on physical device that exoplayer's native `setAudioAttributes(audioAttributes, true)` already ducks volume to 20% during transient loss and cleanly pauses and resumes across incoming and outgoing phone calls without custom audio focus overrides.
-
-- [x] **resumable playback after notification dismissal** (`pb-2`)
-  - **context:** tapping the close icon on the android media notification stops the native playback service. returning to the app leaves the mini player visible, but play fails to resume.
-  - **task:** audit the player state lifecycle when the notification is closed. either re-instantiate the audio session from the current track on play, or hide the mini player when playback is closed.
-  - **verified:** added `onPlaybackStopped` event dispatched when the native playback service stops (e.g. notification dismissed or closed). in `player.ts`, preserved the track's last known playback position and cleared `activePlaybackTrackId`, enabling `resumePlayback` to seamlessly reload the track and seek to the saved position when tapping play on the mini player. also ensured exoplayer prepares on play if in idle state.
-
-- [x] **gapless playback via full native exoplayer playlist** (`pb-3`)
-  - **context:** native exoplayer loads one track at a time, causing brief silence between songs. full gapless playback requires leveraging exoplayer's native playlist capabilities (`setMediaItems`, `addMediaItem`, `moveMediaItem`, `removeMediaItem`), allowing exoplayer's internal engine to buffer ahead and transition gaplessly across the entire queue.
-  - **task:**
-    - expose full native playlist operations in `AudioPlaybackService.kt` and `AudioPlaybackModule.kt`: `setPlaylist(items, startIndex, initialPosition)`, `addPlaylistItem(index, item)`, `removePlaylistItem(index)`, `movePlaylistItem(fromIndex, toIndex)`, `clearPlaylist()`, and `seekToTrack(index, position)`.
-    - delegate repeat modes (`REPEAT_MODE_OFF`, `REPEAT_MODE_ALL`, `REPEAT_MODE_ONE`) and shuffle (`setShuffleModeEnabled`) directly to native exoplayer.
-    - listen for `onMediaItemTransition` to synchronize active track index and id into js.
-    - handle scrobble evaluation, listening time accumulator reset, and now-playing ping on transition boundary.
-    - resolve `MediaItem` uris to local cache when available, stream urls when uncached, and support `updateMediaItemUri` when downloads complete in the background.
-    - integrate with sleep timer to pause cleanly at track boundary when stopping after current track.
-  - **verified:** implemented full native playlist management in `AudioPlaybackService.kt` using `setMediaItems`, `addMediaItem`, `removeMediaItem`, `moveMediaItem`, and `replaceMediaItem` (for dynamic cache uri hot-swapping). wired `onMediaItemTransition` to synchronize authoritative track index and metadata into js, dispatch scrobble submission on transition boundaries, fire now-playing pings, and enforce end-of-track sleep timer pauses. verified by 26/26 passing acceptance tests in [`__tests__/services/playerGaplessAcceptance.test.ts`](./__tests__/services/playerGaplessAcceptance.test.ts).
-  - **acceptance test suite:** [`__tests__/services/playerGaplessAcceptance.test.ts`](./__tests__/services/playerGaplessAcceptance.test.ts).
-
-- [x] **sleep timer gradual fade-out** (`pb-4`)
-  - **context:** [`services/sleepTimer.ts`](./services/sleepTimer.ts) pauses abruptly.
-  - **task:** ramp volume down over the final 30–60 seconds.
-  - **implementation:** added native gradual volume fade in `AudioPlaybackService.kt` during the final 30 seconds of duration-based sleep timers, smoothly ramping `player.volume` down to 0 and cleanly restoring base volume on timer expiry or cancellation. wired volume ramp coordination into `services/sleepTimer.ts` with unit and acceptance test verification in `__tests__/services/sleepTimer.test.ts` and `__tests__/services/playerGaplessAcceptance.test.ts`.
-
-- [x] **js and native audio state synchronization** (`arch-1`)
-  - **context:** [`services/player.ts`](./services/player.ts) relies on module-level mutable state and sqlite hydration on launch. activity recreation (e.g. background memory reclamation while `AudioPlaybackService` foreground service continues running) desynchronizes js from native playback.
-  - **task:**
-    - expose native authoritative status query (`getPlaylistState`) returning active media index, position, timeline count, speed, and playback status.
-    - query native module on app launch and activity resume in `ensureSessionHydrated` / `AppState` listener, reconciling js `currentIndex` and `currentTrack` if exoplayer advanced while js was detached.
-    - attach full track metadata and artwork natively to each `MediaItem` so lockscreen and media notifications update without js bridge latency.
-    - persist synchronized player session to sqlite when native state changes while app is backgrounded.
-  - **verified:** exposed `getPlaylistState` in `AudioPlaybackService.kt` returning authoritative active index, position, timeline item count, speed, and repeat/shuffle states. wired `hydratePlayerSession` and `AppState` listener to reconcile memory state from native player on activity recreation and app resume, ensuring zero drift between js and native exoplayer. verified in [`__tests__/services/playerGaplessAcceptance.test.ts`](./__tests__/services/playerGaplessAcceptance.test.ts).
-  - **acceptance test suite:** [`__tests__/services/playerGaplessAcceptance.test.ts`](./__tests__/services/playerGaplessAcceptance.test.ts).
-
 ## library & playlists
 
 - [ ] **universal entity components & deep linking across the app** (`ui-2`)
@@ -111,9 +27,6 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
   - **context:** [`app/(main)/library/playlist/[id].tsx`](<./app/(main)/library/playlist/[id].tsx>) fetches songs from the network on every open.
   - **task:** persist playlist songs into sqlite during sync and cache on demand so details open instantly and browse offline.
 
-- [x] **starred / favorites screen** (`lib-3`)
-  - **task:** `app/(main)/library/favorites.tsx` with chips/filters for favorite tracks, albums, and artists with search and sort options, integrated with local sqlite.
-
 - [ ] **audit & placement of cache button** (`lib-4`)
   - **task:** document every surface where the "make available offline" button should appear (song rows, album, playlist, artist, player, search) and implement the missing placements.
 
@@ -126,23 +39,6 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
     - evaluate queries against local sqlite database for instant offline-capable playback.
 
 ## offline & network
-
-- [x] **persist album art for offline cached songs** (`off-1`)
-  - **context:** [`services/songCache.ts`](./services/songCache.ts) saves audio but not artwork, so covers are missing offline.
-  - **task:** download and persist cover art alongside cached songs. resolve cached covers before network urls.
-
-- [x] **graceful offline error feedback** (`off-2`)
-  - **task:** show non-blocking snackbars when an action requires internet (streaming an uncached song, manual sync while offline). avoid blocking modals or global state flips during transient drops.
-  - **implementation:** added global snackbar service (`services/snackbar.ts`) and network error utility (`utils/network.ts`). mounted a dismissible snackbar in root layout (`app/_layout.tsx`) showing "unable to connect to server" when streaming uncached songs, syncing library, downloading tracks, or exporting offline fails.
-
-- [x] **android foreground service for downloads & caching** (`off-3`)
-  - **context:** bulk caching runs in the js runtime and stalls when the app is backgrounded without an active foreground service.
-  - **task:** attach downloads to an android foreground service (`dataSync`) with an ongoing notification showing progress, song details, and a cancel button, while holding a partial wake lock so downloads finish reliably with the screen off.
-
-- [x] **android foreground service / workmanager for library sync** (`off-4`)
-  - **context:** large library sync runs in the js runtime and can stall when the app is suspended during initial onboarding or bulk refresh.
-  - **task:** attach library sync to a background worker or foreground service with progress notification.
-  - **implementation:** created `modules/sync-service` (`SyncService.kt`, `SyncServiceModule.kt`) as an android foreground service (`dataSync`) holding a partial wake lock with notification channel `library sync` (id `2002`). attached foreground service lifecycle, live progress notification updates (`synced {n} tracks`), cancellation handling, and guaranteed cleanup in `finally` to `client_app_sync()` in `services/api.ts`.
 
 - [ ] **offline user experience & state transitions** (`off-5`)
   - **task:**
@@ -159,58 +55,18 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
 - [ ] **storage breakdown & cache management screen** (`off-6`)
   - **task:** show disk usage by manual downloads, auto-cache, artwork, and database. sort by artist/album. bulk prune/delete.
 
-- [x] **download over wi-fi only toggle** (`off-7`)
-  - **task:** pause queued caching on cellular connections.
-  - **implementation:** added native `isWifiConnected` query and `onNetworkChanged` event listener in `modules/download-service` using android `ConnectivityManager.NetworkCallback`. integrated with download queue worker in `services/songCache.ts` to pause downloads on cellular with `"paused: waiting for wi-fi"` foreground notification and resume automatically on wi-fi reconnect. added toggle in `app/(main)/settings.tsx` with db persistence and backup profile support.
-
 - [ ] **incremental / delta library sync** (`off-8`)
   - **context:** [`client_app_sync()`](./services/api.ts) pulls the entire library each sync.
   - **task:** use `getScanStatus` / server scan timestamps to fetch only changed albums and tracks since the last sync.
-
-- [x] **orphaned legacy cache cleanup** (`off-9`)
-  - **context:** legacy downloads live in `<app_dir>/app_flutter/offline/{tracks,covers,lyrics,meta}`. v2 uses `manual-cache` and `auto-cache`.
-  - **task:** detect legacy directories on launch and offer cleanup to reclaim disk space.
-  - **implementation:** added `services/legacyCache.ts` to detect `<app_dir>/app_flutter/offline` and compute disk usage. prompts user on launch via `app/_layout.tsx` when orphaned downloads exist, and adds a dedicated cleanup card in `app/(main)/settings.tsx`.
 
 - [ ] **auto fallback / failover on transport failures** (`net-1`)
   - **context:** alternate server urls are stored and pinged on connect, but runtime requests still target the active url only.
   - **task:** wrap request building so transport failures retry the next candidate url, update the active url on success, and debounce flapping. manual control is tracked as `net-2`.
 
-- [x] **server url management screen** (`net-2`)
-  - **context:** management of primary and alternative server urls with parallel latency testing, active url switching, adding, deleting, and reordering.
-  - **task:**
-    - [x] view saved urls, active badge, latency, and test ping.
-    - [x] switch active url without logging out.
-    - [x] add/remove urls (keep at least one, block removing the active one).
-    - [x] reorder urls (priority order for `net-1`).
-  - **implementation:** added [`services/connection.ts`](./services/connection.ts) with `getServerConnectionState`, `switchActiveServerUrl`, `addServerUrl`, `removeServerUrl`, `reorderServerUrls`, and `pingServerUrl`. wired into dedicated connection settings card in [`app/(main)/settings.tsx`](<./app/(main)/settings.tsx>).
-
 ## settings & ui
-
-- [x] **reorderable and hideable home page sections** (`ui-1`)
-  - **context:** home sections were statically mapped in [`components/home/index.ts`](./components/home/index.ts).
-  - **task:** settings screen to reorder and toggle visibility, persisted locally, and honored dynamically by the home screen.
-  - **implementation:** added [`services/homeSections.ts`](./services/homeSections.ts) with `getHomeSections`, `saveHomeSections`, `resolveHomeSections`, and `HOME_SECTION_LABELS`. updated [`app/(main)/index.tsx`](<./app/(main)/index.tsx>) to dynamically render sections based on stored order and visibility. added dedicated home sections card in [`app/(main)/settings.tsx`](<./app/(main)/settings.tsx>) with switches and reorder controls.
 
 - [ ] **continuous ui/ux refinements** (`eng-5`)
   - **task:** haptics, spacing, typography, dark-mode contrast, route animations, and touch targets.
-
-- [x] **player gestures and transition animations** (`ui-4`)
-  - **context:** v1 had smooth fluid transitions and gestures across the playback surface:
-    - expanding from bottom mini player to full music player screen ([`app/player.tsx`](./app/player.tsx)) and collapsing back down.
-    - swiping up from the music player to open the queue sheet/view (and swiping down to dismiss).
-    - left/right swipe gestures on the music player (album art) to trigger next/previous track changes.
-  - **task:**
-    - [x] horizontal swipe left/right gestures on mini player with reanimated spring feedback to change songs.
-    - [x] swipe up on mini player to open full music player.
-    - [x] swipe down on full music player to collapse back to mini player.
-    - [x] swipe-up queue sheet transition from music player.
-    - [x] horizontal swipe gestures on full music player for track changes.
-
-- [x] **font family selector** (`ui-5`)
-  - **context:** v1 included a font selector in settings supporting multiple font choices (inter, roboto, poppins, outfit, plus jakarta sans, system font) that updated the application typography dynamically.
-  - **task:** add a font family selection dialog / sheet in `app/(main)/settings.tsx`, integrate custom fonts with React Native Paper / app typography theme, and persist the user's choice across app restarts.
-  - **implementation:** added `@expo-google-fonts/{inter,roboto,poppins,outfit,plus-jakarta-sans}` loaded via `useFonts` in [`app/_layout.tsx`](./app/_layout.tsx), [`services/fontFamily.ts`](./services/fontFamily.ts) with `buildPaperFonts()` + pub/sub reactivity, SQLite persistence (`getFontFamilySetting` / `setFontFamilySetting`) in [`services/db.ts`](./services/db.ts), and an `appearance` font selector dialog in [`app/(main)/settings.tsx`](<./app/(main)/settings.tsx>).
 
 ## security
 
@@ -236,40 +92,14 @@ status: `[ ]` todo · `[/]` in progress · `[x]` done
 - [ ] **performance & render optimization** (`eng-3`)
   - **task:** profile list rendering (`getItemLayout`, window size, memoization), tune `expo-image` cache, and reduce re-renders from player and download progress.
 
-- [x] **build pipeline optimization** (`eng-4`)
-  - **context:** release builds take 20+ minutes because the aab and apk are built separately and gradle caching is absent.
-  - **task:** build the universal apk from the aab with `bundletool` instead of a second `assembleRelease`, add gradle caching and configuration cache, and enable parallel builds.
-  - **implementation:** replaced redundant `assembleRelease` build with fast `bundletool` universal apk extraction from signed aab, increased runner jvm heap to 6gb with g1gc and parallel workers, optimized debug symbols to `SYMBOL_TABLE`, and enabled gradle caching.
-
 - [ ] **in-app event log viewer & export** (`dbg-1`)
   - **context:** v1 provided a dedicated event log screen (`event_log_page.dart`) displaying timestamped log entries across `debug`, `info`, `warning`, and `error` levels, formatted stack traces, level filtering, and one-tap copy/share to clipboard. currently play vitals only surfaces native crashes and anrs.
   - **task:** maintain a bounded ring buffer of events, network diagnostics, and js errors in sqlite, create an in-app event log viewer screen with search and level filters, allow copying formatted logs to clipboard, and expose "view event log" and "export debug logs" in settings.
 
 ## release & testing
 
-- [x] **closed testing track automation** (`ci-1`)
-  - **task:** add fastlane lane `promote_to_closed` and automated environment promotion to closed testing track (alpha).
-  - **implementation:** added fastlane `promote_to_closed` in `fastlane/Fastfile` and integrated into unified `.github/workflows/release.yml` with `closed-testing` environment gate for 1-click promotion without rebuilding.
-
-- [x] **open testing track automation** (`ci-2`)
-  - **task:** add fastlane lane `promote_to_open` and automated environment promotion to open testing track (beta).
-  - **implementation:** added fastlane `promote_to_open` in `fastlane/Fastfile` and integrated into unified `.github/workflows/release.yml` with `open-testing` environment gate for 1-click promotion without rebuilding.
-
-- [x] **production track automation with staged rollout** (`ci-3`)
-  - **task:** add fastlane lane `promote_to_production` with staged rollout percentages (e.g. 10%, 20%, 50%, 100%).
-  - **implementation:** added fastlane `promote_to_production` in `fastlane/Fastfile` with configurable `rollout` percentage and integrated into unified `.github/workflows/release.yml` with `production` environment gate.
-
-- [x] **github release with apk asset on open testing promotion** (`ci-4`)
-  - **task:** modify `.github/workflows/release.yml` so that upon successful promotion to the open testing track (`open-testing`), a github release is automatically published with the release changelog and the built release apk attached.
-  - **implementation:** updated `promote_to_open` in `.github/workflows/release.yml` with `contents: write` permissions, artifact download for the built release apk, node extraction of the version changelog from `CHANGELOG.md`, and automated github release creation/asset attachment via `gh release`.
-
 - [ ] **store listing & compliance** (`store-1`)
   - **task:** update the play store listing (description, screenshots, feature graphic), data safety form, and content rating. confirm [`privacy_policy.html`](./privacy_policy.html) is published.
-
-- [x] **crash visibility** (`store-2`)
-  - **context:** crash visibility relies on google play android vitals.
-  - **task:** upload the r8 mapping file and native debug symbols during release builds so vitals show readable stack traces.
-  - **implementation:** enabled release r8 minification and native debug symbols (`debugSymbolLevel 'FULL'`), updated fastlane `upload_internal` and `upload_closed` to pass r8 mapping files and native debug symbol archives to fastlane supply, and archived them as github action artifacts in `.github/workflows/release.yml`.
 
 - [ ] **final privacy & data-safety review** (`store-3`)
   - **task:** re-check the data safety form against the shipped build (network calls, local storage, exports) and confirm the privacy policy covers everything.
