@@ -1,11 +1,11 @@
 # changelog
 
-## unreleased
+## 2.43.1+92
 
 ### user release notes
 
-- improve android app memory usage and performance with full r8 optimization.
-- update android 15+ edge-to-edge theme configuration.
+- fix empty music player notification showing up on app startup.
+- android specific optimisations.
 
 ### internal notes
 
@@ -23,9 +23,9 @@
 
 ### internal notes
 
-- load Google Fonts via expo-font in app/_layout.tsx and configure React Native Paper typography dynamically via services/fontFamily.ts.
+- load Google Fonts via expo-font in app/\_layout.tsx and configure React Native Paper typography dynamically via services/fontFamily.ts.
 - persist font_family preference in sqlite sync_meta, include it in profile export/import, and add appearance selector dialog in settings.
-- add LegacyOfflineDownloadsModal, defer launch modals past /sync and ChangelogModal, and auto-delete legacy offline cache with persisted dismissal state in app/_layout.tsx.
+- add LegacyOfflineDownloadsModal, defer launch modals past /sync and ChangelogModal, and auto-delete legacy offline cache with persisted dismissal state in app/\_layout.tsx.
 - rebrand app display name, connect screen, constants, repository URL, docs, and privacy policy to "yet another navidrome client".
 
 ## 2.42.0+90

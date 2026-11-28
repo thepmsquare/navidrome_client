@@ -63,6 +63,10 @@ class AudioPlaybackService : MediaSessionService() {
   }
 
   override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
+    if (!hasActiveMedia()) {
+      stopForegroundService()
+      return
+    }
     if (startInForegroundRequired && !isForegroundServiceStarted) {
       startAsForegroundService()
     } else {
@@ -402,7 +406,20 @@ class AudioPlaybackService : MediaSessionService() {
       }
     })
 
-    val customPlayer = object : ForwardingPlayer(exoPlayer) {
+    player = exoPlayer
+    notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+  }
+
+  private fun hasActiveMedia(): Boolean {
+    val p = player ?: return false
+    return p.mediaItemCount > 0 && p.currentMediaItem != null
+  }
+
+  private fun ensureMediaSession(): MediaSession? {
+    mediaSession?.let { return it }
+    val exoPlayer = player ?: return null
+
+    val customPlayer = forwardingPlayer ?: object : ForwardingPlayer(exoPlayer) {
       override fun getAvailableCommands(): Player.Commands {
         return super.getAvailableCommands().buildUpon()
           .add(Player.COMMAND_PLAY_PAUSE)
@@ -516,13 +533,24 @@ class AudioPlaybackService : MediaSessionService() {
       })
       .build()
 
-    player = exoPlayer
     forwardingPlayer = customPlayer
     mediaSession = session
     addSession(session)
-    notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-
     updateSessionCustomLayout()
+    return session
+  }
+
+  private fun releaseMediaSession() {
+    mediaSession?.let {
+      try {
+        removeSession(it)
+        it.release()
+      } catch (e: Exception) {
+        android.util.Log.w(TAG, "Error releasing mediaSession: ${e.message}")
+      }
+    }
+    mediaSession = null
+    forwardingPlayer = null
   }
 
   private fun updateSessionCustomLayout() {
@@ -727,6 +755,7 @@ class AudioPlaybackService : MediaSessionService() {
       .setMediaMetadata(mediaMetadata)
       .build()
 
+    ensureMediaSession()
     p.setMediaItem(mediaItem)
     p.setPlaybackSpeed(currentPlaybackSpeed)
     p.prepare()
@@ -746,6 +775,9 @@ class AudioPlaybackService : MediaSessionService() {
     val validStartIndex = if (startIndex in 0 until mediaItems.size) startIndex else 0
     val startPositionMs = (initialPositionSeconds * 1000).toLong().coerceAtLeast(0L)
 
+    if (mediaItems.isNotEmpty()) {
+      ensureMediaSession()
+    }
     p.setMediaItems(mediaItems, validStartIndex, startPositionMs)
     p.setPlaybackSpeed(currentPlaybackSpeed)
     p.prepare()
@@ -795,6 +827,8 @@ class AudioPlaybackService : MediaSessionService() {
   fun clearPlaylist() {
     val p = player ?: return
     p.clearMediaItems()
+    stopForegroundService()
+    releaseMediaSession()
   }
 
   fun seekToTrack(index: Int, positionSeconds: Double) {
@@ -1011,6 +1045,9 @@ class AudioPlaybackService : MediaSessionService() {
 
   fun playPlayback() {
     val p = player ?: return
+    if (p.mediaItemCount > 0) {
+      ensureMediaSession()
+    }
     if (p.playbackState == Player.STATE_IDLE) {
       p.prepare()
     }
@@ -1034,6 +1071,7 @@ class AudioPlaybackService : MediaSessionService() {
     }
     p.stop()
     stopForegroundService()
+    releaseMediaSession()
     eventListener?.onPlaybackStopped()
   }
 
@@ -1264,8 +1302,9 @@ class AudioPlaybackService : MediaSessionService() {
   }
 
   private fun buildNotification(): Notification? {
+    if (!hasActiveMedia()) return null
     val p = player ?: return null
-    val session = mediaSession ?: return null
+    val session = ensureMediaSession() ?: return null
 
     val isPlaying = p.isPlaying
 
@@ -1326,7 +1365,7 @@ class AudioPlaybackService : MediaSessionService() {
 
     val builder = NotificationCompat.Builder(this, CHANNEL_ID)
       .setSmallIcon(iconResId)
-      .setContentTitle(currentTitle.ifBlank { "playing audio" })
+      .setContentTitle(currentTitle.ifBlank { "unknown track" })
       .setContentText(if (currentArtist.isNotBlank()) currentArtist else currentAlbum)
       .setSubText(currentAlbum.takeIf { it.isNotBlank() })
       .setStyle(style)
@@ -1340,16 +1379,7 @@ class AudioPlaybackService : MediaSessionService() {
       .addAction(repeatIcon, getRepeatModeLabel(currentRepeatMode), repeatPending)
       .addAction(android.R.drawable.ic_menu_close_clear_cancel, "stop", stopPending)
 
-    val artwork = currentArtworkBitmap ?: iconResId.takeIf { it != 0 }?.let {
-      try {
-        BitmapFactory.decodeResource(resources, it)
-      } catch (e: Exception) {
-        android.util.Log.w(TAG, "Failed to decode resource icon: ${e.message}")
-        null
-      }
-    }
-
-    artwork?.let {
+    currentArtworkBitmap?.let {
       builder.setLargeIcon(it)
     }
 
@@ -1357,7 +1387,10 @@ class AudioPlaybackService : MediaSessionService() {
   }
 
   private fun updateNotification() {
-    val notification = buildNotification() ?: return
+    val notification = buildNotification() ?: run {
+      notificationManager?.cancel(NOTIFICATION_ID)
+      return
+    }
     val nm = notificationManager ?: return
     try {
       if (player?.isPlaying == true && !isForegroundServiceStarted) {
@@ -1501,14 +1534,9 @@ class AudioPlaybackService : MediaSessionService() {
   private fun releasePlayer() {
     try {
       stopForegroundService()
-      mediaSession?.let {
-        removeSession(it)
-        it.release()
-      }
-      mediaSession = null
+      releaseMediaSession()
       player?.release()
       player = null
-      forwardingPlayer = null
       currentArtworkBitmap = null
     } catch (e: Exception) {
       android.util.Log.e(TAG, "Error releasing player: ${e.message}", e)
