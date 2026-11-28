@@ -58,7 +58,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "expo-secure-store",
     "expo-font",
     "expo-image",
-    "expo-status-bar",
     "expo-web-browser",
     "expo-sqlite",
     [
@@ -72,6 +71,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
     "./plugins/withAndroidDebugSymbols",
+    "./plugins/withAndroidR8Optimization",
+    "./plugins/withAndroidEdgeToEdgeStyles",
   ],
   experiments: {
     typedRoutes: true,

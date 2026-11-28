@@ -1,5 +1,18 @@
 # changelog
 
+## unreleased
+
+### user release notes
+
+- improve android app memory usage and performance with full r8 optimization.
+- update android 15+ edge-to-edge theme configuration.
+
+### internal notes
+
+- add plugins/withAndroidR8Optimization.js to enable proguard-android-optimize.txt and android.r8.optimizedResourceShrinking=true.
+- add plugins/withAndroidEdgeToEdgeStyles.js to generate res/values-v35/styles.xml without deprecated statusBarColor and navigationBarColor attributes.
+- remove unused expo-status-bar plugin from app.config.ts.
+
 ## 2.43.0+91
 
 ### user release notes
